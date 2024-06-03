@@ -1,0 +1,5 @@
+matplotlib
+matplotlib.colors
+matplotlib.pyplot
+pandas
+streamlit
