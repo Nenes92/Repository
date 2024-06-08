@@ -1,6 +1,16 @@
 import streamlit as st
+st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
+
+
+# Flag per controllare se la configurazione della pagina è già stata impostata
+page_config_set = False
+
+def set_page_config():
+    pass # Rimuoviamo il contenuto di questa funzione, non è più necessario
+
 import altair as alt
 import pandas as pd
+
 
 # --- CONFIGURAZIONE ---
 
@@ -38,12 +48,74 @@ ALTRE_ENTRATE = {
 }
 
 
+
+# --- 1. Creazione DataFrame ---
+
+# DataFrame per Spese Fisse
+df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+
+# DataFrame per Spese Variabili
+df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+
+# DataFrame per Altre Entrate
+df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+
+# --- 2. Creazione DataFrame dei Totali ---
+
+totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum()]
+categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate"]
+df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
+
+# --- 3. Creazione Grafici ---
+
+# Grafico a torta per Spese Fisse
+chart_fisse = alt.Chart(df_fisse, title='Distribuzione Spese Fisse').mark_arc().encode(
+    theta=alt.Theta(field="Importo", type="quantitative"),
+    color=alt.Color(field="Categoria", type="nominal", legend=None),
+    tooltip=["Categoria", "Importo"]
+).interactive()
+
+chart_fisse.save('distribuzione_spese_fisse_pie_chart.json')
+
+# Grafico a torta per Spese Variabili
+chart_variabili = alt.Chart(df_variabili, title='Distribuzione Spese Variabili').mark_arc().encode(
+    theta=alt.Theta(field="Importo", type="quantitative"),
+    color=alt.Color(field="Categoria", type="nominal", legend=None),
+    tooltip=["Categoria", "Importo"]
+).interactive()
+
+chart_variabili.save('distribuzione_spese_variabili_pie_chart.json')
+
+# Grafico a torta per Altre Entrate
+chart_altre_entrate = alt.Chart(df_altre_entrate, title='Distribuzione Altre Entrate').mark_arc().encode(
+    theta=alt.Theta(field="Importo", type="quantitative"),
+    color=alt.Color(field="Categoria", type="nominal", legend=None),
+    tooltip=["Categoria", "Importo"]
+).interactive()
+
+chart_altre_entrate.save('distribuzione_altre_entrate_pie_chart.json')
+
+# Grafico a barre per Confronto Totali
+chart_totali = alt.Chart(df_totali, title='Confronto Totali per Categoria').mark_bar().encode(
+    x=alt.X('Categoria:N', axis=alt.Axis(labelAngle=-45)),
+    y=alt.Y('Totale:Q'),
+    color=alt.Color('Categoria:N', legend=None),
+    tooltip = ['Categoria', 'Totale']
+).interactive()
+
+chart_totali.save('confronto_totali_per_categoria_bar_chart.json')
+
+
+
+
 # --- FUNZIONI ---
-def color_text(text, color):
+def color_text(text, color):  # (Nessuna modifica)
     return f'<span style="color:{color}">{text}</span>'
 
 
 def main():
+    set_page_config() # Chiama la funzione per impostare la configurazione della pagina
+
     st.title("Calcolatore di Spese Personali")
 
     # Input stipendio
@@ -55,39 +127,29 @@ def main():
         stipendio_reale = st.number_input("Inserisci il tuo stipendio mensile che vuoi usare:", min_value=0)
 
 
-    # Calcolo entrate totali (stipendio + altre entrate)
+    # Calcolo entrate e spese (Ottimizzato)
     stipendio = stipendio_reale + sum(ALTRE_ENTRATE.values())
-
-    # Calcolo spese fisse totali
     spese_fisse_totali = sum(SPESE["Fisse"].values())
-
-    # Calcolo risparmiabili
     risparmiabili = stipendio - spese_fisse_totali
 
-    # Calcola tutte le spese variabili PRIMA di aggiornare il dizionario
-    emergenze = 0.066 * risparmiabili
-    viaggi = 0.066 * risparmiabili
-    
-    # Calcola da_spendere SENZA limite
-    da_spendere_senza_limite = 0.25 * (risparmiabili - emergenze - viaggi)
-    # Calcola da_spendere CON limite
-    da_spendere = min(da_spendere_senza_limite, 120)
+    # Calcolo spese variabili (Ottimizzato con list comprehension)
+    percentuali_variabili = {"Emergenze": 0.066, "Viaggi": 0.066}
+    for voce, percentuale in percentuali_variabili.items():
+        SPESE["Variabili"][voce] = percentuale * risparmiabili
 
-    # Calcola spese_quotidiane SENZA limite
-    spese_quotidiane_senza_limite = risparmiabili - emergenze - viaggi - da_spendere
-    # Calcola spese_quotidiane CON limite
-    spese_quotidiane = min(spese_quotidiane_senza_limite, 475)
+    da_spendere_senza_limite = 0.25 * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
+    SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
 
-    # Aggiorna il dizionario con le spese variabili calcolate DOPO aver impostato il limite
-    SPESE["Variabili"]["Emergenze"] = emergenze
-    SPESE["Variabili"]["Viaggi"] = viaggi
-    SPESE["Variabili"]["Da spendere"] = da_spendere
-    SPESE["Variabili"]["Spese quotidiane"] = spese_quotidiane
+    spese_quotidiane_senza_limite = risparmiabili - sum(SPESE["Variabili"].values())
+    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 475)
+
+
+
+
 
     # --- VISUALIZZAZIONE ---
-
-    col1, col2, col3 = st.columns(3)  # Tre colonne 
-
+    with st.container():  # Container per raggruppare le colonne
+        col1, col2, col3 = st.columns([1.5, 1.5, 1])  # Tre colonne con larghezze personalizzate
 
 
 
@@ -202,47 +264,42 @@ def main():
 
 
 
-# --- CALCOLO E VISUALIZZAZIONE TRASFERIMENTI ALTRA CARTA ---
+        # --- CALCOLO E VISUALIZZAZIONE TRASFERIMENTI E SPESE --- (Ottimizzato con dict comprehension)
         st.markdown('<hr style="height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
-        st.subheader("Altra Carta:")
-        altra_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) for voce in SPESE["Altra Carta"]}
-        altra_carta = {voce: importo for voce, importo in altra_carta.items() if importo != 0}
-        altra_carta_totali = sum(altra_carta.values())
-        st.markdown(f'**Totale da trasferire su altra carta:** <span style="color:lightcoral;">€{altra_carta_totali:.2f}</span>', unsafe_allow_html=True)
+        st.subheader("Trasferimenti sulle Carte:")  # Aggiunta del sottotitolo
+
+        for carta in ["Altra Carta", "Revolut"]:
+            spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                           for voce in SPESE[carta]}
+            spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+            totale_carta = sum(spese_carta.values())
+            colore = "lightcoral" if carta == "Altra Carta" else "#89CFF0"
+            st.markdown(f'**Totale da trasferire su {carta}:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
 
 
-       
+    # --- GRAFICI ---
+    st.markdown("---")  # Separatore visivo
 
-# --- CALCOLO E VISUALIZZAZIONE SPESE REVOLUT ---
-        st.markdown('<hr style="height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
-        st.subheader("Revolut:")
-        spese_revolut = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) for voce in SPESE["Revolut"]}
-        spese_revolut = {voce: importo for voce, importo in spese_revolut.items() if importo != 0}
-        spese_revolut_totali = sum(spese_revolut.values())
-        st.markdown(f'**Totale da trasferire su Revolut:** <span style="color:#89CFF0;">€{spese_revolut_totali:.2f}</span>', unsafe_allow_html=True)
+    # Grafici a torta per le spese (con container per ogni riga)
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            st.altair_chart(chart_fisse, use_container_width=True)
+        with col2:
+            st.altair_chart(chart_variabili, use_container_width=True)
 
-
-
-
-
-
-
-
-
-       
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            st.altair_chart(chart_altre_entrate, use_container_width=True)
+        with col2:
+            st.altair_chart(chart_totali, use_container_width=True)
 
 
-# --- GRAFICO A TORTA SPESE REVOLUT ---
-    df_revolut = pd.DataFrame(spese_revolut.items(), columns=["category", "amount"])
-    base = alt.Chart(df_revolut).encode(
-        theta=alt.Theta("amount:Q"),
-        color="category:N",
-        tooltip=["category:N", "amount:Q"]
-    )
-    pie = base.mark_arc(outerRadius=120)
-    text = base.mark_text(radius=140, fill="white").encode(text="amount:Q")
-    chart = pie + text
-    st.altair_chart(chart, use_container_width=True)  # Visualizza il grafico in Streamlit
+
+
+
+
 
 
 
