@@ -50,7 +50,7 @@ ALTRE_ENTRATE = {
 }
 
 @st.cache_data  # Aggiungiamo il decoratore per il caching
-def create_charts(stipendio_reale, risparmiabili, df_altre_entrate):
+def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
     # --- 1. Creazione DataFrame ---
 
@@ -116,7 +116,7 @@ def create_charts(stipendio_reale, risparmiabili, df_altre_entrate):
     color_map["Casa"] = "#CD5C5C" 
     
     # Calcolo percentuali direttamente nel DataFrame e formattazione
-    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_reale).map('{:.2%}'.format)
+    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Grafico a torta per Spese Fisse (senza etichette di testo)
     chart_fisse = alt.Chart(df_fisse, title='Distribuzione Spese Fisse').mark_arc().encode(
@@ -134,7 +134,7 @@ def create_charts(stipendio_reale, risparmiabili, df_altre_entrate):
 
 
     # Calcolo percentuali direttamente nel DataFrame e formattazione
-    df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_reale).map('{:.2%}'.format)
+    df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Grafico a torta per Altre Entrate (con raggio ridotto)
     chart_altre_entrate = alt.Chart(df_altre_entrate, title='Distribuzione Altre Entrate').mark_arc(outerRadius=80).encode(
@@ -167,16 +167,41 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     # Input stipendio
-    col1, col2 = st.columns(2)  # Crea due colonne
+    col1, col2, col3 = st.columns([1.5, 1.5, 1])  # Crea tre colonne con larghezze 2, 2, 1
 
     with col1:
-        stipendio_base = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
+        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
     with col2:
-        stipendio_reale = st.number_input("Inserisci il tuo stipendio mensile che vuoi usare:", min_value=0)
+        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=0)
+    with col3:
+        st.markdown("<br>", unsafe_allow_html=True)  # Add space above the table
+        st.markdown(
+            f'<div style="text-align: right;"><b>Stipendio Totale: </b><span style="color:#808080;">Stipendio Originale + Altre Entrate: <span style="color:#77DD77;">€{stipendio_originale + sum(ALTRE_ENTRATE.values()):.2f}</span></span></div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f'<div style="text-align: right;"><b>Stipendio da Utilizzare: </b><span style="color:#808080;">Stipendio Scelto + Altre Entrate: <span style="color:#77DD77;">€{stipendio_scelto + sum(ALTRE_ENTRATE.values()):.2f}</span></span></div>',
+            unsafe_allow_html=True
+        )
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+    st.markdown("---")
 
 
     # Calcolo entrate e spese (Ottimizzato)
-    stipendio = stipendio_reale + sum(ALTRE_ENTRATE.values())
+    stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
     risparmiabili = stipendio - spese_fisse_totali
 
@@ -188,8 +213,8 @@ def main():
     da_spendere_senza_limite = 0.25 * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
     SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
 
-    spese_quotidiane_senza_limite = risparmiabili - sum(SPESE["Variabili"].values())
-    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 475)
+    spese_quotidiane_senza_limite = risparmiabili - sum(percentuali_variabili.values()) * risparmiabili - da_spendere_senza_limite
+    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 440)
 
 
     # DataFrame per Altre Entrate
@@ -197,7 +222,7 @@ def main():
 
     # Creazione dinamica dei grafici (passa risparmiabili e df_altre_entrate)
     with st.spinner("Creazione dei grafici..."):
-        chart_fisse, chart_variabili, chart_altre_entrate, chart_totali, df_fisse_percentuali, df_variabili, df_altre_entrate, color_map = create_charts(stipendio_reale, risparmiabili, df_altre_entrate)
+        chart_fisse, chart_variabili, chart_altre_entrate, chart_totali, df_fisse_percentuali, df_variabili, df_altre_entrate, color_map = create_charts(stipendio_scelto, risparmiabili, df_altre_entrate)
 
 
 
@@ -231,7 +256,7 @@ def main():
                 st.write(f"- {voce}: €{importo:.2f}")
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#808080; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Stipendio da Utilizzare - Spese fisse = €{risparmiabili:.2f}</span>', unsafe_allow_html=True)
 
 
 
@@ -247,9 +272,15 @@ def main():
         spese_variabili_totali = sum(SPESE["Variabili"].values())
         for voce, importo in SPESE["Variabili"].items():
             if voce in ["Emergenze", "Viaggi"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#66D1A3"), unsafe_allow_html=True)
-            elif voce in ["Spese quotidiane", "Da spendere"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F0E68C"), unsafe_allow_html=True)
+                percentuale_emergenze = percentuali_variabili.get("Emergenze", 0) * 100
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+            elif voce in ["Spese quotidiane"]:
+                percentuale_da_spendere = SPESE["Variabili"]["Da spendere"] / risparmiabili * 100
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a 440€)</span>', unsafe_allow_html=True)
+            elif voce in ["Da spendere"]:
+                spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze"] + SPESE["Variabili"]["Viaggi"]
+                risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi:.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a 120€)</span>', unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
             if voce == "Da spendere":  # Aggiunta per visualizzare da_spendere_senza_limite
@@ -257,42 +288,41 @@ def main():
                 risparmi = da_spendere_senza_limite - da_spendere  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmi:.2f}</small>', "#808080"), unsafe_allow_html=True)
             if voce == "Spese quotidiane":  # Aggiunta per visualizzare spese_quotidiane_senza_limite
-                spese_quotidiane = min(spese_quotidiane_senza_limite, 475)  # Calcolo di spese_quotidiane
+                spese_quotidiane = min(spese_quotidiane_senza_limite, 440)  # Calcolo di spese_quotidiane
                 risparmi = spese_quotidiane_senza_limite - spese_quotidiane  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmi:.2f}</small>', "#808080"), unsafe_allow_html=True)
 
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Variabili:** <span style="color:#77DD77;">€{spese_variabili_totali:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Variabili utilizzate:** <span style="color:#77DD77;">€{spese_variabili_totali:.2f}</span>', unsafe_allow_html=True)
 
 
 
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 150px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
 
 
 
-# --- CALCOLO E VISUALIZZAZIONE RISPARMIATI DEL MESE ---
-        st.markdown('<hr style="height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
+        # --- CALCOLO E VISUALIZZAZIONE RISPARMIATI DEL MESE ---
+        st.markdown('<hr style="width: 50%; height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
         st.subheader("Risparmiati del mese:")
         # Calcolo risparmi mensili considerando il limite delle spese quotidiane
-        risparmi_mensili = stipendio_base - stipendio_reale
-        if spese_quotidiane_senza_limite > 475:
-            eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 475
+        risparmi_mensili = stipendio_originale - stipendio_scelto
+        if spese_quotidiane_senza_limite > 440:
+            eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 440
             risparmi_mensili += eccesso_spese_quotidiane
         if da_spendere_senza_limite > 120:
             eccesso_da_spendere = da_spendere_senza_limite - 120
             risparmi_mensili += eccesso_da_spendere
 
         # Calcolo risparmi individuali
-        risparmio_stipendi = stipendio_base - stipendio_reale
+        risparmio_stipendi = stipendio_originale - stipendio_scelto
         risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-        risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 475 else 0
+        risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 440 else 0
 
         # Visualizzazione con formattazione
         st.markdown(
@@ -322,19 +352,15 @@ def main():
         st.markdown(f'**Totale Altre Entrate:** <span style="color:#77DD77;">€{sum(ALTRE_ENTRATE.values()):.2f}</span>', unsafe_allow_html=True)
 
 
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-
-
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 315px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
 
 
         # --- CALCOLO E VISUALIZZAZIONE TRASFERIMENTI E SPESE --- (Ottimizzato con dict comprehension)
-        st.markdown('<hr style="height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+        st.markdown('<hr style="width: 75%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
         st.subheader("Trasferimenti sulle Carte:")  # Aggiunta del sottotitolo
 
         for carta in ["Altra Carta", "Revolut"]:
