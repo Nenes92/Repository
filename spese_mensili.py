@@ -83,38 +83,39 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # --- 3. Creazione Grafici con colori personalizzati ---
     # Mappa dei colori per le categorie
     color_map = {
-        "Affitto": "#CD5C5C",  
+        "Affitto": "#CD5C5C",
         "Bollette": "#CD5C5C",
-        "MoneyFarm - PAC 5": "#6495ED",  
+        "MoneyFarm - PAC 5": "#6495ED",
         "Alleanza - PIP": "#6495ED",
-        "Macchina": "#D2B48C", 
+        "Macchina": "#D2B48C",
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
-        "Netflix": "#D2691E", 
+        "Netflix": "#D2691E",
         "Disney+": "#D2691E",
         "Wind": "#D2691E",
-        "Emergenze": "#50C878", 
+        "Emergenze": "#50C878",
         "Viaggi": "#50C878",
-        "Da spendere": "#FFFF99",  
+        "Da spendere": "#FFFF99",
         "Spese quotidiane": "#FFFF99",
-        "Alleanza - PIP (Nonna)": "#5F9EA0",
+        "Alleanza - PIP (Nonna)": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
         "Spese Fisse": "#FF6961",
-        "Spese Variabili": "#77DD77", 
-        "Altre Entrate": "#77DD77"
+        "Spese Variabili": "#77DD77",
+        "Altre Entrate": "#77DD77",
+        "Stipendio Scelto": "#87CEEB"
     }
 
     # Grafico a torta per Spese Fisse (con nuovi colori)
     color_map["Donazioni"] = "#B57EDC"
     color_map["Investimenti"] = "#6495ED"
     color_map["Abbonamenti"] = "#D2691E"
-    color_map["Salute"] = "#40E0D0" 
-    color_map["Macchina"] = "#D2B48C" 
-    color_map["Casa"] = "#CD5C5C" 
-    
+    color_map["Salute"] = "#40E0D0"
+    color_map["Macchina"] = "#D2B48C"
+    color_map["Casa"] = "#CD5C5C"
+
     # Calcolo percentuali direttamente nel DataFrame e formattazione
     df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
@@ -132,7 +133,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     ).interactive()
 
-
     # Calcolo percentuali direttamente nel DataFrame e formattazione
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
@@ -143,17 +143,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         tooltip=["Categoria", "Importo"]
     ).interactive()
 
-
-    # Grafico a barre per Confronto Totali
-    chart_totali = alt.Chart(df_totali, title='Confronto Totali per Categoria').mark_bar().encode(
-        x=alt.X('Categoria:N', axis=alt.Axis(labelAngle=-45)),
-        y=alt.Y('Totale:Q'),
-        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
-        tooltip = ['Categoria', 'Totale']
-    ).interactive()
-
-
-    return chart_fisse, chart_variabili, chart_altre_entrate, chart_totali, df_fisse, df_variabili, df_altre_entrate, color_map  # Restituisci anche color_map
+    return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
 
 
 
@@ -167,7 +157,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     # Input stipendio
-    col1, col2, col3 = st.columns([1.5, 1.5, 1])  # Crea tre colonne con larghezze 2, 2, 1
+    col1, col2, col3 = st.columns([1, 1, 1])  # Crea tre colonne con larghezze 2, 2, 1
 
     with col1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
@@ -222,13 +212,27 @@ def main():
 
     # Creazione dinamica dei grafici (passa risparmiabili e df_altre_entrate)
     with st.spinner("Creazione dei grafici..."):
-        chart_fisse, chart_variabili, chart_altre_entrate, chart_totali, df_fisse_percentuali, df_variabili, df_altre_entrate, color_map = create_charts(stipendio_scelto, risparmiabili, df_altre_entrate)
+        chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map = create_charts(stipendio_scelto, risparmiabili, df_altre_entrate)
+
+    # --- 2. Creazione DataFrame dei Totali --- (SPOSTATO DOPO LA CHIAMATA A create_charts)
+    totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto]
+    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
+    df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
 
 
+    # --- Creazione Grafico a Barre ---
+    chart_totali = alt.Chart(df_totali, title='Confronto Totali per Categoria').mark_bar().encode(
+        x=alt.X('Categoria:N', axis=alt.Axis(labelAngle=-45)),
+        y=alt.Y('Totale:Q'),
+        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
+        tooltip = ['Categoria', 'Totale']
+    ).interactive()
+    
+    # Creazione di df_fisse_percentuali
+    df_fisse_percentuali = df_fisse.rename(columns={'Importo': 'Valore €'})
+    # Formattiamo la colonna 'Valore €' una sola volta, prima di rinominarla
+    df_fisse['Valore €'] = df_fisse['Importo'].apply(lambda x: f"€ {x:.2f}")  
 
-    # --- VISUALIZZAZIONE ---
-    with st.container():  # Container per raggruppare le colonne
-        col1, col2, col3 = st.columns([1.5, 1.5, 1])  # Tre colonne con larghezze personalizzate
 
 
 
@@ -308,27 +312,35 @@ def main():
 
 
         # --- CALCOLO E VISUALIZZAZIONE RISPARMIATI DEL MESE ---
-        st.markdown('<hr style="width: 50%; height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
-        st.subheader("Risparmiati del mese:")
-        # Calcolo risparmi mensili considerando il limite delle spese quotidiane
-        risparmi_mensili = stipendio_originale - stipendio_scelto
-        if spese_quotidiane_senza_limite > 440:
-            eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 440
-            risparmi_mensili += eccesso_spese_quotidiane
-        if da_spendere_senza_limite > 120:
-            eccesso_da_spendere = da_spendere_senza_limite - 120
-            risparmi_mensili += eccesso_da_spendere
+        _, right_col = st.columns([1, 2])  # Crea due colonne, il titolo va nella seconda
+        with right_col:
+            st.markdown('<hr style="width: 100%; height:4px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+            st.subheader("Risparmiati del mese:")
+        
+            # Calcolo risparmi mensili considerando il limite delle spese quotidiane
+            risparmi_mensili = stipendio_originale - stipendio_scelto
+            if spese_quotidiane_senza_limite > 440:
+                eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 440
+                risparmi_mensili += eccesso_spese_quotidiane
+            if da_spendere_senza_limite > 120:
+                eccesso_da_spendere = da_spendere_senza_limite - 120
+                risparmi_mensili += eccesso_da_spendere
 
-        # Calcolo risparmi individuali
-        risparmio_stipendi = stipendio_originale - stipendio_scelto
-        risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-        risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 440 else 0
+            # Calcolo risparmi individuali
+            risparmio_stipendi = stipendio_originale - stipendio_scelto
+            risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
+            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 440 else 0
 
-        # Visualizzazione con formattazione
-        st.markdown(
-            f'**Totale Risparmiato:** <span style="color:#808080;">€{risparmio_stipendi:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_da_spendere:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_spese_quotidiane:.2f}</span> = <span style="color:#77DD77;">€{risparmi_mensili:.2f}</span>',
-            unsafe_allow_html=True
-        )
+            # Visualizzazione con formattazione
+            st.markdown(
+                f'**Totale Risparmiato:**</span> + <span style="color:#808080;">€{risparmio_stipendi:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_da_spendere:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_spese_quotidiane:.2f}</span> = <span style="color:#77DD77;">€{risparmi_mensili:.2f}</span>',
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small></div>',
+                unsafe_allow_html=True,
+            )
+
 
 
 
