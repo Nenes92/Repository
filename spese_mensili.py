@@ -102,10 +102,12 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spese quotidiane": "#FFFF99",
         "Alleanza - PIP (Nonna)": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
+        "Stipendio Totale": "#77DD77",
+        "Stipendio Scelto": "#77DD77",
+        "Altre Entrate": "#77DD77",
         "Spese Fisse": "#FF6961",
         "Spese Variabili": "#77DD77",
-        "Altre Entrate": "#77DD77",
-        "Stipendio Scelto": "#87CEEB"
+        "Risparmi": "#77DD77",
     }
 
     # Grafico a torta per Spese Fisse (con nuovi colori)
@@ -157,7 +159,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     # Input stipendio
-    col1, col2, col3 = st.columns([1, 1, 1])  # Crea tre colonne con larghezze 2, 2, 1
+    col1, col2, col3 = st.columns([1.2, 1.2, 1])  # Crea tre colonne con larghezze decise
 
     with col1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
@@ -187,7 +189,6 @@ def main():
 
 
 
-    st.markdown("---")
 
 
     # Calcolo entrate e spese (Ottimizzato)
@@ -212,7 +213,7 @@ def main():
 
     # Creazione dinamica dei grafici (passa risparmiabili e df_altre_entrate)
     with st.spinner("Creazione dei grafici..."):
-        chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map = create_charts(stipendio_scelto, risparmiabili, df_altre_entrate)
+        chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map = create_charts(stipendio, risparmiabili, df_altre_entrate)
 
     # --- 2. Creazione DataFrame dei Totali --- (SPOSTATO DOPO LA CHIAMATA A create_charts)
     totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto]
@@ -221,8 +222,19 @@ def main():
 
 
     # --- Creazione Grafico a Barre ---
-    chart_totali = alt.Chart(df_totali, title='Confronto Totali per Categoria').mark_bar().encode(
-        x=alt.X('Categoria:N', axis=alt.Axis(labelAngle=-45)),
+    ordine_categorie = ["Stipendio Scelto", "Altre Entrate", "Spese Variabili", "Spese Fisse"]
+
+    # Converti la Series "Categoria" in una lista di stringhe
+    categorie = df_totali["Categoria"].astype(str).tolist()
+
+    # Usa la lista "categorie" nella lambda function per l'ordinamento
+    df_totali_sorted = df_totali.sort_values(
+        by="Categoria", 
+        key=lambda x: [ordine_categorie.index(c) for c in x]
+    )
+
+    chart_totali = alt.Chart(df_totali_sorted, title='Confronto Totali per Categoria').mark_bar().encode(
+        x=alt.X('Categoria:N', sort=list(df_totali_sorted['Categoria'])),  # Ordina in base alle categorie effettivamente presenti nel DataFrame
         y=alt.Y('Totale:Q'),
         color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
         tooltip = ['Categoria', 'Totale']
@@ -239,7 +251,8 @@ def main():
 
     # --- COLONNA 1: SPESE FISSE (con grafico e tabella) ---
     with col1:
-        st.subheader("Dettaglio Spese Fisse:")
+        st.markdown("---")
+        st.subheader("Spese Fisse:")
         for voce, importo in SPESE["Fisse"].items():
             if voce in ["Affitto", "Bollette"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F08080"), unsafe_allow_html=True)
@@ -268,6 +281,7 @@ def main():
 
 # --- COLONNA 2: SPESE VARIABILI E RIMANENTE ---
     with col2:
+        st.markdown("---")
         st.subheader("Spese Variabili Rimanenti:")
 
         # Calcola e visualizza spese variabili (semplificato)
@@ -351,6 +365,7 @@ def main():
 
 # --- COLONNA 3: ALTRE ENTRATE ---
     with col3:
+        st.markdown("---")
         st.subheader("Altre Entrate:")
         for voce, importo in ALTRE_ENTRATE.items():
             if voce in ["Macchina (Mamma)"]:
@@ -411,7 +426,8 @@ def main():
                         .set_properties(**{'text-align': 'center'})
                     )
                     st.dataframe(styled_df_fisse)  # Visualizza il DataFrame stilizzato
-                    
+                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio Scelto</small>', unsafe_allow_html=True)
+
 
            
 
@@ -433,7 +449,8 @@ def main():
                         .set_properties(**{'text-align': 'center'})
                     )
                     st.dataframe(styled_df_variabili)  # Visualizza il DataFrame stilizzato
-        
+                    st.markdown('<small style="color:#808080;">Percentuali sui Risparmiabili</small>', unsafe_allow_html=True)
+
             
         with st.container():
             col1, col2 = st.columns(2)
@@ -457,7 +474,8 @@ def main():
                         .set_properties(**{'text-align': 'center'}) # Centra il testo nelle celle
                     )
                     st.dataframe(styled_df_altre_entrate)  # Visualizza il DataFrame stilizzato
-                    
+                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio Scelto</small>', unsafe_allow_html=True)
+
 
 
             # --- Grafico Categorie ---
