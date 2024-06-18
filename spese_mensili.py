@@ -1,4 +1,4 @@
-#python -m streamlit run C:\Users\longh\Desktop\temp.py
+# python -m streamlit run C:\Users\longh\Desktop\temp.py
 
 import streamlit as st
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
