@@ -176,15 +176,11 @@ def main():
         )
 
 
- 
-
-
-
-
-
-
-
-
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 0px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
 
 
 
@@ -204,15 +200,15 @@ def main():
     SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
 
     spese_quotidiane_senza_limite = risparmiabili - sum(percentuali_variabili.values()) * risparmiabili - da_spendere_senza_limite
-    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 440)
+    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 500)
     
     # Calcolo risparmi mensili considerando il limite delle spese quotidiane
     risparmi_mensili = stipendio_originale - stipendio_scelto
     da_spendere = SPESE["Variabili"]["Da spendere"]
     spese_quotidiane = SPESE["Variabili"]["Spese quotidiane"]
 
-    if spese_quotidiane_senza_limite > 440:
-        eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 440
+    if spese_quotidiane_senza_limite > 500:
+        eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 500
         risparmi_mensili += eccesso_spese_quotidiane
     if da_spendere_senza_limite > 120:
         eccesso_da_spendere = da_spendere_senza_limite - 120
@@ -221,7 +217,7 @@ def main():
     # Calcolo risparmi individuali
     risparmio_stipendi = stipendio_originale - stipendio_scelto
     risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 440 else 0
+    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 500 else 0
 
     # DataFrame per Altre Entrate
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
@@ -317,7 +313,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Spese quotidiane"]:
                 percentuale_da_spendere = SPESE["Variabili"]["Da spendere"] / risparmiabili * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a 440€)</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a 500€)</span>', unsafe_allow_html=True)
             elif voce in ["Da spendere"]:
                 spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze"] + SPESE["Variabili"]["Viaggi"]
                 risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
@@ -329,19 +325,10 @@ def main():
                 risparmio_da_spendere = da_spendere_senza_limite - da_spendere  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmio_da_spendere:.2f}</small>', "#808080"), unsafe_allow_html=True)
             if voce == "Spese quotidiane":  # Aggiunta per visualizzare spese_quotidiane_senza_limite
-                spese_quotidiane = min(spese_quotidiane_senza_limite, 440)  # Calcolo di spese_quotidiane
+                spese_quotidiane = min(spese_quotidiane_senza_limite, 500)  # Calcolo di spese_quotidiane
                 risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
         
-        # Visualizzazione con formattazione (spostato qui)
-        st.markdown(
-            f'**Totale Risparmiato:**</span> + <span style="color:#808080;">€{risparmio_stipendi:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_da_spendere:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_spese_quotidiane:.2f}</span> = <span style="color:#77DD77;">€{risparmi_mensili:.2f}</span>',
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small></div>',
-            unsafe_allow_html=True,
-        )
 
         st.markdown("---")
         st.markdown(f'**Totale Spese Variabili utilizzate:** <span style="color:#77DD77;">€{spese_variabili_totali:.2f}</span>', unsafe_allow_html=True)
@@ -351,7 +338,7 @@ def main():
 
         # Spazio vuoto personalizzabile
         st.markdown(
-            '<div style="height: 70px;"></div>',  # Imposta l'altezza desiderata in pixel
+            '<div style="height: 150px;"></div>',  # Imposta l'altezza desiderata in pixel
             unsafe_allow_html=True,
         )
 
@@ -376,10 +363,10 @@ def main():
             SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
 
             spese_quotidiane_senza_limite = risparmiabili - sum(percentuali_variabili.values()) * risparmiabili - da_spendere_senza_limite
-            SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 440)
+            SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 500)
             
-            if spese_quotidiane_senza_limite > 440:
-                eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 440
+            if spese_quotidiane_senza_limite > 500:
+                eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 500
                 risparmi_mensili += eccesso_spese_quotidiane
             if da_spendere_senza_limite > 120:
                 eccesso_da_spendere = da_spendere_senza_limite - 120
@@ -388,7 +375,7 @@ def main():
             # Calcolo risparmi individuali
             risparmio_stipendi = stipendio_originale - stipendio_scelto
             risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 440 else 0
+            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 500 else 0
 
             # Visualizzazione con formattazione
             st.markdown(
