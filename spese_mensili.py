@@ -22,6 +22,7 @@ SPESE = {
         "Affitto": 450,
         "Bollette": 100,
         "MoneyFarm - PAC 5": 100,
+        "MoneyFarm - PAC 7": 0,
         "Alleanza - PIP": 100,
         "Macchina": 178.75,
         "Trasporti": 120,
@@ -40,7 +41,7 @@ SPESE = {
         "Spese quotidiane": 0  # Inizializzato a zero
     },
     "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Disney+", "Wind", "Emergenze", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "Alleanza - PIP", "Macchina"],
+    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "MoneyFarm - PAC 7", "Alleanza - PIP", "Macchina"],
 }
 
 # Dizionario delle altre entrate
@@ -57,7 +58,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # DataFrame per Spese Fisse (con accorpamento)
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP"), "Categoria"] = "Investimenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP")| (df_fisse["Categoria"] == "MoneyFarm - PAC 7"), "Categoria"] = "Investimenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
@@ -85,6 +86,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Affitto": "#CD5C5C",
         "Bollette": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
+        "MoneyFarm - PAC 7": "#6495ED",
         "Alleanza - PIP": "#6495ED",
         "Macchina": "#D2B48C",
         "Trasporti": "#D2B48C",
@@ -162,10 +164,25 @@ def main():
 
     with col1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
+        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=0)
     with col2:
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 40px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
         stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=0)
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 45px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
     with col3:
-        st.markdown("<br>", unsafe_allow_html=True)  # Add space above the table
+        # Spazio vuoto personalizzabile
+        st.markdown(
+            '<div style="height: 60px;"></div>',  # Imposta l'altezza desiderata in pixel
+            unsafe_allow_html=True,
+        )
         st.markdown(
             f'<div style="text-align: right;"><b>Stipendio Totale: </b><span style="color:#808080;">Stipendio Originale + Altre Entrate: <span style="color:#77DD77;">€{stipendio_originale + sum(ALTRE_ENTRATE.values()):.2f}</span></span></div>',
             unsafe_allow_html=True
@@ -178,7 +195,7 @@ def main():
 
         # Spazio vuoto personalizzabile
         st.markdown(
-            '<div style="height: 0px;"></div>',  # Imposta l'altezza desiderata in pixel
+            '<div style="height: 60px;"></div>',  # Imposta l'altezza desiderata in pixel
             unsafe_allow_html=True,
         )
 
@@ -218,6 +235,19 @@ def main():
     risparmio_stipendi = stipendio_originale - stipendio_scelto
     risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
     risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 500 else 0
+
+
+
+    # Sottrazione dei risparmi del mese precedente da Revolut e aggiunta ai risparmi
+    revolut_expenses = sum(
+        SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0)
+        for voce in SPESE["Revolut"]
+    )
+    revolut_expenses -= risparmi_mese_precedente
+    risparmi_mensili += risparmi_mese_precedente
+
+
+
 
     # DataFrame per Altre Entrate
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
@@ -275,7 +305,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
             elif voce in ["Sport", "Psicologo"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
-            elif voce in ["MoneyFarm - PAC 5", "Alleanza - PIP"]:
+            elif voce in ["MoneyFarm - PAC 5","MoneyFarm - PAC 7", "Alleanza - PIP"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
             elif voce in ["Macchina"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
@@ -371,6 +401,7 @@ def main():
             if da_spendere_senza_limite > 120:
                 eccesso_da_spendere = da_spendere_senza_limite - 120
                 risparmi_mensili += eccesso_da_spendere
+            risparmi_mensili += risparmi_mese_precedente
 
             # Calcolo risparmi individuali
             risparmio_stipendi = stipendio_originale - stipendio_scelto
@@ -379,11 +410,11 @@ def main():
 
             # Visualizzazione con formattazione
             st.markdown(
-                f'**Totale Risparmiato:**</span> + <span style="color:#808080;">€{risparmio_stipendi:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_da_spendere:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_spese_quotidiane:.2f}</span> = <span style="color:#77DD77;">€{risparmi_mensili:.2f}</span>',
+                f'**Tot. Risparmiato:**</span> + <span style="color:#808080;">€{risparmio_stipendi:.2f}</span> + <span style="color:#808080;">€{risparmi_mese_precedente:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_da_spendere:.2f}</span> + <span style="color:#F0E68C;">€{risparmio_spese_quotidiane:.2f}</span> = <span style="color:#77DD77;">€{risparmi_mensili:.2f}</span>',
                 unsafe_allow_html=True
             )
             st.markdown(
-                f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small></div>',
+                f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#808080;">Risparmi da Mese Prec</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small></div>',
                 unsafe_allow_html=True,
             )
 
@@ -420,13 +451,16 @@ def main():
 
         # --- CALCOLO E VISUALIZZAZIONE TRASFERIMENTI E SPESE --- (Ottimizzato con dict comprehension)
         st.markdown('<hr style="width: 75%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
-        st.subheader("Trasferimenti sulle Carte:")  # Aggiunta del sottotitolo
+        st.subheader("Trasferimenti sulle Carte:")
 
         for carta in ["Altra Carta", "Revolut"]:
             spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
                            for voce in SPESE[carta]}
             spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-            totale_carta = sum(spese_carta.values())
+            if carta == "Revolut":
+                totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+            else:
+                totale_carta = sum(spese_carta.values())
             colore = "#F08080" if carta == "Altra Carta" else "#89CFF0"
             st.markdown(f'**Totale da trasferire su {carta}:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
 
