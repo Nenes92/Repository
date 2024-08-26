@@ -25,7 +25,7 @@ SPESE = {
         "MoneyFarm - PAC 7": 0,
         "Alleanza - PIP": 100,
         "Macchina": 178.75,
-        "Trasporti": 120,
+        "Trasporti": 150,
         "Sport": 100,
         "Psicologo": 100,
         "World Food Programme": 40,
