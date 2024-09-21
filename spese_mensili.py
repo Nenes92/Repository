@@ -31,16 +31,17 @@ SPESE = {
         "World Food Programme": 40,
         "Beneficienza": 20,
         "Netflix": 9,
+        "Spotify": 3,
         "Disney+": 12,
         "Wind": 10
     },
     "Variabili": {
-        "Emergenze": 0.066,
-        "Viaggi": 0.066,
+        "Emergenze": 0.08,
+        "Viaggi": 0.08,
         "Da spendere": 0.25,
         "Spese quotidiane": 0  # Inizializzato a zero
     },
-    "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Disney+", "Wind", "Emergenze", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze", "Viaggi", "Da spendere", "Spese quotidiane"],
     "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "MoneyFarm - PAC 7", "Alleanza - PIP", "Macchina"],
 }
 
@@ -59,7 +60,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP")| (df_fisse["Categoria"] == "MoneyFarm - PAC 7"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Affitto"), "Categoria"] = "Casa"
@@ -95,6 +96,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
+        "Spotify": "#D2691E",
         "Disney+": "#D2691E",
         "Wind": "#D2691E",
         "Emergenze": "#50C878",
@@ -209,7 +211,7 @@ def main():
     risparmiabili = stipendio - spese_fisse_totali
 
     # Calcolo spese variabili (Ottimizzato con list comprehension)
-    percentuali_variabili = {"Emergenze": 0.066, "Viaggi": 0.066}
+    percentuali_variabili = {"Emergenze": 0.08, "Viaggi": 0.08}
     for voce, percentuale in percentuali_variabili.items():
         SPESE["Variabili"][voce] = percentuale * risparmiabili
 
@@ -256,13 +258,39 @@ def main():
     with st.spinner("Creazione dei grafici..."):
         chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map = create_charts(stipendio, risparmiabili, df_altre_entrate)
 
+
+
+
+
+
         # --- 2. Creazione DataFrame dei Totali --- (SPOSTATO DOPO IL CALCOLO DEI RISPARMI)
-        totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto, risparmi_mensili]  # Aggiungi risparmi_mensili
-        categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto", "Risparmi"]  # Aggiungi "Risparmi"
+        totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), stipendio_originale, risparmi_mensili]  # Aggiungi stipendio_originale
+        categorie = ["Spese Fisse", "Spese Variabili", "Stipendio Totale", "Risparmi"]  # Aggiungi "Stipendio Totale"
         df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
-        
+
         # --- Creazione Grafico a Barre --- (SPOSTATO FUORI DA create_charts)
-        ordine_categorie = ["Stipendio Scelto", "Altre Entrate", "Spese Fisse", "Spese Variabili", "Risparmi"]
+        ordine_categorie = ["Stipendio Totale", "Spese Fisse", "Spese Variabili", "Risparmi"]
+
+        # DataFrame per la barra impilata
+        df_impilato = pd.DataFrame({
+            "Categoria": ["Stipendio Totale"],
+            "Stipendio Scelto": [stipendio_scelto],
+            "Altre Entrate": [sum(ALTRE_ENTRATE.values())]
+        })
+
+        # Grafico a barre impilate
+        chart_impilato = alt.Chart(df_impilato, title='Confronto Totali per Categoria (Impilato)').mark_bar().encode(
+            x=alt.X('Categoria:N', sort=None),
+            y=alt.Y('Stipendio Scelto:Q', title='Totale'),
+            color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
+            tooltip = ['Categoria', 'Stipendio Scelto']
+        ).interactive()
+
+        chart_impilato += alt.Chart(df_impilato).mark_bar(opacity=0.7).encode(
+            y=alt.Y('Altre Entrate:Q', title='Totale'),
+            color=alt.value(color_map["Altre Entrate"]),
+            tooltip = ['Categoria', 'Altre Entrate']
+        )
 
         # Converti la Series "Categoria" in una lista di stringhe
         categorie = df_totali["Categoria"].astype(str).tolist()
@@ -273,12 +301,20 @@ def main():
             key=lambda x: [ordine_categorie.index(c) for c in x]
         )
 
+        # Grafico a barre singolo
         chart_totali = alt.Chart(df_totali_sorted, title='Confronto Totali per Categoria').mark_bar().encode(
             x=alt.X('Categoria:N', sort=list(df_totali_sorted['Categoria'])), # Ordina in base alle categorie effettivamente presenti nel DataFrame
             y=alt.Y('Totale:Q'),
             color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
             tooltip = ['Categoria', 'Totale']
         ).interactive()
+
+        # Combina i due grafici in uno solo
+        chart_totali_combinato = chart_totali | chart_impilato
+
+
+
+
 
 
 
@@ -301,7 +337,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F08080"), unsafe_allow_html=True)
             elif voce in ["Beneficienza", "World Food Programme"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
-            elif voce in ["Wind", "Disney+", "Netflix"]:
+            elif voce in ["Wind", "Disney+", "Netflix", "Spotify"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
             elif voce in ["Sport", "Psicologo"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
@@ -385,7 +421,7 @@ def main():
             risparmi_mensili = stipendio_originale - stipendio_scelto
             
             # Calcolo spese variabili (Ottimizzato con list comprehension)
-            percentuali_variabili = {"Emergenze": 0.066, "Viaggi": 0.066}
+            percentuali_variabili = {"Emergenze": 0.08, "Viaggi": 0.08}
             for voce, percentuale in percentuali_variabili.items():
                 SPESE["Variabili"][voce] = percentuale * risparmiabili
 
@@ -489,6 +525,7 @@ def main():
                     styled_df_fisse = (
                         df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
                         .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                        .applymap(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
                         .set_properties(**{'text-align': 'center'})
                     )
                     st.dataframe(styled_df_fisse)  # Visualizza il DataFrame stilizzato
@@ -512,6 +549,7 @@ def main():
                     styled_df_variabili = (
                         formatted_df_variabili[["Categoria", "Valore €", "Percentuale"]].style
                         .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                        .applymap(lambda x: f"color: {color_map.get(x, '')}" if x in formatted_df_variabili["Categoria"].unique() else "", subset=["Categoria"])
                         .set_properties(**{'text-align': 'center'})
                     )
                     st.dataframe(styled_df_variabili)  # Visualizza il DataFrame stilizzato
@@ -521,7 +559,7 @@ def main():
         with st.container():
             col1, col2 = st.columns(2)
             
-            # --- Spese Variabili ---
+            # --- Altre Entrate ---
             with col1:
                 col1_1, col1_2 = st.columns([1, 1])  # Larghezze uguali per grafico e tabella
                 with col1_1:  # Grafico a torta nella prima sub-colonna
@@ -537,6 +575,7 @@ def main():
                     styled_df_altre_entrate = (
                         df_altre_entrate[["Categoria", "Valore €", "Percentuale"]].style
                         .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                        .applymap(lambda x: f"color: {color_map.get(x, '')}" if x in df_altre_entrate["Categoria"].unique() else "", subset=["Categoria"])
                         .set_properties(**{'text-align': 'center'}) # Centra il testo nelle celle
                     )
                     st.dataframe(styled_df_altre_entrate)  # Visualizza il DataFrame stilizzato
