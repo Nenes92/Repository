@@ -22,17 +22,17 @@ SPESE = {
         "Affitto": 450,
         "Bollette": 100,
         "MoneyFarm - PAC 5": 100,
-        "MoneyFarm - PAC 7": 0,
+        "Cometa": 30,
         "Alleanza - PIP": 100,
         "Macchina": 178.75,
         "Trasporti": 150,
-        "Sport": 100,
+        "Sport": 80,
         "Psicologo": 100,
         "World Food Programme": 40,
         "Beneficienza": 20,
         "Netflix": 9,
-        "Spotify": 3,
-        "Disney+": 12,
+        "Spotify": 18,
+        "Disney+": 14,
         "Wind": 10
     },
     "Variabili": {
@@ -42,7 +42,7 @@ SPESE = {
         "Spese quotidiane": 0  # Inizializzato a zero
     },
     "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "MoneyFarm - PAC 7", "Alleanza - PIP", "Macchina"],
+    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PIP", "Macchina"],
 }
 
 # Dizionario delle altre entrate
@@ -59,7 +59,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # DataFrame per Spese Fisse (con accorpamento)
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP")| (df_fisse["Categoria"] == "MoneyFarm - PAC 7"), "Categoria"] = "Investimenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP")| (df_fisse["Categoria"] == "Cometa"), "Categoria"] = "Investimenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
@@ -87,7 +87,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Affitto": "#CD5C5C",
         "Bollette": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
-        "MoneyFarm - PAC 7": "#6495ED",
+        "Cometa": "#6495ED",
         "Alleanza - PIP": "#6495ED",
         "Macchina": "#D2B48C",
         "Trasporti": "#D2B48C",
@@ -341,7 +341,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
             elif voce in ["Sport", "Psicologo"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
-            elif voce in ["MoneyFarm - PAC 5","MoneyFarm - PAC 7", "Alleanza - PIP"]:
+            elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PIP"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
             elif voce in ["Macchina"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
@@ -352,7 +352,7 @@ def main():
                 st.write(f"- {voce}: €{importo:.2f}")
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#808080; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Stipendio da Utilizzare - Spese fisse = €{risparmiabili:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#FFFF99; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
 
 
 
