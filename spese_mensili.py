@@ -10,6 +10,16 @@ page_config_set = False
 def set_page_config():
     pass # Rimuoviamo il contenuto di questa funzione, non è più necessario
 
+# Variabili inizializzate
+limite_da_spendere=100
+percentuale_limite_da_spendere=0.20
+emergenze_compleanni=0.1
+viaggi=0.08
+input_stipendio_originale=2400
+input_risparmi_mese_precedente=0
+input_stipendio_scelto=2000
+max_spese_quotidiane=500
+
 import altair as alt
 import pandas as pd
 
@@ -19,36 +29,37 @@ import pandas as pd
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Affitto": 450,
-        "Bollette": 100,
+        "Affitto": 500,
+        "Bollette": 250,
         "MoneyFarm - PAC 5": 100,
         "Cometa": 30,
-        "Alleanza - PIP": 100,
-        "Macchina": 178.75,
+        "Alleanza - PAC": 100,
+        "Macchina": 180,
         "Trasporti": 150,
-        "Sport": 80,
+        "Sport": 70,
         "Psicologo": 100,
-        "World Food Programme": 40,
-        "Beneficienza": 20,
+        "World Food Programme": 30,
+        "Beneficienza": 15,
         "Netflix": 9,
-        "Spotify": 18,
-        "Disney+": 14,
+        "Spotify": 3,
+        "Disney+": 3.5,
         "Wind": 10
     },
     "Variabili": {
-        "Emergenze": 0.08,
-        "Viaggi": 0.08,
-        "Da spendere": 0.25,
+        "Emergenze/Compleanni": emergenze_compleanni,
+        "Viaggi": viaggi,
+        "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0  # Inizializzato a zero
     },
-    "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PIP", "Macchina"],
+    "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PAC", "Macchina"],
 }
 
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
-    "Alleanza - PIP (Nonna)": 100,
-    "Macchina (Mamma)": 100
+    "Alleanza - PAC (Nonna)": 0,
+    "Macchina (Mamma)": 100,
+    "Affitto Garage": 0
 }
 
 @st.cache_data  # Aggiungiamo il decoratore per il caching
@@ -59,7 +70,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # DataFrame per Spese Fisse (con accorpamento)
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PIP")| (df_fisse["Categoria"] == "Cometa"), "Categoria"] = "Investimenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC")| (df_fisse["Categoria"] == "Cometa"), "Categoria"] = "Investimenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
@@ -88,7 +99,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Bollette": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
         "Cometa": "#6495ED",
-        "Alleanza - PIP": "#6495ED",
+        "Alleanza - PAC": "#6495ED",
         "Macchina": "#D2B48C",
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
@@ -99,18 +110,19 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spotify": "#D2691E",
         "Disney+": "#D2691E",
         "Wind": "#D2691E",
-        "Emergenze": "#50C878",
+        "Emergenze/Compleanni": "#50C878",
         "Viaggi": "#50C878",
         "Da spendere": "#FFFF99",
         "Spese quotidiane": "#FFFF99",
-        "Alleanza - PIP (Nonna)": "#6495ED",
+        "Alleanza - PAC (Nonna)": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
+        "Affitto Garage": "#D8BFD8",
         "Stipendio Totale": "#77DD77",
         "Stipendio Scelto": "#77DD77",
         "Altre Entrate": "#77DD77",
         "Spese Fisse": "#FF6961",
-        "Spese Variabili": "#77DD77",
-        "Risparmi": "#FFFF99",
+        "Spese Variabili": "#FFFF99",
+        "Risparmi": "#77DD77",
     }
 
     # Grafico a torta per Spese Fisse (con nuovi colori)
@@ -152,6 +164,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
 
 
+
+
 # --- FUNZIONI ---
 def color_text(text, color):
     return f'<span style="color:{color}">{text}</span>'
@@ -165,15 +179,15 @@ def main():
     col1, col2, col3 = st.columns([1.2, 1.2, 1])  # Crea tre colonne con larghezze decise
 
     with col1:
-        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=0)
-        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=0)
+        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale)
+        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente)
     with col2:
         # Spazio vuoto personalizzabile
         st.markdown(
             '<div style="height: 40px;"></div>',  # Imposta l'altezza desiderata in pixel
             unsafe_allow_html=True,
         )
-        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=0)
+        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto)
         # Spazio vuoto personalizzabile
         st.markdown(
             '<div style="height: 45px;"></div>',  # Imposta l'altezza desiderata in pixel
@@ -211,32 +225,32 @@ def main():
     risparmiabili = stipendio - spese_fisse_totali
 
     # Calcolo spese variabili (Ottimizzato con list comprehension)
-    percentuali_variabili = {"Emergenze": 0.08, "Viaggi": 0.08}
+    percentuali_variabili = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
     for voce, percentuale in percentuali_variabili.items():
         SPESE["Variabili"][voce] = percentuale * risparmiabili
 
-    da_spendere_senza_limite = 0.25 * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
-    SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
+    da_spendere_senza_limite = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
+    SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, limite_da_spendere)
 
     spese_quotidiane_senza_limite = risparmiabili - sum(percentuali_variabili.values()) * risparmiabili - da_spendere_senza_limite
-    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 500)
+    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
     
     # Calcolo risparmi mensili considerando il limite delle spese quotidiane
     risparmi_mensili = stipendio_originale - stipendio_scelto
     da_spendere = SPESE["Variabili"]["Da spendere"]
     spese_quotidiane = SPESE["Variabili"]["Spese quotidiane"]
 
-    if spese_quotidiane_senza_limite > 500:
-        eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 500
+    if spese_quotidiane_senza_limite > max_spese_quotidiane:
+        eccesso_spese_quotidiane = spese_quotidiane_senza_limite - max_spese_quotidiane
         risparmi_mensili += eccesso_spese_quotidiane
-    if da_spendere_senza_limite > 120:
-        eccesso_da_spendere = da_spendere_senza_limite - 120
+    if da_spendere_senza_limite > limite_da_spendere:
+        eccesso_da_spendere = da_spendere_senza_limite - limite_da_spendere
         risparmi_mensili += eccesso_da_spendere
 
     # Calcolo risparmi individuali
     risparmio_stipendi = stipendio_originale - stipendio_scelto
-    risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 500 else 0
+    risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > limite_da_spendere else 0
+    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > max_spese_quotidiane else 0
 
 
 
@@ -341,7 +355,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
             elif voce in ["Sport", "Psicologo"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
-            elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PIP"]:
+            elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
             elif voce in ["Macchina"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
@@ -349,10 +363,12 @@ def main():
             elif voce in ["Trasporti"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
             else:
-                st.write(f"- {voce}: €{importo:.2f}")
+                st.write(f"- {voce}: €{importo:.2f}")  
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#FFFF99; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#77DD77; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
 
 
@@ -374,30 +390,33 @@ def main():
         risparmio_spese_quotidiane = 0
 
         for voce, importo in SPESE["Variabili"].items():
-            if voce in ["Emergenze", "Viaggi"]:
-                percentuale_emergenze = percentuali_variabili.get("Emergenze", 0) * 100
+            if voce in ["Emergenze/Compleanni"]:
+                percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+            elif voce in ["Viaggi"]:
+                percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Spese quotidiane"]:
                 percentuale_da_spendere = SPESE["Variabili"]["Da spendere"] / risparmiabili * 100
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a 500€)</span>', unsafe_allow_html=True)
             elif voce in ["Da spendere"]:
-                spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze"] + SPESE["Variabili"]["Viaggi"]
+                spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
                 risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi:.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a 120€)</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi:.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a 100€)</span>', unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
             if voce == "Da spendere":  # Aggiunta per visualizzare da_spendere_senza_limite
-                da_spendere = min(da_spendere_senza_limite, 120)  # Calcolo di da_spendere
+                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)  # Calcolo di da_spendere
                 risparmio_da_spendere = da_spendere_senza_limite - da_spendere  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmio_da_spendere:.2f}</small>', "#808080"), unsafe_allow_html=True)
             if voce == "Spese quotidiane":  # Aggiunta per visualizzare spese_quotidiane_senza_limite
-                spese_quotidiane = min(spese_quotidiane_senza_limite, 500)  # Calcolo di spese_quotidiane
+                spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)  # Calcolo di spese_quotidiane
                 risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane  # Calcolo dei risparmi (spostato qui)
                 st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
         
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Variabili utilizzate:** <span style="color:#77DD77;">€{spese_variabili_totali:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Variabili utilizzate:** <span style="color:#FFFF99;">€{spese_variabili_totali:.2f}</span>', unsafe_allow_html=True)
 
 
 
@@ -421,28 +440,28 @@ def main():
             risparmi_mensili = stipendio_originale - stipendio_scelto
             
             # Calcolo spese variabili (Ottimizzato con list comprehension)
-            percentuali_variabili = {"Emergenze": 0.08, "Viaggi": 0.08}
+            percentuali_variabili = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
             for voce, percentuale in percentuali_variabili.items():
                 SPESE["Variabili"][voce] = percentuale * risparmiabili
 
-            da_spendere_senza_limite = 0.25 * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
-            SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, 120)
+            da_spendere_senza_limite = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
+            SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, limite_da_spendere)
 
             spese_quotidiane_senza_limite = risparmiabili - sum(percentuali_variabili.values()) * risparmiabili - da_spendere_senza_limite
-            SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, 500)
+            SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
             
-            if spese_quotidiane_senza_limite > 500:
-                eccesso_spese_quotidiane = spese_quotidiane_senza_limite - 500
+            if spese_quotidiane_senza_limite > max_spese_quotidiane:
+                eccesso_spese_quotidiane = spese_quotidiane_senza_limite - max_spese_quotidiane
                 risparmi_mensili += eccesso_spese_quotidiane
-            if da_spendere_senza_limite > 120:
-                eccesso_da_spendere = da_spendere_senza_limite - 120
+            if da_spendere_senza_limite > limite_da_spendere:
+                eccesso_da_spendere = da_spendere_senza_limite - limite_da_spendere
                 risparmi_mensili += eccesso_da_spendere
             risparmi_mensili += risparmi_mese_precedente
 
             # Calcolo risparmi individuali
             risparmio_stipendi = stipendio_originale - stipendio_scelto
-            risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > 120 else 0
-            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > 500 else 0
+            risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > limite_da_spendere else 0
+            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > max_spese_quotidiane else 0
 
             # Visualizzazione con formattazione
             st.markdown(
@@ -450,7 +469,8 @@ def main():
                 unsafe_allow_html=True
             )
             st.markdown(
-                f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#808080;">Risparmi da Mese Prec</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small></div>',
+                f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#808080;">Risparmi da Mese Prec</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small> +  <small style="color:#FFFF99;">Risparmi Da Spese Quotidiane</small></div>'
+                f'<div style="text-align:center;"><small style="color:#FFFF99;">{(risparmi_mensili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</small></div>',
                 unsafe_allow_html=True,
             )
 
@@ -469,8 +489,10 @@ def main():
         for voce, importo in ALTRE_ENTRATE.items():
             if voce in ["Macchina (Mamma)"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-            elif voce in ["Alleanza - PIP (Nonna)"]:
+            elif voce in ["Alleanza - PAC (Nonna)"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+            elif voce in ["Affitto Garage"]:
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
 
@@ -497,7 +519,7 @@ def main():
                 totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
             else:
                 totale_carta = sum(spese_carta.values())
-            colore = "#F08080" if carta == "Altra Carta" else "#89CFF0"
+            colore = "#D2691E" if carta == "Altra Carta" else "#89CFF0"
             st.markdown(f'**Totale da trasferire su {carta}:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
 
 
@@ -529,7 +551,7 @@ def main():
                         .set_properties(**{'text-align': 'center'})
                     )
                     st.dataframe(styled_df_fisse)  # Visualizza il DataFrame stilizzato
-                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio Scelto</small>', unsafe_allow_html=True)
+                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio da Utilizzare</small>', unsafe_allow_html=True)
 
 
            
@@ -579,7 +601,7 @@ def main():
                         .set_properties(**{'text-align': 'center'}) # Centra il testo nelle celle
                     )
                     st.dataframe(styled_df_altre_entrate)  # Visualizza il DataFrame stilizzato
-                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio Scelto</small>', unsafe_allow_html=True)
+                    st.markdown('<small style="color:#808080;">Percentuali sullo Sipendio da Utilizzare</small>', unsafe_allow_html=True)
 
 
 
