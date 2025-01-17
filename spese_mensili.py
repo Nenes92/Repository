@@ -12,13 +12,13 @@ def set_page_config():
 
 # Variabili inizializzate
 limite_da_spendere=100
-percentuale_limite_da_spendere=0.20
+percentuale_limite_da_spendere=0.15
 emergenze_compleanni=0.1
-viaggi=0.08
-input_stipendio_originale=2400
+viaggi=0.06
+input_stipendio_originale=2450
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2000
-max_spese_quotidiane=500
+input_stipendio_scelto=2100
+max_spese_quotidiane=450
 
 import altair as alt
 import pandas as pd
@@ -31,6 +31,8 @@ SPESE = {
     "Fisse": {
         "Affitto": 500,
         "Bollette": 250,
+        "Condominio": 100,
+        "Garages": 0,
         "MoneyFarm - PAC 5": 100,
         "Cometa": 30,
         "Alleanza - PAC": 100,
@@ -43,7 +45,8 @@ SPESE = {
         "Netflix": 9,
         "Spotify": 3,
         "Disney+": 3.5,
-        "Wind": 10
+        "Wind": 10,
+        "BNL C.C.": 0
     },
     "Variabili": {
         "Emergenze/Compleanni": emergenze_compleanni,
@@ -51,13 +54,13 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0  # Inizializzato a zero
     },
-    "Revolut": ["Trasporti", "Sport", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "Altra Carta": ["Affitto", "Bollette", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PAC", "Macchina"],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Psicologo", "World Food Programme", "Beneficienza", "Netflix", "Spotify", "Disney+", "Wind", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Altra Carta": ["Affitto", "Condominio", "Garages", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PAC", "Macchina"],
 }
 
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
-    "Alleanza - PAC (Nonna)": 0,
+    "Altro": 0,
     "Macchina (Mamma)": 100,
     "Affitto Garage": 0
 }
@@ -71,10 +74,10 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC")| (df_fisse["Categoria"] == "Cometa"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind"), "Categoria"] = "Abbonamenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind") | (df_fisse["Categoria"] == "BNL C.C."), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
-    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Affitto"), "Categoria"] = "Casa"
+    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Affitto") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Garages"), "Categoria"] = "Casa"
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()  # Aggrega per categoria
 
     # DataFrame per Spese Variabili
@@ -97,6 +100,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     color_map = {
         "Affitto": "#CD5C5C",
         "Bollette": "#CD5C5C",
+        "Condominio": "#CD5C5C",
+        "Garages": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
         "Cometa": "#6495ED",
         "Alleanza - PAC": "#6495ED",
@@ -110,11 +115,12 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spotify": "#D2691E",
         "Disney+": "#D2691E",
         "Wind": "#D2691E",
+        "BNL C.C.": "#D2691E",
         "Emergenze/Compleanni": "#50C878",
         "Viaggi": "#50C878",
         "Da spendere": "#FFFF99",
         "Spese quotidiane": "#FFFF99",
-        "Alleanza - PAC (Nonna)": "#6495ED",
+        "Altro": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
         "Affitto Garage": "#D8BFD8",
         "Stipendio Totale": "#77DD77",
@@ -342,28 +348,38 @@ def main():
 
 
 
-    # --- COLONNA 1: SPESE FISSE (con grafico e tabella) ---
+    # --- COLONNA 1: SPESE FISSE (con grafico e tabella) --- divisa in due colonne
     with col1:
         st.markdown("---")
         st.subheader("Spese Fisse:")
-        for voce, importo in SPESE["Fisse"].items():
-            if voce in ["Affitto", "Bollette"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F08080"), unsafe_allow_html=True)
-            elif voce in ["Beneficienza", "World Food Programme"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
-            elif voce in ["Wind", "Disney+", "Netflix", "Spotify"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
-            elif voce in ["Sport", "Psicologo"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
-            elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
-            elif voce in ["Macchina"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-                st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
-            elif voce in ["Trasporti"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-            else:
-                st.write(f"- {voce}: €{importo:.2f}")  
+
+        # Creare due colonne
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            for voce, importo in SPESE["Fisse"].items():
+                if voce in ["Affitto", "Bollette", "Condominio"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F08080"), unsafe_allow_html=True)
+                elif voce in ["Beneficienza", "World Food Programme"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
+                elif voce in ["Sport", "Psicologo"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#80E6E6"), unsafe_allow_html=True)
+                elif voce in ["Garages"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#F08080"), unsafe_allow_html=True)
+                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+                elif voce in ["Trasporti"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+
+        with col_right:
+            for voce, importo in SPESE["Fisse"].items():
+                if voce in ["Wind", "Disney+", "Netflix", "Spotify", "BNL C.C."]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#CC7722"), unsafe_allow_html=True)
+                elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+                elif voce in ["Macchina"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+
 
         st.markdown("---")
         st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#77DD77; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
@@ -398,11 +414,11 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Spese quotidiane"]:
                 percentuale_da_spendere = SPESE["Variabili"]["Da spendere"] / risparmiabili * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a 500€)</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
             elif voce in ["Da spendere"]:
                 spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
                 risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi:.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a 100€)</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi:.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
             if voce == "Da spendere":  # Aggiunta per visualizzare da_spendere_senza_limite
@@ -489,7 +505,7 @@ def main():
         for voce, importo in ALTRE_ENTRATE.items():
             if voce in ["Macchina (Mamma)"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-            elif voce in ["Alleanza - PAC (Nonna)"]:
+            elif voce in ["Altro"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
             elif voce in ["Affitto Garage"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
