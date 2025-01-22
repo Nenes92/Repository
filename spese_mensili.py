@@ -762,7 +762,7 @@ def load_data(uploaded_file):
         data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
     return data
 
-# Percorso per salvare il file (da configurare)
+# Percorso per salvare il file
 save_path = "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv"
 
 # Funzione per salvare i dati
@@ -772,6 +772,16 @@ def save_data(data, save_path):
         st.success(f"Dati salvati in: {save_path}")
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
+
+# Controllo e inizializzazione dei dati in session_state
+if "data" not in st.session_state:
+    try:
+        st.session_state.data = pd.read_csv(save_path, parse_dates=["Mese"])
+    except FileNotFoundError:
+        st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+
+# Caricamento dati
+data = st.session_state.data
 
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi Mensili")
@@ -792,7 +802,6 @@ with col_sinistra:
         )
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
     
-        # Pulsanti per aggiungere stipendio o risparmi
         if st.button("Aggiungi Stipendio", key="aggiungi_stipendio"):
             mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio, '%B %Y'))
             if stipendio > 0:
@@ -801,7 +810,8 @@ with col_sinistra:
                 else:
                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": 0.0}
                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    data = data.sort_values(by="Mese")  # Ordina per mese
+                    data = data.sort_values(by="Mese")
+                    st.session_state.data = data
                     save_data(data, save_path)
                     st.success(f"Stipendio per {mese_stipendio} aggiunto!")
             else:
@@ -816,37 +826,34 @@ with col_sinistra:
         )
         risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
     
-        # Pulsanti per aggiungere stipendio o risparmi
         if st.button("Aggiungi Risparmi", key="aggiungi_risparmi"):
             mese_datetime = pd.Timestamp(datetime.strptime(mese_risparmi, '%B %Y'))
             if risparmi > 0:
                 if mese_datetime in data["Mese"].to_list():
                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+                    st.session_state.data = data
                     save_data(data, save_path)
                     st.success(f"Risparmi per {mese_risparmi} aggiornati a €{risparmi:.2f}!")
                 else:
                     new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi": risparmi}
                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
                     data = data.sort_values(by="Mese")
+                    st.session_state.data = data
                     save_data(data, save_path)
                     st.success(f"Risparmi per {mese_risparmi} aggiunti!")
             else:
                 st.error("Inserisci un valore valido per i risparmi!")
-
 
     st.markdown("---")
 
     # Bottone per caricare il file CSV
     uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
 
-    # Controllo se è stato caricato un file
     if uploaded_file is not None:
         data = load_data(uploaded_file)
+        st.session_state.data = data
     else:
-        try:
-            data = pd.read_csv(save_path, parse_dates=["Mese"])
-        except FileNotFoundError:
-            data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+        data = st.session_state.data
 
 
 
