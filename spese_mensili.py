@@ -4,6 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import os
+from datetime import datetime
 
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
 
@@ -748,26 +749,25 @@ if __name__ == "__main__":
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
-from datetime import datetime
-
-
-# Percorso del file CSV per memorizzare i dati
-file_path = "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv"
 
 # Funzione per caricare i dati
-def load_data():
+def load_data(file_path):
     if os.path.exists(file_path):
         data = pd.read_csv(file_path, parse_dates=["Mese"])
-        return data
     else:
-        return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi mese"])
+        data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+        data.to_csv(file_path, index=False)
+    return data
 
 # Funzione per salvare i dati
-def save_data(data):
+def save_data(data, file_path):
     data.to_csv(file_path, index=False, date_format='%Y-%m')
 
+# Percorso del file CSV (puoi impostarlo tramite un campo di input, come text_input)
+file_path = st.text_input("Inserisci il percorso del file CSV", "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv")
+
 # Carica i dati esistenti
-data = load_data()
+data = load_data(file_path)
 
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi Mensili")
@@ -786,10 +786,10 @@ with col_left:
             if mese_datetime in data["Mese"].to_list():
                 st.error(f"Il mese {mese} è già presente nello storico.")
             else:
-                new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi mese": 0.0}
+                new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": 0.0}
                 data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
                 data = data.sort_values(by="Mese")  # Ordina per mese
-                save_data(data)
+                save_data(data, file_path)
                 st.success(f"Stipendio per {mese} aggiunto!")
         else:
             st.error("Inserisci un valore valido per lo stipendio!")
@@ -804,14 +804,14 @@ with col_center:
         mese_datetime = pd.Timestamp(datetime.strptime(mese, '%B %Y'))
         if risparmi > 0:
             if mese_datetime in data["Mese"].to_list():
-                data.loc[data["Mese"] == mese_datetime, "Risparmi mese"] = risparmi
-                save_data(data)
+                data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+                save_data(data, file_path)
                 st.success(f"Risparmi per {mese} aggiornati a €{risparmi:.2f}!")
             else:
-                new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi mese": risparmi}
+                new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi": risparmi}
                 data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
                 data = data.sort_values(by="Mese")
-                save_data(data)
+                save_data(data, file_path)
                 st.success(f"Risparmi per {mese} aggiunti!")
         else:
             st.error("Inserisci un valore valido per i risparmi!")
@@ -828,16 +828,21 @@ with col_right:
             stipendio_modificato = st.number_input("Nuovo Stipendio (€)", min_value=0.0, step=100.0, key="mod_stip")
             risparmi_modificati = st.number_input("Nuovi Risparmi (€)", min_value=0.0, step=100.0, key="mod_risp")
 
-            if st.button(f"Modifica Record per {mese_da_modificare}"):
-                data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio_modificato
-                data.loc[data["Mese"] == mese_datetime, "Risparmi mese"] = risparmi_modificati
-                save_data(data)
-                st.success(f"Record per {mese_da_modificare} aggiornato!")
+            # Crea due colonne per disporre i bottoni affiancati
+            col1, col2 = st.columns(2)
 
-            if st.button(f"Elimina Record per {mese_da_modificare}"):
-                data = data[data["Mese"] != mese_datetime]
-                save_data(data)
-                st.success(f"Record per {mese_da_modificare} eliminato!")
+            with col1:
+                if st.button(f"Modifica Record per {mese_da_modificare}"):
+                    data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio_modificato
+                    data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi_modificati
+                    save_data(data, file_path)
+                    st.success(f"Record per {mese_da_modificare} aggiornato!")
+
+            with col2:
+                if st.button(f"Elimina Record per {mese_da_modificare}"):
+                    data = data[data["Mese"] != mese_datetime]
+                    save_data(data, file_path)
+                    st.success(f"Record per {mese_da_modificare} eliminato!")
 
 st.markdown("---")
 
@@ -849,19 +854,36 @@ st.markdown("---")
 
 
 
-# Calcola la somma e la media per Stipendio e Risparmi mese
+
+
+
+
+# Calcola la somma e la media per Stipendio e Risparmi
 somma_stipendio = data['Stipendio'].sum()
 media_stipendio = data['Stipendio'].mean()
 
-somma_risparmi = data['Risparmi mese'].sum()
-media_risparmi = data['Risparmi mese'].mean()
+somma_risparmi = data['Risparmi'].sum()
+media_risparmi = data['Risparmi'].mean()
+
+# Calcola le medie basate sul numero di valori disponibili
+data['Media Stipendio'] = data['Stipendio'].expanding().mean()
+data['Media Risparmi'] = data['Risparmi'].expanding().mean()
+
+# Aggiungi le medie mobili ai dati come categorie separate
+data_media = data[['Mese', 'Media Stipendio', 'Media Risparmi']].melt(id_vars=['Mese'], var_name='Categoria', value_name='Valore')
+
+# Unisci i dati originali con quelli delle medie
+data_completa = pd.concat([
+    data[['Mese', 'Stipendio', 'Risparmi']].melt(id_vars=['Mese'], var_name='Categoria', value_name='Valore'),
+    data_media
+])
 
 # Visualizza la tabella e il grafico
 if not data.empty:
     st.write("### Storico Stipendi e Risparmi")
     
-    # Crea due colonne con proporzioni 20% e 80%
-    col_tabella, col_grafico = st.columns([1, 4])
+    # Crea due colonne con proporzioni
+    col_tabella, col_grafico = st.columns([1.2, 3.7])
     
     # Crea una copia dei dati con i mesi formattati
     data_display = data.copy()
@@ -879,123 +901,81 @@ if not data.empty:
             st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{media_risparmi:,.2f} €</span>", unsafe_allow_html=True)
     
     with col_grafico:
-        # Aggiungere le medie mobili ai dati originali per fare in modo che siano incluse nel grafico
-        data['Media Mobile Stipendio'] = data['Stipendio'].rolling(window=3, min_periods=1).mean()
-        data['Media Mobile Risparmi'] = data['Risparmi mese'].rolling(window=3, min_periods=1).mean()
-        
-        # Crea il grafico solo con il mese, senza giorni specifici
-        grafico = alt.Chart(data).transform_fold(
-            ["Stipendio", "Risparmi mese"],
-            as_=["Categoria", "Valore"]
-        ).mark_line().encode(
-            x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),  # Imposta l'asse X con tick mensili
+        # Definizione di dominio e scala colori unificati
+        dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi"]
+        scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4"]
+
+        # Grafico delle linee principali (Stipendio e Risparmi)
+        grafico_principale = alt.Chart(
+            data_completa.query("Categoria in ['Stipendio', 'Risparmi']")
+        ).mark_line(strokeWidth=2).encode(
+            x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
                 "Categoria:N",
                 scale=alt.Scale(
-                    domain=["Stipendio", "Risparmi mese"],
-                    range=["#77DD77", "#FFFF99"]
+                    domain=dominio_categorie,
+                    range=scala_colori
                 ),
                 legend=alt.Legend(title="Categorie")
             ),
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
-        
-        # Punti simbolo per Stipendio e Risparmi (con rombi sui valori della media mobile)
-        punti_stipendio = alt.Chart(data).transform_fold(
-            ["Stipendio"],
-            as_=["Categoria", "Valore"]
-        ).mark_point(
-            shape="diamond",  # Rombo
-            filled=True,
-            size=100
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Valore:Q", title="Valore (€)"),
+
+        # Aggiungi i punti rombo per Stipendio e Risparmi
+        punti_principali = alt.Chart(
+            data_completa.query("Categoria in ['Stipendio', 'Risparmi']")
+        ).mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+            x=alt.X("Mese:T"),
+            y=alt.Y("Valore:Q"),
             color=alt.Color(
                 "Categoria:N",
                 scale=alt.Scale(
-                    domain=["Stipendio"],
-                    range=["#77DD77"]
-                )
-            ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-        )
-        
-        punti_risparmi = alt.Chart(data).transform_fold(
-            ["Risparmi mese"],
-            as_=["Categoria", "Valore"]
-        ).mark_point(
-            shape="diamond",  # Rombo
-            filled=True,
-            size=100
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Valore:Q", title="Valore (€)"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=["Risparmi mese"],
-                    range=["#FFFF99"]
+                    domain=dominio_categorie,
+                    range=scala_colori
                 )
             ),
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
 
-        # Punti rombo per la Media Mobile Stipendio (trasparenti al 30%)
-        punti_media_stipendio = alt.Chart(data).mark_point(
-            shape="diamond",  # Rombo per la media mobile
-            filled=True,
-            size=100,
-            opacity=0.3  # Trasparenza al 30%
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Media Mobile Stipendio:Q", title="Valore (€)"),
-            color=alt.value("#FF6961"),  # Colore personalizzato
-            tooltip=["Mese:T", "Media Mobile Stipendio:Q"]
+        # Grafico delle medie mobili
+        grafico_medie = alt.Chart(
+            data_completa.query("Categoria in ['Media Stipendio', 'Media Risparmi']")
+        ).mark_line(strokeDash=[5, 5], strokeWidth=1).encode(
+            x=alt.X("Mese:T"),
+            y=alt.Y("Valore:Q"),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=dominio_categorie,
+                    range=scala_colori
+                )
+            ),
+            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
 
-        # Punti rombo per la Media Mobile Risparmi (trasparenti al 30%)
-        punti_media_risparmi = alt.Chart(data).mark_point(
-            shape="diamond",  # Rombo per la media mobile
-            filled=True,
-            size=100,
-            opacity=0.3  # Trasparenza al 30%
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Media Mobile Risparmi:Q", title="Valore (€)"),
-            color=alt.value("#84B6F4"),  # Colore personalizzato
-            tooltip=["Mese:T", "Media Mobile Risparmi:Q"]
-        )
-        
-        # Linee tratteggiate per le medie mobili (più sottili e trasparenti)
-        grafico_media_stipendio = alt.Chart(data).mark_line(
-            strokeDash=[5, 5],  # Tratteggio (5px tratteggiato, 5px vuoto)
-            strokeWidth=1,  # Linea più sottile
-            opacity=0.3  # Aggiungi trasparenza del 30%
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Media Mobile Stipendio:Q", title="Valore (€)"),
-            color=alt.value("#FF6961"),  # Colore per la media mobile stipendio
-            tooltip=["Mese:T", "Media Mobile Stipendio:Q"]
+        # Aggiungi i punti rombo per le medie mobili
+        punti_medie = alt.Chart(
+            data_completa.query("Categoria in ['Media Stipendio', 'Media Risparmi']")
+        ).mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+            x=alt.X("Mese:T"),
+            y=alt.Y("Valore:Q"),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=dominio_categorie,
+                    range=scala_colori
+                )
+            ),
+            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
 
-        grafico_media_risparmi = alt.Chart(data).mark_line(
-            strokeDash=[5, 5],  # Tratteggio (5px tratteggiato, 5px vuoto)
-            strokeWidth=1,  # Linea più sottile
-            opacity=0.3  # Aggiungi trasparenza del 30%
-        ).encode(
-            x=alt.X("Mese:T", title="Mese"),
-            y=alt.Y("Media Mobile Risparmi:Q", title="Valore (€)"),
-            color=alt.value("#84B6F4"),  # Colore per la media mobile risparmi
-            tooltip=["Mese:T", "Media Mobile Risparmi:Q"]
+        # Combina i grafici
+        grafico_completo = (
+            grafico_principale + punti_principali + grafico_medie + punti_medie
+        ).properties(
+            height=500, width='container'
         )
-
-        # Combina tutti i grafici (escludendo le medie mobili dal grafico principale)
-        grafico_completo = grafico + punti_stipendio + punti_risparmi + punti_media_stipendio + punti_media_risparmi + grafico_media_stipendio + grafico_media_risparmi
-        
-        # Imposta l'altezza del grafico
-        grafico_completo = grafico_completo.properties(height=500)  # Modifica l'altezza come necessario
 
         # Visualizza il grafico
         st.altair_chart(grafico_completo, use_container_width=True)
