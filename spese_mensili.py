@@ -751,72 +751,107 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 # Funzione per caricare i dati
-def load_data(file_path):
-    if os.path.exists(file_path):
-        data = pd.read_csv(file_path, parse_dates=["Mese"])
+def load_data(uploaded_file):
+    if uploaded_file is not None:
+        try:
+            data = pd.read_csv(uploaded_file, parse_dates=["Mese"])
+        except Exception as e:
+            st.error(f"Errore nel caricamento del file: {e}")
+            data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
     else:
         data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-        data.to_csv(file_path, index=False)
     return data
 
+# Percorso per salvare il file (da configurare)
+save_path = "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv"
+
 # Funzione per salvare i dati
-def save_data(data, file_path):
-    data.to_csv(file_path, index=False, date_format='%Y-%m')
-
-# Percorso del file CSV (puoi impostarlo tramite un campo di input, come text_input)
-file_path = st.text_input("Inserisci il percorso del file CSV", "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv")
-
-# Carica i dati esistenti
-data = load_data(file_path)
+def save_data(data, save_path):
+    try:
+        data.to_csv(save_path, index=False, date_format='%Y-%m')
+        st.success(f"Dati salvati in: {save_path}")
+    except Exception as e:
+        st.error(f"Errore nel salvataggio del file: {e}")
 
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi Mensili")
 
-col_left, col_center, col_right = st.columns([3.5, 3.5, 3])
+# Layout a due colonne principali
+col_sinistra, col_destra = st.columns([2, 1])
 
-with col_left:
-    # Input per aggiungere nuovi dati
-    st.write("### Inserisci Stipendio")
-    mese = st.selectbox("Mese", options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"))
-    stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0)
+with col_sinistra:
+    # Sottosezioni per stipendi e risparmi
+    col_sinistra1, col_sinistra2 = st.columns(2)
 
-    if st.button("Aggiungi Stipendio"):
-        mese_datetime = pd.Timestamp(datetime.strptime(mese, '%B %Y'))
-        if stipendio > 0:
-            if mese_datetime in data["Mese"].to_list():
-                st.error(f"Il mese {mese} è già presente nello storico.")
+    with col_sinistra1:
+        st.write("### Inserisci Stipendio")
+        mese_stipendio = st.selectbox(
+            "Mese Stipendio",
+            options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
+            key="stipendio_select"
+        )
+        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
+    
+        # Pulsanti per aggiungere stipendio o risparmi
+        if st.button("Aggiungi Stipendio", key="aggiungi_stipendio"):
+            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio, '%B %Y'))
+            if stipendio > 0:
+                if mese_datetime in data["Mese"].to_list():
+                    st.error(f"Il mese {mese_stipendio} è già presente nello storico.")
+                else:
+                    new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": 0.0}
+                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                    data = data.sort_values(by="Mese")  # Ordina per mese
+                    save_data(data, save_path)
+                    st.success(f"Stipendio per {mese_stipendio} aggiunto!")
             else:
-                new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": 0.0}
-                data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                data = data.sort_values(by="Mese")  # Ordina per mese
-                save_data(data, file_path)
-                st.success(f"Stipendio per {mese} aggiunto!")
-        else:
-            st.error("Inserisci un valore valido per lo stipendio!")
+                st.error("Inserisci un valore valido per lo stipendio!")
 
-with col_center:
-    # Input per aggiungere nuovi risparmi
-    st.write("### Inserisci Risparmi")
-    mese = st.selectbox("Mese Risparmi", options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"), key="risparmi")
-    risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0)
-
-    if st.button("Aggiungi Risparmi"):
-        mese_datetime = pd.Timestamp(datetime.strptime(mese, '%B %Y'))
-        if risparmi > 0:
-            if mese_datetime in data["Mese"].to_list():
-                data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                save_data(data, file_path)
-                st.success(f"Risparmi per {mese} aggiornati a €{risparmi:.2f}!")
+    with col_sinistra2:
+        st.write("### Inserisci Risparmi")
+        mese_risparmi = st.selectbox(
+            "Mese Risparmi",
+            options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
+            key="risparmi_select"
+        )
+        risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
+    
+        # Pulsanti per aggiungere stipendio o risparmi
+        if st.button("Aggiungi Risparmi", key="aggiungi_risparmi"):
+            mese_datetime = pd.Timestamp(datetime.strptime(mese_risparmi, '%B %Y'))
+            if risparmi > 0:
+                if mese_datetime in data["Mese"].to_list():
+                    data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+                    save_data(data, save_path)
+                    st.success(f"Risparmi per {mese_risparmi} aggiornati a €{risparmi:.2f}!")
+                else:
+                    new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi": risparmi}
+                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                    data = data.sort_values(by="Mese")
+                    save_data(data, save_path)
+                    st.success(f"Risparmi per {mese_risparmi} aggiunti!")
             else:
-                new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi": risparmi}
-                data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                data = data.sort_values(by="Mese")
-                save_data(data, file_path)
-                st.success(f"Risparmi per {mese} aggiunti!")
-        else:
-            st.error("Inserisci un valore valido per i risparmi!")
+                st.error("Inserisci un valore valido per i risparmi!")
 
-with col_right:
+
+    st.markdown("---")
+
+    # Bottone per caricare il file CSV
+    uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
+
+    # Controllo se è stato caricato un file
+    if uploaded_file is not None:
+        data = load_data(uploaded_file)
+    else:
+        try:
+            data = pd.read_csv(save_path, parse_dates=["Mese"])
+        except FileNotFoundError:
+            data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+
+
+
+
+with col_destra:
     # Modifica o eliminazione dei dati
     if not data.empty:
         st.write("### Modifica o Elimina Record")
@@ -832,152 +867,98 @@ with col_right:
             col1, col2 = st.columns(2)
 
             with col1:
-                if st.button(f"Modifica Record per {mese_da_modificare}"):
+                if st.button(f"Modifica Record per {mese_da_modificare}", key="modifica_record"):
                     data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio_modificato
                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi_modificati
-                    save_data(data, file_path)
+                    save_data(data, save_path)
                     st.success(f"Record per {mese_da_modificare} aggiornato!")
 
             with col2:
-                if st.button(f"Elimina Record per {mese_da_modificare}"):
+                if st.button(f"Elimina Record per {mese_da_modificare}", key="elimina_record"):
                     data = data[data["Mese"] != mese_datetime]
-                    save_data(data, file_path)
+                    save_data(data, save_path)
                     st.success(f"Record per {mese_da_modificare} eliminato!")
 
 st.markdown("---")
 
+# Funzione per calcolare somma e media
+@st.cache_data
+def calcola_statistiche(data, colonne):
+    return {col: {'somma': data[col].sum(), 'media': data[col].mean()} for col in colonne}
 
+# Funzione per calcolare medie mobili
+def calcola_medie_mobili(data, colonne):
+    for col in colonne:
+        data[f"Media {col}"] = data[col].expanding().mean()
+    return data
 
+# Funzione per creare i grafici
+def crea_grafico(data, categorie, dominio, colori, line_style=None):
+    base = alt.Chart(data.query(f"Categoria in {categorie}"))
 
+    # Configura il tratteggio solo se specificato
+    linee = base.mark_line(
+        strokeDash=(5, 5) if line_style == "dashed" else alt.Undefined,
+        strokeWidth=2
+    ).encode(
+        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
+        y=alt.Y("Valore:Q", title="Valore (€)"),
+        color=alt.Color(
+            "Categoria:N",
+            scale=alt.Scale(domain=dominio, range=colori),
+            legend=alt.Legend(title="Categorie")
+        ),
+        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+    )
 
+    punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+        x="Mese:T",
+        y="Valore:Q",
+        color=alt.Color(
+            "Categoria:N",
+            scale=alt.Scale(domain=dominio, range=colori)
+        ),
+        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+    )
 
+    return linee + punti
 
+# Calcoli principali
+statistiche = calcola_statistiche(data, ["Stipendio", "Risparmi"])
+data = calcola_medie_mobili(data, ["Stipendio", "Risparmi"])
 
-
-
-
-
-
-# Calcola la somma e la media per Stipendio e Risparmi
-somma_stipendio = data['Stipendio'].sum()
-media_stipendio = data['Stipendio'].mean()
-
-somma_risparmi = data['Risparmi'].sum()
-media_risparmi = data['Risparmi'].mean()
-
-# Calcola le medie basate sul numero di valori disponibili
-data['Media Stipendio'] = data['Stipendio'].expanding().mean()
-data['Media Risparmi'] = data['Risparmi'].expanding().mean()
-
-# Aggiungi le medie mobili ai dati come categorie separate
-data_media = data[['Mese', 'Media Stipendio', 'Media Risparmi']].melt(id_vars=['Mese'], var_name='Categoria', value_name='Valore')
-
-# Unisci i dati originali con quelli delle medie
+# Prepara i dati per i grafici
 data_completa = pd.concat([
-    data[['Mese', 'Stipendio', 'Risparmi']].melt(id_vars=['Mese'], var_name='Categoria', value_name='Valore'),
-    data_media
+    data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"], var_name="Categoria", value_name="Valore"),
+    data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi"], var_name="Categoria", value_name="Valore")
 ])
 
-# Visualizza la tabella e il grafico
+# Layout Streamlit
 if not data.empty:
     st.write("### Storico Stipendi e Risparmi")
-    
-    # Crea due colonne con proporzioni
     col_tabella, col_grafico = st.columns([1.2, 3.7])
-    
-    # Crea una copia dei dati con i mesi formattati
+
+    # Tabella
     data_display = data.copy()
-    data_display["Mese"] = data_display["Mese"].dt.strftime('%B %Y')  # Usa strftime per ottenere il nome completo del mese
-    
+    data_display["Mese"] = data_display["Mese"].dt.strftime('%B %Y')
     with col_tabella:
         st.dataframe(data_display, use_container_width=True)
-        
         col_left, col_right = st.columns(2)
         with col_left:
-            st.write(f"**Somma Stipendio:** <span style='color:#77DD77;'>{somma_stipendio:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media Stipendio:** <span style='color:#FF6961;'>{media_stipendio:,.2f} €</span>", unsafe_allow_html=True)
+            st.write(f"**Somma Stipendio:** <span style='color:#77DD77;'>{statistiche['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+            st.write(f"**Media Stipendio:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
         with col_right:
-            st.write(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{somma_risparmi:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{media_risparmi:,.2f} €</span>", unsafe_allow_html=True)
-    
+            st.write(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{statistiche['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+            st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{statistiche['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
+
+    # Grafico
+    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi"]
+    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4"]
+
+    grafico_principale = crea_grafico(data_completa, ["Stipendio", "Risparmi"], dominio_categorie, scala_colori)
+    grafico_medie = crea_grafico(data_completa, ["Media Stipendio", "Media Risparmi"], dominio_categorie, scala_colori, line_style="dashed")
+
     with col_grafico:
-        # Definizione di dominio e scala colori unificati
-        dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi"]
-        scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4"]
-
-        # Grafico delle linee principali (Stipendio e Risparmi)
-        grafico_principale = alt.Chart(
-            data_completa.query("Categoria in ['Stipendio', 'Risparmi']")
-        ).mark_line(strokeWidth=2).encode(
-            x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
-            y=alt.Y("Valore:Q", title="Valore (€)"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=dominio_categorie,
-                    range=scala_colori
-                ),
-                legend=alt.Legend(title="Categorie")
-            ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-        )
-
-        # Aggiungi i punti rombo per Stipendio e Risparmi
-        punti_principali = alt.Chart(
-            data_completa.query("Categoria in ['Stipendio', 'Risparmi']")
-        ).mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-            x=alt.X("Mese:T"),
-            y=alt.Y("Valore:Q"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=dominio_categorie,
-                    range=scala_colori
-                )
-            ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-        )
-
-        # Grafico delle medie mobili
-        grafico_medie = alt.Chart(
-            data_completa.query("Categoria in ['Media Stipendio', 'Media Risparmi']")
-        ).mark_line(strokeDash=[5, 5], strokeWidth=1).encode(
-            x=alt.X("Mese:T"),
-            y=alt.Y("Valore:Q"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=dominio_categorie,
-                    range=scala_colori
-                )
-            ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-        )
-
-        # Aggiungi i punti rombo per le medie mobili
-        punti_medie = alt.Chart(
-            data_completa.query("Categoria in ['Media Stipendio', 'Media Risparmi']")
-        ).mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-            x=alt.X("Mese:T"),
-            y=alt.Y("Valore:Q"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=dominio_categorie,
-                    range=scala_colori
-                )
-            ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-        )
-
-        # Combina i grafici
-        grafico_completo = (
-            grafico_principale + punti_principali + grafico_medie + punti_medie
-        ).properties(
-            height=500, width='container'
-        )
-
-        # Visualizza il grafico
-        st.altair_chart(grafico_completo, use_container_width=True)
+        st.altair_chart((grafico_principale + grafico_medie).properties(height=500, width='container'), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
