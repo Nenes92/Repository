@@ -786,112 +786,152 @@ data = st.session_state.data
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi Mensili")
 
-# Layout a due colonne principali
-col_sinistra, col_destra = st.columns([2, 1])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Layout a tre colonne principali
+col_sinistra, col_centrale, col_destra = st.columns([1, 1, 1])
 
 with col_sinistra:
-    # Sottosezioni per stipendi e risparmi
-    col_sinistra1, col_sinistra2 = st.columns(2)
+    st.write("### Inserisci Stipendio e Risparmi")
+    mese_stipendio_risparmi = st.selectbox(
+        "Mese",
+        options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
+        key="stipendio_risparmi_select"
+    )
+    stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
+    risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
 
-    with col_sinistra1:
-        st.write("### Inserisci Stipendio")
-        mese_stipendio = st.selectbox(
-            "Mese Stipendio",
-            options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
-            key="stipendio_select"
-        )
-        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
-    
-        if st.button("Aggiungi Stipendio", key="aggiungi_stipendio"):
-            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio, '%B %Y'))
-            if stipendio > 0:
-                if mese_datetime in data["Mese"].to_list():
-                    st.error(f"Il mese {mese_stipendio} è già presente nello storico.")
-                else:
-                    new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": 0.0}
-                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    data = data.sort_values(by="Mese")
-                    st.session_state.data = data
-                    save_data(data, save_path)
-                    st.success(f"Stipendio per {mese_stipendio} aggiunto!")
-            else:
-                st.error("Inserisci un valore valido per lo stipendio!")
+    # Colonne per posizionare i due bottoni affiancati
+    col1, col2 = st.columns([2, 1])  # La colonna sinistra più larga per "Aggiungi"
 
-    with col_sinistra2:
-        st.write("### Inserisci Risparmi")
-        mese_risparmi = st.selectbox(
-            "Mese Risparmi",
-            options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
-            key="risparmi_select"
-        )
-        risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
-    
-        if st.button("Aggiungi Risparmi", key="aggiungi_risparmi"):
-            mese_datetime = pd.Timestamp(datetime.strptime(mese_risparmi, '%B %Y'))
-            if risparmi > 0:
-                if mese_datetime in data["Mese"].to_list():
+    with col1:
+        if st.button("Aggiungi/Modifica Stipendio e Risparmi", key="aggiungi_modifica_stipendio_risparmi"):
+            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
+            if stipendio > 0 or risparmi > 0:
+                if not data.loc[data["Mese"] == mese_datetime].empty:
+                    # Se il mese esiste già, aggiorna
+                    data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                    st.session_state.data = data
-                    save_data(data, save_path)
-                    st.success(f"Risparmi per {mese_risparmi} aggiornati a €{risparmi:.2f}!")
+                    st.success(f"Record per {mese_stipendio_risparmi} aggiornato!")
                 else:
-                    new_row = {"Mese": mese_datetime, "Stipendio": 0.0, "Risparmi": risparmi}
+                    # Se il mese non esiste, aggiungi una nuova riga
+                    new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    data = data.sort_values(by="Mese")
-                    st.session_state.data = data
-                    save_data(data, save_path)
-                    st.success(f"Risparmi per {mese_risparmi} aggiunti!")
+                    st.success(f"Stipendio e Risparmi per {mese_stipendio_risparmi} aggiunti!")
+                data = data.sort_values(by="Mese").reset_index(drop=True)
+                st.session_state.data = data
+                save_data(data, save_path)
+                st.experimental_rerun()  # Forza il ridisegno
             else:
-                st.error("Inserisci un valore valido per i risparmi!")
+                st.error("Inserisci valori validi per stipendio e/o risparmi!")
 
-    st.markdown("---")
+    with col2:
+        # Pulsante per eliminare il record
+        if st.button(f"Elimina Record per {mese_stipendio_risparmi}", key="elimina_record", help="Elimina il record per il mese selezionato"):
+            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
+            if not data.loc[data["Mese"] == mese_datetime].empty:
+                data = data[data["Mese"] != mese_datetime]
+                st.session_state.data = data
+                save_data(data, save_path)
+                st.success(f"Record per {mese_stipendio_risparmi} eliminato!")
+                st.experimental_rerun()  # Forza il ridisegno
+            else:
+                st.error(f"Il mese {mese_stipendio_risparmi} non è presente nello storico!")
 
+    # Stile per i bottoni
+    st.markdown(
+        """
+        <style>
+        .stButton > button {
+            background-color: #A7C7E7;  /* Azzurro pastello per 'Aggiungi/Modifica' */
+            color: black;
+            font-weight: bold;
+        }
+
+        .stButton > button:hover {
+            background-color: #8FA9C8;
+        }
+
+        .stButton:nth-child(2) > button {
+            background-color: #FF6347;  /* Rosso Tomate per 'Elimina' */
+            color: white;
+            font-weight: bold;
+        }
+
+        .stButton:nth-child(2) > button:hover {
+            background-color: #FF4500;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+with col_centrale:
     # Bottone per caricare il file CSV
     uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
 
     if uploaded_file is not None:
-        data = load_data(uploaded_file)
-        st.session_state.data = data
+        nuovo_data = load_data(uploaded_file)
+        st.session_state.data = pd.concat([st.session_state.data, nuovo_data]).drop_duplicates(subset=["Mese"]).reset_index(drop=True)
+        data = st.session_state.data
     else:
         data = st.session_state.data
 
 
 
-
-with col_destra:
-    # Modifica o eliminazione dei dati
-    if not data.empty:
-        st.write("### Modifica o Elimina Record")
-        mesi = data["Mese"].dt.strftime('%B %Y').to_list()
-        mese_da_modificare = st.selectbox("Seleziona il mese", mesi, key="modifica")
-
-        if mese_da_modificare:
-            mese_datetime = pd.Timestamp(datetime.strptime(mese_da_modificare, '%B %Y'))
-            stipendio_modificato = st.number_input("Nuovo Stipendio (€)", min_value=0.0, step=100.0, key="mod_stip")
-            risparmi_modificati = st.number_input("Nuovi Risparmi (€)", min_value=0.0, step=100.0, key="mod_risp")
-
-            # Crea due colonne per disporre i bottoni affiancati
-            col1, col2 = st.columns(2)
-
-            with col1:
-                if st.button(f"Modifica Record per {mese_da_modificare}", key="modifica_record"):
-                    data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio_modificato
-                    data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi_modificati
-                    save_data(data, save_path)
-                    st.success(f"Record per {mese_da_modificare} aggiornato!")
-
-            with col2:
-                if st.button(f"Elimina Record per {mese_da_modificare}", key="elimina_record"):
-                    data = data[data["Mese"] != mese_datetime]
-                    save_data(data, save_path)
-                    st.success(f"Record per {mese_da_modificare} eliminato!")
-
 st.markdown("---")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Funzione per calcolare somma e media
 @st.cache_data
 def calcola_statistiche(data, colonne):
-    return {col: {'somma': data[col].sum(), 'media': data[col].mean()} for col in colonne}
+    stats = {col: {'somma': data[col].sum(), 'media': data[col].mean()} for col in colonne}
+    
+    # Calcola la media degli stipendi escludendo luglio e dicembre
+    stipendi_senza_picchi = data[~data["Mese"].dt.month.isin([7, 12])]
+    if not stipendi_senza_picchi.empty:
+        stats["Stipendio"]["media_senza_picchi"] = stipendi_senza_picchi["Stipendio"].mean()
+    else:
+        stats["Stipendio"]["media_senza_picchi"] = 0.0
+
+    return stats
 
 # Funzione per calcolare medie mobili
 def calcola_medie_mobili(data, colonne):
@@ -936,8 +976,8 @@ data = calcola_medie_mobili(data, ["Stipendio", "Risparmi"])
 
 # Prepara i dati per i grafici
 data_completa = pd.concat([
-    data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"], var_name="Categoria", value_name="Valore"),
-    data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi"], var_name="Categoria", value_name="Valore")
+    st.session_state.data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"], var_name="Categoria", value_name="Valore"),
+    st.session_state.data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi"], var_name="Categoria", value_name="Valore")
 ])
 
 # Layout Streamlit
@@ -954,6 +994,7 @@ if not data.empty:
         with col_left:
             st.write(f"**Somma Stipendio:** <span style='color:#77DD77;'>{statistiche['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
             st.write(f"**Media Stipendio:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+            st.write(f"**Media senza 13°/14°:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media_senza_picchi']:,.2f} €</span>", unsafe_allow_html=True)
         with col_right:
             st.write(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{statistiche['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
             st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{statistiche['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
