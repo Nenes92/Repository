@@ -723,38 +723,35 @@ def main():
             with col2:
                 st.altair_chart(chart_totali, use_container_width=True)
 
-
-
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
     main()
 
-
-
-
-
-
-
-
-
-
-
-
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Funzione per caricare i dati
 def load_data(uploaded_file):
     if uploaded_file is not None:
         try:
-            data = pd.read_csv(uploaded_file, parse_dates=["Mese"])
+            data = pd.read_csv(uploaded_file)
+            # Assicurati che la colonna Mese sia di tipo datetime
+            data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce")
         except Exception as e:
             st.error(f"Errore nel caricamento del file: {e}")
             data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
@@ -762,13 +759,11 @@ def load_data(uploaded_file):
         data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
     return data
 
-# Percorso per salvare il file
-save_path = "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv"
-
 # Funzione per salvare i dati
 def save_data(data, save_path):
     try:
-        data.to_csv(save_path, index=False, date_format='%Y-%m')
+        data["Mese"] = data["Mese"].dt.strftime("%Y-%m")  # Converti di nuovo in stringa per il salvataggio
+        data.to_csv(save_path, index=False)
         st.success(f"Dati salvati in: {save_path}")
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -776,7 +771,7 @@ def save_data(data, save_path):
 # Controllo e inizializzazione dei dati in session_state
 if "data" not in st.session_state:
     try:
-        st.session_state.data = pd.read_csv(save_path, parse_dates=["Mese"])
+        st.session_state.data = pd.read_csv("storico_stipendi.csv", parse_dates=["Mese"])
     except FileNotFoundError:
         st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
@@ -786,35 +781,28 @@ data = st.session_state.data
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi Mensili")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Layout a tre colonne principali
 col_sinistra, col_centrale, col_destra = st.columns([1, 1, 1])
 
 with col_sinistra:
     st.write("### Inserisci Stipendio e Risparmi")
-    mese_stipendio_risparmi = st.selectbox(
-        "Mese",
-        options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
-        key="stipendio_risparmi_select"
-    )
+    # Assicurati che la colonna Mese sia nel formato corretto prima di usarla
+    if pd.api.types.is_datetime64_any_dtype(data["Mese"]):
+        mese_stipendio_risparmi = st.selectbox(
+            "Mese",
+            options=data["Mese"].dt.strftime("%B %Y").unique(),
+            key="stipendio_risparmi_select"
+        )
+    else:
+        # Se la colonna non è nel formato datetime, convertila prima
+        st.error("La colonna 'Mese' non è nel formato corretto. Procedo con la conversione.")
+        data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce")
+        mese_stipendio_risparmi = st.selectbox(
+            "Mese",
+            options=data["Mese"].dt.strftime("%B %Y").unique(),
+            key="stipendio_risparmi_select"
+        )
+
     stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
     risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
 
@@ -837,7 +825,7 @@ with col_sinistra:
                     st.success(f"Stipendio e Risparmi per {mese_stipendio_risparmi} aggiunti!")
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 st.session_state.data = data
-                save_data(data, save_path)
+                save_data(data, "storico_stipendi.csv")  # Salvataggio locale
                 st.experimental_rerun()  # Forza il ridisegno
             else:
                 st.error("Inserisci valori validi per stipendio e/o risparmi!")
@@ -849,39 +837,11 @@ with col_sinistra:
             if not data.loc[data["Mese"] == mese_datetime].empty:
                 data = data[data["Mese"] != mese_datetime]
                 st.session_state.data = data
-                save_data(data, save_path)
+                save_data(data, "storico_stipendi.csv")  # Salvataggio locale
                 st.success(f"Record per {mese_stipendio_risparmi} eliminato!")
                 st.experimental_rerun()  # Forza il ridisegno
             else:
                 st.error(f"Il mese {mese_stipendio_risparmi} non è presente nello storico!")
-
-    # Stile per i bottoni
-    st.markdown(
-        """
-        <style>
-        .stButton > button {
-            background-color: #A7C7E7;  /* Azzurro pastello per 'Aggiungi/Modifica' */
-            color: black;
-            font-weight: bold;
-        }
-
-        .stButton > button:hover {
-            background-color: #8FA9C8;
-        }
-
-        .stButton:nth-child(2) > button {
-            background-color: #FF6347;  /* Rosso Tomate per 'Elimina' */
-            color: white;
-            font-weight: bold;
-        }
-
-        .stButton:nth-child(2) > button:hover {
-            background-color: #FF4500;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
 with col_centrale:
     # Bottone per caricare il file CSV
@@ -896,28 +856,32 @@ with col_centrale:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 st.markdown("---")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Funzione per calcolare somma e media
 @st.cache_data
