@@ -80,9 +80,9 @@ SPESE = {
 
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
-    "Altro": 0,
     "Macchina (Mamma)": 100,
-    "Affitto Garage": 000
+    "Affitto Garage": 000,
+    "Altro": 0
 }
 
 @st.cache_data  # Aggiungiamo il decoratore per il caching
@@ -209,15 +209,15 @@ def main():
     col1, col2, col3 = st.columns([1.2, 1.2, 1])  # Crea tre colonne con larghezze decise
 
     with col1:
-        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale)
-        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente)
+        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
+        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50)
     with col2:
         # Spazio vuoto personalizzabile
         st.markdown(
             '<div style="height: 40px;"></div>',  # Imposta l'altezza desiderata in pixel
             unsafe_allow_html=True,
         )
-        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto)
+        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50)
         # Spazio vuoto personalizzabile
         st.markdown(
             '<div style="height: 45px;"></div>',  # Imposta l'altezza desiderata in pixel
@@ -333,7 +333,7 @@ def main():
 
         # --- Creazione del grafico impilato ---
         chart_barre = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').mark_bar().encode(
-            x=alt.X('Categoria:N', sort=ordine_categorie, title="Categoria"),
+            x=alt.X('Categoria:N', sort=ordine_categorie, title="Categoria", axis=alt.Axis(labelAngle=0)),
             y=alt.Y('Totale:Q', 
                     stack="zero", 
                     title="Totale", 
@@ -706,7 +706,7 @@ def main():
 
             
         with st.container():
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns([1.5, 2])
             
             # --- Altre Entrate ---
             with col1:
