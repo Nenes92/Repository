@@ -29,7 +29,17 @@ emergenze_compleanni=0.1
 viaggi=0.06
 # /////  
 
-
+# stipendio_originale = input - quanto prendi
+# stipendio_scelto = input - quanto decidi che è il tuo stipendio
+# altre_entrate = altre entrate
+# stipendio = stipendio_scelto + altre_entrate
+# stipendio_totale = stipendio_originale + altre_entrate
+# risparmi_mese_precedente = input - quanto ti rimane su Revolut/Contanti dal mese precedente
+# risparmiabili = stipendio - spese_fisse_totali
+# spese_fisse_totali = somma delle spese fisse
+# risparmio_stipendi = stipendio_originale - stipendio_scelto
+# risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > limite_da_spendere else 0
+# risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > max_spese_quotidiane else 0
 
 
 # --- CONFIGURAZIONE ---
@@ -46,7 +56,7 @@ SPESE = {
         "Alleanza - PAC": 100,
         "Macchina": 180,
         "Trasporti": 130,
-        "Sport": 70,
+        "Sport": 90,
         "Psicologo": 100,
         "World Food Programme": 30,
         "Beneficienza": 15,
@@ -134,12 +144,12 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Altro": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
         "Affitto Garage": "#D8BFD8",
-        "Stipendio Totale": "#77DD77",
-        "Stipendio Scelto": "#77DD77",
+        "Stipendio Originale": "#5792E8",
+        "Stipendio Utilizzato": "#6CBCD0",
         "Altre Entrate": "#77DD77",
         "Spese Fisse": "#FF6961",
         "Spese Variabili": "#FFFF99",
-        "Risparmi": "#77DD77",
+        "Risparmi": "#A2E88A",
     }
 
     # Grafico a torta per Spese Fisse (con nuovi colori)
@@ -297,56 +307,59 @@ def main():
 
 
 
-        # --- 2. Creazione DataFrame dei Totali --- (SPOSTATO DOPO IL CALCOLO DEI RISPARMI)
-        totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), stipendio_originale, risparmi_mensili]  # Aggiungi stipendio_originale
-        categorie = ["Spese Fisse", "Spese Variabili", "Stipendio Totale", "Risparmi"]  # Aggiungi "Stipendio Totale"
-        df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
-
-        # --- Creazione Grafico a Barre --- (SPOSTATO FUORI DA create_charts)
-        ordine_categorie = ["Stipendio Totale", "Spese Fisse", "Spese Variabili", "Risparmi"]
-
-        # DataFrame per la barra impilata
-        df_impilato = pd.DataFrame({
-            "Categoria": ["Stipendio Totale"],
-            "Stipendio Scelto": [stipendio_scelto],
-            "Altre Entrate": [sum(ALTRE_ENTRATE.values())]
+        # --- DataFrame per il grafico a barre impilate ---
+        df_totali_impilati = pd.DataFrame({
+            "Categoria": ["Spese Fisse", "Spese Variabili", "Stipendio Totale", "Stipendio Totale", 
+                        "Risparmi", "Stipendio Utilizzato", "Stipendio Utilizzato"],
+            "Tipo": ["Spese Fisse", "Spese Variabili", "Stipendio Originale", "Altre Entrate", 
+                    "Risparmi", "Stipendio Scelto", "Altre Entrate"],
+            "Totale": [
+                df_fisse["Importo"].sum(),
+                df_variabili["Importo"].sum(),
+                stipendio_originale,
+                sum(ALTRE_ENTRATE.values()),
+                risparmi_mensili,
+                stipendio_scelto, 
+                sum(ALTRE_ENTRATE.values()) 
+            ]
         })
+        # Ordine delle categorie
+        ordine_categorie = ["Stipendio Totale", "Stipendio Utilizzato", "Spese Fisse", "Spese Variabili", "Risparmi"]
 
-        # Grafico a barre impilate
-        chart_impilato = alt.Chart(df_impilato, title='Confronto Totali per Categoria (Impilato)').mark_bar().encode(
-            x=alt.X('Categoria:N', sort=None),
-            y=alt.Y('Stipendio Scelto:Q', title='Totale'),
-            color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
-            tooltip = ['Categoria', 'Stipendio Scelto']
-        ).interactive()
+        # Calcola il massimo valore presente in 'Totale' e aggiungi un margine del 30%
+        valore_massimo = df_totali_impilati['Totale'].max()
+        margine = valore_massimo * 0.3
+        limite_superiore = valore_massimo + margine
 
-        chart_impilato += alt.Chart(df_impilato).mark_bar(opacity=0.7).encode(
-            y=alt.Y('Altre Entrate:Q', title='Totale'),
-            color=alt.value(color_map["Altre Entrate"]),
-            tooltip = ['Categoria', 'Altre Entrate']
+        # --- Creazione del grafico impilato ---
+        chart_barre = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').mark_bar().encode(
+            x=alt.X('Categoria:N', sort=ordine_categorie, title="Categoria"),
+            y=alt.Y('Totale:Q', 
+                    stack="zero", 
+                    title="Totale", 
+                    scale=alt.Scale(domain=[0, limite_superiore])  # Aggiunge il margine del 30% al massimo valore
+                ),
+            color=alt.Color('Tipo:N', 
+                            scale=alt.Scale(domain=["Stipendio Originale", "Altre Entrate", "Stipendio Scelto", 
+                                                    "Spese Fisse", "Spese Variabili", "Risparmi"], 
+                                            range=[color_map["Stipendio Originale"], 
+                                                color_map["Altre Entrate"], 
+                                                color_map["Stipendio Utilizzato"], 
+                                                color_map["Spese Fisse"], 
+                                                color_map["Spese Variabili"], 
+                                                color_map["Risparmi"]]),
+                            legend=alt.Legend(title="Componenti")),
+            tooltip=['Categoria', 'Tipo', 'Totale']
+        ) + alt.Chart(df_totali_impilati).mark_text(
+            align='center',
+            baseline='middle',
+            color= 'white',
+            dy=-10  # Sposta il testo sopra la barra
+        ).encode(
+            x=alt.X('Categoria:N', sort=ordine_categorie),
+            y=alt.Y('Totale:Q', stack="zero"),
+            text='Totale:Q'
         )
-
-        # Converti la Series "Categoria" in una lista di stringhe
-        categorie = df_totali["Categoria"].astype(str).tolist()
-
-        # Usa la lista "categorie" nella lambda function per l'ordinamento
-        df_totali_sorted = df_totali.sort_values(
-            by="Categoria",
-            key=lambda x: [ordine_categorie.index(c) for c in x]
-        )
-
-        # Grafico a barre singolo
-        chart_totali = alt.Chart(df_totali_sorted, title='Confronto Totali per Categoria').mark_bar().encode(
-            x=alt.X('Categoria:N', sort=list(df_totali_sorted['Categoria'])), # Ordina in base alle categorie effettivamente presenti nel DataFrame
-            y=alt.Y('Totale:Q'),
-            color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
-            tooltip = ['Categoria', 'Totale']
-        ).interactive()
-
-        # Combina i due grafici in uno solo
-        chart_totali_combinato = chart_totali | chart_impilato
-
-
 
 
 
@@ -721,7 +734,7 @@ def main():
 
             # --- Grafico Categorie ---
             with col2:
-                st.altair_chart(chart_totali, use_container_width=True)
+                st.altair_chart(chart_barre, use_container_width=True)
 
 if __name__ == "__main__":
     main()
@@ -782,7 +795,7 @@ data = st.session_state.data
 st.title("Storico Stipendi e Risparmi Mensili")
 
 # Layout a tre colonne principali
-col_sinistra, col_centrale, col_destra = st.columns([1, 1, 1])
+col_sinistra, col_centrale, col_destra = st.columns([1, 0.7, 1])
 
 with col_sinistra:
     st.write("### Inserisci Stipendio e Risparmi")
