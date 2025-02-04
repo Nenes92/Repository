@@ -4,6 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import os
+import io
 from datetime import datetime
 
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
@@ -19,7 +20,7 @@ def set_page_config():
 # Variabili inizializzate
 input_stipendio_originale=2485
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2100
+input_stipendio_scelto=2150
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -60,7 +61,7 @@ SPESE = {
         "Psicologo": 100,
         "World Food Programme": 30,
         "Beneficienza": 15,
-        "Netflix": 9,
+        "Netflix": 8.5,
         "Spotify": 3,
         "Disney+": 3.5,
         "Wind": 10,
@@ -354,11 +355,11 @@ def main():
             align='center',
             baseline='middle',
             color= 'white',
-            dy=-10  # Sposta il testo sopra la barra
+            dy=-6  # Sposta il testo sopra la barra
         ).encode(
             x=alt.X('Categoria:N', sort=ordine_categorie),
             y=alt.Y('Totale:Q', stack="zero"),
-            text='Totale:Q'
+            text=alt.Text('Totale:Q', format='.2f')
         )
 
 
@@ -531,7 +532,7 @@ def main():
             f'**Totale Spese Variabili utilizzate:** <span style="color:#FFFF99;">€{spese_variabili_totali:.2f}</span>'
             f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>',
             unsafe_allow_html=True)
-
+            
         # Spazio vuoto personalizzabile
         st.markdown(
             '<div style="height: 75px;"></div>',  # Imposta l'altezza desiderata in pixel
@@ -624,7 +625,7 @@ def main():
 
 
         # --- CALCOLO E VISUALIZZAZIONE TRASFERIMENTI E SPESE --- (Ottimizzato con dict comprehension)
-        st.markdown('<hr style="width: 75%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+        st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
         st.subheader("Trasferimenti sulle Carte:")
 
         for carta in ["ING", "Revolut", "BNL"]:
@@ -633,20 +634,21 @@ def main():
             spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
             if carta == "Revolut":
                 totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-            else:
-                totale_carta = sum(spese_carta.values())
-            if carta == "ING":
-                colore = "#D2691E"  # Arancione
-                testo = "trasferire"
-            elif carta == "BNL":
-                colore = "green"  # Verde
-                colore2 = "#77DD77"  # Verde chiaro
-                testo = "mantenere"
-                testo2 = "risparmiato"
-            elif carta == "Revolut":
                 colore = "#89CFF0"  # Azzurro
                 testo = "trasferire"
-            st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
+                somma_valori = risparmi_mese_precedente + 25.50 + totale_carta
+                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi + <span style="color:{colore}; font-size: 14px;">€25.50</span> da Netf/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+            else:
+                totale_carta = sum(spese_carta.values())
+                if carta == "ING":
+                    colore = "#D2691E"  # Arancione
+                    testo = "trasferire"
+                elif carta == "BNL":
+                    colore = "green"  # Verde
+                    colore2 = "#77DD77"  # Verde chiaro
+                    testo = "mantenere"
+                    testo2 = "risparmiato"
+                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
         st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
 
@@ -757,154 +759,434 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
+# # Funzione per caricare i dati
+# uploaded_file_path = None  # Variabile per salvare il percorso del file caricato
+# uploaded_file_buffer = None  # Buffer temporaneo per i file caricati
 
-# Funzione per caricare i dati
-def load_data(uploaded_file):
-    if uploaded_file is not None:
+# def load_data(uploaded_file):
+#     global uploaded_file_path, uploaded_file_buffer
+#     if uploaded_file is not None:
+#         try:
+#             uploaded_file_path = uploaded_file.name  # Memorizza il nome originale
+#             uploaded_file_buffer = uploaded_file.getvalue()  # Legge il contenuto del file in memoria
+#             data = pd.read_csv(io.StringIO(uploaded_file_buffer.decode('utf-8')), parse_dates=["Mese"])
+#         except Exception as e:
+#             st.error(f"Errore nel caricamento del file: {e}")
+#             data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+#     else:
+#         data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+#     return data
+
+# # Funzione per salvare i dati
+# def save_data(data):
+#     global uploaded_file_path
+#     if uploaded_file_path:
+#         try:
+#             # Sovrascrive il file originale se possibile
+#             with open(uploaded_file_path, "w", encoding="utf-8") as f:
+#                 data.to_csv(f, index=False, date_format='%Y-%m')
+#             st.success(f"Dati salvati in: {uploaded_file_path}")
+#         except Exception as e:
+#             st.error(f"Errore nel salvataggio del file: {e}")
+#     else:
+#         st.error("Percorso del file non trovato. Carica un file valido.")
+
+# # Inizializza st.session_state.data se non esiste
+# if "data" not in st.session_state:
+#     st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+
+# # Controllo e inizializzazione dei dati in session_state
+# if "data" not in st.session_state:
+#     try:
+#         if uploaded_file_buffer:
+#             st.session_state.data = pd.read_csv(io.StringIO(uploaded_file_buffer.decode('utf-8')), parse_dates=["Mese"])
+#         else:
+#             st.warning("Il file storico non è stato trovato.")
+#             if st.button("Creare un nuovo file CSV"):
+#                 # Creazione del nuovo file CSV vuoto con le colonne predefinite
+#                 st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+#                 save_data(st.session_state.data)
+#                 st.success("Nuovo file CSV creato!")
+#                 st.experimental_rerun()  # Ricarica la pagina per riflettere i cambiamenti
+#     except FileNotFoundError:
+#         st.warning("Il file storico non è stato trovato.")
+
+# # Caricamento dati
+# data = st.session_state.data
+
+# # Verifica se la colonna 'Mese' esiste ed è di tipo datetime
+# if "Mese" in data.columns and pd.api.types.is_datetime64_any_dtype(data["Mese"]) == False:
+#     data["Mese"] = pd.to_datetime(data["Mese"], errors='coerce')
+
+# # Titolo dell'app
+# st.title("Storico Stipendi e Risparmi Mensili")
+
+# # Layout a tre colonne principali
+# col_sinistra, col_centrale, col_destra = st.columns([1, 0.7, 1])
+
+# with col_sinistra:
+#     st.write("### Inserisci Stipendio e Risparmi")
+#     mese_stipendio_risparmi = st.selectbox(
+#         "Mese",
+#         options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
+#         key="stipendio_risparmi_select"
+#     )
+#     stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
+#     risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
+
+#     # Colonne per posizionare i due bottoni affiancati
+#     col1, col2 = st.columns([2, 1])  # La colonna sinistra più larga per "Aggiungi"
+
+#     with col1:
+#         if st.button("Aggiungi/Modifica Stipendio e Risparmi", key="aggiungi_modifica_stipendio_risparmi"):
+#             mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
+#             if stipendio > 0 or risparmi > 0:
+#                 if not data.loc[data["Mese"] == mese_datetime].empty:
+#                     # Se il mese esiste già, aggiorna
+#                     data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
+#                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+#                     st.success(f"Record per {mese_stipendio_risparmi} aggiornato!")
+#                 else:
+#                     # Se il mese non esiste, aggiungi una nuova riga
+#                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
+#                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+#                     st.success(f"Stipendio e Risparmi per {mese_stipendio_risparmi} aggiunti!")
+#                 data = data.sort_values(by="Mese").reset_index(drop=True)
+#                 st.session_state.data = data
+#                 save_data(data)  # Salva le modifiche al file
+#                 st.experimental_rerun()  # Forza il ridisegno
+#             else:
+#                 st.error("Inserisci valori validi per stipendio e/o risparmi!")
+
+#     with col2:
+#         # Pulsante per eliminare il record
+#         if st.button(f"Elimina Record per {mese_stipendio_risparmi}", key="elimina_record", help="Elimina il record per il mese selezionato"):
+#             mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
+#             if not data.loc[data["Mese"] == mese_datetime].empty:
+#                 data = data[data["Mese"] != mese_datetime]
+#                 st.session_state.data = data
+#                 save_data(data)  # Salva le modifiche al file
+#                 st.success(f"Record per {mese_stipendio_risparmi} eliminato!")
+#                 st.experimental_rerun()  # Forza il ridisegno
+#             else:
+#                 st.error(f"Il mese {mese_stipendio_risparmi} non è presente nello storico!")
+
+#     # Stile per i bottoni
+#     st.markdown(
+#         """
+#         <style>
+#         .stButton > button {
+#             background-color: #E0FFFF;  /* Azzurro pastello per 'Aggiungi/Modifica' */
+#             color: black;
+#             font-weight: bold;
+#         }
+
+#         .stButton > button:hover {
+#             background-color: #8FA9C8;
+#             color: #006633;
+#             font-weight: bold;
+#         }
+
+#         .stButton:nth-child(2) > button {
+#             background-color: #FF6347;  /* Rosso Tomate per 'Elimina' */
+#             color: white;
+#             font-weight: bold;
+#         }
+
+#         .stButton:nth-child(2) > button:hover {
+#             background-color: #FF4500;
+#         }
+#         </style>
+#         """,
+#         unsafe_allow_html=True
+#     )
+
+# with col_centrale:
+#     # Spazio vuoto personalizzabile
+#     st.markdown(
+#         '<div style="height: 57px;"></div>',  # Imposta l'altezza desiderata in pixel
+#         unsafe_allow_html=True,
+#     )
+#     # Bottone per caricare il file CSV
+#     uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
+
+#     if uploaded_file is not None:
+#         uploaded_file_path = uploaded_file.name  # Memorizza il nome del file caricato
+#         nuovo_data = load_data(uploaded_file)
+#         st.session_state.data = pd.concat([st.session_state.data, nuovo_data]).drop_duplicates(subset=["Mese"]).reset_index(drop=True)
+#         data = st.session_state.data
+#     else:
+#         data = st.session_state.data
+
+#     # Funzione per creare un file CSV da scaricare
+#     def create_download_link(data):
+#         # Converte il DataFrame in un oggetto byte per il download
+#         csv = data.to_csv(index=False, date_format='%Y-%m')
+#         buffer = io.StringIO(csv)
+
+#         # Campo per specificare il nome del file
+#         file_name = st.text_input(
+#             "Inserisci il nome del file da scaricare (senza estensione) e premi INVIO:", 
+#             value="storico_stipendi"
+#         )
+#         if file_name.strip() == "":
+#             file_name = "storico_stipendi"  # Nome predefinito in caso di input vuoto
+        
+#         # Crea un link per il download del CSV
+#         st.download_button(
+#             label="Scarica il file CSV",
+#             data=buffer.getvalue(),
+#             file_name=f"{file_name}.csv",  # Aggiunge l'estensione al nome del file
+#             mime="text/csv"
+#         )
+
+#     # Poi chiamare questa funzione per generare il link di download
+#     create_download_link(data)
+
+# # Aggiunta del pulsante esplicito per il salvataggio delle modifiche
+# with col_destra:
+#     if st.button("Salva modifiche al file caricato", key="salva_modifiche"):
+#         save_data(data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Funzione per caricare i dati da un file CSV
+
+def load_data(file_path):
+    if os.path.exists(file_path):
         try:
-            data = pd.read_csv(uploaded_file, parse_dates=["Mese"])
+            data = pd.read_csv(file_path, parse_dates=["Mese"])
+            return data
         except Exception as e:
             st.error(f"Errore nel caricamento del file: {e}")
-            data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+            return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
     else:
-        data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-    return data
+        st.warning("Il file selezionato non esiste.")
+        return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
-# Percorso per salvare il file
-save_path = "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv"
+# Funzione per salvare i dati nel file CSV
 
-# Funzione per salvare i dati
-def save_data(data, save_path):
+def save_data(data, file_path):
     try:
-        data.to_csv(save_path, index=False, date_format='%Y-%m')
-        st.success(f"Dati salvati in: {save_path}")
+        data.to_csv(file_path, index=False, date_format='%Y-%m')
+        st.success(f"Dati salvati in: {file_path}")
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
-# Controllo e inizializzazione dei dati in session_state
-if "data" not in st.session_state:
-    try:
-        st.session_state.data = pd.read_csv(save_path, parse_dates=["Mese"])
-    except FileNotFoundError:
-        st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
-# Caricamento dati
-data = st.session_state.data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def load_data(file_path):
+    try:
+        return pd.read_csv(file_path, parse_dates=["Mese"])
+    except Exception as e:
+        st.error(f"Errore nel caricamento del file: {e}")
+        return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+
+
+def save_data(data, file_path):
+    try:
+        data.to_csv(file_path, index=False, date_format='%Y-%m')
+        st.success(f"Dati salvati in: {file_path}")
+    except Exception as e:
+        st.error(f"Errore nel salvataggio del file: {e}")
+
 
 # Titolo dell'app
-st.title("Storico Stipendi e Risparmi Mensili")
+st.title("Storico Stipendi e Risparmi")
 
-# Layout a tre colonne principali
-col_sinistra, col_centrale, col_destra = st.columns([1, 0.7, 1])
+col_1, col_vuota, col_2 = st.columns([3, 1, 6])
+with col_2:
+    st.write("### Path")
+    file_path = st.text_input("Inserisci il percorso del file CSV da caricare:", 
+                              "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv")
 
-with col_sinistra:
-    st.write("### Inserisci Stipendio e Risparmi")
-    mese_stipendio_risparmi = st.selectbox(
-        "Mese",
-        options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
-        key="stipendio_risparmi_select"
-    )
-    stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
-    risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
-
-    # Colonne per posizionare i due bottoni affiancati
-    col1, col2 = st.columns([2, 1])  # La colonna sinistra più larga per "Aggiungi"
-
-    with col1:
-        if st.button("Aggiungi/Modifica Stipendio e Risparmi", key="aggiungi_modifica_stipendio_risparmi"):
-            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
-            if stipendio > 0 or risparmi > 0:
-                if not data.loc[data["Mese"] == mese_datetime].empty:
-                    # Se il mese esiste già, aggiorna
-                    data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
-                    data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                    st.success(f"Record per {mese_stipendio_risparmi} aggiornato!")
+with col_1:
+    if file_path:
+        data = load_data(file_path)
+        st.session_state.data = data
+        
+        st.write("### Inserisci Stipendio e Risparmi")
+        mesi_anni = pd.date_range(start="2024-03-01", end="2035-12-31", freq="MS").strftime("%B %Y")
+        selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni)
+        
+        mese_datetime = pd.Timestamp(datetime.strptime(selected_mese_anno, "%B %Y"))
+        
+        # Precompilazione dei campi se il mese è già presente
+        existing_record = data.loc[data["Mese"] == mese_datetime]
+        stipendio_value = existing_record["Stipendio"].values[0] if not existing_record.empty else 0.0
+        risparmi_value = existing_record["Risparmi"].values[0] if not existing_record.empty else 0.0
+        
+        col_sx, col_dx = st.columns(2)
+        with col_sx:
+            stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
+            if st.button("Aggiungi/Modifica Stipendio e Risparmi"):
+                if stipendio > 0 or risparmi > 0:
+                    if not existing_record.empty:
+                        data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
+                        data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+                        st.success(f"Record per {selected_mese_anno} aggiornato!")
+                    else:
+                        new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
+                        data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                        st.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
+                    data = data.sort_values(by="Mese").reset_index(drop=True)
+                    save_data(data, file_path)
+                    st.experimental_rerun()
                 else:
-                    # Se il mese non esiste, aggiungi una nuova riga
-                    new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
-                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    st.success(f"Stipendio e Risparmi per {mese_stipendio_risparmi} aggiunti!")
-                data = data.sort_values(by="Mese").reset_index(drop=True)
-                st.session_state.data = data
-                save_data(data, save_path)
-                st.experimental_rerun()  # Forza il ridisegno
-            else:
-                st.error("Inserisci valori validi per stipendio e/o risparmi!")
+                    st.error("Inserisci valori validi per stipendio e/o risparmi!")
 
-    with col2:
-        # Pulsante per eliminare il record
-        if st.button(f"Elimina Record per {mese_stipendio_risparmi}", key="elimina_record", help="Elimina il record per il mese selezionato"):
-            mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
-            if not data.loc[data["Mese"] == mese_datetime].empty:
-                data = data[data["Mese"] != mese_datetime]
-                st.session_state.data = data
-                save_data(data, save_path)
-                st.success(f"Record per {mese_stipendio_risparmi} eliminato!")
-                st.experimental_rerun()  # Forza il ridisegno
-            else:
-                st.error(f"Il mese {mese_stipendio_risparmi} non è presente nello storico!")
+        with col_dx:
+            risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
+            if st.button(f"Elimina Record per {selected_mese_anno}"):
+                if not existing_record.empty:
+                    data = data[data["Mese"] != mese_datetime]
+                    save_data(data, file_path)
+                    st.success(f"Record per {selected_mese_anno} eliminato!")
+                    st.experimental_rerun()
+                else:
+                    st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
 
-    # Stile per i bottoni
-    st.markdown(
-        """
-        <style>
-        .stButton > button {
-            background-color: #E0FFFF;  /* Azzurro pastello per 'Aggiungi/Modifica' */
-            color: black;
-            font-weight: bold;
-        }
+        
+        
+        
 
-        .stButton > button:hover {
-            background-color: #8FA9C8;
-            color: #006633;
-            font-weight: bold;
-        }
 
-        .stButton:nth-child(2) > button {
-            background-color: #FF6347;  /* Rosso Tomate per 'Elimina' */
-            color: white;
-            font-weight: bold;
-        }
 
-        .stButton:nth-child(2) > button:hover {
-            background-color: #FF4500;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
-with col_centrale:
-    # Bottone per caricare il file CSV
-    uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
 
-    if uploaded_file is not None:
-        nuovo_data = load_data(uploaded_file)
-        st.session_state.data = pd.concat([st.session_state.data, nuovo_data]).drop_duplicates(subset=["Mese"]).reset_index(drop=True)
-        data = st.session_state.data
-    else:
-        data = st.session_state.data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 st.markdown("---")
+
+
 
 # Funzione per calcolare somma e media
 @st.cache_data
 def calcola_statistiche(data, colonne):
-    stats = {col: {'somma': data[col].sum(), 'media': data[col].mean()} for col in colonne}
-    
-    # Calcola la media degli stipendi escludendo luglio e dicembre
-    stipendi_senza_picchi = data[~data["Mese"].dt.month.isin([7, 12])]
-    if not stipendi_senza_picchi.empty:
-        stats["Stipendio"]["media_senza_picchi"] = stipendi_senza_picchi["Stipendio"].mean()
-    else:
-        stats["Stipendio"]["media_senza_picchi"] = 0.0
-
+    stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
     return stats
 
-# Funzione per calcolare medie mobili
-def calcola_medie_mobili(data, colonne):
+# Funzione per calcolare medie mobili e medie no 13°/PDR
+def calcola_medie(data, colonne):
     for col in colonne:
-        data[f"Media {col}"] = data[col].expanding().mean()
+        data[f"Media {col}"] = data[col].expanding().mean().round(2)
+        if col == "Stipendio":  # Solo per gli stipendi calcola la media no 13°/PDR
+            data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
     return data
 
 # Funzione per creare i grafici
@@ -940,18 +1222,17 @@ def crea_grafico(data, categorie, dominio, colori, line_style=None):
 
 # Calcoli principali
 statistiche = calcola_statistiche(data, ["Stipendio", "Risparmi"])
-data = calcola_medie_mobili(data, ["Stipendio", "Risparmi"])
+data = calcola_medie(data, ["Stipendio", "Risparmi"])
 
 # Prepara i dati per i grafici
 data_completa = pd.concat([
     st.session_state.data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"], var_name="Categoria", value_name="Valore"),
-    st.session_state.data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi"], var_name="Categoria", value_name="Valore")
+    st.session_state.data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"], var_name="Categoria", value_name="Valore")
 ])
 
 # Layout Streamlit
 if not data.empty:
-    st.write("### Storico Stipendi e Risparmi")
-    col_tabella, col_grafico = st.columns([1.2, 3.7])
+    col_tabella, col_grafico = st.columns([2, 3.7])
 
     # Tabella
     data_display = data.copy()
@@ -962,17 +1243,17 @@ if not data.empty:
         with col_left:
             st.write(f"**Somma Stipendio:** <span style='color:#77DD77;'>{statistiche['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
             st.write(f"**Media Stipendio:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media senza 13°/14°:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media_senza_picchi']:,.2f} €</span>", unsafe_allow_html=True)
+            st.write(f"**Media no 13°/PDR:** <span style='color:#FFA07A;'>{data['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
         with col_right:
             st.write(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{statistiche['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
             st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{statistiche['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
     # Grafico
-    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi"]
-    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4"]
+    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
+    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
 
     grafico_principale = crea_grafico(data_completa, ["Stipendio", "Risparmi"], dominio_categorie, scala_colori)
-    grafico_medie = crea_grafico(data_completa, ["Media Stipendio", "Media Risparmi"], dominio_categorie, scala_colori, line_style="dashed")
+    grafico_medie = crea_grafico(data_completa, ["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"], dominio_categorie, scala_colori, line_style="dashed")
 
     with col_grafico:
         st.altair_chart((grafico_principale + grafico_medie).properties(height=500, width='container'), use_container_width=True)
