@@ -772,7 +772,11 @@ def load_data(file_path):
         if not data:
             return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
         df = pd.DataFrame(data)
-        df["Mese"] = pd.to_datetime(df["Mese"], format="%Y-%m", errors="coerce")
+        
+        # Controlla che la colonna "Mese" esista e convertila in datetime
+        if "Mese" in df.columns:
+            df["Mese"] = pd.to_datetime(df["Mese"], format="%Y-%m", errors="coerce")
+        
         return df
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
