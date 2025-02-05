@@ -1,10 +1,10 @@
 # python -m streamlit run C:\Users\longh\Desktop\temp.py
 
 import altair as alt
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import json
 import os
-import io
 from datetime import datetime
 
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
@@ -759,293 +759,76 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
-# # Funzione per caricare i dati
-# uploaded_file_path = None  # Variabile per salvare il percorso del file caricato
-# uploaded_file_buffer = None  # Buffer temporaneo per i file caricati
-
-# def load_data(uploaded_file):
-#     global uploaded_file_path, uploaded_file_buffer
-#     if uploaded_file is not None:
-#         try:
-#             uploaded_file_path = uploaded_file.name  # Memorizza il nome originale
-#             uploaded_file_buffer = uploaded_file.getvalue()  # Legge il contenuto del file in memoria
-#             data = pd.read_csv(io.StringIO(uploaded_file_buffer.decode('utf-8')), parse_dates=["Mese"])
-#         except Exception as e:
-#             st.error(f"Errore nel caricamento del file: {e}")
-#             data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-#     else:
-#         data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-#     return data
-
-# # Funzione per salvare i dati
-# def save_data(data):
-#     global uploaded_file_path
-#     if uploaded_file_path:
-#         try:
-#             # Sovrascrive il file originale se possibile
-#             with open(uploaded_file_path, "w", encoding="utf-8") as f:
-#                 data.to_csv(f, index=False, date_format='%Y-%m')
-#             st.success(f"Dati salvati in: {uploaded_file_path}")
-#         except Exception as e:
-#             st.error(f"Errore nel salvataggio del file: {e}")
-#     else:
-#         st.error("Percorso del file non trovato. Carica un file valido.")
-
-# # Inizializza st.session_state.data se non esiste
-# if "data" not in st.session_state:
-#     st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-
-# # Controllo e inizializzazione dei dati in session_state
-# if "data" not in st.session_state:
-#     try:
-#         if uploaded_file_buffer:
-#             st.session_state.data = pd.read_csv(io.StringIO(uploaded_file_buffer.decode('utf-8')), parse_dates=["Mese"])
-#         else:
-#             st.warning("Il file storico non è stato trovato.")
-#             if st.button("Creare un nuovo file CSV"):
-#                 # Creazione del nuovo file CSV vuoto con le colonne predefinite
-#                 st.session_state.data = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-#                 save_data(st.session_state.data)
-#                 st.success("Nuovo file CSV creato!")
-#                 st.experimental_rerun()  # Ricarica la pagina per riflettere i cambiamenti
-#     except FileNotFoundError:
-#         st.warning("Il file storico non è stato trovato.")
-
-# # Caricamento dati
-# data = st.session_state.data
-
-# # Verifica se la colonna 'Mese' esiste ed è di tipo datetime
-# if "Mese" in data.columns and pd.api.types.is_datetime64_any_dtype(data["Mese"]) == False:
-#     data["Mese"] = pd.to_datetime(data["Mese"], errors='coerce')
-
-# # Titolo dell'app
-# st.title("Storico Stipendi e Risparmi Mensili")
-
-# # Layout a tre colonne principali
-# col_sinistra, col_centrale, col_destra = st.columns([1, 0.7, 1])
-
-# with col_sinistra:
-#     st.write("### Inserisci Stipendio e Risparmi")
-#     mese_stipendio_risparmi = st.selectbox(
-#         "Mese",
-#         options=pd.date_range("2024-03-01", "2025-12-31", freq="MS").strftime("%B %Y"),
-#         key="stipendio_risparmi_select"
-#     )
-#     stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input")
-#     risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input")
-
-#     # Colonne per posizionare i due bottoni affiancati
-#     col1, col2 = st.columns([2, 1])  # La colonna sinistra più larga per "Aggiungi"
-
-#     with col1:
-#         if st.button("Aggiungi/Modifica Stipendio e Risparmi", key="aggiungi_modifica_stipendio_risparmi"):
-#             mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
-#             if stipendio > 0 or risparmi > 0:
-#                 if not data.loc[data["Mese"] == mese_datetime].empty:
-#                     # Se il mese esiste già, aggiorna
-#                     data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
-#                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-#                     st.success(f"Record per {mese_stipendio_risparmi} aggiornato!")
-#                 else:
-#                     # Se il mese non esiste, aggiungi una nuova riga
-#                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
-#                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-#                     st.success(f"Stipendio e Risparmi per {mese_stipendio_risparmi} aggiunti!")
-#                 data = data.sort_values(by="Mese").reset_index(drop=True)
-#                 st.session_state.data = data
-#                 save_data(data)  # Salva le modifiche al file
-#                 st.experimental_rerun()  # Forza il ridisegno
-#             else:
-#                 st.error("Inserisci valori validi per stipendio e/o risparmi!")
-
-#     with col2:
-#         # Pulsante per eliminare il record
-#         if st.button(f"Elimina Record per {mese_stipendio_risparmi}", key="elimina_record", help="Elimina il record per il mese selezionato"):
-#             mese_datetime = pd.Timestamp(datetime.strptime(mese_stipendio_risparmi, '%B %Y'))
-#             if not data.loc[data["Mese"] == mese_datetime].empty:
-#                 data = data[data["Mese"] != mese_datetime]
-#                 st.session_state.data = data
-#                 save_data(data)  # Salva le modifiche al file
-#                 st.success(f"Record per {mese_stipendio_risparmi} eliminato!")
-#                 st.experimental_rerun()  # Forza il ridisegno
-#             else:
-#                 st.error(f"Il mese {mese_stipendio_risparmi} non è presente nello storico!")
-
-#     # Stile per i bottoni
-#     st.markdown(
-#         """
-#         <style>
-#         .stButton > button {
-#             background-color: #E0FFFF;  /* Azzurro pastello per 'Aggiungi/Modifica' */
-#             color: black;
-#             font-weight: bold;
-#         }
-
-#         .stButton > button:hover {
-#             background-color: #8FA9C8;
-#             color: #006633;
-#             font-weight: bold;
-#         }
-
-#         .stButton:nth-child(2) > button {
-#             background-color: #FF6347;  /* Rosso Tomate per 'Elimina' */
-#             color: white;
-#             font-weight: bold;
-#         }
-
-#         .stButton:nth-child(2) > button:hover {
-#             background-color: #FF4500;
-#         }
-#         </style>
-#         """,
-#         unsafe_allow_html=True
-#     )
-
-# with col_centrale:
-#     # Spazio vuoto personalizzabile
-#     st.markdown(
-#         '<div style="height: 57px;"></div>',  # Imposta l'altezza desiderata in pixel
-#         unsafe_allow_html=True,
-#     )
-#     # Bottone per caricare il file CSV
-#     uploaded_file = st.file_uploader("Carica il file CSV", type="csv", key="file_uploader")
-
-#     if uploaded_file is not None:
-#         uploaded_file_path = uploaded_file.name  # Memorizza il nome del file caricato
-#         nuovo_data = load_data(uploaded_file)
-#         st.session_state.data = pd.concat([st.session_state.data, nuovo_data]).drop_duplicates(subset=["Mese"]).reset_index(drop=True)
-#         data = st.session_state.data
-#     else:
-#         data = st.session_state.data
-
-#     # Funzione per creare un file CSV da scaricare
-#     def create_download_link(data):
-#         # Converte il DataFrame in un oggetto byte per il download
-#         csv = data.to_csv(index=False, date_format='%Y-%m')
-#         buffer = io.StringIO(csv)
-
-#         # Campo per specificare il nome del file
-#         file_name = st.text_input(
-#             "Inserisci il nome del file da scaricare (senza estensione) e premi INVIO:", 
-#             value="storico_stipendi"
-#         )
-#         if file_name.strip() == "":
-#             file_name = "storico_stipendi"  # Nome predefinito in caso di input vuoto
-        
-#         # Crea un link per il download del CSV
-#         st.download_button(
-#             label="Scarica il file CSV",
-#             data=buffer.getvalue(),
-#             file_name=f"{file_name}.csv",  # Aggiunge l'estensione al nome del file
-#             mime="text/csv"
-#         )
-
-#     # Poi chiamare questa funzione per generare il link di download
-#     create_download_link(data)
-
-# # Aggiunta del pulsante esplicito per il salvataggio delle modifiche
-# with col_destra:
-#     if st.button("Salva modifiche al file caricato", key="salva_modifiche"):
-#         save_data(data)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# Funzione per caricare i dati da un file CSV
-
+# Funzione per caricare i dati da un file JSON
 def load_data(file_path):
-    if os.path.exists(file_path):
-        try:
-            data = pd.read_csv(file_path, parse_dates=["Mese"])
-            return data
-        except Exception as e:
-            st.error(f"Errore nel caricamento del file: {e}")
+    if not os.path.exists(file_path):
+        save_data(pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"]), file_path)
+    try:
+        with open(file_path, "r") as file:
+            data = json.load(file)
+        if not data:
             return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-    else:
-        st.warning("Il file selezionato non esiste.")
-        return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-
-# Funzione per salvare i dati nel file CSV
-
-def save_data(data, file_path):
-    try:
-        data.to_csv(file_path, index=False, date_format='%Y-%m')
-        st.success(f"Dati salvati in: {file_path}")
-    except Exception as e:
-        st.error(f"Errore nel salvataggio del file: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def load_data(file_path):
-    try:
-        return pd.read_csv(file_path, parse_dates=["Mese"])
+        df = pd.DataFrame(data)
+        df["Mese"] = pd.to_datetime(df["Mese"], format="%Y-%m", errors="coerce")
+        return df
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
         return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
-
+# Funzione per salvare i dati nel file JSON
 def save_data(data, file_path):
     try:
-        data.to_csv(file_path, index=False, date_format='%Y-%m')
+        data["Mese"] = data["Mese"].dt.strftime("%Y-%m")
+        data_dict = data.to_dict(orient="records")
+        with open(file_path, "w") as file:
+            json.dump(data_dict, file, indent=4)
         st.success(f"Dati salvati in: {file_path}")
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
-
 # Titolo dell'app
 st.title("Storico Stipendi e Risparmi")
 
-col_1, col_vuota, col_2 = st.columns([3, 1, 6])
+col_1, col_empty, col_2 = st.columns([3, 1, 6])
 with col_2:
-    st.write("### Path")
-    file_path = st.text_input("Inserisci il percorso del file CSV da caricare:", 
-                              "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.csv")
-
+    st.write("### Inserisci Path")
+    file_path = st.text_input("Inserisci il percorso del file JSON da caricare:", 
+                              "/Users/emanuelelongheu/Library/CloudStorage/GoogleDrive-longheu.emanuele@gmail.com/Il mio Drive/Documents/Spese e guadagni/storico_stipendi.json")
+    
 with col_1:
     if file_path:
         data = load_data(file_path)
         st.session_state.data = data
         
         st.write("### Inserisci Stipendio e Risparmi")
-        mesi_anni = pd.date_range(start="2024-03-01", end="2035-12-31", freq="MS").strftime("%B %Y")
+        mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
         selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni)
         
-        mese_datetime = pd.Timestamp(datetime.strptime(selected_mese_anno, "%B %Y"))
+        mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
         
-        # Precompilazione dei campi se il mese è già presente
-        existing_record = data.loc[data["Mese"] == mese_datetime]
+        # Controllo che la colonna "Mese" esista prima di cercare i dati
+        if "Mese" in data.columns:
+            existing_record = data.loc[data["Mese"] == mese_datetime]
+        else:
+            existing_record = pd.DataFrame()
+        
         stipendio_value = existing_record["Stipendio"].values[0] if not existing_record.empty else 0.0
         risparmi_value = existing_record["Risparmi"].values[0] if not existing_record.empty else 0.0
         
         col_sx, col_dx = st.columns(2)
+        with col_dx:
+            risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
+            if st.button(f"Elimina Record per {selected_mese_anno}"):
+                if not existing_record.empty:
+                    data = data[data["Mese"] != mese_datetime]
+                    save_data(data, file_path)
+                    st.success(f"Record per {selected_mese_anno} eliminato!")
+                    st.experimental_rerun()
+                else:
+                    st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
         with col_sx:
             stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
             if st.button("Aggiungi/Modifica Stipendio e Risparmi"):
@@ -1063,108 +846,6 @@ with col_1:
                     st.experimental_rerun()
                 else:
                     st.error("Inserisci valori validi per stipendio e/o risparmi!")
-
-        with col_dx:
-            risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
-            if st.button(f"Elimina Record per {selected_mese_anno}"):
-                if not existing_record.empty:
-                    data = data[data["Mese"] != mese_datetime]
-                    save_data(data, file_path)
-                    st.success(f"Record per {selected_mese_anno} eliminato!")
-                    st.experimental_rerun()
-                else:
-                    st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-
-        
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
