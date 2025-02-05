@@ -781,7 +781,7 @@ def load_data(file_path):
         else:
             st.error("La colonna 'Mese' non è presente nei dati!")
 
-        # st.write("Dati caricati:", df.head())  # Debug
+        st.write("Dati caricati:", df.head())  # Debug
 
         return df
     except Exception as e:
@@ -815,8 +815,8 @@ with col_2:
 with col_1:
     if file_path:
         data = load_data(file_path)
-        # st.write("Tipo della colonna 'Mese':", data.dtypes)
-        # st.write("Esempio valori:", data.head())
+        st.write("Tipo della colonna 'Mese':", data.dtypes)
+        st.write("Esempio valori:", data.head())
         st.session_state.data = data
         
         st.write("### Inserisci Stipendio e Risparmi")
