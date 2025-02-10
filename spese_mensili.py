@@ -769,36 +769,22 @@ def load_data(file_path):
     try:
         with open(file_path, "r") as file:
             data = json.load(file)
-        
         if not data:
             return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-        
         df = pd.DataFrame(data)
-
-        # Controlliamo che "Mese" esista e sia convertibile in datetime
-        if "Mese" in df.columns:
-            df["Mese"] = pd.to_datetime(df["Mese"], format="%Y-%m", errors="coerce")
-        else:
-            st.error("La colonna 'Mese' non è presente nei dati!")
-
-        st.write("Dati caricati:", df.head())  # Debug
-
+        df["Mese"] = pd.to_datetime(df["Mese"], format="%Y-%m", errors="coerce")
         return df
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
         return pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
-
 # Funzione per salvare i dati nel file JSON
 def save_data(data, file_path):
     try:
-        if "Mese" in data.columns:
-            data["Mese"] = data["Mese"].astype(str)  # Assicura che sia una stringa
-        
+        data["Mese"] = data["Mese"].dt.strftime("%Y-%m")
         data_dict = data.to_dict(orient="records")
         with open(file_path, "w") as file:
             json.dump(data_dict, file, indent=4)
-        
         st.success(f"Dati salvati in: {file_path}")
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -815,8 +801,6 @@ with col_2:
 with col_1:
     if file_path:
         data = load_data(file_path)
-        st.write("Tipo della colonna 'Mese':", data.dtypes)
-        st.write("Esempio valori:", data.head())
         st.session_state.data = data
         
         st.write("### Inserisci Stipendio e Risparmi")
