@@ -856,12 +856,23 @@ def select_or_create_file():
     return selected_file['id'], selected_file['name']
 
 # Funzione per caricare dati JSON da Drive
+import io
+from googleapiclient.http import MediaIoBaseDownload
+
 def load_data(file_id, drive_service):
     try:
-        st.write("Checkpoint: Prima di request.execute() - stipendio")
+        st.write("Checkpoint: Preparazione download file da Drive")
         request = drive_service.files().get_media(fileId=file_id)
-        file_content = request.execute()
-        st.write("Checkpoint: Dopo request.execute() - stipendio")
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        st.write("Checkpoint: Inizio download file...")
+        while not done:
+            status, done = downloader.next_chunk()
+            st.write(f"Download progress: {int(status.progress() * 100)}%")
+        st.write("Checkpoint: Download completato")
+        fh.seek(0)
+        file_content = fh.read()
         data = json.loads(file_content)
         data = pd.DataFrame(data)
 
@@ -871,6 +882,7 @@ def load_data(file_id, drive_service):
         # Ordinamento dei dati
         data = data.sort_values(by="Mese").reset_index(drop=True)
 
+        st.write("Checkpoint: Dati elaborati")
         return data
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
@@ -1153,19 +1165,14 @@ def select_or_create_file():
 
 def load_data(file_id, drive_service):
     try:
-        st.write("Checkpoint: Prima di request.execute() - bollette")
         request = drive_service.files().get_media(fileId=file_id)
         file_content = request.execute()
-        st.write("Checkpoint: Dopo request.execute() - bollette")
         data = json.loads(file_content)
         data = pd.DataFrame(data)
-
-        # Assicurati che la colonna 'Mese' sia in formato datetime
+        
+        # Converti la colonna 'Mese' in datetime
         data['Mese'] = pd.to_datetime(data['Mese'], errors='coerce')
-
-        # Ordinamento dei dati
         data = data.sort_values(by="Mese").reset_index(drop=True)
-
         return data
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
