@@ -858,8 +858,10 @@ def select_or_create_file():
 # Funzione per caricare dati JSON da Drive
 def load_data(file_id, drive_service):
     try:
+        st.write("Checkpoint: Prima di request.execute() - stipendio")
         request = drive_service.files().get_media(fileId=file_id)
         file_content = request.execute()
+        st.write("Checkpoint: Dopo request.execute() - stipendio")
         data = json.loads(file_content)
         data = pd.DataFrame(data)
 
@@ -913,9 +915,7 @@ with col_2:
     file_id, file_name = select_or_create_file()
     if file_id:
         drive_service = authenticate_drive()
-        st.write("Checkpoint: Inizio caricamento dati da Drive - stipendi")
         data = load_data(file_id, drive_service)
-        st.write("Checkpoint: Dati caricati", data.head())
         # Verifica se il file ha le colonne attese:
         if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
             st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
@@ -1153,14 +1153,19 @@ def select_or_create_file():
 
 def load_data(file_id, drive_service):
     try:
+        st.write("Checkpoint: Prima di request.execute() - bollette")
         request = drive_service.files().get_media(fileId=file_id)
         file_content = request.execute()
+        st.write("Checkpoint: Dopo request.execute() - bollette")
         data = json.loads(file_content)
         data = pd.DataFrame(data)
-        
-        # Converti la colonna 'Mese' in datetime
+
+        # Assicurati che la colonna 'Mese' sia in formato datetime
         data['Mese'] = pd.to_datetime(data['Mese'], errors='coerce')
+
+        # Ordinamento dei dati
         data = data.sort_values(by="Mese").reset_index(drop=True)
+
         return data
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
@@ -1209,8 +1214,6 @@ file_id, file_name = select_or_create_file()
 if file_id:
     # Carica i dati e salvali nello stato della sessione
     drive_service = authenticate_drive()
-    drive_service = authenticate_drive()
-    st.write("Checkpoint: Inizio caricamento dati da Drive - bollette")
     data = load_data(file_id, drive_service)
     st.session_state.data = data
 
