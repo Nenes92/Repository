@@ -913,7 +913,13 @@ with col_2:
     file_id, file_name = select_or_create_file()
     if file_id:
         drive_service = authenticate_drive()
+        st.write("Checkpoint: Inizio caricamento dati da Drive - stipendi")
         data = load_data(file_id, drive_service)
+        st.write("Checkpoint: Dati caricati", data.head())
+        # Verifica se il file ha le colonne attese:
+        if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
+            st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
+            st.stop()
         st.session_state.data = data
 
 with col_1:
@@ -1203,6 +1209,8 @@ file_id, file_name = select_or_create_file()
 if file_id:
     # Carica i dati e salvali nello stato della sessione
     drive_service = authenticate_drive()
+    drive_service = authenticate_drive()
+    st.write("Checkpoint: Inizio caricamento dati da Drive - bollette")
     data = load_data(file_id, drive_service)
     st.session_state.data = data
 
