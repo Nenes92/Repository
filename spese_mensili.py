@@ -795,6 +795,7 @@ def authenticate_drive():
     SCOPES = ['https://www.googleapis.com/auth/drive']
     
     creds = None
+    # Prova a caricare il token se presente
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     
@@ -802,17 +803,25 @@ def authenticate_drive():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # Se non esiste il file locale, prova a caricare le credenziali da st.secrets
             credentials_path = '/Users/emanuelelongheu/Desktop/credentials.json'
             if not os.path.exists(credentials_path):
-                st.error("File delle credenziali non trovato.")
-                return None
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-                creds = flow.run_local_server(port=0)
+                # Se il file locale non esiste, controlla se le credenziali sono in st.secrets
+                if "google" in st.secrets and "credentials" in st.secrets["google"]:
+                    # Scrive temporaneamente le credenziali in un file
+                    credentials_json = st.secrets["google"]["credentials"]
+                    with open("credentials.json", "w") as f:
+                        f.write(credentials_json)
+                    credentials_path = "credentials.json"
+                else:
+                    st.error("File delle credenziali non trovato.")
+                    return None
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
         
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
-
+    
     service = build('drive', 'v3', credentials=creds)
     return service
 
@@ -1078,6 +1087,7 @@ def authenticate_drive():
     SCOPES = ['https://www.googleapis.com/auth/drive']
     
     creds = None
+    # Prova a caricare il token se presente
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     
@@ -1085,13 +1095,21 @@ def authenticate_drive():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # Se non esiste il file locale, prova a caricare le credenziali da st.secrets
             credentials_path = '/Users/emanuelelongheu/Desktop/credentials.json'
             if not os.path.exists(credentials_path):
-                st.error("File delle credenziali non trovato.")
-                return None
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-                creds = flow.run_local_server(port=0)
+                # Se il file locale non esiste, controlla se le credenziali sono in st.secrets
+                if "google" in st.secrets and "credentials" in st.secrets["google"]:
+                    # Scrive temporaneamente le credenziali in un file
+                    credentials_json = st.secrets["google"]["credentials"]
+                    with open("credentials.json", "w") as f:
+                        f.write(credentials_json)
+                    credentials_path = "credentials.json"
+                else:
+                    st.error("File delle credenziali non trovato.")
+                    return None
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
         
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
