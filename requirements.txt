@@ -1,4 +1,4 @@
-streamlit
+streamlit>=1.15.0
 pandas
 altair
 google-auth
