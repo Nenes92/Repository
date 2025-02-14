@@ -791,40 +791,36 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 # Funzione per autenticare l'accesso a Google Drive
+SCOPES = ['https://www.googleapis.com/auth/drive']
+
 def authenticate_drive():
-    SCOPES = ['https://www.googleapis.com/auth/drive']
+    st.write("Inizio autenticazione...")
     
-    creds = None
-    # Prova a caricare il token se presente
+    # Carica il token dai secrets
+    if "google" not in st.secrets or "token" not in st.secrets["google"]:
+        st.error("Token non presente nei secrets. Aggiorna il token in st.secrets.")
+        return None
 
-    # if os.path.exists('token.json'):
-    #     creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    
-    # if not creds or not creds.valid:
-    #     if creds and creds.expired and creds.refresh_token:
-    #         creds.refresh(Request())
-    #     else:
-    #         # Se non esiste il file locale, prova a caricare le credenziali da st.secrets
-    #         credentials_path = '/Users/emanuelelongheu/Desktop/credentials.json'
-    #         if not os.path.exists(credentials_path):
-    #             # Se il file locale non esiste, controlla se le credenziali sono in st.secrets
-    #             if "google" in st.secrets and "credentials" in st.secrets["google"]:
-    #                 # Scrive temporaneamente le credenziali in un file
-    #                 credentials_json = st.secrets["google"]["credentials"]
-    #                 with open("credentials.json", "w") as f:
-    #                     f.write(credentials_json)
-    #                 credentials_path = "credentials.json"
-    #             else:
-    #                 st.error("File delle credenziali non trovato.")
-    #                 return None
-    #         flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-    #         creds = flow.run_local_server(port=0, open_browser=False)
+    try:
+        token_info = json.loads(st.secrets["google"]["token"])
+        creds = Credentials.from_authorized_user_info(token_info, scopes=SCOPES)
+        st.write("Token caricato. Expiry:", creds.expiry)
+    except Exception as e:
+        st.error(f"Errore nel caricamento del token dai secrets: {e}")
+        return None
 
-        
-    #     with open('token.json', 'w') as token:
-    #         token.write(creds.to_json())
-    
-    service = build('drive', 'v3', credentials=creds)
+    # Se le credenziali non sono valide, mostra l'errore (su Cloud devi aggiornare manualmente il token)
+    if not creds or not creds.valid:
+        st.error("Le credenziali non sono valide. Aggiorna manualmente il token nei secrets.")
+        return None
+
+    try:
+        service = build('drive', 'v3', credentials=creds)
+        st.write("Service di Drive creato correttamente.")
+    except Exception as e:
+        st.error(f"Errore nella creazione del service: {e}")
+        return None
+
     return service
 
 # Funzione per ottenere la lista di file su Google Drive
