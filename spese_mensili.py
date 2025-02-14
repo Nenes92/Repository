@@ -928,57 +928,64 @@ with col_2:
     if file_id:
         drive_service = authenticate_drive()
         data = load_data(file_id, drive_service)
-        # Verifica se il file ha le colonne attese:
+        # Verifica se il file ha le colonne attese
         if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
             st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
             st.stop()
         st.session_state.data = data
 
+# Controlla che i dati siano presenti prima di procedere
+if "data" not in st.session_state or st.session_state.data.empty:
+    st.error("Nessun dato disponibile. Seleziona o crea un file su Google Drive e carica i dati.")
+    st.stop()
+
+# Assegna la variabile data in modo sicuro
+data = st.session_state.data
+
 with col_1:
-    if "data" in st.session_state:
-        data = st.session_state.data
-        st.write("### Inserisci Stipendio e Risparmi")
-        mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-        selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_selectbox")
-        
-        mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
-        
-        if "Mese" in data.columns:
-            existing_record = data.loc[data["Mese"] == mese_datetime]
+    data = st.session_state.data
+    st.write("### Inserisci Stipendio e Risparmi")
+    mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+    selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_selectbox")
+    
+    mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
+    
+    if "Mese" in data.columns:
+        existing_record = data.loc[data["Mese"] == mese_datetime]
+    else:
+        existing_record = pd.DataFrame()
+    
+    stipendio_value = existing_record["Stipendio"].values[0] if not existing_record.empty else 0.0
+    risparmi_value = existing_record["Risparmi"].values[0] if not existing_record.empty else 0.0
+    
+    col_sx, col_dx = st.columns(2)
+    with col_dx:
+        risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
+    if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina_{selected_mese_anno}"):
+        if not existing_record.empty:
+            data = data[data["Mese"] != mese_datetime]
+            save_data(data, file_id, drive_service)
+            st.success(f"Record per {selected_mese_anno} eliminato!")
+            st.experimental_rerun()
         else:
-            existing_record = pd.DataFrame()
-        
-        stipendio_value = existing_record["Stipendio"].values[0] if not existing_record.empty else 0.0
-        risparmi_value = existing_record["Risparmi"].values[0] if not existing_record.empty else 0.0
-        
-        col_sx, col_dx = st.columns(2)
-        with col_dx:
-            risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
-        if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina_{selected_mese_anno}"):
-            if not existing_record.empty:
-                data = data[data["Mese"] != mese_datetime]
+            st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
+    with col_sx:
+        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
+        if st.button("Aggiungi/Modifica Stipendio e Risparmi"):
+            if stipendio > 0 or risparmi > 0:
+                if not existing_record.empty:
+                    data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
+                    data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
+                    st.success(f"Record per {selected_mese_anno} aggiornato!")
+                else:
+                    new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
+                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                    st.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
+                data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, drive_service)
-                st.success(f"Record per {selected_mese_anno} eliminato!")
                 st.experimental_rerun()
             else:
-                st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-        with col_sx:
-            stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
-            if st.button("Aggiungi/Modifica Stipendio e Risparmi"):
-                if stipendio > 0 or risparmi > 0:
-                    if not existing_record.empty:
-                        data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
-                        data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                        st.success(f"Record per {selected_mese_anno} aggiornato!")
-                    else:
-                        new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
-                        data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                        st.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
-                    data = data.sort_values(by="Mese").reset_index(drop=True)
-                    save_data(data, file_id, drive_service)
-                    st.experimental_rerun()
-                else:
-                    st.error("Inserisci valori validi per stipendio e/o risparmi!")
+                st.error("Inserisci valori validi per stipendio e/o risparmi!")
 
 st.markdown("---")
 
