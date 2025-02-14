@@ -959,7 +959,7 @@ with col_1:
             data = data[data["Mese"] != mese_datetime]
             save_data(data, file_id, drive_service)
             st.success(f"Record per {selected_mese_anno} eliminato!")
-            st.experimental_rerun()
+            # st.experimental_rerun()
         else:
             st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
     with col_sx:
@@ -976,7 +976,7 @@ with col_1:
                     st.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, drive_service)
-                st.experimental_rerun()
+                # st.experimental_rerun()
             else:
                 st.error("Inserisci valori validi per stipendio e/o risparmi!")
 
@@ -1249,7 +1249,7 @@ if file_id:
                 data = data[data["Mese"] != mese_datetime]
                 save_data(data, file_id, authenticate_drive())
                 st.success(f"Record per {selected_mese_anno} eliminato!")
-                st.experimental_rerun()
+                # st.experimental_rerun()
             else:
                 st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
                 
@@ -1273,7 +1273,7 @@ if file_id:
                     st.success(f"Bollette per {selected_mese_anno} aggiunte!")
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, authenticate_drive())
-                st.experimental_rerun()
+                # st.experimental_rerun()
             else:
                 st.error("Inserisci valori validi per le bollette!")
     
