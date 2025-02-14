@@ -802,7 +802,6 @@ def authenticate_drive():
     try:
         token_info = json.loads(st.secrets["google"]["token"])
         creds = Credentials.from_authorized_user_info(token_info, scopes=SCOPES)
-        st.write("Token caricato. Expiry:", creds.expiry)
     except Exception as e:
         st.error(f"Errore nel caricamento del token dai secrets: {e}")
         return None
@@ -855,15 +854,12 @@ from googleapiclient.http import MediaIoBaseDownload
 
 def load_data(file_id, drive_service):
     try:
-        st.write("Checkpoint: Preparazione download file da Drive")
         request = drive_service.files().get_media(fileId=file_id)
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
         done = False
         while not done:
             status, done = downloader.next_chunk()
-            st.write(f"Download progress: {int(status.progress() * 100)}%")
-        st.write("Checkpoint: Download completato")
         fh.seek(0)
         file_content = fh.read()
         data = json.loads(file_content)
@@ -875,7 +871,6 @@ def load_data(file_id, drive_service):
         # Ordinamento dei dati
         data = data.sort_values(by="Mese").reset_index(drop=True)
 
-        st.write("Checkpoint: Dati elaborati")
         return data
     except Exception as e:
         st.error(f"Errore nel caricamento del file: {e}")
@@ -1118,7 +1113,6 @@ def authenticate_drive():
     try:
         token_info = json.loads(st.secrets["google"]["token"])
         creds = Credentials.from_authorized_user_info(token_info, scopes=SCOPES)
-        st.write("Token caricato. Expiry:", creds.expiry)
     except Exception as e:
         st.error(f"Errore nel caricamento del token dai secrets: {e}")
         return None
