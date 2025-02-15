@@ -1324,7 +1324,7 @@ if file_id:
         ).encode(
             x="Mese:T",
             y="Valore:Q",
-            color=alt.condition("datum.Valore < 0", alt.value("red"), alt.value("green")),
+            color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
             tooltip=["Mese:T", "Valore:Q"]
         ) + alt.Chart(data.query("Categoria == 'Saldo'")).mark_point(
             shape="diamond",
@@ -1333,7 +1333,7 @@ if file_id:
         ).encode(
             x="Mese:T",
             y="Valore:Q",
-            color=alt.condition("datum.Valore < 0", alt.value("red"), alt.value("green")),
+            color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
             tooltip=["Mese:T", "Valore:Q"]
         )
         return barre + linea_saldo
