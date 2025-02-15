@@ -1320,9 +1320,7 @@ if file_id:
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
         
-        # Subset dei dati del saldo negativi
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
-        # Subset dei dati del saldo positivi o zero
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
         # Linea rossa per i saldi negativi
@@ -1332,8 +1330,7 @@ if file_id:
             color="#FF6961"
         ).encode(
             x="Mese:T",
-            y="Valore:Q",
-            tooltip=["Mese:T", "Valore:Q"]
+            y="Valore:Q"
         )
         
         # Punti rossi per i saldi negativi
@@ -1355,8 +1352,7 @@ if file_id:
             color="#77DD77"
         ).encode(
             x="Mese:T",
-            y="Valore:Q",
-            tooltip=["Mese:T", "Valore:Q"]
+            y="Valore:Q"
         )
         
         # Punti verdi per i saldi positivi
