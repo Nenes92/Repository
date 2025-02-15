@@ -1218,64 +1218,66 @@ if file_id:
     data = load_data(file_id, drive_service)
     st.session_state.data = data
 
-    # --- INTERFACCIA DI MODIFICA/INSERIMENTO ---
-    st.write("### Inserisci Bollette")
-    # Crea l'elenco dei mesi/anni (in formato 'Mese Anno')
-    mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-    selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_bollette")
-    
-    mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
-    
-    # Se la colonna "Mese" esiste, cerca un record esistente
-    if "Mese" in data.columns:
-        existing_record = data.loc[data["Mese"] == mese_datetime]
-    else:
-        existing_record = pd.DataFrame()
-    
-    elettricita_value = existing_record["Elettricità"].values[0] if not existing_record.empty else 0.0
-    gas_value = existing_record["Gas"].values[0] if not existing_record.empty else 0.0
-    acqua_value = existing_record["Acqua"].values[0] if not existing_record.empty else 0.0
-    internet_value = existing_record["Internet"].values[0] if not existing_record.empty else 0.0
-    tari_value = existing_record["Tari"].values[0] if not existing_record.empty else 0.0
-    
-    col_sx, col_dx = st.columns(2)
-    with col_dx:
-        acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
-        tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, key="tari_input", value=tari_value)
-        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, key="internet_input", value=internet_value)
+    col1sx, col2dx = st.columns(2)
+    with col1sx:
+        # --- INTERFACCIA DI MODIFICA/INSERIMENTO ---
+        st.write("### Inserisci Bollette")
+        # Crea l'elenco dei mesi/anni (in formato 'Mese Anno')
+        mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+        selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_bollette")
         
-        if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
-            if not existing_record.empty:
-                data = data[data["Mese"] != mese_datetime]
-                save_data(data, file_id, authenticate_drive())
-                st.success(f"Record per {selected_mese_anno} eliminato!")
-                # st.experimental_rerun()
-            else:
-                st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-                
-    with col_sx:
-        elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, key="elettricita_input", value=elettricita_value)
-        gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, key="gas_input", value=gas_value)
+        mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
         
-        if st.button("Aggiungi/Modifica Bollette", key="modifica_bollette"):
-            if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+        # Se la colonna "Mese" esiste, cerca un record esistente
+        if "Mese" in data.columns:
+            existing_record = data.loc[data["Mese"] == mese_datetime]
+        else:
+            existing_record = pd.DataFrame()
+        
+        elettricita_value = existing_record["Elettricità"].values[0] if not existing_record.empty else 0.0
+        gas_value = existing_record["Gas"].values[0] if not existing_record.empty else 0.0
+        acqua_value = existing_record["Acqua"].values[0] if not existing_record.empty else 0.0
+        internet_value = existing_record["Internet"].values[0] if not existing_record.empty else 0.0
+        tari_value = existing_record["Tari"].values[0] if not existing_record.empty else 0.0
+        
+        col_sx, col_dx = st.columns(2)
+        with col_dx:
+            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
+            tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, key="tari_input", value=tari_value)
+            internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, key="internet_input", value=internet_value)
+            
+            if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
                 if not existing_record.empty:
-                    data.loc[data["Mese"] == mese_datetime, "Elettricità"] = elettricita
-                    data.loc[data["Mese"] == mese_datetime, "Gas"] = gas
-                    data.loc[data["Mese"] == mese_datetime, "Acqua"] = acqua
-                    data.loc[data["Mese"] == mese_datetime, "Internet"] = internet
-                    data.loc[data["Mese"] == mese_datetime, "Tari"] = tari
-                    st.success(f"Record per {selected_mese_anno} aggiornato!")
+                    data = data[data["Mese"] != mese_datetime]
+                    save_data(data, file_id, authenticate_drive())
+                    st.success(f"Record per {selected_mese_anno} eliminato!")
+                    # st.experimental_rerun()
                 else:
-                    new_row = {"Mese": mese_datetime, "Elettricità": elettricita, "Gas": gas,
-                               "Acqua": acqua, "Internet": internet, "Tari": tari}
-                    data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    st.success(f"Bollette per {selected_mese_anno} aggiunte!")
-                data = data.sort_values(by="Mese").reset_index(drop=True)
-                save_data(data, file_id, authenticate_drive())
-                # st.experimental_rerun()
-            else:
-                st.error("Inserisci valori validi per le bollette!")
+                    st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
+                    
+        with col_sx:
+            elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, key="elettricita_input", value=elettricita_value)
+            gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, key="gas_input", value=gas_value)
+            
+            if st.button("Aggiungi/Modifica Bollette", key="modifica_bollette"):
+                if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+                    if not existing_record.empty:
+                        data.loc[data["Mese"] == mese_datetime, "Elettricità"] = elettricita
+                        data.loc[data["Mese"] == mese_datetime, "Gas"] = gas
+                        data.loc[data["Mese"] == mese_datetime, "Acqua"] = acqua
+                        data.loc[data["Mese"] == mese_datetime, "Internet"] = internet
+                        data.loc[data["Mese"] == mese_datetime, "Tari"] = tari
+                        st.success(f"Record per {selected_mese_anno} aggiornato!")
+                    else:
+                        new_row = {"Mese": mese_datetime, "Elettricità": elettricita, "Gas": gas,
+                                "Acqua": acqua, "Internet": internet, "Tari": tari}
+                        data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                        st.success(f"Bollette per {selected_mese_anno} aggiunte!")
+                    data = data.sort_values(by="Mese").reset_index(drop=True)
+                    save_data(data, file_id, authenticate_drive())
+                    # st.experimental_rerun()
+                else:
+                    st.error("Inserisci valori validi per le bollette!")
     
     # --- CALCOLO SALDO (con incremento mensile) ---
     def calcola_saldo(data, decisione_budget_bollette_mensili):
