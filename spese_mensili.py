@@ -1179,7 +1179,6 @@ def save_data(data, file_id, drive_service):
         # Se esiste la colonna 'Mese', convertila in stringa (es. "2024-03-01")
         if 'Mese' in data_copy.columns:
             data_copy['Mese'] = data_copy['Mese'].dt.strftime('%Y-%m-%d')
-            st.write("Tipo di 'Mese' dopo conversione:", data_copy['Mese'].dtype)
         
         data_dict = data_copy.to_dict(orient="records")
         json_content = json.dumps(data_dict, indent=4, default=str)
