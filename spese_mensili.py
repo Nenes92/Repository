@@ -1279,7 +1279,7 @@ if file_id:
     
     # --- CALCOLO SALDO (con incremento mensile) ---
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = -0  # Saldo iniziale (puoi modificare questo valore)
+        saldo_iniziale = -50  # Saldo iniziale (puoi modificare questo valore)
         saldi = []
         required_columns = ['Elettricità', 'Gas', 'Acqua', 'Internet', 'Tari']
         for col in required_columns:
