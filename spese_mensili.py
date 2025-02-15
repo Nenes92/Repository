@@ -1306,7 +1306,6 @@ if file_id:
 
     # Funzione per creare i grafici: barre per le bollette e linea per il saldo
     def crea_grafico(data, categorie, dominio, colori):
-        # Escludi "Saldo" dalla parte a barre
         categorie_bar = [c for c in categorie if c != "Saldo"]
         barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(opacity=0.8, size=70).encode(
             x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
@@ -1318,24 +1317,30 @@ if file_id:
             ),
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
-        linea_saldo = alt.Chart(data.query("Categoria == 'Saldo'")).mark_line(
+        
+        # Prepara i dati per il saldo e calcola il colore
+        data_saldo = data.query("Categoria == 'Saldo'").copy()
+        data_saldo['line_color'] = data_saldo['Valore'].apply(lambda x: "#FF6961" if x < 0 else "#77DD77")
+        
+        linea_saldo = alt.Chart(data_saldo).mark_line(
             strokeDash=[5, 5],
-            strokeWidth=3
+            strokeWidth=2
         ).encode(
             x="Mese:T",
             y="Valore:Q",
-            color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
+            color=alt.Color("line_color:N", scale=None),
             tooltip=["Mese:T", "Valore:Q"]
-        ) + alt.Chart(data.query("Categoria == 'Saldo'")).mark_point(
+        ) + alt.Chart(data_saldo).mark_point(
             shape="diamond",
             size=80,
             filled=True
         ).encode(
             x="Mese:T",
             y="Valore:Q",
-            color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
+            color=alt.Color("line_color:N", scale=None),
             tooltip=["Mese:T", "Valore:Q"]
         )
+        
         return barre + linea_saldo
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
