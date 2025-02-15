@@ -1319,20 +1319,21 @@ if file_id:
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
         linea_saldo = alt.Chart(data.query("Categoria == 'Saldo'")).mark_line(
-            color="#FF6961",
             strokeDash=[5, 5],
             strokeWidth=3
         ).encode(
             x="Mese:T",
             y="Valore:Q",
+            color=alt.condition("datum.Valore < 0", alt.value("red"), alt.value("green")),
             tooltip=["Mese:T", "Valore:Q"]
         ) + alt.Chart(data.query("Categoria == 'Saldo'")).mark_point(
             shape="diamond",
-            color="#FF6961",
-            size=80
+            size=80,
+            filled=True
         ).encode(
             x="Mese:T",
             y="Valore:Q",
+            color=alt.condition("datum.Valore < 0", alt.value("red"), alt.value("green")),
             tooltip=["Mese:T", "Valore:Q"]
         )
         return barre + linea_saldo
