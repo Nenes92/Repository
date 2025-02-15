@@ -1138,6 +1138,24 @@ def get_drive_files():
     results = drive_service.files().list(fields="files(id, name)").execute()
     return results.get('files', [])
 
+def select_or_create_file():
+    files = get_drive_files()
+    if not files:
+        st.error("Nessun file trovato su Google Drive.")
+        return None, None
+    
+    file_names = [file['name'] for file in files]
+    # Usa un key univoco per il selectbox
+    selected_file_name = st.selectbox("Seleziona un file da Google Drive:", file_names + ["Crea Nuovo File"], key="file_selectbox_unique2")
+    
+    if selected_file_name == "Crea Nuovo File":
+        file_metadata = {'name': 'data.json', 'mimeType': 'application/json'}
+        drive_service = authenticate_drive()
+        file = drive_service.files().create(body=file_metadata).execute()
+        return file['id'], file['name']
+    
+    selected_file = next(file for file in files if file['name'] == selected_file_name)
+    return selected_file['id'], selected_file['name']
 
 def load_data(file_id, drive_service):
     try:
@@ -1201,26 +1219,6 @@ if file_id:
     st.session_state.data = data
 
     col1sx, colempty, col2dx = st.columns([3, 1, 6])
-    with col2dx:
-        def select_or_create_file():
-            files = get_drive_files()
-            if not files:
-                st.error("Nessun file trovato su Google Drive.")
-                return None, None
-            
-            file_names = [file['name'] for file in files]
-            # Usa un key univoco per il selectbox
-            selected_file_name = st.selectbox("Seleziona un file da Google Drive:", file_names + ["Crea Nuovo File"], key="file_selectbox_unique2")
-            
-            if selected_file_name == "Crea Nuovo File":
-                file_metadata = {'name': 'data.json', 'mimeType': 'application/json'}
-                drive_service = authenticate_drive()
-                file = drive_service.files().create(body=file_metadata).execute()
-                return file['id'], file['name']
-            
-            selected_file = next(file for file in files if file['name'] == selected_file_name)
-            return selected_file['id'], selected_file['name']
-
     with col1sx:
         # --- INTERFACCIA DI MODIFICA/INSERIMENTO ---
         st.write("### Inserisci Bollette")
