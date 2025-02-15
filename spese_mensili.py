@@ -1307,7 +1307,9 @@ if file_id:
     # Funzione per creare i grafici: barre per le bollette e linea per il saldo
     def crea_grafico(data, categorie, dominio, colori):
         categorie_bar = [c for c in categorie if c != "Saldo"]
-        barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(opacity=0.8, size=70).encode(
+        barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(
+            opacity=0.8, size=70
+        ).encode(
             x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
@@ -1318,28 +1320,58 @@ if file_id:
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
         
-        # Prepara i dati per il saldo e calcola il colore
-        data_saldo = data.query("Categoria == 'Saldo'").copy()
-        data_saldo['line_color'] = data_saldo['Valore'].apply(lambda x: "#FF6961" if x < 0 else "#77DD77")
+        # Subset dei dati del saldo negativi
+        saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
+        # Subset dei dati del saldo positivi o zero
+        saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
-        linea_saldo = alt.Chart(data_saldo).mark_line(
+        # Linea rossa per i saldi negativi
+        linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
             strokeDash=[5, 5],
-            strokeWidth=2
+            strokeWidth=2,
+            color="#FF6961"
         ).encode(
             x="Mese:T",
             y="Valore:Q",
-            color=alt.Color("line_color:N", scale=None),
-            tooltip=["Mese:T", "Valore:Q"]
-        ) + alt.Chart(data_saldo).mark_point(
-            shape="diamond",
-            size=80,
-            filled=True
-        ).encode(
-            x="Mese:T",
-            y="Valore:Q",
-            color=alt.Color("line_color:N", scale=None),
             tooltip=["Mese:T", "Valore:Q"]
         )
+        
+        # Punti rossi per i saldi negativi
+        punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
+            shape="diamond",
+            size=80,
+            filled=True,
+            color="#FF6961"
+        ).encode(
+            x="Mese:T",
+            y="Valore:Q",
+            tooltip=["Mese:T", "Valore:Q"]
+        )
+        
+        # Linea verde per i saldi positivi
+        linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
+            strokeDash=[5, 5],
+            strokeWidth=2,
+            color="#77DD77"
+        ).encode(
+            x="Mese:T",
+            y="Valore:Q",
+            tooltip=["Mese:T", "Valore:Q"]
+        )
+        
+        # Punti verdi per i saldi positivi
+        punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
+            shape="diamond",
+            size=80,
+            filled=True,
+            color="#77DD77"
+        ).encode(
+            x="Mese:T",
+            y="Valore:Q",
+            tooltip=["Mese:T", "Valore:Q"]
+        )
+        
+        linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
         
         return barre + linea_saldo
 
