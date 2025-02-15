@@ -880,7 +880,7 @@ def load_data(file_id, drive_service):
 def save_data(data, file_id, drive_service):
     try:
         data_dict = data.to_dict(orient="records")
-        json_content = json.dumps(data_dict, indent=4)
+        json_content = json.dumps(data_dict, indent=4, default=str)
         
         temp_file = "temp_data.json"
         with open(temp_file, "w") as file:
@@ -1182,7 +1182,7 @@ def save_data(data, file_id, drive_service):
             st.write("Tipo di 'Mese' dopo conversione:", data_copy['Mese'].dtype)
         
         data_dict = data_copy.to_dict(orient="records")
-        json_content = json.dumps(data_dict, indent=4)
+        json_content = json.dumps(data_dict, indent=4, default=str)
         
         temp_file = "temp_data.json"
         with open(temp_file, "w") as file:
