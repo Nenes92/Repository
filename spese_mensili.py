@@ -376,26 +376,26 @@ def main():
             tooltip=['Categoria', 'Tipo', 'Totale']
         )
 
-# Creiamo un layer di etichette centrate all’interno di ogni segmento
-labels = base.transform_filter(
-    'datum.Totale > 0'  # opzionale: mostra etichette solo se > 0
-).transform_calculate(
-    # calcolo del punto medio in verticale
-    mid="(datum.lower + datum.upper) / 2"
-).mark_text(
-    align='center',
-    baseline='middle',
-    color='white',
-    # dy=-1  # se vuoi aggiustare verticalmente le etichette
-).encode(
-    x=alt.X('Categoria:N', sort=ordine_categorie),
-    y=alt.Y('mid:Q'),
-    text=alt.Text('Totale:Q', format='.2f')
-)
+        # Creiamo un layer di etichette centrate all’interno di ogni segmento
+        labels = base.transform_filter(
+            'datum.Totale > 0'  # opzionale: mostra etichette solo se > 0
+        ).transform_calculate(
+            # calcolo del punto medio in verticale
+            mid="(datum.lower + datum.upper) / 2"
+        ).mark_text(
+            align='center',
+            baseline='middle',
+            color='white',
+            # dy=-1  # se vuoi aggiustare verticalmente le etichette
+        ).encode(
+            x=alt.X('Categoria:N', sort=ordine_categorie),
+            y=alt.Y('mid:Q'),
+            text=alt.Text('Totale:Q', format='.2f')
+        )
 
-chart_barre = (bars + labels).properties(
-    title='Confronto Totali per Categoria'
-)
+        chart_barre = (bars + labels).properties(
+            title='Confronto Totali per Categoria'
+        )
 
 
 
