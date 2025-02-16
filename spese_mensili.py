@@ -1297,55 +1297,58 @@ if file_id:
 
     # Funzione per creare il grafico combinato (barre per bollette e linea per il saldo)
     def crea_grafico(data, categorie, dominio, colori, sort_order):
-        categorie_bar = [c for c in categorie if c != "Saldo"]
-        barre = alt.Chart(data.query("Categoria in @categorie_bar")).mark_bar(
-            opacity=0.8
-        ).encode(
+        # Filtra solo le categorie di bollette (escludendo "Saldo")
+        df_bollette = data.query("Categoria in @categorie and Categoria != 'Saldo'")
+
+        # 1) Trasformazione stack per le sole bollette
+        base_stack = alt.Chart(df_bollette).transform_stack(
+            stack='Valore',
+            groupby=['Mese_str'],          # impila i valori di ogni mese
+            sort=[{'field': 'Categoria'}], # ordina le categorie se necessario
+            as_=['lower', 'upper']
+        )
+
+        # 2) Barre impilate
+        barre = base_stack.mark_bar(opacity=0.8).encode(
             x=alt.X("Mese_str:N",
                     sort=sort_order,
                     title="Mese",
-                    axis=alt.Axis(labelAngle=-45)
-            ),
-            y=alt.Y("Valore:Q", title="Valore (€)"),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(domain=dominio, range=colori),
-                legend=alt.Legend(title="Categorie")
-            ),
+                    axis=alt.Axis(labelAngle=-45)),
+            y=alt.Y("lower:Q", title="Valore (€)"),
+            y2="upper:Q",
+            color=alt.Color("Categoria:N",
+                            scale=alt.Scale(domain=dominio, range=colori),
+                            legend=alt.Legend(title="Categorie")),
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
 
-        # Crea le etichette per ogni segmento, calcolando il punto medio (mid)
-        labels = alt.Chart(data.query("Categoria in @categorie_bar")).transform_stack(
-            stack="Valore",
-            as_=["lower", "upper"],
-            groupby=["Mese_str"]  # Stack per ogni mese (tutte le categorie insieme)
+        # 3) Etichette centrate in ogni segmento
+        labels = base_stack.transform_filter(
+            "datum.Valore > 0"  # opzionale: escludi segmenti a zero
         ).transform_calculate(
             mid="(datum.lower + datum.upper) / 2"
-        ).transform_filter(
-            "datum.Valore > 0"  # Mostra etichette solo per segmenti con valore > 0
         ).mark_text(
             color="white",
             align="center",
-            baseline="middle"
+            baseline="middle",
+            # size=12,  # se vuoi regolare la dimensione del testo
         ).encode(
             x=alt.X("Mese_str:N", sort=sort_order),
             y=alt.Y("mid:Q"),
             text=alt.Text("Valore:Q", format=".2f")
         )
-            
-        barre_with_labels = barre + labels
 
+        # 4) Linee e punti per il saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
-        
+
         linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
             color="#FF6961"
         ).encode(
             x=alt.X("Mese_str:N", sort=sort_order),
-            y="Valore:Q"
+            y=alt.Y("Valore:Q")
         )
         punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
             shape="diamond",
@@ -1357,6 +1360,7 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
+
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1375,8 +1379,11 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
+
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
-        return barre_with_labels + linea_saldo
+
+        # Combina barre, etichette e saldo
+        return (barre + labels + linea_saldo)
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
