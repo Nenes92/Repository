@@ -1212,14 +1212,15 @@ st.title("Storico Bollette")
 # Seleziona o crea il file su Google Drive
 file_id, file_name = select_or_create_file()
 
-if file_id:
-    # Carica i dati e salvali nello stato della sessione
-    drive_service = authenticate_drive()
-    data = load_data(file_id, drive_service)
-    st.session_state.data = data
+col1sx, colempty, col2dx = st.columns([3, 1, 6])
+with col1sx:
 
-    col1sx, colempty, col2dx = st.columns([3, 1, 6])
-    with col1sx:
+    if file_id:
+        # Carica i dati e salvali nello stato della sessione
+        drive_service = authenticate_drive()
+        data = load_data(file_id, drive_service)
+        st.session_state.data = data
+
         # --- INTERFACCIA DI MODIFICA/INSERIMENTO ---
         st.write("### Inserisci Bollette")
         # Crea l'elenco dei mesi/anni (in formato 'Mese Anno')
