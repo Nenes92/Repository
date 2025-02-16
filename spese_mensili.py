@@ -1312,9 +1312,13 @@ if file_id:
     def crea_grafico(data, categorie, dominio, colori):
         categorie_bar = [c for c in categorie if c != "Saldo"]
         barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(
-            opacity=0.8, size=30
+            opacity=0.8  # Rimuovi size se lo hai fissato
         ).encode(
-            x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
+            # Imposta rangeStep a None per far sì che le barre si adattino allo spazio disponibile
+            x=alt.X("Mese:T", 
+                    title="Mese", 
+                    axis=alt.Axis(tickCount="month"), 
+                    scale=alt.Scale(rangeStep=None)),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
                 "Categoria:N",
@@ -1324,10 +1328,10 @@ if file_id:
             tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
         )
         
+        # Restituisci anche le linee del saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
-        # Linea rossa per i saldi negativi
         linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1337,7 +1341,6 @@ if file_id:
             y="Valore:Q"
         )
         
-        # Punti rossi per i saldi negativi
         punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
             shape="diamond",
             size=80,
@@ -1349,7 +1352,6 @@ if file_id:
             tooltip=["Mese:T", "Valore:Q"]
         )
         
-        # Linea verde per i saldi positivi
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1359,7 +1361,6 @@ if file_id:
             y="Valore:Q"
         )
         
-        # Punti verdi per i saldi positivi
         punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
             shape="diamond",
             size=80,
@@ -1414,8 +1415,8 @@ if file_id:
         grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori)
         
         with col_grafico:
-            st.altair_chart(grafico_principale.properties(height=500, width='container'), use_container_width=True)
-            
+            st.altair_chart(grafico_principale.properties(height=500), use_container_width=True)
+   
         # Salva i dati aggiornati su Google Drive
         save_data(data, file_id, authenticate_drive())
 
