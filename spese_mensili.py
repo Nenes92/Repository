@@ -345,7 +345,7 @@ def main():
         base = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').transform_stack(
             stack='Totale',
             groupby=['Categoria'],      # impila i valori per ogni "Categoria"
-            sort=[{'field': 'Tipo'}],   # ordina le tipologie se necessario
+            sort=[{'field': 'Tipo', 'order': 'descending'}],   # ordina le tipologie se necessario
             as_=['lower', 'upper']      # i campi generati dallo stack
         )
 
@@ -385,7 +385,7 @@ def main():
         ).mark_text(
             align='center',
             baseline='middle',
-            color='white',
+            color='black',
             # dy=-1  # se vuoi aggiustare verticalmente le etichette
         ).encode(
             x=alt.X('Categoria:N', sort=ordine_categorie),
