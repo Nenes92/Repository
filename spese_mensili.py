@@ -1312,7 +1312,7 @@ if file_id:
     def crea_grafico(data, categorie, dominio, colori):
         categorie_bar = [c for c in categorie if c != "Saldo"]
         barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(
-            opacity=0.8, size=70
+            opacity=0.8, size=30
         ).encode(
             x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
             y=alt.Y("Valore:Q", title="Valore (€)"),
@@ -1413,15 +1413,8 @@ if file_id:
         scala_colori = ["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B", "#FF6961"]
         grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori)
         
-        # Calcola la larghezza dinamica in base al numero di mesi presenti
-        base_width = 800            # Larghezza minima del grafico
-        increment_per_month = 70    # Incremento in pixel per ogni mese aggiuntivo
-        num_months = len(data['Mese'].unique())
-        dynamic_width = base_width + increment_per_month * num_months
-
-        # Visualizza il grafico con larghezza dinamica
         with col_grafico:
-            st.altair_chart(grafico_principale.properties(height=500, width=dynamic_width), use_container_width=False)
+            st.altair_chart(grafico_principale.properties(height=500, width='container'), use_container_width=True)
             
         # Salva i dati aggiornati su Google Drive
         save_data(data, file_id, authenticate_drive())
