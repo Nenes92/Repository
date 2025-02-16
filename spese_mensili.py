@@ -341,34 +341,61 @@ def main():
         limite_superiore = valore_massimo + margine
 
         # --- Creazione del grafico impilato ---
-        chart_barre = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').mark_bar().encode(
-            x=alt.X('Categoria:N', sort=ordine_categorie, title="Categoria", axis=alt.Axis(labelAngle=0)),
-            y=alt.Y('Totale:Q', 
-                    stack="zero", 
-                    title="Totale", 
-                    scale=alt.Scale(domain=[0, limite_superiore])  # Aggiunge il margine del 30% al massimo valore
-                ),
-            color=alt.Color('Tipo:N', 
-                            scale=alt.Scale(domain=["Stipendio Originale", "Altre Entrate", "Stipendio Scelto", 
-                                                    "Spese Fisse", "Spese Variabili", "Risparmi"], 
-                                            range=[color_map["Stipendio Originale"], 
-                                                color_map["Altre Entrate"], 
-                                                color_map["Stipendio Utilizzato"], 
-                                                color_map["Spese Fisse"], 
-                                                color_map["Spese Variabili"], 
-                                                color_map["Risparmi"]]),
+        # Esempio di creazione del grafico impilato con etichette centrate
+        base = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').transform_stack(
+            stack='Totale',
+            groupby=['Categoria'],      # impila i valori per ogni "Categoria"
+            sort=[{'field': 'Tipo'}],   # ordina le tipologie se necessario
+            as_=['lower', 'upper']      # i campi generati dallo stack
+        )
+
+        bars = base.mark_bar().encode(
+            x=alt.X('Categoria:N',
+                    sort=ordine_categorie,
+                    title="Categoria",
+                    axis=alt.Axis(labelAngle=0)),
+            # Usa i campi generati da transform_stack:
+            y=alt.Y('lower:Q',
+                    title="Totale",
+                    scale=alt.Scale(domain=[0, limite_superiore])),
+            y2='upper:Q',
+            color=alt.Color('Tipo:N',
+                            scale=alt.Scale(domain=[
+                                "Stipendio Originale", "Altre Entrate", "Stipendio Scelto", 
+                                "Spese Fisse", "Spese Variabili", "Risparmi"
+                            ],
+                            range=[
+                                color_map["Stipendio Originale"], 
+                                color_map["Altre Entrate"], 
+                                color_map["Stipendio Utilizzato"], 
+                                color_map["Spese Fisse"], 
+                                color_map["Spese Variabili"], 
+                                color_map["Risparmi"]
+                            ]),
                             legend=alt.Legend(title="Componenti")),
             tooltip=['Categoria', 'Tipo', 'Totale']
-        ) + alt.Chart(df_totali_impilati).mark_text(
-            align='center',
-            baseline='middle',
-            color= 'white',
-            dy=-6  # Sposta il testo sopra la barra
-        ).encode(
-            x=alt.X('Categoria:N', sort=ordine_categorie),
-            y=alt.Y('Totale:Q', stack="zero"),
-            text=alt.Text('Totale:Q', format='.2f')
         )
+
+# Creiamo un layer di etichette centrate all’interno di ogni segmento
+labels = base.transform_filter(
+    'datum.Totale > 0'  # opzionale: mostra etichette solo se > 0
+).transform_calculate(
+    # calcolo del punto medio in verticale
+    mid="(datum.lower + datum.upper) / 2"
+).mark_text(
+    align='center',
+    baseline='middle',
+    color='white',
+    # dy=-1  # se vuoi aggiustare verticalmente le etichette
+).encode(
+    x=alt.X('Categoria:N', sort=ordine_categorie),
+    y=alt.Y('mid:Q'),
+    text=alt.Text('Totale:Q', format='.2f')
+)
+
+chart_barre = (bars + labels).properties(
+    title='Confronto Totali per Categoria'
+)
 
 
 
