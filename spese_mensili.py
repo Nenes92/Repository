@@ -1209,11 +1209,12 @@ def save_data(data, file_id, drive_service):
 
 st.title("Storico Bollette")
 
-# Seleziona o crea il file su Google Drive
-file_id, file_name = select_or_create_file()
-
 col1sx, colempty, col2dx = st.columns([3, 1, 6])
 with col1sx:
+
+    # Seleziona o crea il file su Google Drive
+    file_id, file_name = select_or_create_file()
+
 
     if file_id:
         # Carica i dati e salvali nello stato della sessione
