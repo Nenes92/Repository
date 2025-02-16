@@ -1414,8 +1414,8 @@ if file_id:
         grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori)
         
         # Calcola la larghezza dinamica in base al numero di mesi presenti
-        base_width = 600            # Larghezza minima del grafico
-        increment_per_month = 50    # Incremento in pixel per ogni mese aggiuntivo
+        base_width = 800            # Larghezza minima del grafico
+        increment_per_month = 70    # Incremento in pixel per ogni mese aggiuntivo
         num_months = len(data['Mese'].unique())
         dynamic_width = base_width + increment_per_month * num_months
 
