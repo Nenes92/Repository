@@ -1322,6 +1322,8 @@ if file_id:
             groupby=["Mese_str", "Categoria"]
         ).transform_calculate(
             mid="(datum.lower + datum.upper) / 2"
+        ).transform_filter(
+            "datum.Valore > 0"  # Filtra i segmenti con valore maggiore di zero
         ).mark_text(
             color="white",
             align="center",
