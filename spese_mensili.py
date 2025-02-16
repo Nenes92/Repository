@@ -1311,24 +1311,23 @@ if file_id:
     # Funzione per creare i grafici: barre per le bollette e linea per il saldo
     def crea_grafico(data, categorie, dominio, colori):
         categorie_bar = [c for c in categorie if c != "Saldo"]
-        barre = alt.Chart(data.query(f"Categoria in {categorie_bar}")).mark_bar(
-            opacity=0.8  # Rimuovi size se lo hai fissato
+        barre = alt.Chart(data.query("Categoria in @categorie_bar")).mark_bar(
+            opacity=0.8, size=30
         ).encode(
-            # Imposta rangeStep a None per far sì che le barre si adattino allo spazio disponibile
-            x=alt.X("Mese:T", 
-                    title="Mese", 
-                    axis=alt.Axis(tickCount="month"), 
-                    scale=alt.Scale(rangeStep=None)),
+            x=alt.X("Mese_str:N",  # Usa la colonna stringa per l'asse X
+                    title="Mese",
+                    axis=alt.Axis(labelAngle=-45),
+                    scale=alt.Scale(rangeStep=50)  # Imposta il rangeStep desiderato
+            ),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
                 "Categoria:N",
                 scale=alt.Scale(domain=dominio, range=colori),
                 legend=alt.Legend(title="Categorie")
             ),
-            tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+            tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
         
-        # Restituisci anche le linee del saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
@@ -1337,7 +1336,7 @@ if file_id:
             strokeWidth=2,
             color="#FF6961"
         ).encode(
-            x="Mese:T",
+            x="Mese_str:N",
             y="Valore:Q"
         )
         
@@ -1347,9 +1346,9 @@ if file_id:
             filled=True,
             color="#FF6961"
         ).encode(
-            x="Mese:T",
+            x="Mese_str:N",
             y="Valore:Q",
-            tooltip=["Mese:T", "Valore:Q"]
+            tooltip=["Mese_str:N", "Valore:Q"]
         )
         
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
@@ -1357,7 +1356,7 @@ if file_id:
             strokeWidth=2,
             color="#77DD77"
         ).encode(
-            x="Mese:T",
+            x="Mese_str:N",
             y="Valore:Q"
         )
         
@@ -1367,9 +1366,9 @@ if file_id:
             filled=True,
             color="#77DD77"
         ).encode(
-            x="Mese:T",
+            x="Mese_str:N",
             y="Valore:Q",
-            tooltip=["Mese:T", "Valore:Q"]
+            tooltip=["Mese_str:N", "Valore:Q"]
         )
         
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
@@ -1388,7 +1387,10 @@ if file_id:
     
     # Unisci i due DataFrame per avere un unico dataset per il grafico
     data_completa = pd.concat([data_melted, data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
-                                                           var_name="Categoria", value_name="Valore")])
+                                                        var_name="Categoria", value_name="Valore")])
+
+    # Crea una colonna con la rappresentazione testuale del mese (es. 'Mar 2024')
+    data_completa["Mese_str"] = data_completa["Mese"].dt.strftime('%b %Y')
     
     # Layout della visualizzazione: tabella e grafico
     if not data.empty:
