@@ -1312,12 +1312,12 @@ if file_id:
     def crea_grafico(data, categorie, dominio, colori):
         categorie_bar = [c for c in categorie if c != "Saldo"]
         barre = alt.Chart(data.query("Categoria in @categorie_bar")).mark_bar(
-            opacity=0.8, size=30
+            opacity=0.8,  # puoi lasciare size se vuoi una dimensione fissa, ma non impostare rangeStep sulla scala
         ).encode(
-            x=alt.X("Mese_str:N",  # Usa la colonna stringa per l'asse X
+            x=alt.X("Mese_str:N",  # utilizza la colonna testuale per l'asse X
                     title="Mese",
-                    axis=alt.Axis(labelAngle=-45),
-                    scale=alt.Scale(rangeStep=50)  # Imposta il rangeStep desiderato
+                    axis=alt.Axis(labelAngle=-45)
+                    # rimuovi scale=alt.Scale(rangeStep=50)
             ),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
@@ -1328,6 +1328,7 @@ if file_id:
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
         
+        # Definizione delle linee e dei punti per il saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
@@ -1386,9 +1387,11 @@ if file_id:
     data_saldo["Categoria"] = "Saldo"
     
     # Unisci i due DataFrame per avere un unico dataset per il grafico
-    data_completa = pd.concat([data_melted, data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
-                                                        var_name="Categoria", value_name="Valore")])
-
+    data_completa = pd.concat([
+        data_melted,
+        data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
+                        var_name="Categoria", value_name="Valore")
+    ])
     # Crea una colonna con la rappresentazione testuale del mese (es. 'Mar 2024')
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime('%b %Y')
     
