@@ -1297,30 +1297,24 @@ if file_id:
 
     # Funzione per creare il grafico combinato (barre per bollette e linea per il saldo)
     def crea_grafico(data, categorie, dominio, colori, sort_order):
-        # Seleziona solo le categorie delle bollette (escludendo "Saldo")
         categorie_bar = [c for c in categorie if c != "Saldo"]
-        
-        # Crea il grafico a barre con una trasformazione di stack per ottenere "lower" e "upper"
-        barre = alt.Chart(data.query("Categoria in @categorie_bar")).transform_stack(
-            stack="Valore",
-            as_=["lower", "upper"],
-            groupby=["Mese_str", "Categoria"]
-        ).mark_bar(
+        barre = alt.Chart(data.query("Categoria in @categorie_bar")).mark_bar(
             opacity=0.8
         ).encode(
-            x=alt.X("Mese_str:N", 
+            x=alt.X("Mese_str:N",
                     sort=sort_order,
                     title="Mese",
                     axis=alt.Axis(labelAngle=-45)
             ),
-            y=alt.Y("lower:Q", title="Valore (€)"),
-            y2="upper:Q",
-            color=alt.Color("Categoria:N",
-                            scale=alt.Scale(domain=dominio, range=colori),
-                            legend=alt.Legend(title="Categorie")),
+            y=alt.Y("Valore:Q", title="Valore (€)"),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(domain=dominio, range=colori),
+                legend=alt.Legend(title="Categorie")
+            ),
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
-        
+
         # Crea le etichette per ogni segmento, calcolando il punto medio (mid)
         labels = alt.Chart(data.query("Categoria in @categorie_bar")).transform_stack(
             stack="Valore",
@@ -1340,7 +1334,6 @@ if file_id:
         
         barre_with_labels = barre + labels
 
-        # Definizione dei layer per il saldo (linee e punti)
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
@@ -1381,26 +1374,27 @@ if file_id:
             tooltip=["Mese_str:N", "Valore:Q"]
         )
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
-
         return barre_with_labels + linea_saldo
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
-    # Prepara i dati per il grafico:
+    # Prepara i dati per il grafico: 
     # - "data_melted" per le categorie delle bollette
     data_melted = data.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
                             var_name="Categoria", value_name="Valore")
-    # - "data_saldo" per il saldo, impostando la colonna "Categoria" a "Saldo"
+    # - "data_saldo" per il saldo
     data_saldo = data[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
-
-    # Unisci i due DataFrame per ottenere un unico dataset per il grafico
-    data_completa = pd.concat([data_melted, data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
-                                                            var_name="Categoria", value_name="Valore")])
-    # Crea una colonna testuale per l'asse X (es. "Mar 2024")
+    
+    # Unisci i due DataFrame
+    data_completa = pd.concat([
+        data_melted,
+        data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
+                        var_name="Categoria", value_name="Valore")
+    ])
+    # Crea la colonna testuale per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime('%b %Y')
-
-    # Calcola l'ordine temporale in base alla colonna "Mese"
+    # Calcola l'ordine in base alla colonna "Mese"
     order = data_completa.sort_values("Mese")["Mese_str"].unique().tolist()
     
     if not data.empty:
