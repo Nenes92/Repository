@@ -1355,7 +1355,7 @@ if file_id:
         ).transform_calculate(
             mid="(datum.lower + datum.upper) / 2"
         ).mark_text(
-            color="white",
+            color="black",
             align="center",
             baseline="middle",
             # size=12,  # se vuoi regolare la dimensione del testo
