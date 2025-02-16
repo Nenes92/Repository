@@ -1212,30 +1212,23 @@ col1sx, colempty, col2dx = st.columns([3, 1, 6])
 
 with col2dx:
     st.write("### Seleziona o Crea File")
-    # Seleziona o crea il file su Google Drive
     file_id, file_name = select_or_create_file()
 
 if file_id:
-    # Carica i dati e salvali nello stato della sessione
     drive_service = authenticate_drive()
     data = load_data(file_id, drive_service)
     st.session_state.data = data
 
     with col1sx:
-        # --- INTERFACCIA DI MODIFICA/INSERIMENTO ---
         st.write("### Inserisci Bollette")
-        # Crea l'elenco dei mesi/anni (in formato 'Mese Anno')
+        # Crea l'elenco dei mesi/anni (es. "Marzo 2024")
         mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
         selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_bollette")
-        
         mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
-        
-        # Se la colonna "Mese" esiste, cerca un record esistente
         if "Mese" in data.columns:
             existing_record = data.loc[data["Mese"] == mese_datetime]
         else:
             existing_record = pd.DataFrame()
-        
         elettricita_value = existing_record["Elettricità"].values[0] if not existing_record.empty else 0.0
         gas_value = existing_record["Gas"].values[0] if not existing_record.empty else 0.0
         acqua_value = existing_record["Acqua"].values[0] if not existing_record.empty else 0.0
@@ -1247,20 +1240,16 @@ if file_id:
             acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, key="tari_input", value=tari_value)
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, key="internet_input", value=internet_value)
-            
             if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
                 if not existing_record.empty:
                     data = data[data["Mese"] != mese_datetime]
                     save_data(data, file_id, authenticate_drive())
                     st.success(f"Record per {selected_mese_anno} eliminato!")
-                    # st.experimental_rerun()
                 else:
                     st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-                    
         with col_sx:
             elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, key="elettricita_input", value=elettricita_value)
             gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, key="gas_input", value=gas_value)
-            
             if st.button("Aggiungi/Modifica Bollette", key="modifica_bollette"):
                 if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
                     if not existing_record.empty:
@@ -1272,52 +1261,50 @@ if file_id:
                         st.success(f"Record per {selected_mese_anno} aggiornato!")
                     else:
                         new_row = {"Mese": mese_datetime, "Elettricità": elettricita, "Gas": gas,
-                                "Acqua": acqua, "Internet": internet, "Tari": tari}
+                                   "Acqua": acqua, "Internet": internet, "Tari": tari}
                         data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
                         st.success(f"Bollette per {selected_mese_anno} aggiunte!")
                     data = data.sort_values(by="Mese").reset_index(drop=True)
                     save_data(data, file_id, authenticate_drive())
-                    # st.experimental_rerun()
                 else:
                     st.error("Inserisci valori validi per le bollette!")
     
     # --- CALCOLO SALDO (con incremento mensile) ---
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = -50  # Saldo iniziale (puoi modificare questo valore)
+        saldo_iniziale = -50  # Saldo iniziale
         saldi = []
         required_columns = ['Elettricità', 'Gas', 'Acqua', 'Internet', 'Tari']
         for col in required_columns:
             if col not in data.columns:
                 data[col] = 0.0
         for _, row in data.iterrows():
-            mese_saldo = saldo_iniziale + decisione_budget_bollette_mensili - (row['Elettricità'] +
-                         row['Gas'] + row['Acqua'] + row['Internet'] + row['Tari'])
+            mese_saldo = saldo_iniziale + decisione_budget_bollette_mensili - (
+                row['Elettricità'] + row['Gas'] + row['Acqua'] + row['Internet'] + row['Tari']
+            )
             saldi.append(mese_saldo)
             saldo_iniziale = mese_saldo
         data['Saldo'] = saldi
         data["Saldo"] = pd.to_numeric(data["Saldo"], errors="coerce").fillna(0.0)
         return data
 
-    # Ricalcola il saldo con il budget mensile
     data = calcola_saldo(data, decisione_budget_bollette_mensili)
     st.session_state.data = data
 
-    # --- CALCOLO STATISTICHE E GRAFICI ---
     @st.cache_data
     def calcola_statistiche(data, colonne):
         stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
         return stats
 
-    # Funzione per creare i grafici: barre per le bollette e linea per il saldo
-    def crea_grafico(data, categorie, dominio, colori):
+    # Funzione per creare il grafico combinato (barre per bollette e linea per il saldo)
+    def crea_grafico(data, categorie, dominio, colori, sort_order):
         categorie_bar = [c for c in categorie if c != "Saldo"]
         barre = alt.Chart(data.query("Categoria in @categorie_bar")).mark_bar(
-            opacity=0.8,  # puoi lasciare size se vuoi una dimensione fissa, ma non impostare rangeStep sulla scala
+            opacity=0.8
         ).encode(
-            x=alt.X("Mese_str:N",  # utilizza la colonna testuale per l'asse X
+            x=alt.X("Mese_str:N",
+                    sort=sort_order,
                     title="Mese",
                     axis=alt.Axis(labelAngle=-45)
-                    # rimuovi scale=alt.Scale(rangeStep=50)
             ),
             y=alt.Y("Valore:Q", title="Valore (€)"),
             color=alt.Color(
@@ -1327,8 +1314,6 @@ if file_id:
             ),
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
-        
-        # Definizione delle linee e dei punti per il saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
         
@@ -1337,72 +1322,65 @@ if file_id:
             strokeWidth=2,
             color="#FF6961"
         ).encode(
-            x="Mese_str:N",
+            x=alt.X("Mese_str:N", sort=sort_order),
             y="Valore:Q"
         )
-        
         punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
             shape="diamond",
             size=80,
             filled=True,
             color="#FF6961"
         ).encode(
-            x="Mese_str:N",
+            x=alt.X("Mese_str:N", sort=sort_order),
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
-        
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
             color="#77DD77"
         ).encode(
-            x="Mese_str:N",
+            x=alt.X("Mese_str:N", sort=sort_order),
             y="Valore:Q"
         )
-        
         punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
             shape="diamond",
             size=80,
             filled=True,
             color="#77DD77"
         ).encode(
-            x="Mese_str:N",
+            x=alt.X("Mese_str:N", sort=sort_order),
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
-        
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
-        
         return barre + linea_saldo
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
-    # Prepara i dati per il grafico:
+    # Prepara i dati per il grafico: 
     # - "data_melted" per le categorie delle bollette
     data_melted = data.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
                             var_name="Categoria", value_name="Valore")
-    # - "data_saldo" per il saldo (con la colonna "Categoria" impostata a "Saldo")
+    # - "data_saldo" per il saldo
     data_saldo = data[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
     
-    # Unisci i due DataFrame per avere un unico dataset per il grafico
+    # Unisci i due DataFrame
     data_completa = pd.concat([
         data_melted,
         data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
                         var_name="Categoria", value_name="Valore")
     ])
-    # Crea una colonna con la rappresentazione testuale del mese (es. 'Mar 2024')
+    # Crea la colonna testuale per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime('%b %Y')
+    # Calcola l'ordine in base alla colonna "Mese"
+    order = data_completa.sort_values("Mese")["Mese_str"].unique().tolist()
     
-    # Layout della visualizzazione: tabella e grafico
     if not data.empty:
         col_tabella, col_grafico = st.columns([2, 3.7])
-        
-        # Tabella dei dati con la colonna "Mese" formattata
         data_display = data.copy()
         data_display["Mese"] = data_display["Mese"].dt.strftime('%B %Y')
-        
         with col_tabella:
             st.dataframe(data_display, use_container_width=True)
             col_left, col_right = st.columns(2)
@@ -1413,16 +1391,11 @@ if file_id:
                 st.write(f"**Somma Acqua:** <span style='color:#96DED1;'>{statistiche['Acqua']['somma']:,.2f} €</span>", unsafe_allow_html=True)
                 st.write(f"**Somma Tari:** <span style='color:#C19A6B;'>{statistiche['Tari']['somma']:,.2f} €</span>", unsafe_allow_html=True)
                 st.write(f"**Somma Internet:** <span style='color:#FFF5A1;'>{statistiche['Internet']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        
-        # Visualizza il grafico combinato (barre + linea per il saldo)
         dominio_categorie = ["Elettricità", "Gas", "Acqua", "Internet", "Tari", "Saldo"]
         scala_colori = ["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B", "#FF6961"]
-        grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori)
-        
+        grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori, order)
         with col_grafico:
             st.altair_chart(grafico_principale.properties(height=500), use_container_width=True)
-   
-        # Salva i dati aggiornati su Google Drive
         save_data(data, file_id, authenticate_drive())
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
