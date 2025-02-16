@@ -1413,9 +1413,16 @@ if file_id:
         scala_colori = ["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B", "#FF6961"]
         grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori)
         
+        # Calcola la larghezza dinamica in base al numero di mesi presenti
+        base_width = 600            # Larghezza minima del grafico
+        increment_per_month = 50    # Incremento in pixel per ogni mese aggiuntivo
+        num_months = len(data['Mese'].unique())
+        dynamic_width = base_width + increment_per_month * num_months
+
+        # Visualizza il grafico con larghezza dinamica
         with col_grafico:
-            st.altair_chart(grafico_principale.properties(height=500, width='container'), use_container_width=True)
-        
+            st.altair_chart(grafico_principale.properties(height=500, width=dynamic_width), use_container_width=False)
+            
         # Salva i dati aggiornati su Google Drive
         save_data(data, file_id, authenticate_drive())
 
