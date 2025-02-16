@@ -1316,24 +1316,24 @@ if file_id:
         )
 
         # Crea le etichette per ogni segmento, calcolando il punto medio (mid)
-    labels = alt.Chart(data.query("Categoria in @categorie_bar")).transform_stack(
-        stack="Valore",
-        as_=["lower", "upper"],
-        groupby=["Mese_str"]  # Stack per ogni mese (tutte le categorie insieme)
-    ).transform_calculate(
-        mid="(datum.lower + datum.upper) / 2"
-    ).transform_filter(
-        "datum.Valore > 0"  # Mostra etichette solo per segmenti con valore > 0
-    ).mark_text(
-        color="white",
-        align="center",
-        baseline="middle"
-    ).encode(
-        x=alt.X("Mese_str:N", sort=sort_order),
-        y=alt.Y("mid:Q"),
-        text=alt.Text("Valore:Q", format=".2f")
-    )
-        
+        labels = alt.Chart(data.query("Categoria in @categorie_bar")).transform_stack(
+            stack="Valore",
+            as_=["lower", "upper"],
+            groupby=["Mese_str"]  # Stack per ogni mese (tutte le categorie insieme)
+        ).transform_calculate(
+            mid="(datum.lower + datum.upper) / 2"
+        ).transform_filter(
+            "datum.Valore > 0"  # Mostra etichette solo per segmenti con valore > 0
+        ).mark_text(
+            color="white",
+            align="center",
+            baseline="middle"
+        ).encode(
+            x=alt.X("Mese_str:N", sort=sort_order),
+            y=alt.Y("mid:Q"),
+            text=alt.Text("Valore:Q", format=".2f")
+        )
+            
         barre_with_labels = barre + labels
 
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
