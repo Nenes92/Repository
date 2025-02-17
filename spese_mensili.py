@@ -1192,12 +1192,21 @@ def select_or_create_file():
         st.error("Nessun file trovato su Google Drive.")
         return None, None
     file_names = [file['name'] for file in files]
-    selected_file_name = st.selectbox("Seleziona un file da Google Drive:", file_names + ["Crea Nuovo File"], key="file_selectbox_unique2")
+    options = file_names + ["Crea Nuovo File"]
+    # Se esiste il file "storico_stipendi.json", impostalo come default
+    try:
+        default_index = options.index("storico_stipendi.json")
+    except ValueError:
+        default_index = 0
+
+    selected_file_name = st.selectbox("Seleziona un file da Google Drive:", options, index=default_index, key="file_selectbox_unique2")
+    
     if selected_file_name == "Crea Nuovo File":
         file_metadata = {'name': 'data.json', 'mimeType': 'application/json'}
         drive_service = authenticate_drive()
         file = drive_service.files().create(body=file_metadata).execute()
         return file['id'], file['name']
+    
     selected_file = next(file for file in files if file['name'] == selected_file_name)
     return selected_file['id'], selected_file['name']
 
