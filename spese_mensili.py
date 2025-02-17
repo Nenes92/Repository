@@ -992,15 +992,15 @@ with col_1:
     col_sx, col_dx = st.columns(2)
     with col_dx:
         risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
-    if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina_{selected_mese_anno}"):
-        if not existing_record.empty:
-            data = data[data["Mese"] != mese_datetime]
-            save_data(data, file_id, drive_service)
-            # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
-            placeholder = st.empty()
-            placeholder.success(f"Record per {selected_mese_anno} eliminato!")
-            time.sleep(4)
-            placeholder.empty()
+        if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina_{selected_mese_anno}"):
+            if not existing_record.empty:
+                data = data[data["Mese"] != mese_datetime]
+                save_data(data, file_id, drive_service)
+                # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                placeholder = st.empty()
+                placeholder.success(f"Record per {selected_mese_anno} eliminato!")
+                time.sleep(4)
+                placeholder.empty()
 
             # st.experimental_rerun()
         else:
@@ -1195,7 +1195,7 @@ def select_or_create_file():
     options = file_names + ["Crea Nuovo File"]
     # Se esiste il file "storico_stipendi.json", impostalo come default
     try:
-        default_index = options.index("storico_stipendi.json")
+        default_index = options.index("storico_bollette.json")
     except ValueError:
         default_index = 0
 
@@ -1337,6 +1337,8 @@ if file_id:
                     placeholder.error("Inserisci valori validi per le bollette!")
                     time.sleep(4)
                     placeholder.empty()
+
+    st.markdown("---")
 
     
     # --- CALCOLO SALDO (con incremento mensile) ---
