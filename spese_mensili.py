@@ -1490,6 +1490,7 @@ if file_id:
             with col_left:
                 st.write(f"**Somma Elettricità:** <span style='color:#84B6F4;'>{statistiche['Elettricità']['somma']:,.2f} €</span>", unsafe_allow_html=True)
                 st.write(f"**Somma Gas:** <span style='color:#FF6961;'>{statistiche['Gas']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+                st.markdown("---")
             with col_right:
                 st.write(f"**Somma Acqua:** <span style='color:#96DED1;'>{statistiche['Acqua']['somma']:,.2f} €</span>", unsafe_allow_html=True)
                 st.write(f"**Somma Tari:** <span style='color:#C19A6B;'>{statistiche['Tari']['somma']:,.2f} €</span>", unsafe_allow_html=True)
