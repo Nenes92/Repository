@@ -1371,20 +1371,25 @@ if file_id:
     def crea_grafico(data, categorie, dominio, colori, sort_order):
         # Filtra solo le categorie di bollette (escludendo "Saldo")
         df_bollette = data.query("Categoria in @categorie and Categoria != 'Saldo'")
-        # Trasformazione stack per le sole bollette
+        
+        # Aggiungi una colonna per l'ordinamento personalizzato
+        order_mapping = {
+            "Internet": 0,
+            "Elettricità": 1,
+            "Gas": 2,
+            "Acqua": 3,
+            "Tari": 4
+        }
+        df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
+        
+        # Trasformazione stack usando il campo 'stack_order' per ordinare i segmenti
         base_stack = alt.Chart(df_bollette).transform_stack(
             stack='Valore',
             groupby=['Mese_str'],          # impila i valori per ogni mese
-            # Ordine esplicito dal basso verso l'alto
-            sort=[
-                "Internet", 
-                "Elettricità", 
-                "Gas", 
-                "Acqua", 
-                "Tari"
-            ],
+            sort=[{'field': 'stack_order', 'order': 'ascending'}],  # usa l'ordine personalizzato
             as_=['lower', 'upper']
         )
+        
         # Barre impilate
         barre = base_stack.mark_bar(opacity=0.8).encode(
             x=alt.X("Mese_str:N",
@@ -1398,7 +1403,8 @@ if file_id:
                             legend=alt.Legend(title="Categorie")),
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
-        # Etichette centrate in ogni segmento
+        
+        # Etichette centrate per ogni segmento
         labels = base_stack.transform_filter(
             "datum.Valore > 0"
         ).transform_calculate(
@@ -1412,9 +1418,11 @@ if file_id:
             y=alt.Y("mid:Q"),
             text=alt.Text("Valore:Q", format=".2f")
         )
-        # Layer per il saldo
+        
+        # Layer per il saldo (linee e punti)
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
+        
         linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1433,6 +1441,7 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
+        
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1451,9 +1460,10 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
+        
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
-
-        return (barre + labels + linea_saldo)
+        
+        return barre + labels + linea_saldo
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
