@@ -1183,7 +1183,8 @@ def load_data(file_id, drive_service):
         data = data.sort_values(by="Mese").reset_index(drop=True)
         return data
     except Exception as e:
-        st.error(f"Errore nel caricamento del file: {e}")
+        # Qui puoi loggare l'errore se necessario (ad es. con logging.error(e))
+        st.info("Il file selezionato non è scaricabile. Usa un file JSON valido.")
         return pd.DataFrame()
 
 def save_data(data, file_id, drive_service):
