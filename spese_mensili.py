@@ -6,6 +6,8 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
+import time
+
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -918,7 +920,11 @@ def save_data(data, file_id, drive_service):
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
-        st.success("Dati salvati correttamente su Google Drive.")
+        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo 7 secondi
+        placeholder = st.empty()
+        placeholder.success("Dati salvati correttamente su Google Drive.")
+        time.sleep(7)
+        placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
@@ -1202,7 +1208,11 @@ def save_data(data, file_id, drive_service):
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
-        st.success("Dati salvati correttamente su Google Drive.")
+        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo 7 secondi
+        placeholder = st.empty()
+        placeholder.success("Dati salvati correttamente su Google Drive.")
+        time.sleep(7)
+        placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
