@@ -1375,7 +1375,14 @@ if file_id:
         base_stack = alt.Chart(df_bollette).transform_stack(
             stack='Valore',
             groupby=['Mese_str'],          # impila i valori per ogni mese
-            sort=[{'field': 'Categoria'}], # ordina le categorie se necessario
+            # Ordine esplicito dal basso verso l'alto
+            sort=[
+                "Internet", 
+                "Elettricità", 
+                "Gas", 
+                "Acqua", 
+                "Tari"
+            ],
             as_=['lower', 'upper']
         )
         # Barre impilate
