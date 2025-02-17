@@ -993,7 +993,12 @@ with col_1:
         if not existing_record.empty:
             data = data[data["Mese"] != mese_datetime]
             save_data(data, file_id, drive_service)
-            st.success(f"Record per {selected_mese_anno} eliminato!")
+            # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+            placeholder = st.empty()
+            placeholder.success(f"Record per {selected_mese_anno} eliminato!")
+            time.sleep(4)
+            placeholder.empty()
+
             # st.experimental_rerun()
         else:
             st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
@@ -1004,16 +1009,28 @@ with col_1:
                 if not existing_record.empty:
                     data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                    st.success(f"Record per {selected_mese_anno} aggiornato!")
+                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                    placeholder = st.empty()
+                    placeholder.success(f"Record per {selected_mese_anno} aggiornato!")
+                    time.sleep(4)
+                    placeholder.empty()
                 else:
                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    st.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
+                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                    placeholder = st.empty()
+                    placeholder.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
+                    time.sleep(4)
+                    placeholder.empty()
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, drive_service)
                 # st.experimental_rerun()
             else:
-                st.error("Inserisci valori validi per stipendio e/o risparmi!")
+                # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                placeholder = st.empty()
+                placeholder.error("Inserisci valori validi per stipendio e/o risparmi!")
+                time.sleep(4)
+                placeholder.empty()
 
 st.markdown("---")
 
@@ -1271,7 +1288,7 @@ if file_id:
                 else:
                      # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
-                    placeholder.success(f"Il mese {selected_mese_anno} non è presente nello storico!")
+                    placeholder.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
                     time.sleep(4)
                     placeholder.empty()
         with col_sx:
@@ -1285,16 +1302,30 @@ if file_id:
                         data.loc[data["Mese"] == mese_datetime, "Acqua"] = acqua
                         data.loc[data["Mese"] == mese_datetime, "Internet"] = internet
                         data.loc[data["Mese"] == mese_datetime, "Tari"] = tari
-                        st.success(f"Record per {selected_mese_anno} aggiornato!")
+                        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                        placeholder = st.empty()
+                        placeholder.success(f"Record per {selected_mese_anno} aggiornato!")
+                        time.sleep(4)
+                        placeholder.empty()
                     else:
                         new_row = {"Mese": mese_datetime, "Elettricità": elettricita, "Gas": gas,
                                    "Acqua": acqua, "Internet": internet, "Tari": tari}
                         data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                        st.success(f"Bollette per {selected_mese_anno} aggiunte!")
+                        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                        placeholder = st.empty()
+                        placeholder.success(f"Bollette per {selected_mese_anno} aggiunte!")
+                        time.sleep(4)
+                        placeholder.empty()
+
                     data = data.sort_values(by="Mese").reset_index(drop=True)
                     save_data(data, file_id, authenticate_drive())
                 else:
-                    st.error("Inserisci valori validi per le bollette!")
+                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                    placeholder = st.empty()
+                    placeholder.error("Inserisci valori validi per le bollette!")
+                    time.sleep(4)
+                    placeholder.empty()
+
     
     # --- CALCOLO SALDO (con incremento mensile) ---
     def calcola_saldo(data, decisione_budget_bollette_mensili):
