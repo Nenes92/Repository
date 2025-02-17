@@ -1336,6 +1336,7 @@ if file_id:
                     time.sleep(4)
                     placeholder.empty()
 
+    st.markdown("---")
 
     
     # --- CALCOLO SALDO (con incremento mensile) ---
