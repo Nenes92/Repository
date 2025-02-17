@@ -900,7 +900,9 @@ def load_data(file_id, drive_service):
 
         return data
     except Exception as e:
-        st.error(f"Errore nel caricamento del file: {e}")
+        # Puoi loggare l'errore in console se necessario, ad esempio:
+        # st.write(e)
+        st.info("Il file selezionato non è scaricabile. Usa un file JSON valido.")
         return pd.DataFrame()
 
 # Funzione per salvare dati su Google Drive
