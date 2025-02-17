@@ -1132,36 +1132,29 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def authenticate_drive():    
-    # Carica il token dai secrets
     if "google" not in st.secrets or "token" not in st.secrets["google"]:
         st.error("Token non presente nei secrets. Aggiorna il token in st.secrets.")
         return None
-
     try:
         token_info = json.loads(st.secrets["google"]["token"])
         creds = Credentials.from_authorized_user_info(token_info, scopes=SCOPES)
     except Exception as e:
         st.error(f"Errore nel caricamento del token dai secrets: {e}")
         return None
-
-    # Se le credenziali non sono valide, mostra l'errore (su Cloud devi aggiornare manualmente il token)
     if not creds or not creds.valid:
         st.error("Le credenziali non sono valide. Aggiorna manualmente il token nei secrets.")
         return None
-
     try:
         service = build('drive', 'v3', credentials=creds)
     except Exception as e:
         st.error(f"Errore nella creazione del service: {e}")
         return None
-
     return service
 
 def get_drive_files():
     drive_service = authenticate_drive()
     if not drive_service:
         return []
-    
     results = drive_service.files().list(fields="files(id, name)").execute()
     return results.get('files', [])
 
@@ -1170,17 +1163,13 @@ def select_or_create_file():
     if not files:
         st.error("Nessun file trovato su Google Drive.")
         return None, None
-    
     file_names = [file['name'] for file in files]
-    # Usa un key univoco per il selectbox
     selected_file_name = st.selectbox("Seleziona un file da Google Drive:", file_names + ["Crea Nuovo File"], key="file_selectbox_unique2")
-    
     if selected_file_name == "Crea Nuovo File":
         file_metadata = {'name': 'data.json', 'mimeType': 'application/json'}
         drive_service = authenticate_drive()
         file = drive_service.files().create(body=file_metadata).execute()
         return file['id'], file['name']
-    
     selected_file = next(file for file in files if file['name'] == selected_file_name)
     return selected_file['id'], selected_file['name']
 
@@ -1190,8 +1179,6 @@ def load_data(file_id, drive_service):
         file_content = request.execute()
         data = json.loads(file_content)
         data = pd.DataFrame(data)
-        
-        # Converti la colonna 'Mese' in datetime
         data['Mese'] = pd.to_datetime(data['Mese'], errors='coerce')
         data = data.sort_values(by="Mese").reset_index(drop=True)
         return data
@@ -1201,19 +1188,14 @@ def load_data(file_id, drive_service):
 
 def save_data(data, file_id, drive_service):
     try:
-        # Crea una copia dei dati per non modificare l'originale
         data_copy = data.copy()
-        # Se esiste la colonna 'Mese', convertila in stringa (es. "2024-03-01")
         if 'Mese' in data_copy.columns:
             data_copy['Mese'] = data_copy['Mese'].dt.strftime('%Y-%m-%d')
-        
         data_dict = data_copy.to_dict(orient="records")
         json_content = json.dumps(data_dict, indent=4, default=str)
-        
         temp_file = "temp_data.json"
         with open(temp_file, "w") as file:
             file.write(json_content)
-        
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
@@ -1221,18 +1203,9 @@ def save_data(data, file_id, drive_service):
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
-
-
-
-
-###############################
-########## MAIN ###############
-###############################
-
-
-
-
-
+#####################################
+########## MAIN - Bollette ##########
+#####################################
 
 st.title("Storico Bollette")
 col1sx, colempty, col2dx = st.columns([3, 1, 6])
@@ -1244,11 +1217,17 @@ with col2dx:
 if file_id:
     drive_service = authenticate_drive()
     data = load_data(file_id, drive_service)
+    
+    # Verifica che il file contenga le colonne richieste
+    expected_columns = ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]
+    if not all(col in data.columns for col in expected_columns):
+        st.info("Il file selezionato non contiene i dati richiesti (colonne 'Elettricità', 'Gas', 'Acqua', 'Internet', 'Tari'). Seleziona il file corretto e riprova.")
+        st.stop()
+    
     st.session_state.data = data
 
     with col1sx:
         st.write("### Inserisci Bollette")
-        # Crea l'elenco dei mesi/anni (es. "Marzo 2024")
         mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
         selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_bollette")
         mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
@@ -1326,16 +1305,14 @@ if file_id:
     def crea_grafico(data, categorie, dominio, colori, sort_order):
         # Filtra solo le categorie di bollette (escludendo "Saldo")
         df_bollette = data.query("Categoria in @categorie and Categoria != 'Saldo'")
-
-        # 1) Trasformazione stack per le sole bollette
+        # Trasformazione stack per le sole bollette
         base_stack = alt.Chart(df_bollette).transform_stack(
             stack='Valore',
-            groupby=['Mese_str'],          # impila i valori di ogni mese
+            groupby=['Mese_str'],          # impila i valori per ogni mese
             sort=[{'field': 'Categoria'}], # ordina le categorie se necessario
             as_=['lower', 'upper']
         )
-
-        # 2) Barre impilate
+        # Barre impilate
         barre = base_stack.mark_bar(opacity=0.8).encode(
             x=alt.X("Mese_str:N",
                     sort=sort_order,
@@ -1348,27 +1325,23 @@ if file_id:
                             legend=alt.Legend(title="Categorie")),
             tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
         )
-
-        # 3) Etichette centrate in ogni segmento
+        # Etichette centrate in ogni segmento
         labels = base_stack.transform_filter(
-            "datum.Valore > 0"  # opzionale: escludi segmenti a zero
+            "datum.Valore > 0"
         ).transform_calculate(
             mid="(datum.lower + datum.upper) / 2"
         ).mark_text(
             color="black",
             align="center",
-            baseline="middle",
-            # size=12,  # se vuoi regolare la dimensione del testo
+            baseline="middle"
         ).encode(
             x=alt.X("Mese_str:N", sort=sort_order),
             y=alt.Y("mid:Q"),
             text=alt.Text("Valore:Q", format=".2f")
         )
-
-        # 4) Linee e punti per il saldo
+        # Layer per il saldo
         saldo_neg = data.query("Categoria == 'Saldo' and Valore < 0")
         saldo_pos = data.query("Categoria == 'Saldo' and Valore >= 0")
-
         linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1387,7 +1360,6 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
-
         linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
             strokeDash=[5, 5],
             strokeWidth=2,
@@ -1406,31 +1378,23 @@ if file_id:
             y="Valore:Q",
             tooltip=["Mese_str:N", "Valore:Q"]
         )
-
         linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
 
-        # Combina barre, etichette e saldo
         return (barre + labels + linea_saldo)
 
     statistiche = calcola_statistiche(data, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
-    # Prepara i dati per il grafico: 
-    # - "data_melted" per le categorie delle bollette
+    # Prepara i dati per il grafico:
     data_melted = data.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
                             var_name="Categoria", value_name="Valore")
-    # - "data_saldo" per il saldo
     data_saldo = data[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
-    
-    # Unisci i due DataFrame
     data_completa = pd.concat([
         data_melted,
         data_saldo.melt(id_vars=["Mese"], value_vars=["Saldo"],
                         var_name="Categoria", value_name="Valore")
     ])
-    # Crea la colonna testuale per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime('%b %Y')
-    # Calcola l'ordine in base alla colonna "Mese"
     order = data_completa.sort_values("Mese")["Mese_str"].unique().tolist()
     
     if not data.empty:
