@@ -1273,7 +1273,8 @@ if file_id:
         
         col_sx, col_dx = st.columns(2)
         with col_dx:
-            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
+            st.markdown("<span style='color: yellow; font-weight: bold;'>Acqua (€)</span>", unsafe_allow_html=True)
+            acqua = st.number_input("", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, key="tari_input", value=tari_value)
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, key="internet_input", value=internet_value)
             if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
