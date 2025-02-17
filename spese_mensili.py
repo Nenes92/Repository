@@ -5,17 +5,16 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import io
 from datetime import datetime
 import time
+import io
 
-
+from googleapiclient.http import MediaIoBaseDownload
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.http import MediaIoBaseDownload
 
 
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
@@ -981,7 +980,7 @@ with col_1:
     
     # Cerca un record esistente
     if "Mese" in data.columns:
-        existing_record = data.loc[data["Mese"].dt.date == mese_datetime.date()]
+        existing_record = data.loc[data["Mese"] == mese_datetime]
     else:
         existing_record = pd.DataFrame()
     
@@ -1000,6 +999,8 @@ with col_1:
                 placeholder.success(f"Record per {selected_mese_anno} eliminato!")
                 time.sleep(4)
                 placeholder.empty()
+
+            # st.experimental_rerun()
         else:
             st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
     with col_sx:
@@ -1335,7 +1336,6 @@ if file_id:
                     time.sleep(4)
                     placeholder.empty()
 
-    st.markdown("---")
 
     
     # --- CALCOLO SALDO (con incremento mensile) ---
