@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import io
 from datetime import datetime
 import time
 
@@ -14,6 +15,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.http import MediaIoBaseDownload
 
 
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
@@ -881,9 +883,6 @@ def select_or_create_file():
     return selected_file['id'], selected_file['name']
 
 # Funzione per caricare dati JSON da Drive
-import io
-from googleapiclient.http import MediaIoBaseDownload
-
 def load_data(file_id, drive_service):
     try:
         request = drive_service.files().get_media(fileId=file_id)
@@ -982,7 +981,7 @@ with col_1:
     
     # Cerca un record esistente
     if "Mese" in data.columns:
-        existing_record = data.loc[data["Mese"] == mese_datetime]
+        existing_record = data.loc[data["Mese"].dt.date == mese_datetime.date()]
     else:
         existing_record = pd.DataFrame()
     
@@ -1001,8 +1000,6 @@ with col_1:
                 placeholder.success(f"Record per {selected_mese_anno} eliminato!")
                 time.sleep(4)
                 placeholder.empty()
-
-            # st.experimental_rerun()
         else:
             st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
     with col_sx:
