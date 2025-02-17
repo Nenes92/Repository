@@ -924,7 +924,7 @@ def save_data(data, file_id, drive_service):
         # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
-        time.sleep(4)
+        time.sleep(2)
         placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -997,13 +997,13 @@ with col_1:
                 # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                 placeholder = st.empty()
                 placeholder.success(f"Record per {selected_mese_anno} eliminato!")
-                time.sleep(4)
+                time.sleep(2)
                 placeholder.empty()
             else:
                 # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                 placeholder = st.empty()
                 placeholder.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-                time.sleep(4)
+                time.sleep(2)
                 placeholder.empty()
     with col_sx:
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
@@ -1015,7 +1015,7 @@ with col_1:
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Record per {selected_mese_anno} aggiornato!")
-                    time.sleep(4)
+                    time.sleep(2)
                     placeholder.empty()
                 else:
                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
@@ -1023,7 +1023,7 @@ with col_1:
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
-                    time.sleep(4)
+                    time.sleep(2)
                     placeholder.empty()
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, drive_service)
@@ -1032,7 +1032,7 @@ with col_1:
                 # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                 placeholder = st.empty()
                 placeholder.error("Inserisci valori validi per stipendio e/o risparmi!")
-                time.sleep(4)
+                time.sleep(2)
                 placeholder.empty()
 
 st.markdown("---")
@@ -1240,7 +1240,7 @@ def save_data(data, file_id, drive_service):
         # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
-        time.sleep(4)
+        time.sleep(2)
         placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -1295,13 +1295,13 @@ if file_id:
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Record per {selected_mese_anno} eliminato!")
-                    time.sleep(4)
+                    time.sleep(2)
                     placeholder.empty()
                 else:
                      # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-                    time.sleep(4)
+                    time.sleep(2)
                     placeholder.empty()
         with col_sx:
             elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, key="elettricita_input", value=elettricita_value)
@@ -1317,7 +1317,7 @@ if file_id:
                         # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                         placeholder = st.empty()
                         placeholder.success(f"Record per {selected_mese_anno} aggiornato!")
-                        time.sleep(4)
+                        time.sleep(2)
                         placeholder.empty()
                     else:
                         new_row = {"Mese": mese_datetime, "Elettricità": elettricita, "Gas": gas,
@@ -1326,7 +1326,7 @@ if file_id:
                         # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                         placeholder = st.empty()
                         placeholder.success(f"Bollette per {selected_mese_anno} aggiunte!")
-                        time.sleep(4)
+                        time.sleep(2)
                         placeholder.empty()
 
                     data = data.sort_values(by="Mese").reset_index(drop=True)
@@ -1335,7 +1335,7 @@ if file_id:
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.error("Inserisci valori validi per le bollette!")
-                    time.sleep(4)
+                    time.sleep(2)
                     placeholder.empty()
 
     st.markdown("---")
