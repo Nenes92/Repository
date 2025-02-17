@@ -820,66 +820,68 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 # Funzione per autenticare l'accesso a Google Drive
+import streamlit as st
+import json
+import pandas as pd
+import altair as alt
+from datetime import datetime
+import os
+import io
+import time
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def authenticate_drive():
-    # Carica il token dai secrets
     if "google" not in st.secrets or "token" not in st.secrets["google"]:
         st.error("Token non presente nei secrets. Aggiorna il token in st.secrets.")
         return None
-
     try:
         token_info = json.loads(st.secrets["google"]["token"])
         creds = Credentials.from_authorized_user_info(token_info, scopes=SCOPES)
     except Exception as e:
         st.error(f"Errore nel caricamento del token dai secrets: {e}")
         return None
-
-    # Se le credenziali non sono valide, mostra l'errore (su Cloud devi aggiornare manualmente il token)
     if not creds or not creds.valid:
         st.error("Le credenziali non sono valide. Aggiorna manualmente il token nei secrets.")
         return None
-
     try:
         service = build('drive', 'v3', credentials=creds)
     except Exception as e:
         st.error(f"Errore nella creazione del service: {e}")
         return None
-
     return service
 
-# Funzione per ottenere la lista di file su Google Drive
 def get_drive_files():
     drive_service = authenticate_drive()
     if not drive_service:
         return []
-    
     results = drive_service.files().list(fields="files(id, name)").execute()
     return results.get('files', [])
 
-# Funzione per selezionare un file da Drive o crearlo se non esiste
 def select_or_create_file():
     files = get_drive_files()
     if not files:
         st.error("Nessun file trovato su Google Drive.")
         return None, None
-    
     file_names = [file['name'] for file in files]
-    # Passa un key univoco per il selectbox
-    selected_file_name = st.selectbox("Seleziona un file da Google Drive:", file_names + ["Crea Nuovo File"], key="file_selectbox_unique")
-
+    # Aggiungi l'opzione per creare un nuovo file
+    options = file_names + ["Crea Nuovo File"]
+    # Se esiste il file "storico_stipendi.json", impostalo come default
+    try:
+        default_index = options.index("storico_stipendi.json")
+    except ValueError:
+        default_index = 0  # Altrimenti usa il primo elemento della lista
+    selected_file_name = st.selectbox("Seleziona un file da Google Drive:", options, index=default_index, key="file_selectbox_unique")
     if selected_file_name == "Crea Nuovo File":
         file_metadata = {'name': 'data.json', 'mimeType': 'application/json'}
         drive_service = authenticate_drive()
         file = drive_service.files().create(body=file_metadata).execute()
         return file['id'], file['name']
-    
     selected_file = next(file for file in files if file['name'] == selected_file_name)
     return selected_file['id'], selected_file['name']
-
-# Funzione per caricare dati JSON da Drive
-import io
-from googleapiclient.http import MediaIoBaseDownload
 
 def load_data(file_id, drive_service):
     try:
@@ -893,55 +895,36 @@ def load_data(file_id, drive_service):
         file_content = fh.read()
         data = json.loads(file_content)
         data = pd.DataFrame(data)
-
         # Assicurati che la colonna 'Mese' sia in formato datetime
         data['Mese'] = pd.to_datetime(data['Mese'], errors='coerce')
-
         # Ordinamento dei dati
         data = data.sort_values(by="Mese").reset_index(drop=True)
-
         return data
     except Exception as e:
-        # Puoi loggare l'errore in console se necessario, ad esempio:
-        # st.write(e)
         st.info("Il file selezionato non è scaricabile. Usa un file JSON valido.")
         return pd.DataFrame()
 
-# Funzione per salvare dati su Google Drive
 def save_data(data, file_id, drive_service):
     try:
         data_dict = data.to_dict(orient="records")
         json_content = json.dumps(data_dict, indent=4, default=str)
-        
         temp_file = "temp_data.json"
         with open(temp_file, "w") as file:
             file.write(json_content)
-        
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
-        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
-        time.sleep(4)
+        time.sleep(7)
         placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
 
+#####################################
+########## MAIN - Stipendi e Risparmi ##########
+#####################################
 
-
-
-
-###############################
-########## MAIN ###############
-###############################
-
-
-
-
-
-
-# Titolo dell'app
 st.title("Storico Stipendi e Risparmi")
 
 col_1, col_empty, col_2 = st.columns([3, 1, 6])
@@ -955,37 +938,28 @@ with col_2:
         if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
             st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
             st.stop()
-        # Imposta i dati nello stato della sessione
         st.session_state.data = data
     else:
         st.error("Nessun file selezionato.")
         st.stop()
 
-# Verifica che st.session_state.data esista e sia non vuoto
 if "data" not in st.session_state or st.session_state.data.empty:
     st.error("Nessun dato disponibile. Seleziona o crea un file su Google Drive e carica i dati.")
     st.stop()
 
-# Ora puoi assegnare in sicurezza la variabile data
 data = st.session_state.data
 
-# --- Sezione per l'inserimento/modifica dati (col_1) ---
 with col_1:
     st.write("### Inserisci Stipendio e Risparmi")
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
     selected_mese_anno = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_anno_selectbox")
-    
     mese_datetime = datetime.strptime(selected_mese_anno, "%B %Y")
-    
-    # Cerca un record esistente
     if "Mese" in data.columns:
         existing_record = data.loc[data["Mese"] == mese_datetime]
     else:
         existing_record = pd.DataFrame()
-    
     stipendio_value = existing_record["Stipendio"].values[0] if not existing_record.empty else 0.0
     risparmi_value = existing_record["Risparmi"].values[0] if not existing_record.empty else 0.0
-    
     col_sx, col_dx = st.columns(2)
     with col_dx:
         risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, key="risparmi_input", value=risparmi_value)
@@ -993,13 +967,10 @@ with col_1:
         if not existing_record.empty:
             data = data[data["Mese"] != mese_datetime]
             save_data(data, file_id, drive_service)
-            # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
             placeholder = st.empty()
             placeholder.success(f"Record per {selected_mese_anno} eliminato!")
-            time.sleep(4)
+            time.sleep(7)
             placeholder.empty()
-
-            # st.experimental_rerun()
         else:
             st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
     with col_sx:
@@ -1009,119 +980,26 @@ with col_1:
                 if not existing_record.empty:
                     data.loc[data["Mese"] == mese_datetime, "Stipendio"] = stipendio
                     data.loc[data["Mese"] == mese_datetime, "Risparmi"] = risparmi
-                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Record per {selected_mese_anno} aggiornato!")
-                    time.sleep(4)
+                    time.sleep(7)
                     placeholder.empty()
                 else:
                     new_row = {"Mese": mese_datetime, "Stipendio": stipendio, "Risparmi": risparmi}
                     data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
-                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Stipendio e Risparmi per {selected_mese_anno} aggiunti!")
-                    time.sleep(4)
+                    time.sleep(7)
                     placeholder.empty()
                 data = data.sort_values(by="Mese").reset_index(drop=True)
                 save_data(data, file_id, drive_service)
-                # st.experimental_rerun()
             else:
-                # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                 placeholder = st.empty()
                 placeholder.error("Inserisci valori validi per stipendio e/o risparmi!")
-                time.sleep(4)
+                time.sleep(7)
                 placeholder.empty()
 
 st.markdown("---")
-
-
-
-
-# Funzione per calcolare somma e media
-@st.cache_data
-def calcola_statistiche(data, colonne):
-    stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
-    return stats
-
-# Funzione per calcolare medie mobili e medie no 13°/PDR
-def calcola_medie(data, colonne):
-    for col in colonne:
-        data[f"Media {col}"] = data[col].expanding().mean().round(2)
-        if col == "Stipendio":  # Solo per gli stipendi calcola la media no 13°/PDR
-            data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
-    return data
-
-# Funzione per creare i grafici
-def crea_grafico(data, categorie, dominio, colori, line_style=None):
-    base = alt.Chart(data.query(f"Categoria in {categorie}"))
-
-    # Configura il tratteggio solo se specificato
-    linee = base.mark_line(
-        strokeDash=(5, 5) if line_style == "dashed" else alt.Undefined,
-        strokeWidth=2
-    ).encode(
-        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
-        y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color(
-            "Categoria:N",
-            scale=alt.Scale(domain=dominio, range=colori),
-            legend=alt.Legend(title="Categorie")
-        ),
-        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-    )
-
-    punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        x="Mese:T",
-        y="Valore:Q",
-        color=alt.Color(
-            "Categoria:N",
-            scale=alt.Scale(domain=dominio, range=colori)
-        ),
-        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-    )
-
-    return linee + punti
-
-# Calcoli principali
-statistiche = calcola_statistiche(data, ["Stipendio", "Risparmi"])
-data = calcola_medie(data, ["Stipendio", "Risparmi"])
-
-# Prepara i dati per i grafici
-data_completa = pd.concat([
-    data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"], var_name="Categoria", value_name="Valore"),
-    data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"], var_name="Categoria", value_name="Valore")
-])
-
-# Layout Streamlit
-if not data.empty:
-    col_tabella, col_grafico = st.columns([2, 3.7])
-
-    # Tabella
-    data_display = data.copy()
-    data_display["Mese"] = data_display["Mese"].dt.strftime('%B %Y')
-    with col_tabella:
-        st.dataframe(data_display, use_container_width=True)
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.write(f"**Somma Stipendio:** <span style='color:#77DD77;'>{statistiche['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media Stipendio:** <span style='color:#FF6961;'>{statistiche['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media no 13°/PDR:** <span style='color:#FFA07A;'>{data['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
-        with col_right:
-            st.write(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{statistiche['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-            st.write(f"**Media Risparmi:** <span style='color:#84B6F4;'>{statistiche['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
-
-    # Grafico
-    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
-    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
-
-    grafico_principale = crea_grafico(data_completa, ["Stipendio", "Risparmi"], dominio_categorie, scala_colori)
-    grafico_medie = crea_grafico(data_completa, ["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"], dominio_categorie, scala_colori, line_style="dashed")
-
-    with col_grafico:
-        st.altair_chart((grafico_principale + grafico_medie).properties(height=500, width='container'), use_container_width=True)
-
-st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
-
 
 
 
@@ -1273,8 +1151,7 @@ if file_id:
         
         col_sx, col_dx = st.columns(2)
         with col_dx:
-            st.markdown("<span style='color: yellow; font-weight: bold;'>Acqua (€)</span>", unsafe_allow_html=True)
-            acqua = st.number_input("", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
+            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, key="acqua_input", value=acqua_value)
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, key="tari_input", value=tari_value)
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, key="internet_input", value=internet_value)
             if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
