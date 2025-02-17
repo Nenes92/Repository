@@ -920,10 +920,10 @@ def save_data(data, file_id, drive_service):
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
-        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo 7 secondi
+        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
-        time.sleep(7)
+        time.sleep(4)
         placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -1208,10 +1208,10 @@ def save_data(data, file_id, drive_service):
         media = MediaFileUpload(temp_file, mimetype='application/json')
         drive_service.files().update(fileId=file_id, media_body=media).execute()
         os.remove(temp_file)
-        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo 7 secondi
+        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
-        time.sleep(7)
+        time.sleep(4)
         placeholder.empty()
     except Exception as e:
         st.error(f"Errore nel salvataggio del file: {e}")
@@ -1263,9 +1263,17 @@ if file_id:
                 if not existing_record.empty:
                     data = data[data["Mese"] != mese_datetime]
                     save_data(data, file_id, authenticate_drive())
-                    st.success(f"Record per {selected_mese_anno} eliminato!")
+                    # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                    placeholder = st.empty()
+                    placeholder.success(f"Record per {selected_mese_anno} eliminato!")
+                    time.sleep(4)
+                    placeholder.empty()
                 else:
-                    st.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
+                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                    placeholder = st.empty()
+                    placeholder.success(f"Il mese {selected_mese_anno} non è presente nello storico!")
+                    time.sleep(4)
+                    placeholder.empty()
         with col_sx:
             elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, key="elettricita_input", value=elettricita_value)
             gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, key="gas_input", value=gas_value)
