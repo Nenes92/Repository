@@ -999,14 +999,12 @@ with col_1:
                 placeholder.success(f"Record per {selected_mese_anno} eliminato!")
                 time.sleep(4)
                 placeholder.empty()
-
-            # st.experimental_rerun()
-        else:
-            # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
-            placeholder = st.empty()
-            placeholder.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
-            time.sleep(4)
-            placeholder.empty()
+            else:
+                # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+                placeholder = st.empty()
+                placeholder.error(f"Il mese {selected_mese_anno} non è presente nello storico!")
+                time.sleep(4)
+                placeholder.empty()
     with col_sx:
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, key="stipendio_input", value=stipendio_value)
         if st.button("Aggiungi/Modifica Stipendio e Risparmi"):
