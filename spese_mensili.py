@@ -977,7 +977,7 @@ def crea_grafico_bollette(data_completa, order):
 st.title("Storico Stipendi e Risparmi")
 # Layout a colonne: input - separatore - visualizzazione
 col1_stip, col2_stip = st.columns([1.4, 3])
-col1b_stip, col2b_stip = st.columns ([1, 3])
+col_stip_table, col_stip_chart = st.columns ([1, 3])
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -1025,11 +1025,11 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+        st.markdown("---")
 
 st.subheader("Dati Storici Stipendi/Risparmi")
 
-with col1b_stip:
+with col_stip_table:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
         df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
@@ -1050,7 +1050,7 @@ with col1b_stip:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
-with col2b_stip:    
+with col_stip_chart:    
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
@@ -1062,7 +1062,7 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 st.title("Storico Bollette")
 # Layout a colonne: input, separatore, visualizzazione
 col1_bol, col2_bol = st.columns([1.4, 3])
-col1b_bol, col2b_bol = st.columns ([1.4, 3])
+col_bol_table, col_bol_chart= st.columns ([1.4, 3])
 
 # File locale per bollette
 bollette_file = "storico_bollette.json"
@@ -1117,11 +1117,11 @@ with col1_bol:
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+        st.markdown("---")
 
 st.subheader("Dati Storici Bollette")
 
-with col1b_bol:
+with col_bol_table:
     df_bol = data_bollette.copy()
     if not df_bol.empty:
         df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
@@ -1161,7 +1161,7 @@ with col1b_bol:
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
 
-with col2b_bol:
+with col_bol_chart:
     st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
