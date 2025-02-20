@@ -970,61 +970,128 @@ def crea_grafico_bollette(data_completa, order):
     
     return barre + labels + linea_saldo
 
+import streamlit as st
+import pandas as pd
+import json, os
+from datetime import datetime
+import altair as alt
+
+# --- FUNZIONI PER GESTIONE FILE LOCALE ---
+def load_data_local(percorso_file):
+    if os.path.exists(percorso_file):
+        try:
+            with open(percorso_file, 'r') as file:
+                contenuto = json.load(file)
+            df = pd.DataFrame(contenuto)
+            if not df.empty and "Mese" in df.columns:
+                df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
+                df = df.sort_values(by="Mese").reset_index(drop=True)
+            return df
+        except Exception as e:
+            st.error(f"Errore nel caricamento di {percorso_file}: {e}")
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame()
+
+def save_data_local(percorso_file, data):
+    try:
+        data_dict = data.to_dict(orient="records")
+        json_content = json.dumps(data_dict, indent=4, default=str)
+        with open(percorso_file, "w") as file:
+            file.write(json_content)
+        st.success(f"Dati salvati correttamente in {percorso_file}.")
+    except Exception as e:
+        st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
+
+# --- FUNZIONI PER CALCOLI E GRAFICI ---
+@st.cache_data
+def calcola_statistiche(data, colonne):
+    stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
+    return stats
+
+def calcola_medie(data, colonne):
+    for col in colonne:
+        data[f"Media {col}"] = data[col].expanding().mean().round(2)
+        if col == "Stipendio":
+            data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
+    return data
+
+def crea_grafico_stipendi(data):
+    # Unisce i dati originali e le medie
+    data_completa = pd.concat([
+        data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"],
+                  var_name="Categoria", value_name="Valore"),
+        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"],
+                  var_name="Categoria", value_name="Valore")
+    ])
+    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
+    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
+
+    base = alt.Chart(data_completa).encode(
+        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
+        y=alt.Y("Valore:Q", title="Valore (€)")
+    )
+    linee = base.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori),
+                        legend=alt.Legend(title="Categorie")),
+        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+    )
+    punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori)),
+        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+    )
+    return linee + punti
+
+
+
 # -------------------------------
 # SEZIONE: Storico Stipendi e Risparmi
 # -------------------------------
 st.title("Storico Stipendi e Risparmi")
 
-# --- Sezione Input ---
-with st.container():
-    st.subheader("Inserisci Dati")
-    # Crea il menu a tendina per selezionare il mese
-    mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-    selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
-    mese_dt = datetime.strptime(selected_mese, "%B %Y")
-    
-    # Carica i dati dal file locale
-    stipendi_file = "storico_stipendi.json"
-    data_stipendi = load_data_local(stipendi_file)
-    if data_stipendi.empty:
-        data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
-    
-    # Cerca se esiste già un record per il mese selezionato
-    record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
-    stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
-    risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
-    
-    # Crea due colonne per gli input
-    col_input1, col_input2 = st.columns(2)
-    stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
-    risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
-    
-    # Pulsante per aggiungere o modificare i dati
-    if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
-        if stipendio > 0 or risparmi > 0:
-            if not record_esistente.empty:
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                st.success(f"Record per {selected_mese} aggiornato!")
-            else:
-                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
-                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                st.success(f"Dati per {selected_mese} aggiunti!")
-            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(stipendi_file, data_stipendi)
-        else:
-            st.error("Inserisci valori validi per stipendio e/o risparmi!")
-    
-    # Pulsante per eliminare il record
-    if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
-        if not record_esistente.empty:
-            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-            save_data_local(stipendi_file, data_stipendi)
-            st.success(f"Record per {selected_mese} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese}.")
+# --- Sezione Input (in alto) ---
+st.subheader("Inserisci Dati")
+mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
+mese_dt = datetime.strptime(selected_mese, "%B %Y")
 
-# --- Separatore e Subheader per la visualizzazione dei dati ---
+stipendi_file = "storico_stipendi.json"
+data_stipendi = load_data_local(stipendi_file)
+if data_stipendi.empty:
+    data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+
+record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
+stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
+risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
+
+col_input1, col_input2 = st.columns(2)
+stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
+
+if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
+    if stipendio > 0 or risparmi > 0:
+        if not record_esistente.empty:
+            data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+            data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+            st.success(f"Record per {selected_mese} aggiornato!")
+        else:
+            nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
+            data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+            st.success(f"Dati per {selected_mese} aggiunti!")
+        data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+        save_data_local(stipendi_file, data_stipendi)
+    else:
+        st.error("Inserisci valori validi per stipendio e/o risparmi!")
+
+if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
+    if not record_esistente.empty:
+        data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+        save_data_local(stipendi_file, data_stipendi)
+        st.success(f"Record per {selected_mese} eliminato!")
+    else:
+        st.error(f"Nessun record trovato per {selected_mese}.")
+
+# --- Separatore e Subheader per la visualizzazione ---
 st.markdown("---")
 st.subheader("Dati Storici Stipendi/Risparmi")
 
@@ -1040,7 +1107,6 @@ with col_table:
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
     
-    # Visualizza le statistiche con i colori
     col_somme1, col_somme2 = st.columns(2)
     with col_somme1:
         st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
@@ -1053,6 +1119,8 @@ with col_table:
 
 with col_chart:
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
+
+st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
 #####################################
 # SEZIONE: Storico Bollette
