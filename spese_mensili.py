@@ -977,7 +977,6 @@ def crea_grafico_bollette(data_completa, order):
 st.title("Storico Stipendi e Risparmi")
 # Layout a colonne: input - separatore - visualizzazione
 col1_stip, col2_stip = st.columns([1.4, 3])
-col_stip_table, col_stip_chart = st.columns ([1, 3])
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -1025,10 +1024,11 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-        st.markdown("---")
+st.markdown("---")
 
 st.subheader("Dati Storici Stipendi/Risparmi")
 
+col_stip_table, col_stip_chart = st.columns ([1, 3])
 with col_stip_table:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
@@ -1062,7 +1062,6 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 st.title("Storico Bollette")
 # Layout a colonne: input, separatore, visualizzazione
 col1_bol, col2_bol = st.columns([1.4, 3])
-col_bol_table, col_bol_chart= st.columns ([1.4, 3])
 
 # File locale per bollette
 bollette_file = "storico_bollette.json"
@@ -1117,10 +1116,11 @@ with col1_bol:
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-        st.markdown("---")
+st.markdown("---")
 
 st.subheader("Dati Storici Bollette")
 
+col_bol_table, col_bol_chart= st.columns ([1.4, 3])
 with col_bol_table:
     df_bol = data_bollette.copy()
     if not df_bol.empty:
