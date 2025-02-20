@@ -976,8 +976,8 @@ def crea_grafico_bollette(data_completa, order):
 
 st.title("Storico Stipendi e Risparmi")
 # Layout a 3 colonne: input - separatore - visualizzazione
-col1_stip, col2_stip = st.columns([1, 3])
-col1b_stip, col2b_stip = st.columns ([1, 2])
+col1_stip, col2_stip = st.columns([1.4, 3])
+col1b_stip, col2b_stip = st.columns ([1, 3])
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -1025,10 +1025,11 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-st.markdown("---")
+    st.markdown("---")
 
-with col1b_stip:
+
     st.subheader("Dati Storici")
+with col1b_stip:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
         df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
@@ -1039,13 +1040,13 @@ with col1b_stip:
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
 
     col_stip_somme1, col_stip_somme2 = st.columns(2)
-    with col_stip_input1:
+    with col_stip_somme1:
         # Mostra i label con i colori ripristinati
         st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
         if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
             st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
-    with col_stip_input1:
+    with col_stip_somme2:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
