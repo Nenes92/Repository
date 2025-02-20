@@ -795,14 +795,6 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
-import streamlit as st
-import pandas as pd
-import json
-import os
-import time
-from datetime import datetime
-import altair as alt
-
 #####################################
 # FUNZIONI PER GESTIONE FILE LOCALE
 #####################################
@@ -985,6 +977,7 @@ def crea_grafico_bollette(data_completa, order):
 st.title("Storico Stipendi e Risparmi")
 # Layout a 3 colonne: input - separatore - visualizzazione
 col1_stip, col_empty_stip, col2_stip = st.columns([3, 1, 6])
+col1b_stip, col2b_stip = st.columns (2)
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -1031,7 +1024,9 @@ with col1_stip:
         else:
             st.error(f"Nessun record trovato per {selected_mese}.")
 
-with col2_stip:
+st.markdown("---")
+
+with col1b_stip:
     st.subheader("Dati Storici")
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
@@ -1049,10 +1044,11 @@ with col2_stip:
         st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
     st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
-    
+
+with col1b_stip:    
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
-st.markdown("---")
+st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
 #####################################
 # SEZIONE: Storico Bollette
