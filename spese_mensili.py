@@ -1025,10 +1025,10 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-    st.markdown("---")
+st.markdown("---")
 
 
-    st.subheader("Dati Storici")
+st.subheader("Dati Storici Stipendi/Risparmi")
 with col1b_stip:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
@@ -1061,7 +1061,7 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 st.title("Storico Bollette")
 # Layout a colonne: input, separatore, visualizzazione
-col1_bol, col2_bol = st.columns([1.4, 3])
+col1_bol, col2_bol = st.columns([1, 3])
 col1b_bol, col2b_bol = st.columns ([1, 3])
 
 # File locale per bollette
@@ -1107,8 +1107,8 @@ with col1_bol:
                 st.error("Inserisci valori validi per le bollette!")
     with col_bol_input2:
         acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
-        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
         tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
+        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
         if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
             if not record_bol.empty:
                 data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
@@ -1117,10 +1117,10 @@ with col1_bol:
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-    st.markdown("---")
+st.markdown("---")
 
+st.subheader("Dati Storici Bollette")
 with col1b_bol:
-    st.subheader("Dati Storici Bollette")
     df_bol = data_bollette.copy()
     if not df_bol.empty:
         df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
@@ -1152,4 +1152,4 @@ with col1b_bol:
 with col2b_bol:
     st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
-st.markdown("---")
+st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
