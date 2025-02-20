@@ -1049,47 +1049,49 @@ def crea_grafico_stipendi(data):
 # -------------------------------
 st.title("Storico Stipendi e Risparmi")
 
-# --- Sezione Input (in alto) ---
-st.subheader("Inserisci Dati")
-mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
-mese_dt = datetime.strptime(selected_mese, "%B %Y")
+col_sx_stip, col_dx_stip = st.columns([1, 3])
+with col_sx_stip:
+    # --- Sezione Input (in alto) ---
+    st.subheader("Inserisci Dati")
+    mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+    selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
+    mese_dt = datetime.strptime(selected_mese, "%B %Y")
 
-stipendi_file = "storico_stipendi.json"
-data_stipendi = load_data_local(stipendi_file)
-if data_stipendi.empty:
-    data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
+    stipendi_file = "storico_stipendi.json"
+    data_stipendi = load_data_local(stipendi_file)
+    if data_stipendi.empty:
+        data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
-record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
-stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
-risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
+    record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
+    stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
+    risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
 
-col_input1, col_input2 = st.columns(2)
-stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
-risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
+    col_input1, col_input2 = st.columns(2)
+    stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+    risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
 
-if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
-    if stipendio > 0 or risparmi > 0:
-        if not record_esistente.empty:
-            data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-            data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-            st.success(f"Record per {selected_mese} aggiornato!")
+    if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
+        if stipendio > 0 or risparmi > 0:
+            if not record_esistente.empty:
+                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                st.success(f"Record per {selected_mese} aggiornato!")
+            else:
+                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
+                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+                st.success(f"Dati per {selected_mese} aggiunti!")
+            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+            save_data_local(stipendi_file, data_stipendi)
         else:
-            nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
-            data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-            st.success(f"Dati per {selected_mese} aggiunti!")
-        data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-        save_data_local(stipendi_file, data_stipendi)
-    else:
-        st.error("Inserisci valori validi per stipendio e/o risparmi!")
+            st.error("Inserisci valori validi per stipendio e/o risparmi!")
 
-if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
-    if not record_esistente.empty:
-        data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-        save_data_local(stipendi_file, data_stipendi)
-        st.success(f"Record per {selected_mese} eliminato!")
-    else:
-        st.error(f"Nessun record trovato per {selected_mese}.")
+    if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
+        if not record_esistente.empty:
+            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+            save_data_local(stipendi_file, data_stipendi)
+            st.success(f"Record per {selected_mese} eliminato!")
+        else:
+            st.error(f"Nessun record trovato per {selected_mese}.")
 
 # --- Separatore e Subheader per la visualizzazione ---
 st.markdown("---")
