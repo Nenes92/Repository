@@ -976,7 +976,7 @@ def crea_grafico_bollette(data_completa, order):
 
 st.title("Storico Stipendi e Risparmi")
 # Layout a 3 colonne: input - separatore - visualizzazione
-col1_stip, col_empty_stip, col2_stip = st.columns([3, 1, 6])
+col1_stip, col2_stip = st.columns([1, 3])
 col1b_stip, col2b_stip = st.columns ([1, 2])
 
 # File locale per stipendi/risparmi
@@ -998,33 +998,34 @@ with col1_stip:
     col_stip_input1, col_stip_input2 = st.columns(2)
     with col_stip_input1:
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+    
+        if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
+            if stipendio > 0 or risparmi > 0:
+                if not record_esistente.empty:
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                    st.success(f"Record per {selected_mese} aggiornato!")
+                else:
+                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
+                    data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+                    st.success(f"Dati per {selected_mese} aggiunti!")
+                data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+                save_data_local(stipendi_file, data_stipendi)
+            else:
+                st.error("Inserisci valori validi per stipendio e/o risparmi!")
+
     with col_stip_input2:
         risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
-    
-    if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
-        if stipendio > 0 or risparmi > 0:
+        
+        if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
             if not record_esistente.empty:
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                st.success(f"Record per {selected_mese} aggiornato!")
+                data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+                save_data_local(stipendi_file, data_stipendi)
+                st.success(f"Record per {selected_mese} eliminato!")
             else:
-                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
-                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                st.success(f"Dati per {selected_mese} aggiunti!")
-            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(stipendi_file, data_stipendi)
-        else:
-            st.error("Inserisci valori validi per stipendio e/o risparmi!")
-    
-    if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
-        if not record_esistente.empty:
-            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-            save_data_local(stipendi_file, data_stipendi)
-            st.success(f"Record per {selected_mese} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese}.")
+                st.error(f"Nessun record trovato per {selected_mese}.")
 
-    st.markdown("---")
+st.markdown("---")
 
 with col1b_stip:
     st.subheader("Dati Storici")
@@ -1036,16 +1037,19 @@ with col1b_stip:
     # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
-    
-    # Mostra i label con i colori ripristinati
-    st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-    st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
-    if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-        st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
-    st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-    st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
-with col1b_stip:    
+    col_stip_somme1, col_stip_somme2 = st.columns(2)
+    with col_stip_input1:
+        # Mostra i label con i colori ripristinati
+        st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
+            st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
+    with col_stip_input1:
+        st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
+
+with col2b_stip:    
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
