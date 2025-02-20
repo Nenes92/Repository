@@ -1062,31 +1062,32 @@ with col_sx_stip:
     risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
 
     col_input1, col_input2 = st.columns(2)
-    stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
-    risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
-
-    if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
-        if stipendio > 0 or risparmi > 0:
-            if not record_esistente.empty:
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                st.success(f"Record per {selected_mese} aggiornato!")
+    with col_input1:
+        stipendio = col_input1.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+        if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
+            if stipendio > 0 or risparmi > 0:
+                if not record_esistente.empty:
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                    st.success(f"Record per {selected_mese} aggiornato!")
+                else:
+                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
+                    data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+                    st.success(f"Dati per {selected_mese} aggiunti!")
+                data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+                save_data_local(stipendi_file, data_stipendi)
             else:
-                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
-                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                st.success(f"Dati per {selected_mese} aggiunti!")
-            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(stipendi_file, data_stipendi)
-        else:
-            st.error("Inserisci valori validi per stipendio e/o risparmi!")
+                st.error("Inserisci valori validi per stipendio e/o risparmi!")
+    with col_input2:
+        risparmi = col_input2.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
+        if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
+            if not record_esistente.empty:
+                data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+                save_data_local(stipendi_file, data_stipendi)
+                st.success(f"Record per {selected_mese} eliminato!")
+            else:
+                st.error(f"Nessun record trovato per {selected_mese}.")
 
-    if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
-        if not record_esistente.empty:
-            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-            save_data_local(stipendi_file, data_stipendi)
-            st.success(f"Record per {selected_mese} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese}.")
 
 # --- Separatore e Subheader per la visualizzazione ---
 st.markdown("---")
@@ -1128,73 +1129,74 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 st.title("Storico Bollette")
 
-# --- Sezione Input per Bollette ---
-with st.container():
-    st.subheader("Inserisci Bollette")
-    # Menu a tendina per selezionare il mese
-    mesi_anni_bol = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-    selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, key="mese_bollette")
-    mese_dt_bol = datetime.strptime(selected_mese_bol, "%B %Y")
-    
-    # Carica i dati dal file locale
-    bollette_file = "storico_bollette.json"
-    data_bollette = load_data_local(bollette_file)
-    if data_bollette.empty:
-        data_bollette = pd.DataFrame(columns=["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"])
-    
-    # Cerca se esiste già un record per il mese selezionato
-    record_bol = data_bollette[data_bollette["Mese"] == mese_dt_bol] if not data_bollette.empty else pd.DataFrame()
-    elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
-    gas_val = float(record_bol["Gas"].iloc[0]) if not record_bol.empty else 0.0
-    acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
-    internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
-    tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
-    
-    # Disposizione degli input in due colonne
-    col_bol_input1, col_bol_input2 = st.columns(2)
-    with col_bol_input1:
-        elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key="elettricita_input")
-        gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key="gas_input")
-    with col_bol_input2:
-        acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
-        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
-        tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
-    
-    # Pulsante per aggiungere/modificare i dati
-    if st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette"):
-        if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
-            if not record_bol.empty:
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
-                st.success(f"Record per {selected_mese_bol} aggiornato!")
-            else:
-                nuovo_record_bol = {
-                    "Mese": mese_dt_bol,
-                    "Elettricità": elettricita,
-                    "Gas": gas,
-                    "Acqua": acqua,
-                    "Internet": internet,
-                    "Tari": tari
-                }
-                data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
-                st.success(f"Bollette per {selected_mese_bol} aggiunte!")
-            data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(bollette_file, data_bollette)
-        else:
-            st.error("Inserisci valori validi per le bollette!")
-    
-    # Pulsante per eliminare il record
-    if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
-        if not record_bol.empty:
-            data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
-            save_data_local(bollette_file, data_bollette)
-            st.success(f"Record per {selected_mese_bol} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese_bol}.")
-
+col_sx_bol, col_dx_bol = st.columns([1, 3])
+with col_sx_bol:
+    # --- Sezione Input per Bollette ---
+    with st.container():
+        st.subheader("Inserisci Bollette")
+        # Menu a tendina per selezionare il mese
+        mesi_anni_bol = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+        selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, key="mese_bollette")
+        mese_dt_bol = datetime.strptime(selected_mese_bol, "%B %Y")
+        
+        # Carica i dati dal file locale
+        bollette_file = "storico_bollette.json"
+        data_bollette = load_data_local(bollette_file)
+        if data_bollette.empty:
+            data_bollette = pd.DataFrame(columns=["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+        
+        # Cerca se esiste già un record per il mese selezionato
+        record_bol = data_bollette[data_bollette["Mese"] == mese_dt_bol] if not data_bollette.empty else pd.DataFrame()
+        elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
+        gas_val = float(record_bol["Gas"].iloc[0]) if not record_bol.empty else 0.0
+        acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
+        internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
+        tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
+        
+        # Disposizione degli input in due colonne
+        col_bol_input1, col_bol_input2 = st.columns(2)
+        with col_bol_input1:
+            elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key="elettricita_input")
+            gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key="gas_input")
+            # Pulsante per aggiungere/modificare i dati
+            if st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette"):
+                if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+                    if not record_bol.empty:
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
+                        st.success(f"Record per {selected_mese_bol} aggiornato!")
+                    else:
+                        nuovo_record_bol = {
+                            "Mese": mese_dt_bol,
+                            "Elettricità": elettricita,
+                            "Gas": gas,
+                            "Acqua": acqua,
+                            "Internet": internet,
+                            "Tari": tari
+                        }
+                        data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                        st.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                    data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
+                    save_data_local(bollette_file, data_bollette)
+                else:
+                    st.error("Inserisci valori validi per le bollette!")
+        with col_bol_input2:
+            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
+            internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
+            tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
+            # Pulsante per eliminare il record
+            if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
+                if not record_bol.empty:
+                    data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
+                    save_data_local(bollette_file, data_bollette)
+                    st.success(f"Record per {selected_mese_bol} eliminato!")
+                else:
+                    st.error(f"Nessun record trovato per {selected_mese_bol}.")
+        
+        
 # --- Separatore e Subheader per Visualizzazione Dati ---
 st.markdown("---")
 st.subheader("Dati Storici Bollette")
