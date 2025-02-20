@@ -1025,10 +1025,10 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-    st.markdown("---")
-
+st.markdown("---")
 
 st.subheader("Dati Storici Stipendi/Risparmi")
+
 with col1b_stip:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
@@ -1117,32 +1117,26 @@ with col1_bol:
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-    st.markdown("---")
+st.markdown("---")
 
 st.subheader("Dati Storici Bollette")
+
 with col1b_bol:
     df_bol = data_bollette.copy()
     if not df_bol.empty:
         df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
     st.dataframe(df_bol, use_container_width=True)
-    
-    # Calcola statistiche per le bollette
-    stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
-    st.markdown(
-        f"**Somma Elettricità:** <span style='color:#84B6F4;'>{stats_bollette['Elettricità']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Somma Gas:** <span style='color:#FF6961;'>{stats_bollette['Gas']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Somma Acqua:** <span style='color:#96DED1;'>{stats_bollette['Acqua']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Somma Internet:** <span style='color:#FFF5A1;'>{stats_bollette['Internet']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Somma Tari:** <span style='color:#C19A6B;'>{stats_bollette['Tari']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
+
+    col_bol_somme1, col_bol_somme2 = st.columns(2)
+    with col_bol_somme1:
+        # Calcola statistiche per le bollette
+        stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+        st.markdown(f"**Somma Elettricità:** <span style='color:#84B6F4;'>{stats_bollette['Elettricità']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Gas:** <span style='color:#FF6961;'>{stats_bollette['Gas']['somma']:,.2f} €</span>",unsafe_allow_html=True)
+    with col_bol_somme1:
+        st.markdown(f"**Somma Acqua:** <span style='color:#96DED1;'>{stats_bollette['Acqua']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Tari:** <span style='color:#C19A6B;'>{stats_bollette['Tari']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Internet:** <span style='color:#FFF5A1;'>{stats_bollette['Internet']['somma']:,.2f} €</span>", unsafe_allow_html=True)
 
     # Imposta il budget mensile per il calcolo del saldo
     budget = decisione_budget_bollette_mensili
