@@ -1025,7 +1025,7 @@ with col1_stip:
             else:
                 st.error(f"Nessun record trovato per {selected_mese}.")
 
-st.markdown("---")
+    st.markdown("---")
 
 
 st.subheader("Dati Storici Stipendi/Risparmi")
@@ -1061,8 +1061,8 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 st.title("Storico Bollette")
 # Layout a colonne: input, separatore, visualizzazione
-col1_bol, col2_bol = st.columns([1, 3])
-col1b_bol, col2b_bol = st.columns ([1, 3])
+col1_bol, col2_bol = st.columns([1.4, 3])
+col1b_bol, col2b_bol = st.columns ([1.4, 3])
 
 # File locale per bollette
 bollette_file = "storico_bollette.json"
@@ -1117,7 +1117,7 @@ with col1_bol:
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-st.markdown("---")
+    st.markdown("---")
 
 st.subheader("Dati Storici Bollette")
 with col1b_bol:
@@ -1127,7 +1127,7 @@ with col1b_bol:
     st.dataframe(df_bol, use_container_width=True)
     
     # Imposta il budget mensile per il calcolo del saldo
-    budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=200.0, key="budget_bollette")
+    budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=100.0, key="budget_bollette")
     def calcola_saldo(data, budget):
         saldo_iniziale = -50
         saldi = []
