@@ -1222,7 +1222,7 @@ with col_bol_table:
         st.markdown(f"**Somma Internet:** <span style='color:#FFF5A1;'>{stats_bollette['Internet']['somma']:,.2f} €</span>", unsafe_allow_html=True)
     
     # Input per il budget mensile (se necessario per il calcolo del saldo)
-    budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=100.0, key="budget_bollette")
+    budget = decisione_budget_bollette_mensili
     
     def calcola_saldo(data, budget):
         saldo_iniziale = -50
