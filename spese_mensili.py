@@ -796,7 +796,6 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
-
 import streamlit as st
 import pandas as pd
 import json
@@ -1098,4 +1097,55 @@ with col1_bol:
                 data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
                 data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
                 data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
-            
+                st.success(f"Record per {selected_mese_bol} aggiornato!")
+            else:
+                nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita,
+                                    "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
+                data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                st.success(f"Bollette per {selected_mese_bol} aggiunte!")
+            data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
+            save_data_local(bollette_file, data_bollette)
+        else:
+            st.error("Inserisci valori validi per le bollette!")
+    
+    if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
+        if not record_bol.empty:
+            data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
+            save_data_local(bollette_file, data_bollette)
+            st.success(f"Record per {selected_mese_bol} eliminato!")
+        else:
+            st.error(f"Nessun record trovato per {selected_mese_bol}.")
+
+with col2_bol:
+    st.subheader("Dati Storici Bollette")
+    df_bol = data_bollette.copy()
+    if not df_bol.empty:
+        df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
+    st.dataframe(df_bol, use_container_width=True)
+    
+    # Imposta il budget mensile per il calcolo del saldo
+    budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=200.0, key="budget_bollette")
+    def calcola_saldo(data, budget):
+        saldo_iniziale = -50
+        saldi = []
+        for _, row in data.iterrows():
+            totale = row.get("Elettricità",0) + row.get("Gas",0) + row.get("Acqua",0) + row.get("Internet",0) + row.get("Tari",0)
+            saldo = saldo_iniziale + budget - totale
+            saldi.append(saldo)
+            saldo_iniziale = saldo
+        data["Saldo"] = saldi
+        return data
+
+    data_bollette = calcola_saldo(data_bollette, budget)
+    # Prepara i dati per il grafico
+    data_melted = data_bollette.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                                     var_name="Categoria", value_name="Valore")
+    data_saldo = data_bollette[["Mese", "Saldo"]].copy()
+    data_saldo["Categoria"] = "Saldo"
+    data_completa_bollette = pd.concat([data_melted, data_saldo])
+    data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
+    ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
+    
+    st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+
+st.markdown("---")
