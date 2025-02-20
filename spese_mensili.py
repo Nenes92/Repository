@@ -977,7 +977,7 @@ def crea_grafico_bollette(data_completa, order):
 st.title("Storico Stipendi e Risparmi")
 # Layout a 3 colonne: input - separatore - visualizzazione
 col1_stip, col_empty_stip, col2_stip = st.columns([3, 1, 6])
-col1b_stip, col2b_stip = st.columns (2)
+col1b_stip, col2b_stip = st.columns ([1, 2])
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -1024,7 +1024,7 @@ with col1_stip:
         else:
             st.error(f"Nessun record trovato per {selected_mese}.")
 
-st.markdown("---")
+    st.markdown("---")
 
 with col1b_stip:
     st.subheader("Dati Storici")
