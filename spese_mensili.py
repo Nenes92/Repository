@@ -1001,7 +1001,7 @@ with col_2:
     if file_id:
         drive_service = authenticate_drive()
         # data = load_data(file_id, drive_service)
-        data = load_data('storico_stipendi.json')
+        data = load_data_local('storico_stipendi.json')
         # Verifica che il file contenga le colonne attese
         if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
             st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
