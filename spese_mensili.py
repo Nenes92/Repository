@@ -908,6 +908,37 @@ def load_data(file_id, drive_service):
         st.info("Il file selezionato non è scaricabile. Usa un file JSON valido.")
         return pd.DataFrame()
 
+
+
+#######################################
+########## LOCALE DONATO ##############
+#######################################
+
+
+# Funzione per caricare dati JSON da LOCALE
+def load_data_local(percorso_file):
+    try:
+        # Percorso del file JSON
+        
+        with open(percorso_file, 'r') as file:
+            contenuto_file = file.read()
+            
+        data = json.loads(contenuto_file)
+        data = pd.DataFrame(data)
+
+        # Assicurati che la colonna 'Mese' sia in formato datetime
+        data['Mese'] = pd.to_datetime(data['Mese'], errors='coerce')
+
+        # Ordinamento dei dati
+        data = data.sort_values(by="Mese").reset_index(drop=True)
+
+        return data
+    except Exception as e:
+        # Puoi loggare l'errore in console se necessario, ad esempio:
+        # st.write(e)
+        st.info("Il file selezionato non è scaricabile. Usa un file JSON valido.")
+        return pd.DataFrame()
+
 # Funzione per salvare dati su Google Drive
 def save_data(data, file_id, drive_service):
     try:
@@ -924,6 +955,24 @@ def save_data(data, file_id, drive_service):
         # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
         placeholder = st.empty()
         placeholder.success("Dati salvati correttamente su Google Drive.")
+        time.sleep(2)
+        placeholder.empty()
+    except Exception as e:
+        st.error(f"Errore nel salvataggio del file: {e}")
+        
+        
+# Funzione per salvare dati su Locale
+def save_data_local(percorso_file):
+    try:
+        data_dict = data.to_dict(orient="records")
+        json_content = json.dumps(data_dict, indent=4, default=str)
+        
+        with open(percorso_file, "w") as file:
+            file.write(json_content)
+        
+        # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
+        placeholder = st.empty()
+        placeholder.success("Dati salvati correttamente.")
         time.sleep(2)
         placeholder.empty()
     except Exception as e:
@@ -951,7 +1000,8 @@ with col_2:
     file_id, file_name = select_or_create_file()
     if file_id:
         drive_service = authenticate_drive()
-        data = load_data(file_id, drive_service)
+        # data = load_data(file_id, drive_service)
+        data = load_data('storico_stipendi.json')
         # Verifica che il file contenga le colonne attese
         if not ("Stipendio" in data.columns and "Risparmi" in data.columns):
             st.info("Il file selezionato non contiene i dati richiesti (colonne 'Stipendio' e 'Risparmi'). Seleziona il file corretto e riprova.")
@@ -993,7 +1043,8 @@ with col_1:
         if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina_{selected_mese_anno}"):
             if not existing_record.empty:
                 data = data[data["Mese"] != mese_datetime]
-                save_data(data, file_id, drive_service)
+                #save_data(data, file_id, drive_service)
+                save_data_local('storico_stipendi.json')
                 # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                 placeholder = st.empty()
                 placeholder.success(f"Record per {selected_mese_anno} eliminato!")
@@ -1026,7 +1077,8 @@ with col_1:
                     time.sleep(2)
                     placeholder.empty()
                 data = data.sort_values(by="Mese").reset_index(drop=True)
-                save_data(data, file_id, drive_service)
+                #save_data(data, file_id, drive_service)
+                save_data_local('storico_stipendi.json')
                 # st.experimental_rerun()
             else:
                 # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
@@ -1258,7 +1310,9 @@ with col2dx:
 
 if file_id:
     drive_service = authenticate_drive()
-    data = load_data(file_id, drive_service)
+    #data = load_data(file_id, drive_service)
+    data = load_data_local('storico_bollette.json')
+    
     
     # Verifica che il file contenga le colonne richieste
     expected_columns = ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]
@@ -1291,7 +1345,8 @@ if file_id:
             if st.button(f"Elimina Record per {selected_mese_anno}", key=f"elimina2_{selected_mese_anno}"):
                 if not existing_record.empty:
                     data = data[data["Mese"] != mese_datetime]
-                    save_data(data, file_id, authenticate_drive())
+                    #save_data(data, file_id, authenticate_drive())
+                    save_data_local('storico_bollette.json')
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
                     placeholder.success(f"Record per {selected_mese_anno} eliminato!")
@@ -1330,7 +1385,8 @@ if file_id:
                         placeholder.empty()
 
                     data = data.sort_values(by="Mese").reset_index(drop=True)
-                    save_data(data, file_id, authenticate_drive())
+                    #save_data(data, file_id, authenticate_drive())
+                    save_data_local('storico_bollette.json')
                 else:
                     # Usa uno placeholder per mostrare il messaggio e poi svuotarlo dopo X secondi
                     placeholder = st.empty()
@@ -1500,6 +1556,7 @@ if file_id:
         grafico_principale = crea_grafico(data_completa, dominio_categorie, dominio_categorie, scala_colori, order)
         with col_grafico:
             st.altair_chart(grafico_principale.properties(height=500), use_container_width=True)
-        save_data(data, file_id, authenticate_drive())
+        #save_data(data, file_id, authenticate_drive())
+        save_data_local('storico_bollette.json')
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
