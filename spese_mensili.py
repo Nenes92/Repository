@@ -795,7 +795,6 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
-
 import streamlit as st
 import pandas as pd
 import json
@@ -919,7 +918,7 @@ def crea_grafico_bollette(data_completa, order):
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
     
-    # Etichette centrali per ogni segmento
+    # Etichette centrate per ogni segmento
     labels = base_stack.transform_filter(
         "datum.Valore > 0"
     ).transform_calculate(
@@ -934,7 +933,7 @@ def crea_grafico_bollette(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
-    # Dati per il saldo (separati in negativo e positivo)
+    # Dati per il saldo (divisi in negativo e positivo)
     saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
     saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
     
@@ -984,7 +983,7 @@ def crea_grafico_bollette(data_completa, order):
 #####################################
 
 st.title("Storico Stipendi e Risparmi")
-# Layout a 3 colonne (input - spazio - visualizzazione)
+# Layout a 3 colonne: input - separatore - visualizzazione
 col1_stip, col_empty_stip, col2_stip = st.columns([3, 1, 6])
 
 # File locale per stipendi/risparmi
@@ -1042,12 +1041,14 @@ with col2_stip:
     # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
-    st.markdown(f"**Somma Stipendio:** {stats_stip['Stipendio']['somma']:,.2f} €")
-    st.markdown(f"**Media Stipendio:** {stats_stip['Stipendio']['media']:,.2f} €")
+    
+    # Mostra i label con i colori ripristinati
+    st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+    st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
     if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-        st.markdown(f"**Media Stipendio NO 13°/PDR:** {data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €")
-    st.markdown(f"**Somma Risparmi:** {stats_stip['Risparmi']['somma']:,.2f} €")
-    st.markdown(f"**Media Risparmi:** {stats_stip['Risparmi']['media']:,.2f} €")
+        st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
+    st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+    st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
     
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
@@ -1058,7 +1059,7 @@ st.markdown("---")
 #####################################
 
 st.title("Storico Bollette")
-# Layout a 3 colonne: input, spazio, visualizzazione
+# Layout a 3 colonne: input, separatore, visualizzazione
 col1_bol, col_empty_bol, col2_bol = st.columns([3, 1, 6])
 
 # File locale per bollette
@@ -1129,7 +1130,7 @@ with col2_bol:
         saldo_iniziale = -50
         saldi = []
         for _, row in data.iterrows():
-            totale = row.get("Elettricità",0) + row.get("Gas",0) + row.get("Acqua",0) + row.get("Internet",0) + row.get("Tari",0)
+            totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
             saldo = saldo_iniziale + budget - totale
             saldi.append(saldo)
             saldo_iniziale = saldo
