@@ -1145,7 +1145,7 @@ with col1b_bol:
         unsafe_allow_html=True)
 
     # Imposta il budget mensile per il calcolo del saldo
-    # budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=100.0, key="budget_bollette")
+    budget = decisione_budget_bollette_mensili
     def calcola_saldo(data, budget):
         saldo_iniziale = -50
         saldi = []
