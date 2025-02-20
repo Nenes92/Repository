@@ -794,6 +794,7 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 
 
+
 #####################################
 # FUNZIONI PER GESTIONE FILE LOCALE
 #####################################
@@ -864,11 +865,13 @@ def crea_grafico_stipendi(data):
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
+    # Linee (medie e trend)
     linee = base.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori),
                         legend=alt.Legend(title="Categorie")),
         tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
     )
+    # Punti
     punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
         color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori)),
         tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
@@ -883,9 +886,11 @@ def crea_grafico_bollette(data_completa, order):
     """
     # Filtra le categorie relative alle bollette (escludendo il saldo)
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
+    # Mappa per ordinare le categorie
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
     df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
     
+    # Trasforma i dati in stack
     base_stack = alt.Chart(df_bollette).transform_stack(
         stack='Valore',
         groupby=['Mese_str'],
@@ -893,6 +898,7 @@ def crea_grafico_bollette(data_completa, order):
         as_=['lower', 'upper']
     )
     
+    # Barre impilate
     barre = base_stack.mark_bar(opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("lower:Q", title="Valore (€)"),
@@ -904,6 +910,7 @@ def crea_grafico_bollette(data_completa, order):
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
     
+    # Etichette centrate per ogni segmento
     labels = base_stack.transform_filter(
         "datum.Valore > 0"
     ).transform_calculate(
@@ -918,6 +925,7 @@ def crea_grafico_bollette(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
+    # Dati per il saldo (divisi in negativo e positivo)
     saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
     saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
     
@@ -967,8 +975,9 @@ def crea_grafico_bollette(data_completa, order):
 #####################################
 
 st.title("Storico Stipendi e Risparmi")
-# Layout a 3 colonne: input - separatore - visualizzazione
-col1_stip, col_empty_stip, col2_stip = st.columns([3, 1, 6])
+# Layout a colonne: input - separatore - visualizzazione
+col1_stip, col2_stip = st.columns([1.4, 3])
+col1b_stip, col2b_stip = st.columns ([1, 3])
 
 # File locale per stipendi/risparmi
 stipendi_file = "storico_stipendi.json"
@@ -981,6 +990,7 @@ with col1_stip:
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
     selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
     mese_dt = datetime.strptime(selected_mese, "%B %Y")
+    # Cerca se esiste un record per il mese selezionato
     record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
     stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
     risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
@@ -988,34 +998,38 @@ with col1_stip:
     col_stip_input1, col_stip_input2 = st.columns(2)
     with col_stip_input1:
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+    
+        if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
+            if stipendio > 0 or risparmi > 0:
+                if not record_esistente.empty:
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                    st.success(f"Record per {selected_mese} aggiornato!")
+                else:
+                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
+                    data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+                    st.success(f"Dati per {selected_mese} aggiunti!")
+                data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+                save_data_local(stipendi_file, data_stipendi)
+            else:
+                st.error("Inserisci valori validi per stipendio e/o risparmi!")
+
     with col_stip_input2:
         risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
-    
-    if st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi"):
-        if stipendio > 0 or risparmi > 0:
+        
+        if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
             if not record_esistente.empty:
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                st.success(f"Record per {selected_mese} aggiornato!")
+                data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+                save_data_local(stipendi_file, data_stipendi)
+                st.success(f"Record per {selected_mese} eliminato!")
             else:
-                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
-                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                st.success(f"Dati per {selected_mese} aggiunti!")
-            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(stipendi_file, data_stipendi)
-        else:
-            st.error("Inserisci valori validi per stipendio e/o risparmi!")
-    
-    if st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi"):
-        if not record_esistente.empty:
-            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-            save_data_local(stipendi_file, data_stipendi)
-            st.success(f"Record per {selected_mese} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese}.")
+                st.error(f"Nessun record trovato per {selected_mese}.")
 
-with col2_stip:
-    st.subheader("Dati Storici")
+    st.markdown("---")
+
+
+st.subheader("Dati Storici Stipendi/Risparmi")
+with col1b_stip:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
         df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
@@ -1024,35 +1038,31 @@ with col2_stip:
     # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
-    
-    st.markdown(
-        f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-        st.markdown(
-            f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>",
-            unsafe_allow_html=True)
-    st.markdown(
-        f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>",
-        unsafe_allow_html=True)
-    
+
+    col_stip_somme1, col_stip_somme2 = st.columns(2)
+    with col_stip_somme1:
+        # Mostra i label con i colori ripristinati
+        st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
+            st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
+    with col_stip_somme2:
+        st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
+
+with col2b_stip:    
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
-st.markdown("---")
+st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
 #####################################
 # SEZIONE: Storico Bollette
 #####################################
 
 st.title("Storico Bollette")
-# Layout a 3 colonne: input - separatore - visualizzazione
-col1_bol, col_empty_bol, col2_bol = st.columns([3, 1, 6])
+# Layout a colonne: input, separatore, visualizzazione
+col1_bol, col2_bol = st.columns([1.4, 3])
+col1b_bol, col2b_bol = st.columns ([1.4, 3])
 
 # File locale per bollette
 bollette_file = "storico_bollette.json"
@@ -1077,40 +1087,40 @@ with col1_bol:
     with col_bol_input1:
         elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key="elettricita_input")
         gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key="gas_input")
-        acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
-    with col_bol_input2:
-        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
-        tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
-    
-    if st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette"):
-        if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
-            if not record_bol.empty:
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
-                data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
-                st.success(f"Record per {selected_mese_bol} aggiornato!")
+        if st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette"):
+            if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+                if not record_bol.empty:
+                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
+                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
+                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
+                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
+                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
+                    st.success(f"Record per {selected_mese_bol} aggiornato!")
+                else:
+                    nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita,
+                                        "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
+                    data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                    st.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
+                save_data_local(bollette_file, data_bollette)
             else:
-                nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita,
-                                    "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
-                data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
-                st.success(f"Bollette per {selected_mese_bol} aggiunte!")
-            data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
-            save_data_local(bollette_file, data_bollette)
-        else:
-            st.error("Inserisci valori validi per le bollette!")
-    
-    if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
-        if not record_bol.empty:
-            data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
-            save_data_local(bollette_file, data_bollette)
-            st.success(f"Record per {selected_mese_bol} eliminato!")
-        else:
-            st.error(f"Nessun record trovato per {selected_mese_bol}.")
+                st.error("Inserisci valori validi per le bollette!")
+    with col_bol_input2:
+        acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
+        tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
+        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
+        if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
+            if not record_bol.empty:
+                data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
+                save_data_local(bollette_file, data_bollette)
+                st.success(f"Record per {selected_mese_bol} eliminato!")
+            else:
+                st.error(f"Nessun record trovato per {selected_mese_bol}.")    
 
-with col2_bol:
-    st.subheader("Dati Storici Bollette")
+    st.markdown("---")
+
+st.subheader("Dati Storici Bollette")
+with col1b_bol:
     df_bol = data_bollette.copy()
     if not df_bol.empty:
         df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
@@ -1133,9 +1143,9 @@ with col2_bol:
     st.markdown(
         f"**Somma Tari:** <span style='color:#C19A6B;'>{stats_bollette['Tari']['somma']:,.2f} €</span>",
         unsafe_allow_html=True)
-    
+
     # Imposta il budget mensile per il calcolo del saldo
-    budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=200.0, key="budget_bollette")
+    # budget = st.number_input("Budget Bollette Mensili (€)", min_value=0.0, step=10.0, value=100.0, key="budget_bollette")
     def calcola_saldo(data, budget):
         saldo_iniziale = -50
         saldi = []
@@ -1156,7 +1166,8 @@ with col2_bol:
     data_completa_bollette = pd.concat([data_melted, data_saldo])
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
-    
+
+with col2b_bol:
     st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
-st.markdown("---")
+st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
