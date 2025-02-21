@@ -1165,7 +1165,7 @@ st.title("Storico Bollette")
 bollette_file = "storico_bollette.json"
 data_bollette = load_data_local(bollette_file)
 
-col_sx_stip, col_cx_bol_download, col_dx_bol_chart = st.columns([1, 1, 2])
+col_sx_bol, col_cx_bol_download, col_dx_bol_chart = st.columns([1, 1, 2])
 
 with col_sx_bol:
     # --- Sezione Input per Bollette ---
@@ -1252,7 +1252,7 @@ with col_sx_bol:
                 time.sleep(3)
                 placeholder.empty()
 
-with col_dx_bol_download:
+with col_cx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
 with col_dx_bol_chart:
