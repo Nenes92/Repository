@@ -971,71 +971,71 @@ def crea_grafico_bollette(data_completa, order):
     return barre + labels + linea_saldo
 
 
-# --- FUNZIONI PER GESTIONE FILE LOCALE ---
-def load_data_local(percorso_file):
-    if os.path.exists(percorso_file):
-        try:
-            with open(percorso_file, 'r') as file:
-                contenuto = json.load(file)
-            df = pd.DataFrame(contenuto)
-            if not df.empty and "Mese" in df.columns:
-                df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
-                df = df.sort_values(by="Mese").reset_index(drop=True)
-            return df
-        except Exception as e:
-            st.error(f"Errore nel caricamento di {percorso_file}: {e}")
-            return pd.DataFrame()
-    else:
-        return pd.DataFrame()
+# # --- FUNZIONI PER GESTIONE FILE LOCALE ---
+# def load_data_local(percorso_file):
+#     if os.path.exists(percorso_file):
+#         try:
+#             with open(percorso_file, 'r') as file:
+#                 contenuto = json.load(file)
+#             df = pd.DataFrame(contenuto)
+#             if not df.empty and "Mese" in df.columns:
+#                 df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
+#                 df = df.sort_values(by="Mese").reset_index(drop=True)
+#             return df
+#         except Exception as e:
+#             st.error(f"Errore nel caricamento di {percorso_file}: {e}")
+#             return pd.DataFrame()
+#     else:
+#         return pd.DataFrame()
 
-def save_data_local(percorso_file, data):
-    try:
-        data_dict = data.to_dict(orient="records")
-        json_content = json.dumps(data_dict, indent=4, default=str)
-        with open(percorso_file, "w") as file:
-            file.write(json_content)
-        st.success(f"Dati salvati correttamente in {percorso_file}.")
-    except Exception as e:
-        st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
+# def save_data_local(percorso_file, data):
+#     try:
+#         data_dict = data.to_dict(orient="records")
+#         json_content = json.dumps(data_dict, indent=4, default=str)
+#         with open(percorso_file, "w") as file:
+#             file.write(json_content)
+#         st.success(f"Dati salvati correttamente in {percorso_file}.")
+#     except Exception as e:
+#         st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
 
-# --- FUNZIONI PER CALCOLI E GRAFICI ---
-@st.cache_data
-def calcola_statistiche(data, colonne):
-    stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
-    return stats
+# # --- FUNZIONI PER CALCOLI E GRAFICI ---
+# @st.cache_data
+# def calcola_statistiche(data, colonne):
+#     stats = {col: {'somma': data[col].sum(), 'media': round(data[col].mean(), 2)} for col in colonne}
+#     return stats
 
-def calcola_medie(data, colonne):
-    for col in colonne:
-        data[f"Media {col}"] = data[col].expanding().mean().round(2)
-        if col == "Stipendio":
-            data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
-    return data
+# def calcola_medie(data, colonne):
+#     for col in colonne:
+#         data[f"Media {col}"] = data[col].expanding().mean().round(2)
+#         if col == "Stipendio":
+#             data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
+#     return data
 
-def crea_grafico_stipendi(data):
-    # Unisce i dati originali e le medie
-    data_completa = pd.concat([
-        data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"],
-                  var_name="Categoria", value_name="Valore"),
-        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"],
-                  var_name="Categoria", value_name="Valore")
-    ])
-    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
-    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
+# def crea_grafico_stipendi(data):
+#     # Unisce i dati originali e le medie
+#     data_completa = pd.concat([
+#         data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"],
+#                   var_name="Categoria", value_name="Valore"),
+#         data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"],
+#                   var_name="Categoria", value_name="Valore")
+#     ])
+#     dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
+#     scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
 
-    base = alt.Chart(data_completa).encode(
-        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
-        y=alt.Y("Valore:Q", title="Valore (€)")
-    )
-    linee = base.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori),
-                        legend=alt.Legend(title="Categorie")),
-        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-    )
-    punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori)),
-        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
-    )
-    return linee + punti
+#     base = alt.Chart(data_completa).encode(
+#         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
+#         y=alt.Y("Valore:Q", title="Valore (€)")
+#     )
+#     linee = base.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
+#         color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori),
+#                         legend=alt.Legend(title="Categorie")),
+#         tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+#     )
+#     punti = base.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+#         color=alt.Color("Categoria:N", scale=alt.Scale(domain=dominio_categorie, range=scala_colori)),
+#         tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+#     )
+#     return linee + punti
 
 
 
