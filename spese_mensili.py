@@ -939,8 +939,8 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     linea_saldo_unica = alt.Chart(df_saldo).mark_line(
         strokeWidth=2,
         strokeDash=[5,5],    # Linea tratteggiata
-        color="#D3D3D3",     # Grigio chiaro
-        opacity=0.5          # Maggiore trasparenza
+        color="#F0F0F0",     # Grigio molto chiaro
+        opacity=0.75          # Maggiore trasparenza
     ).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
