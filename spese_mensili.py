@@ -892,42 +892,40 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
-def crea_grafico_bollette(data_completa, order):
+def crea_grafico_bollette_con_saldo(data_completa, order):
     """
     Crea un grafico combinato per le bollette:
-     - Barre impilate con etichette (label) per ogni segmento.
-     - Linea e punti per il saldo.
+     - Barre impilate con etichette per le categorie.
+     - Una linea che rappresenta il saldo:
+         - Rosso se il saldo è negativo.
+         - Verde se il saldo è positivo.
     """
-    # Filtra le categorie relative alle bollette (escludendo il saldo)
+    # Filtra i dati per le bollette (escludendo il saldo)
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
-    # Mappa per ordinare le categorie
+    # Imposta un mapping per ordinare le categorie
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
     df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
     
-    # Trasforma i dati in stack
+    # Crea il grafico a barre impilate
     base_stack = alt.Chart(df_bollette).transform_stack(
         stack='Valore',
         groupby=['Mese_str'],
         sort=[{'field': 'stack_order', 'order': 'ascending'}],
         as_=['lower', 'upper']
     )
-    
-    # Barre impilate
     barre = base_stack.mark_bar(opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("lower:Q", title="Valore (€)"),
         y2="upper:Q",
-        color=alt.Color("Categoria:N", scale=alt.Scale(
-            domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-            range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
-            legend=alt.Legend(title="Categorie")),
+        color=alt.Color("Categoria:N", 
+                        scale=alt.Scale(domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                                        range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
+                        legend=alt.Legend(title="Categorie")),
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
     
-    # Etichette centrate per ogni segmento
-    labels = base_stack.transform_filter(
-        "datum.Valore > 0"
-    ).transform_calculate(
+    # Aggiunge le etichette centrali
+    labels = base_stack.transform_filter("datum.Valore > 0").transform_calculate(
         mid="(datum.lower + datum.upper) / 2"
     ).mark_text(
         color="black",
@@ -939,10 +937,13 @@ def crea_grafico_bollette(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
-    # Dati per il saldo (divisi in negativo e positivo)
-    saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
-    saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
+    # Filtra i dati del saldo (con Categoria == "Saldo")
+    saldo_data = data_completa[data_completa["Categoria"] == "Saldo"]
+    # Dividi il saldo in due parti: negativo e positivo
+    saldo_neg = saldo_data[saldo_data["Valore"] < 0]
+    saldo_pos = saldo_data[saldo_data["Valore"] >= 0]
     
+    # Crea la linea del saldo negativa (in rosso)
     linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
         strokeDash=[5,5],
         strokeWidth=2,
@@ -962,6 +963,7 @@ def crea_grafico_bollette(data_completa, order):
         tooltip=["Mese_str:N", "Valore:Q"]
     )
     
+    # Crea la linea del saldo positiva (in verde)
     linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
         strokeDash=[5,5],
         strokeWidth=2,
@@ -980,9 +982,13 @@ def crea_grafico_bollette(data_completa, order):
         y="Valore:Q",
         tooltip=["Mese_str:N", "Valore:Q"]
     )
+    
+    # Combina le linee per il saldo
     linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
     
-    return barre + labels + linea_saldo
+    # Sovrapponi barre, etichette e linea del saldo
+    return alt.layer(barre, labels, linea_saldo)
+    
 
 def crea_confronto_anno_su_anno_stipendi(data):
     """
