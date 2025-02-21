@@ -1002,7 +1002,7 @@ def crea_confronto_anno_su_anno_stipendi(data):
         color=alt.Color("Anno:N", title="Anno"),
         tooltip=["Anno", "Mese_str", alt.Tooltip("Stipendio:Q", aggregate="mean", format=".2f")]
     ).properties(
-        title="da togliere"
+        title=""
     )
     return chart
 
@@ -1031,7 +1031,7 @@ def crea_confronto_anno_su_anno_bollette(data):
         color=alt.Color("Anno:N", title="Anno"),
         tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", format=".2f")]
     ).properties(
-        title="da togliere"
+        title=""
     )
     return chart
 
