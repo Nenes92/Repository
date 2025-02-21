@@ -891,6 +891,33 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
+def crea_bubble_chart_bollette(data):
+    """
+    Crea un bubble chart che mostra, per ciascun mese e categoria,
+    l'importo speso (la dimensione della bolla è proporzionale al valore).
+    """
+    # Trasforma i dati in formato long per ottenere una riga per ogni record di categoria per mese
+    data_melted = data.melt(
+        id_vars=["Mese"],
+        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+        var_name="Categoria",
+        value_name="Valore"
+    )
+    
+    # Crea il bubble chart con Altair
+    chart = alt.Chart(data_melted).mark_circle(opacity=0.7).encode(
+        x=alt.X("Mese:T", title="Mese"),
+        y=alt.Y("Categoria:N", title="Categoria"),
+        size=alt.Size("Valore:Q", title="Importo (€)", scale=alt.Scale(range=[0, 1000])),
+        color=alt.Color("Categoria:N", scale=alt.Scale(
+            domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+            range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"])),
+        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+    ).properties(
+        title="Distribuzione delle Bollette (Bubble Chart)"
+    )
+    return chart
+
 def crea_grafico_bollette(data_completa, order):
     """
     Crea un grafico combinato per le bollette:
@@ -1199,6 +1226,10 @@ with col_sx_bol:
 with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
+
+    st.markdown("### Distribuzione delle Bollette (Bubble Chart)")
+    bubble_chart = crea_bubble_chart_bollette(data_bollette)
+    st.altair_chart(bubble_chart, use_container_width=True)
 
         
 # --- Separatore e Subheader per Visualizzazione Dati ---
