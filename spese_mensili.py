@@ -9,16 +9,7 @@ from datetime import datetime
 import time
 import io
 
-from googleapiclient.http import MediaIoBaseDownload
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
-
-
 st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
-
 
 # Flag per controllare se la configurazione della pagina è già stata impostata
 page_config_set = False
