@@ -1018,7 +1018,7 @@ st.title("Storico Stipendi e Risparmi")
 stipendi_file = "storico_stipendi.json"
 data_stipendi = load_data_local(stipendi_file)
 
-col_sx_stip, col_dx_stip_dowload = st.columns([1, 3])
+col_sx_stip, col_cx_stip_download, col_dx_stip_chart = st.columns([1, 1, 2])
 with col_sx_stip:
     # --- Sezione Input (in alto) ---
     st.subheader("Inserisci Dati")
@@ -1084,9 +1084,13 @@ with col_sx_stip:
             time.sleep(3)
             placeholder.empty()
 
-with col_dx_stip_dowload:
+with col_cx_stip_download:
     # Pulsante di download per i dati stipendi
     download_data_button(data_stipendi, "storico_stipendi.json")
+with col_dx_stip_chart:
+    st.markdown("### Confronto Anno su Anno degli Stipendi")
+    confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
+    st.altair_chart(confronto_chart, use_container_width=True)
 
 
 # --- Separatore e Subheader per la visualizzazione ---
@@ -1221,9 +1225,6 @@ with col_sx_bol:
 with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
-    st.markdown("### Confronto Anno su Anno degli Stipendi")
-    confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
-    st.altair_chart(confronto_chart, use_container_width=True)
 
 # --- Separatore e Subheader per Visualizzazione Dati ---
 st.markdown("---")
