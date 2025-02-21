@@ -7,6 +7,19 @@ import json
 import os
 from datetime import datetime
 import time
+import io
+
+st.set_page_config(layout="wide")  # Imposta layout wide per la pagina IMMEDIATAMENTE
+
+# Flag per controllare se la configurazione della pagina è già stata impostata
+page_config_set = False
+
+def set_page_config():
+    pass # Rimuoviamo il contenuto di questa funzione, non è più necessario
+
+# /////  
+# Variabili inizializzate
+input_stipendio_originale=2485
 input_risparmi_mese_precedente=0
 input_stipendio_scelto=2150
 
