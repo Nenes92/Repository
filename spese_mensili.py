@@ -1300,17 +1300,33 @@ with col_bol_table:
     
     data_bollette = calcola_saldo(data_bollette, budget)
     
-    # Prepara i dati per il grafico
-    data_melted = data_bollette.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-                                     var_name="Categoria", value_name="Valore")
+    # 1. Trasforma le colonne delle bollette in formato long
+    data_melted = data_bollette.melt(
+        id_vars=["Mese"],
+        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+        var_name="Categoria",
+        value_name="Valore"
+    )
+
+    # 2. Prepara i dati del saldo: usa la colonna "Saldo" e imposta la Categoria a "Saldo"
     data_saldo = data_bollette[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
-    data_completa_bollette = pd.concat([data_melted, data_saldo])
+
+    # 3. Combina i dati
+    data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
+
+    # 4. Aggiungi una colonna formattata per l'asse X
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
+
+    # 5. Definisci l'ordine dei mesi (in ordine cronologico)
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
+    st.write("Record di Saldo:", data_completa_bollette[data_completa_bollette["Categoria"] == "Saldo"])
+    st.write("Saldo negativi:", data_completa_bollette.query("Categoria == 'Saldo' and Valore < 0"))
+    st.write("Saldo positivi:", data_completa_bollette.query("Categoria == 'Saldo' and Valore >= 0"))
+
 with col_bol_chart:
-    # st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
-    st.altair_chart(crea_grafico_bollette_con_saldo(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    # st.altair_chart(crea_grafico_bollette_con_saldo(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
