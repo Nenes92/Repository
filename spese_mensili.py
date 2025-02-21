@@ -1094,18 +1094,19 @@ with col_sx_bol:
         internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
         tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
         
-        # Disposizione degli input in due colonne
+        # Disposizione degli input in due colonne per le bollette
         col_bol_input1, col_bol_input2 = st.columns(2)
         with col_bol_input1:
             elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key="elettricita_input")
             gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key="gas_input")
+            aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
         with col_bol_input2:
             acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
-        
-        # Ora fuori dai blocchi, controlli i pulsanti:
-        if st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette"):
+            elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
+
+        if aggiungi_bollette:
             if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
                 if not record_bol.empty:
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
@@ -1130,8 +1131,7 @@ with col_sx_bol:
             else:
                 st.error("Inserisci valori validi per le bollette!")
 
-        # Pulsante per eliminare il record
-        if st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette"):
+        if elimina_bollette:
             if not record_bol.empty:
                 data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
                 save_data_local(bollette_file, data_bollette)
