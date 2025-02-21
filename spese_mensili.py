@@ -826,8 +826,8 @@ def save_data_local(percorso_file, data):
         st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
 
 def download_data_button(data, file_name):
-    # Converte il DataFrame in stringa JSON formattata
-    json_data = data.to_json(orient="records", indent=4, default=str)
+    # Converte il DataFrame in un dizionario e poi in una stringa JSON formattata con indentazione
+    json_data = json.dumps(data.to_dict(orient="records"), indent=4, default=str)
     st.download_button(
         label=f"Download {file_name}",
         data=json_data,
