@@ -1300,30 +1300,16 @@ with col_bol_table:
     
     data_bollette = calcola_saldo(data_bollette, budget)
     
-    # Prepara i dati per il grafico: trasforma i dati in formato long
-
-    # 1. Crea il DataFrame "melted" per le bollette (categorie)
-    data_melted = data_bollette.melt(
-        id_vars=["Mese"],
-        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-        var_name="Categoria",
-        value_name="Valore"
-    )
-
-    # 2. Prepara il DataFrame per il saldo: usa la colonna "Saldo" e imposta la Categoria a "Saldo"
+    # Prepara i dati per il grafico
+    data_melted = data_bollette.melt(id_vars=["Mese"], value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                                     var_name="Categoria", value_name="Valore")
     data_saldo = data_bollette[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
-
-    # 3. Combina i due DataFrame
-    data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
-
-    # 4. Crea una colonna di supporto per l'asse X (es. "Apr 2024")
+    data_completa_bollette = pd.concat([data_melted, data_saldo])
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
-
-    # 5. Definisci l'ordine dei mesi in base al campo "Mese_str"
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
 with col_bol_chart:
-    st.altair_chart(crea_grafico_bollette_con_saldo(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
