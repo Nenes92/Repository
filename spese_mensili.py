@@ -981,6 +981,9 @@ def crea_grafico_bollette(data_completa, order):
 
 st.title("Storico Stipendi e Risparmi")
 
+stipendi_file = "storico_stipendi.json"
+data_stipendi = load_data_local(stipendi_file)
+
 col_sx_stip, col_dx_stip_dowload = st.columns([1, 3])
 with col_sx_stip:
     # --- Sezione Input (in alto) ---
@@ -989,8 +992,6 @@ with col_sx_stip:
     selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
     mese_dt = datetime.strptime(selected_mese, "%B %Y")
 
-    stipendi_file = "storico_stipendi.json"
-    data_stipendi = load_data_local(stipendi_file)
     if data_stipendi.empty:
         data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi"])
 
@@ -1074,6 +1075,9 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 st.title("Storico Bollette")
 
+bollette_file = "storico_bollette.json"
+data_bollette = load_data_local(bollette_file)
+
 col_sx_bol, col_dx_bol_download = st.columns([1, 3])
 with col_sx_bol:
     # --- Sezione Input per Bollette ---
@@ -1085,8 +1089,6 @@ with col_sx_bol:
         mese_dt_bol = datetime.strptime(selected_mese_bol, "%B %Y")
         
         # Carica i dati dal file locale
-        bollette_file = "storico_bollette.json"
-        data_bollette = load_data_local(bollette_file)
         if data_bollette.empty:
             data_bollette = pd.DataFrame(columns=["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"])
         
