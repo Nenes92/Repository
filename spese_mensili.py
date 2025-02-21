@@ -891,40 +891,34 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
-def crea_heatmap_bollette(data):
+def crea_line_chart_cumulativo_bollette(data):
     """
-    Crea una heatmap che mostra l'importo speso per ciascuna categoria in ogni mese.
-    L'asse X rappresenta i mesi (formattati come "YYYY-MM") e l'asse Y le categorie.
-    Il colore delle celle indica l'importo speso.
+    Crea un grafico a linee che mostra il totale cumulativo speso per ciascuna categoria di bollette nel tempo.
     """
-    # Copia e prepara i dati
-    df = data.copy()
-    if df.empty:
-        return None
-    # Creiamo una colonna per i mesi in formato stringa (es. "2024-03")
-    df["Mese_str"] = df["Mese"].dt.strftime("%Y-%m")
-    
-    # Trasformiamo i dati in formato long
-    df_long = df.melt(
-        id_vars=["Mese_str"],
+    # Trasforma i dati in formato long (un record per ogni mese e categoria)
+    df_long = data.melt(
+        id_vars=["Mese"],
         value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
         var_name="Categoria",
         value_name="Valore"
     )
+    # Ordina i dati per mese e calcola il cumulativo per ciascuna categoria
+    df_long = df_long.sort_values("Mese")
+    df_long["Cumulativo"] = df_long.groupby("Categoria")["Valore"].cumsum()
     
-    # Crea la heatmap usando mark_rect
-    heatmap = alt.Chart(df_long).mark_rect().encode(
-        x=alt.X("Mese_str:N", title="Mese"),
-        y=alt.Y("Categoria:N", title="Categoria"),
-        color=alt.Color("Valore:Q", title="Importo (€)",
-                        scale=alt.Scale(scheme="blues")),
-        tooltip=["Mese_str", "Categoria", "Valore:Q"]
+    # Crea il grafico a linee cumulative
+    chart = alt.Chart(df_long).mark_line(point=True).encode(
+        x=alt.X("Mese:T", title="Mese"),
+        y=alt.Y("Cumulativo:Q", title="Spesa Cumulativa (€)"),
+        color=alt.Color("Categoria:N", 
+                        scale=alt.Scale(domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                                        range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
+                        legend=alt.Legend(title="Categoria")),
+        tooltip=["Categoria", "Cumulativo:Q"]
     ).properties(
-        width=600,
-        height=300,
-        title="Heatmap delle Bollette"
+        title="Spesa Cumulativa per Categoria"
     )
-    return heatmap
+    return chart
 
 def crea_grafico_bollette(data_completa, order):
     """
@@ -1235,12 +1229,9 @@ with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
 
-    st.markdown("### Heatmap delle Bollette")
-    heatmap = crea_heatmap_bollette(data_bollette)
-    if heatmap is not None:
-        st.altair_chart(heatmap, use_container_width=True)
-    else:
-        st.info("Non ci sono dati sufficienti per mostrare la heatmap.")
+    st.markdown("### Spesa Cumulativa per Categoria (Grafico a Linee)")
+    cumulative_chart = crea_line_chart_cumulativo_bollette(data_bollette)
+    st.altair_chart(cumulative_chart, use_container_width=True)
 
         
 # --- Separatore e Subheader per Visualizzazione Dati ---
