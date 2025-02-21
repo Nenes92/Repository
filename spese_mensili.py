@@ -1312,19 +1312,20 @@ with col_bol_table:
     data_saldo = data_bollette[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
 
+    # *** Assegna i valori del saldo alla colonna Valore ***
+    data_saldo["Valore"] = data_saldo["Saldo"]  # <--- ECCO IL PASSO FONDAMENTALE
+    # (se vuoi, puoi eliminare la colonna Saldo con data_saldo.drop(columns=["Saldo"], inplace=True))
+
     # 3. Combina i dati
     data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
 
-    # 4. Aggiungi una colonna formattata per l'asse X
+    # 4. Colonna formattata per l’asse X
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
 
-    # 5. Definisci l'ordine dei mesi (in ordine cronologico)
+    # 5. Ordine cronologico dei mesi
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
-    st.write("Dati Saldo:", data_completa_bollette[data_completa_bollette["Categoria"] == "Saldo"])
-
 with col_bol_chart:
     st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
-    # st.altair_chart(crea_grafico_bollette_con_saldo(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
