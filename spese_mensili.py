@@ -805,7 +805,11 @@ def load_data_local(percorso_file):
                 df = df.sort_values(by="Mese").reset_index(drop=True)
             return df
         except Exception as e:
-            st.error(f"Errore nel caricamento di {percorso_file}: {e}")
+            placeholder = st.empty()
+            placeholder.error(f"Errore nel caricamento di {percorso_file}: {e}")
+            time.sleep(3)
+            placeholder.empty()
+
             return pd.DataFrame()
     else:
         return pd.DataFrame()
@@ -821,9 +825,17 @@ def save_data_local(percorso_file, data):
         json_content = json.dumps(data_dict, indent=4, default=str)
         with open(percorso_file, "w") as file:
             file.write(json_content)
-        st.success(f"Dati salvati correttamente in {percorso_file}.")
+        placeholder = st.empty()
+        placeholder.error(f"Dati salvati correttamente in {percorso_file}.")
+        time.sleep(3)
+        placeholder.empty()
+
     except Exception as e:
-        st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
+        placeholder = st.empty()
+        placeholder.error(f"Errore nel salvataggio di {percorso_file}: {e}")
+        time.sleep(3)
+        placeholder.empty()
+
 
 def download_data_button(data, file_name):
     # Converte il DataFrame in un dizionario e poi in una stringa JSON formattata con indentazione
@@ -1014,22 +1026,42 @@ with col_sx_stip:
             if not record_esistente.empty:
                 data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
                 data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                st.success(f"Record per {selected_mese} aggiornato!")
+                placeholder = st.empty()
+                placeholder.error(f"Record per {selected_mese} aggiornato!")
+                time.sleep(3)
+                placeholder.empty()
+
             else:
                 nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
                 data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                st.success(f"Dati per {selected_mese} aggiunti!")
+                placeholder = st.empty()
+                placeholder.error(f"Dati per {selected_mese} aggiunti!")
+                time.sleep(3)
+                placeholder.empty()
+
             data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
             save_data_local(stipendi_file, data_stipendi)
         else:
-            st.error("Inserisci valori validi per stipendio e/o risparmi!")
+            placeholder = st.empty()
+            placeholder.error("Inserisci valori validi per stipendio e/o risparmi!")
+            time.sleep(3)
+            placeholder.empty()
+
     if elimina_button:
         if not record_esistente.empty:
             data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
             save_data_local(stipendi_file, data_stipendi)
-            st.success(f"Record per {selected_mese} eliminato!")
+            placeholder = st.empty()
+            placeholder.error(f"Record per {selected_mese} eliminato!")
+            time.sleep(3)
+            placeholder.empty()
+
         else:
-            st.error(f"Nessun record trovato per {selected_mese}.")
+            placeholder = st.empty()
+            placeholder.error(f"Nessun record trovato per {selected_mese}.")
+            time.sleep(3)
+            placeholder.empty()
+
 with col_dx_stip_dowload:
     # Pulsante di download per i dati stipendi
     download_data_button(data_stipendi, "storico_stipendi.json")
@@ -1120,7 +1152,11 @@ with col_sx_bol:
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
-                    st.success(f"Record per {selected_mese_bol} aggiornato!")
+                    placeholder = st.empty()
+                    placeholder.error(f"Record per {selected_mese_bol} aggiornato!")
+                    time.sleep(3)
+                    placeholder.empty()
+
                 else:
                     nuovo_record_bol = {
                         "Mese": mese_dt_bol,
@@ -1131,19 +1167,35 @@ with col_sx_bol:
                         "Tari": tari
                     }
                     data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
-                    st.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                    placeholder = st.empty()
+                    placeholder.error(f"Bollette per {selected_mese_bol} aggiunte!")
+                    time.sleep(3)
+                    placeholder.empty()
+
                 data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
                 save_data_local(bollette_file, data_bollette)
             else:
-                st.error("Inserisci valori validi per le bollette!")
+                placeholder = st.empty()
+                placeholder.error("Inserisci valori validi per le bollette!")
+                time.sleep(3)
+                placeholder.empty()
+
 
         if elimina_bollette:
             if not record_bol.empty:
                 data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
                 save_data_local(bollette_file, data_bollette)
-                st.success(f"Record per {selected_mese_bol} eliminato!")
+                placeholder = st.empty()
+                placeholder.error(f"Record per {selected_mese_bol} eliminato!")
+                time.sleep(3)
+                placeholder.empty()
+
             else:
-                st.error(f"Nessun record trovato per {selected_mese_bol}.")
+                placeholder = st.empty()
+                placeholder.error(f"Nessun record trovato per {selected_mese_bol}.")
+                time.sleep(3)
+                placeholder.empty()
+
 with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
