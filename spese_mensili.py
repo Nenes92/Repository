@@ -1314,7 +1314,9 @@ with col_bol_table:
 
     # *** Assegna i valori del saldo alla colonna Valore ***
     data_saldo["Valore"] = data_saldo["Saldo"]  # <--- ECCO IL PASSO FONDAMENTALE
-    # (se vuoi, puoi eliminare la colonna Saldo con data_saldo.drop(columns=["Saldo"], inplace=True))
+
+    # Se desideri rimuovere la colonna "Saldo", puoi farlo qui:
+    data_saldo.drop(columns=["Saldo"], inplace=True)
 
     # 3. Combina i dati
     data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
