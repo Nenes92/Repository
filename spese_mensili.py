@@ -891,32 +891,37 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
-def crea_line_chart_cumulativo_bollette(data):
+def crea_area_chart_bollette(data):
     """
-    Crea un grafico a linee che mostra il totale cumulativo speso per ciascuna categoria di bollette nel tempo.
+    Crea un grafico ad aree impilate che mostra l'andamento cumulativo (non normalizzato)
+    delle spese per ciascuna categoria di bollette nel tempo.
     """
-    # Trasforma i dati in formato long (un record per ogni mese e categoria)
+    # Trasforma i dati in formato long
     df_long = data.melt(
         id_vars=["Mese"],
         value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
         var_name="Categoria",
         value_name="Valore"
     )
-    # Ordina i dati per mese e calcola il cumulativo per ciascuna categoria
+    # Ordina i dati per mese
     df_long = df_long.sort_values("Mese")
-    df_long["Cumulativo"] = df_long.groupby("Categoria")["Valore"].cumsum()
     
-    # Crea il grafico a linee cumulative
-    chart = alt.Chart(df_long).mark_line(point=True).encode(
+    # Crea il grafico ad aree impilate
+    chart = alt.Chart(df_long).mark_area(opacity=0.7).encode(
         x=alt.X("Mese:T", title="Mese"),
-        y=alt.Y("Cumulativo:Q", title="Spesa Cumulativa (€)"),
+        # L'aggregazione sum(Valore) viene impilata per mostrare l'andamento cumulativo
+        y=alt.Y("sum(Valore):Q", stack="zero", title="Spesa (€)"),
         color=alt.Color("Categoria:N", 
-                        scale=alt.Scale(domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-                                        range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
+                        scale=alt.Scale(
+                            domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                            range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]
+                        ),
                         legend=alt.Legend(title="Categoria")),
-        tooltip=["Categoria", "Cumulativo:Q"]
+        tooltip=["Categoria", "sum(Valore):Q"]
     ).properties(
-        title="Spesa Cumulativa per Categoria"
+        width=600,
+        height=300,
+        title="Andamento Cumulativo delle Bollette (Aree Impilate)"
     )
     return chart
 
@@ -1229,9 +1234,9 @@ with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
 
-    st.markdown("### Spesa Cumulativa per Categoria (Grafico a Linee)")
-    cumulative_chart = crea_line_chart_cumulativo_bollette(data_bollette)
-    st.altair_chart(cumulative_chart, use_container_width=True)
+    st.markdown("### Andamento Cumulativo delle Bollette (Aree Impilate)")
+    area_chart = crea_area_chart_bollette(data_bollette)
+    st.altair_chart(area_chart, use_container_width=True)
 
         
 # --- Separatore e Subheader per Visualizzazione Dati ---
