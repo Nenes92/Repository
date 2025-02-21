@@ -933,9 +933,8 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
-    # Dati del saldo: non spezzare la linea, ma colorare i punti in base al segno
     df_saldo = data_completa[data_completa["Categoria"] == "Saldo"]
-    # Linea continua (colore unico, ad esempio, grigio)
+    # --- Linea continua per il saldo con punti colorati ---
     linea_saldo_unica = alt.Chart(df_saldo).mark_line(
         strokeWidth=2,
         strokeDash=[5,5],    # Linea tratteggiata
@@ -962,11 +961,29 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
 
     linea_saldo = linea_saldo_unica + punti_saldo_color
     
+    # --- Totale mensile sopra le barre ---
+    # Raggruppa solo i dati delle bollette (escludendo il saldo) per ottenere il totale per ogni mese
+    df_totali = data_completa[data_completa["Categoria"].isin(["Elettricità", "Gas", "Acqua", "Internet", "Tari"])].groupby(
+        ["Mese", "Mese_str"], as_index=False
+    )["Valore"].sum()
+    
+    testo_totale = alt.Chart(df_totali).mark_text(
+        align="center",
+        baseline="bottom",
+        dy=-5,         # sposta il testo leggermente verso l'alto
+        fontSize=12,
+        color="white"
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y=alt.Y("Valore:Q"),
+        text=alt.Text("Valore:Q", format=".2f")
+    )
+    
     # Combina la linea continua e i punti colorati
     linea_saldo = linea_saldo_unica + punti_saldo_color
     
     # Crea il grafico finale sovrapponendo barre, etichette e la linea del saldo
-    grafico_finale = alt.layer(barre, labels, linea_saldo)
+    grafico_finale = alt.layer(barre, labels, linea_saldo, testo_totale)
     return grafico_finale
     
 def crea_confronto_anno_su_anno_stipendi(data):
