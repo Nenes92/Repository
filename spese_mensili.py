@@ -1325,5 +1325,9 @@ with col_bol_table:
     
 with col_bol_chart:
     st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    st.markdown(
+        f"<div style='text-align: right;'><strong>Somma Elettricità:</strong> <span style='color:#84B6F4;'>{stats_bollette['Elettricità']['somma']:,.2f} €</span></div>",
+        unsafe_allow_html=True
+    )
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
