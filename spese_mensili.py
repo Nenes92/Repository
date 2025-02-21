@@ -825,6 +825,16 @@ def save_data_local(percorso_file, data):
     except Exception as e:
         st.error(f"Errore nel salvataggio di {percorso_file}: {e}")
 
+def download_data_button(data, file_name):
+    # Converte il DataFrame in stringa JSON formattata
+    json_data = data.to_json(orient="records", indent=4, default=str)
+    st.download_button(
+        label=f"Download {file_name}",
+        data=json_data,
+        file_name=file_name,
+        mime="application/json"
+    )
+
 #####################################
 # FUNZIONI PER CALCOLI E GRAFICI
 #####################################
@@ -971,7 +981,7 @@ def crea_grafico_bollette(data_completa, order):
 
 st.title("Storico Stipendi e Risparmi")
 
-col_sx_stip, col_dx_stip = st.columns([1, 3])
+col_sx_stip, col_dx_stip_dowload = st.columns([1, 3])
 with col_sx_stip:
     # --- Sezione Input (in alto) ---
     st.subheader("Inserisci Dati")
@@ -1019,6 +1029,9 @@ with col_sx_stip:
             st.success(f"Record per {selected_mese} eliminato!")
         else:
             st.error(f"Nessun record trovato per {selected_mese}.")
+with col_dx_stip_dowload:
+    # Pulsante di download per i dati stipendi
+    download_data_button(data_stipendi, "storico_stipendi.json")
 
 
 # --- Separatore e Subheader per la visualizzazione ---
@@ -1061,7 +1074,7 @@ st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;backgr
 
 st.title("Storico Bollette")
 
-col_sx_bol, col_dx_bol = st.columns([1, 3])
+col_sx_bol, col_dx_bol_download = st.columns([1, 3])
 with col_sx_bol:
     # --- Sezione Input per Bollette ---
     with st.container():
@@ -1129,7 +1142,10 @@ with col_sx_bol:
                 st.success(f"Record per {selected_mese_bol} eliminato!")
             else:
                 st.error(f"Nessun record trovato per {selected_mese_bol}.")
-        
+with col_dx_bol_download:
+    # Pulsante di download per i dati bollette
+    download_data_button(data_bollette, "storico_bollette.json")
+
         
 # --- Separatore e Subheader per Visualizzazione Dati ---
 st.markdown("---")
