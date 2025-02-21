@@ -1321,9 +1321,7 @@ with col_bol_table:
     # 5. Definisci l'ordine dei mesi (in ordine cronologico)
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
-    st.write("Record di Saldo:", data_completa_bollette[data_completa_bollette["Categoria"] == "Saldo"])
-    st.write("Saldo negativi:", data_completa_bollette.query("Categoria == 'Saldo' and Valore < 0"))
-    st.write("Saldo positivi:", data_completa_bollette.query("Categoria == 'Saldo' and Valore >= 0"))
+    st.write("Dati Saldo:", data_completa_bollette[data_completa_bollette["Categoria"] == "Saldo"])
 
 with col_bol_chart:
     st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
