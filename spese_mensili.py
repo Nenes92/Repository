@@ -940,7 +940,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
         strokeWidth=2,
         strokeDash=[5,5],    # Linea tratteggiata
         color="#F0F0F0",     # Grigio molto chiaro
-        opacity=0.95          # Maggiore trasparenza
+        opacity=0.25          # Maggiore trasparenza
     ).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
