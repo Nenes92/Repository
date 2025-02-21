@@ -826,7 +826,7 @@ def save_data_local(percorso_file, data):
         with open(percorso_file, "w") as file:
             file.write(json_content)
         placeholder = st.empty()
-        placeholder.error(f"Dati salvati correttamente in {percorso_file}.")
+        placeholder.success(f"Dati salvati correttamente in {percorso_file}.")
         time.sleep(3)
         placeholder.empty()
 
@@ -841,7 +841,7 @@ def download_data_button(data, file_name):
     # Converte il DataFrame in un dizionario e poi in una stringa JSON formattata con indentazione
     json_data = json.dumps(data.to_dict(orient="records"), indent=4, default=str)
     st.download_button(
-        label=f"Download {file_name}",
+        label=f"⬇️ Download {file_name}",
         data=json_data,
         file_name=file_name,
         mime="application/json"
@@ -1027,7 +1027,7 @@ with col_sx_stip:
                 data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
                 data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
                 placeholder = st.empty()
-                placeholder.error(f"Record per {selected_mese} aggiornato!")
+                placeholder.success(f"Record per {selected_mese} aggiornato!")
                 time.sleep(3)
                 placeholder.empty()
 
@@ -1035,7 +1035,7 @@ with col_sx_stip:
                 nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi}
                 data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
                 placeholder = st.empty()
-                placeholder.error(f"Dati per {selected_mese} aggiunti!")
+                placeholder.success(f"Dati per {selected_mese} aggiunti!")
                 time.sleep(3)
                 placeholder.empty()
 
@@ -1052,7 +1052,7 @@ with col_sx_stip:
             data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
             save_data_local(stipendi_file, data_stipendi)
             placeholder = st.empty()
-            placeholder.error(f"Record per {selected_mese} eliminato!")
+            placeholder.success(f"Record per {selected_mese} eliminato!")
             time.sleep(3)
             placeholder.empty()
 
@@ -1153,7 +1153,7 @@ with col_sx_bol:
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
                     data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
                     placeholder = st.empty()
-                    placeholder.error(f"Record per {selected_mese_bol} aggiornato!")
+                    placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
                     time.sleep(3)
                     placeholder.empty()
 
@@ -1168,7 +1168,7 @@ with col_sx_bol:
                     }
                     data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
                     placeholder = st.empty()
-                    placeholder.error(f"Bollette per {selected_mese_bol} aggiunte!")
+                    placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
                     time.sleep(3)
                     placeholder.empty()
 
@@ -1186,7 +1186,7 @@ with col_sx_bol:
                 data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
                 save_data_local(bollette_file, data_bollette)
                 placeholder = st.empty()
-                placeholder.error(f"Record per {selected_mese_bol} eliminato!")
+                placeholder.success(f"Record per {selected_mese_bol} eliminato!")
                 time.sleep(3)
                 placeholder.empty()
 
