@@ -891,32 +891,40 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
-def crea_bubble_chart_bollette(data):
+def crea_heatmap_bollette(data):
     """
-    Crea un bubble chart che mostra, per ciascun mese e categoria,
-    l'importo speso (la dimensione della bolla è proporzionale al valore).
+    Crea una heatmap che mostra l'importo speso per ciascuna categoria in ogni mese.
+    L'asse X rappresenta i mesi (formattati come "YYYY-MM") e l'asse Y le categorie.
+    Il colore delle celle indica l'importo speso.
     """
-    # Trasforma i dati in formato long per ottenere una riga per ogni record di categoria per mese
-    data_melted = data.melt(
-        id_vars=["Mese"],
+    # Copia e prepara i dati
+    df = data.copy()
+    if df.empty:
+        return None
+    # Creiamo una colonna per i mesi in formato stringa (es. "2024-03")
+    df["Mese_str"] = df["Mese"].dt.strftime("%Y-%m")
+    
+    # Trasformiamo i dati in formato long
+    df_long = df.melt(
+        id_vars=["Mese_str"],
         value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
         var_name="Categoria",
         value_name="Valore"
     )
     
-    # Crea il bubble chart con Altair
-    chart = alt.Chart(data_melted).mark_circle(opacity=0.7).encode(
-        x=alt.X("Mese:T", title="Mese"),
+    # Crea la heatmap usando mark_rect
+    heatmap = alt.Chart(df_long).mark_rect().encode(
+        x=alt.X("Mese_str:N", title="Mese"),
         y=alt.Y("Categoria:N", title="Categoria"),
-        size=alt.Size("Valore:Q", title="Importo (€)", scale=alt.Scale(range=[0, 1000])),
-        color=alt.Color("Categoria:N", scale=alt.Scale(
-            domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-            range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"])),
-        tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
+        color=alt.Color("Valore:Q", title="Importo (€)",
+                        scale=alt.Scale(scheme="blues")),
+        tooltip=["Mese_str", "Categoria", "Valore:Q"]
     ).properties(
-        title="Distribuzione delle Bollette (Bubble Chart)"
+        width=600,
+        height=300,
+        title="Heatmap delle Bollette"
     )
-    return chart
+    return heatmap
 
 def crea_grafico_bollette(data_completa, order):
     """
@@ -1227,9 +1235,12 @@ with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
 
-    st.markdown("### Distribuzione delle Bollette (Bubble Chart)")
-    bubble_chart = crea_bubble_chart_bollette(data_bollette)
-    st.altair_chart(bubble_chart, use_container_width=True)
+    st.markdown("### Heatmap delle Bollette")
+    heatmap = crea_heatmap_bollette(data_bollette)
+    if heatmap is not None:
+        st.altair_chart(heatmap, use_container_width=True)
+    else:
+        st.info("Non ci sono dati sufficienti per mostrare la heatmap.")
 
         
 # --- Separatore e Subheader per Visualizzazione Dati ---
