@@ -1002,7 +1002,7 @@ def crea_confronto_anno_su_anno_stipendi(data):
         color=alt.Color("Anno:N", title="Anno"),
         tooltip=["Anno", "Mese_str", alt.Tooltip("Stipendio:Q", aggregate="mean", format=".2f")]
     ).properties(
-        title="Confronto Anno su Anno degli Stipendi (Media per Mese)"
+        title="Confronto Anno su Anno degli Stipendi"
     )
     return chart
 
@@ -1031,7 +1031,7 @@ def crea_confronto_anno_su_anno_bollette(data):
         color=alt.Color("Anno:N", title="Anno"),
         tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", format=".2f")]
     ).properties(
-        title="Confronto Anno su Anno delle Bollette (Media per Mese)"
+        title="Confronto Anno su Anno delle Bollette"
     )
     return chart
 
@@ -1117,7 +1117,7 @@ with col_cx_stip_download:
     # Pulsante di download per i dati stipendi
     download_data_button(data_stipendi, "storico_stipendi.json")
 with col_dx_stip_chart:
-    st.markdown("### Confronto Anno su Anno degli Stipendi")
+    st.markdown("### Confronto ytytytytAnno su Anno degli Stipendi")
     confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
     st.altair_chart(confronto_chart, use_container_width=True)
 
