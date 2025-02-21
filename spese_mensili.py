@@ -847,6 +847,28 @@ def download_data_button(data, file_name):
         mime="application/json"
     )
 
+def crea_confronto_anno_su_anno_stipendi(data):
+    """
+    Crea un grafico a linee che confronta la media mensile dello stipendio 
+    per ciascun anno.
+    """
+    df = data.copy()
+    # Aggiunge la colonna "Anno" come stringa e "Mese_str" con il nome abbreviato del mese
+    df["Anno"] = df["Mese"].dt.year.astype(str)
+    df["Mese_str"] = df["Mese"].dt.strftime("%b")
+    
+    # Crea il grafico a linee: asse X = mese (ordinato cronologicamente), Y = media dello stipendio, colore = anno
+    chart = alt.Chart(df).mark_line(point=True).encode(
+        x=alt.X("Mese_str:N", title="Mese",
+                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
+        y=alt.Y("Stipendio:Q", title="Stipendio (€)", aggregate="mean"),
+        color=alt.Color("Anno:N", title="Anno"),
+        tooltip=["Anno", "Mese_str", alt.Tooltip("Stipendio:Q", aggregate="mean", format=".2f")]
+    ).properties(
+        title="Confronto Anno su Anno degli Stipendi (Media per Mese)"
+    )
+    return chart
+
 #####################################
 # FUNZIONI PER CALCOLI E GRAFICI
 #####################################
@@ -890,40 +912,6 @@ def crea_grafico_stipendi(data):
         tooltip=["Mese:T", "Categoria:N", "Valore:Q"]
     )
     return linee + punti
-
-def crea_area_chart_bollette(data):
-    """
-    Crea un grafico ad aree impilate che mostra l'andamento cumulativo (non normalizzato)
-    delle spese per ciascuna categoria di bollette nel tempo.
-    """
-    # Trasforma i dati in formato long
-    df_long = data.melt(
-        id_vars=["Mese"],
-        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-        var_name="Categoria",
-        value_name="Valore"
-    )
-    # Ordina i dati per mese
-    df_long = df_long.sort_values("Mese")
-    
-    # Crea il grafico ad aree impilate
-    chart = alt.Chart(df_long).mark_area(opacity=0.7).encode(
-        x=alt.X("Mese:T", title="Mese"),
-        # L'aggregazione sum(Valore) viene impilata per mostrare l'andamento cumulativo
-        y=alt.Y("sum(Valore):Q", stack="zero", title="Spesa (€)"),
-        color=alt.Color("Categoria:N", 
-                        scale=alt.Scale(
-                            domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-                            range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]
-                        ),
-                        legend=alt.Legend(title="Categoria")),
-        tooltip=["Categoria", "sum(Valore):Q"]
-    ).properties(
-        width=600,
-        height=300,
-        title="Andamento Cumulativo delle Bollette (Aree Impilate)"
-    )
-    return chart
 
 def crea_grafico_bollette(data_completa, order):
     """
@@ -1233,12 +1221,10 @@ with col_sx_bol:
 with col_dx_bol_download:
     # Pulsante di download per i dati bollette
     download_data_button(data_bollette, "storico_bollette.json")
+    st.markdown("### Confronto Anno su Anno degli Stipendi")
+    confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
+    st.altair_chart(confronto_chart, use_container_width=True)
 
-    st.markdown("### Andamento Cumulativo delle Bollette (Aree Impilate)")
-    area_chart = crea_area_chart_bollette(data_bollette)
-    st.altair_chart(area_chart, use_container_width=True)
-
-        
 # --- Separatore e Subheader per Visualizzazione Dati ---
 st.markdown("---")
 st.subheader("Dati Storici Bollette")
