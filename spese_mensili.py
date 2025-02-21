@@ -1027,9 +1027,9 @@ def crea_confronto_anno_su_anno_bollette(data):
     chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Mese_str:N", title="Mese",
                 sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
-        y=alt.Y("Totale_Bollette:Q", title="Spesa Totale (€)", aggregate="mean"),
+        y=alt.Y("Totale_Bollette:Q", title="Spesa Totale (€)"),
         color=alt.Color("Anno:N", title="Anno"),
-        tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", aggregate="mean", format=".2f")]
+        tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", format=".2f")]
     ).properties(
         title="Confronto Anno su Anno delle Bollette (Media per Mese)"
     )
