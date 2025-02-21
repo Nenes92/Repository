@@ -892,19 +892,17 @@ def crea_grafico_stipendi(data):
     )
     return linee + punti
 
-def crea_grafico_bollette(data_completa, order):
+def crea_grafico_bollette_linea_continua(data_completa, order):
     """
-    Crea un grafico combinato per le bollette:
-     - Barre impilate con etichette (label) per ogni segmento.
-     - Linea e punti per il saldo.
+    Crea un grafico a barre impilate con etichette per le categorie delle bollette
+    e una linea continua (in grigio) con punti colorati (rosso per i saldi negativi,
+    verde per i saldi positivi) per rappresentare il saldo.
     """
-    # Filtra le categorie relative alle bollette (escludendo il saldo)
+    # Dati per le barre (escludendo il saldo)
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
-    # Mappa per ordinare le categorie
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
     df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
     
-    # Trasforma i dati in stack
     base_stack = alt.Chart(df_bollette).transform_stack(
         stack='Valore',
         groupby=['Mese_str'],
@@ -912,7 +910,6 @@ def crea_grafico_bollette(data_completa, order):
         as_=['lower', 'upper']
     )
     
-    # Barre impilate
     barre = base_stack.mark_bar(opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("lower:Q", title="Valore (€)"),
@@ -924,10 +921,7 @@ def crea_grafico_bollette(data_completa, order):
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
     
-    # Etichette centrate per ogni segmento
-    labels = base_stack.transform_filter(
-        "datum.Valore > 0"
-    ).transform_calculate(
+    labels = base_stack.transform_filter("datum.Valore > 0").transform_calculate(
         mid="(datum.lower + datum.upper) / 2"
     ).mark_text(
         color="black",
@@ -939,51 +933,38 @@ def crea_grafico_bollette(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
-    # Dati per il saldo (divisi in negativo e positivo)
-    saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
-    saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
-    
-    linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
-        strokeDash=[5,5],
+    # Dati del saldo: non spezzare la linea, ma colorare i punti in base al segno
+    df_saldo = data_completa[data_completa["Categoria"] == "Saldo"]
+    # Linea continua (colore unico, ad esempio, grigio)
+    linea_saldo_unica = alt.Chart(df_saldo).mark_line(
         strokeWidth=2,
-        color="#FF6961"
+        color="lightgray"
     ).encode(
         x=alt.X("Mese_str:N", sort=order),
-        y=alt.Y("Valore:Q")
+        y=alt.Y("Valore:Q"),
+        tooltip=["Mese_str:N", "Valore:Q"]
     )
-    punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
+    # Punti colorati in base al segno
+    punti_saldo_color = alt.Chart(df_saldo).mark_point(
         shape="diamond",
         size=80,
-        filled=True,
-        color="#FF6961"
+        filled=True
     ).encode(
         x=alt.X("Mese_str:N", sort=order),
-        y="Valore:Q",
+        y=alt.Y("Valore:Q"),
+        color=alt.condition("datum.Valore < 0",
+                            alt.value("#FF6961"),  # rosso per negativo
+                            alt.value("#77DD77")), # verde per positivo
         tooltip=["Mese_str:N", "Valore:Q"]
     )
     
-    linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
-        strokeDash=[5,5],
-        strokeWidth=2,
-        color="#77DD77"
-    ).encode(
-        x=alt.X("Mese_str:N", sort=order),
-        y="Valore:Q"
-    )
-    punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
-        shape="diamond",
-        size=80,
-        filled=True,
-        color="#77DD77"
-    ).encode(
-        x=alt.X("Mese_str:N", sort=order),
-        y="Valore:Q",
-        tooltip=["Mese_str:N", "Valore:Q"]
-    )
-    linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
+    # Combina la linea continua e i punti colorati
+    linea_saldo = linea_saldo_unica + punti_saldo_color
     
-    return barre + labels + linea_saldo
-
+    # Crea il grafico finale sovrapponendo barre, etichette e la linea del saldo
+    grafico_finale = alt.layer(barre, labels, linea_saldo)
+    return grafico_finale
+    
 def crea_confronto_anno_su_anno_stipendi(data):
     """
     Crea un grafico a linee che confronta la media mensile dello stipendio 
@@ -1307,27 +1288,21 @@ with col_bol_table:
         var_name="Categoria",
         value_name="Valore"
     )
-
     # 2. Prepara i dati del saldo: usa la colonna "Saldo" e imposta la Categoria a "Saldo"
     data_saldo = data_bollette[["Mese", "Saldo"]].copy()
     data_saldo["Categoria"] = "Saldo"
-
     # *** Assegna i valori del saldo alla colonna Valore ***
     data_saldo["Valore"] = data_saldo["Saldo"]  # <--- ECCO IL PASSO FONDAMENTALE
-
     # Se desideri rimuovere la colonna "Saldo", puoi farlo qui:
     data_saldo.drop(columns=["Saldo"], inplace=True)
-
     # 3. Combina i dati
     data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
-
     # 4. Colonna formattata per l’asse X
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
-
     # 5. Ordine cronologico dei mesi
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
 with col_bol_chart:
-    st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
