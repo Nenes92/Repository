@@ -939,50 +939,50 @@ def crea_grafico_bollette(data_completa, order):
         text=alt.Text("Valore:Q", format=".2f")
     )
     
-    # # Dati per il saldo (divisi in negativo e positivo)
-    # saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
-    # saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
+    # Dati per il saldo (divisi in negativo e positivo)
+    saldo_neg = data_completa.query("Categoria == 'Saldo' and Valore < 0")
+    saldo_pos = data_completa.query("Categoria == 'Saldo' and Valore >= 0")
     
-    # linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
-    #     strokeDash=[5,5],
-    #     strokeWidth=2,
-    #     color="#FF6961"
-    # ).encode(
-    #     x=alt.X("Mese_str:N", sort=order),
-    #     y=alt.Y("Valore:Q")
-    # )
-    # punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
-    #     shape="diamond",
-    #     size=80,
-    #     filled=True,
-    #     color="#FF6961"
-    # ).encode(
-    #     x=alt.X("Mese_str:N", sort=order),
-    #     y="Valore:Q",
-    #     tooltip=["Mese_str:N", "Valore:Q"]
-    # )
+    linea_saldo_neg = alt.Chart(saldo_neg).mark_line(
+        strokeDash=[5,5],
+        strokeWidth=2,
+        color="#FF6961"
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y=alt.Y("Valore:Q")
+    )
+    punti_saldo_neg = alt.Chart(saldo_neg).mark_point(
+        shape="diamond",
+        size=80,
+        filled=True,
+        color="#FF6961"
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y="Valore:Q",
+        tooltip=["Mese_str:N", "Valore:Q"]
+    )
     
-    # linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
-    #     strokeDash=[5,5],
-    #     strokeWidth=2,
-    #     color="#77DD77"
-    # ).encode(
-    #     x=alt.X("Mese_str:N", sort=order),
-    #     y="Valore:Q"
-    # )
-    # punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
-    #     shape="diamond",
-    #     size=80,
-    #     filled=True,
-    #     color="#77DD77"
-    # ).encode(
-    #     x=alt.X("Mese_str:N", sort=order),
-    #     y="Valore:Q",
-    #     tooltip=["Mese_str:N", "Valore:Q"]
-    # )
-    # linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
+    linea_saldo_pos = alt.Chart(saldo_pos).mark_line(
+        strokeDash=[5,5],
+        strokeWidth=2,
+        color="#77DD77"
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y="Valore:Q"
+    )
+    punti_saldo_pos = alt.Chart(saldo_pos).mark_point(
+        shape="diamond",
+        size=80,
+        filled=True,
+        color="#77DD77"
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y="Valore:Q",
+        tooltip=["Mese_str:N", "Valore:Q"]
+    )
+    linea_saldo = linea_saldo_neg + punti_saldo_neg + linea_saldo_pos + punti_saldo_pos
     
-    # return barre + labels + linea_saldo
+    return barre + labels + linea_saldo
 
 def crea_confronto_anno_su_anno_stipendi(data):
     """
@@ -1310,6 +1310,7 @@ with col_bol_table:
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
 with col_bol_chart:
-    st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    # st.altair_chart(crea_grafico_bollette(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+    st.altair_chart(crea_grafico_bollette_con_saldo(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
