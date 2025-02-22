@@ -1286,21 +1286,19 @@ with col_bol_table:
         st.markdown(f"**Somma Tari:** <span style='color:#C19A6B;'>{stats_bollette['Tari']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Somma Internet:** <span style='color:#FFF5A1;'>{stats_bollette['Internet']['somma']:,.2f} €</span>", unsafe_allow_html=True)
     
-    # Input per il budget mensile (se necessario per il calcolo del saldo)
-    budget = decisione_budget_bollette_mensili
-    
-    def calcola_saldo(data, budget):
+    # Input per il budget mensile (se necessario per il calcolo del saldo)    
+    def calcola_saldo(data, decisione_budget_bollette_mensili):
         saldo_iniziale = -50
         saldi = []
         for _, row in data.iterrows():
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
-            saldo = saldo_iniziale + budget - totale
+            saldo = saldo_iniziale + decisione_budget_bollette_mensili - totale
             saldi.append(saldo)
             saldo_iniziale = saldo
         data["Saldo"] = saldi
         return data
     
-    data_bollette = calcola_saldo(data_bollette, budget)
+    data_bollette = calcola_saldo(data_bollette, decisione_budget_bollette_mensili)
     
     # 1. Trasforma le colonne delle bollette in formato long
     data_melted = data_bollette.melt(
