@@ -58,7 +58,7 @@ SPESE = {
         "Cometa": 30,
         "Alleanza - PAC": 100,
         "Macchina": 180,
-        "Trasporti": 130,
+        "Trasporti": 135,
         "Sport": 90,
         "Psicologo": 100,
         "World Food Programme": 30,
@@ -1337,6 +1337,6 @@ with col_bol_chart:
     # Calcola la media annua
     media_annua = total_bollette / n_mesi
 
-    st.markdown(f"**Media annua bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
+    st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
