@@ -1339,9 +1339,6 @@ with col_bol_chart:
     # Calcola la media annua
     media_annua = total_bollette / n_mesi
 
-    st.markdown(
-        f"<div style='text-align: left;'><strong>Media annua bollette:</strong> <span style='color:#FFA500;'>{media_annua:,.2f} €</span></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"**Media annua bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
