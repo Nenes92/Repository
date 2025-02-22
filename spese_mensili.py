@@ -1325,8 +1325,22 @@ with col_bol_table:
     
 with col_bol_chart:
     st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+
+    # Calcola il totale delle bollette sommando le somme per ciascuna categoria
+    total_bollette = (stats_bollette["Elettricità"]["somma"] +
+                    stats_bollette["Gas"]["somma"] +
+                    stats_bollette["Acqua"]["somma"] +
+                    stats_bollette["Internet"]["somma"] +
+                    stats_bollette["Tari"]["somma"])
+
+    # Numero di mesi (assumendo che ogni record rappresenti un mese univoco)
+    n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
+
+    # Calcola la media annua
+    media_annua = total_bollette / n_mesi
+
     st.markdown(
-        f"<div style='text-align: right;'><strong>Somma Elettricità:</strong> <span style='color:#84B6F4;'>{stats_bollette['Elettricità']['somma']:,.2f} €</span></div>",
+        f"<div style='text-align: left;'><strong>Media annua bollette:</strong> <span style='color:#FFA500;'>{media_annua:,.2f} €</span></div>",
         unsafe_allow_html=True
     )
 
