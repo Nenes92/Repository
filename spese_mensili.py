@@ -88,6 +88,20 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
+# --- Creazione del DataFrame dei Totali ---
+# (Ad esempio, usa i totali che hai già calcolato in create_charts)
+totale_fisse = df_fisse["Importo"].sum()
+totale_variabili = df_variabili["Importo"].sum()
+totale_altre = df_altre_entrate["Importo"].sum()
+# Supponiamo che 'stipendio_scelto' sia già definito
+
+categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
+totali = [totale_fisse, totale_variabili, totale_altre, stipendio_scelto]
+
+df_totali = pd.DataFrame({
+    "Categoria": categorie,
+    "Totale": totali
+})
 
 def crea_grafico_waterfall(df_totali):
     """
