@@ -88,45 +88,6 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
-
-def crea_grafico_waterfall(df_totali):
-    """
-    Crea un grafico a waterfall che mostra come il budget totale viene
-    distribuito tra le varie componenti (spese, entrate, ecc.).
-    
-    Il DataFrame df_totali deve contenere le colonne:
-    - "Categoria": il nome della voce (es. "Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto")
-    - "Totale": l'importo corrispondente.
-    """
-    # Calcola il valore cumulativo per ciascuna categoria
-    df_totali = df_totali.copy()
-    df_totali["Cumulativo"] = df_totali["Totale"].cumsum() - df_totali["Totale"]
-    df_totali["Bar_Start"] = df_totali["Cumulativo"]
-    df_totali["Bar_End"] = df_totali["Cumulativo"] + df_totali["Totale"]
-    
-    waterfall = alt.Chart(df_totali).mark_bar().encode(
-        x=alt.X("Categoria:N", title="Categoria", sort=None),
-        y=alt.Y("Bar_Start:Q", title="Budget (€)"),
-        y2="Bar_End:Q",
-        color=alt.Color("Categoria:N", scale=alt.Scale(scheme="tableau10")),
-        tooltip=["Categoria", "Totale"]
-    ).properties(
-        title="Distribuzione del Budget (Waterfall)"
-    )
-    
-    # Aggiungi le etichette per i valori
-    labels = alt.Chart(df_totali).mark_text(
-        dy=-5,  # sposta il testo sopra la barra
-        color="black"
-    ).encode(
-        x=alt.X("Categoria:N", sort=None),
-        y=alt.Y("Bar_End:Q"),
-        text=alt.Text("Totale:Q", format=".2f")
-    )
-    
-    return waterfall + labels
-
-
 @st.cache_data  # Aggiungiamo il decoratore per il caching
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
@@ -156,22 +117,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto] # Rimuovi risparmi_mensili
     categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"] # Rimuovi "Risparmi"
     df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
-
-    # --- Creazione del DataFrame dei Totali ---
-    # (Ad esempio, usa i totali che hai già calcolato in create_charts)
-    totale_fisse = df_fisse["Importo"].sum()
-    totale_variabili = df_variabili["Importo"].sum()
-    totale_altre = df_altre_entrate["Importo"].sum()
-    # Supponiamo che 'stipendio_scelto' sia già definito
-
-    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
-    totali = [totale_fisse, totale_variabili, totale_altre, stipendio_scelto]
-
-    df_totali = pd.DataFrame({
-        "Categoria": categorie,
-        "Totale": totali
-    })
-
 
     # --- 3. Creazione Grafici con colori personalizzati ---
     # Mappa dei colori per le categorie
@@ -252,6 +197,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 # --- FUNZIONI ---
 def color_text(text, color):
     return f'<span style="color:{color}">{text}</span>'
+
 
 
 
@@ -821,22 +767,8 @@ def main():
             with col2:
                 st.altair_chart(chart_barre, use_container_width=True)
 
-# Visualizza il grafico a waterfall
-chart_waterfall = crea_grafico_waterfall(df_totali)
-st.altair_chart(chart_waterfall, use_container_width=True)
-
 if __name__ == "__main__":
     main()
-
-
-
-
-
-# Visualizza il grafico a waterfall
-chart_waterfall = crea_grafico_waterfall(df_totali)
-st.altair_chart(chart_waterfall, use_container_width=True)
-
-
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
