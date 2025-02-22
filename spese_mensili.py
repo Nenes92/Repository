@@ -911,7 +911,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )
     
     barre = base_stack.mark_bar(opacity=0.8).encode(
-        x=alt.X("Mese_str:N", sort=order, title="", axis=alt.Axis(labelAngle=-45)),
+        x=alt.X("Mese_str:N", sort=order, axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("lower:Q", title="Valore (€)"),
         y2="upper:Q",
         color=alt.Color("Categoria:N", scale=alt.Scale(
