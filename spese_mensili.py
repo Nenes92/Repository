@@ -200,6 +200,27 @@ def color_text(text, color):
 
 
 
+def crea_grafico_waterfall(df_totali):
+    """
+    Crea un grafico a waterfall che mostra come il budget totale
+    viene distribuito tra Spese Fisse, Spese Variabili, Altre Entrate e Stipendio Scelto.
+    """
+    # Calcola il cumulativo: per ogni riga, il valore iniziale è la somma dei valori precedenti
+    df_totali = df_totali.copy()
+    df_totali["Cumulativo"] = df_totali["Totale"].cumsum() - df_totali["Totale"]
+    df_totali["Bar_Start"] = df_totali["Cumulativo"]
+    df_totali["Bar_End"] = df_totali["Cumulativo"] + df_totali["Totale"]
+    
+    chart = alt.Chart(df_totali).mark_bar().encode(
+        x=alt.X("Categoria:N", title="Categoria"),
+        y=alt.Y("Bar_Start:Q", title="Valore (€)"),
+        y2="Bar_End:Q",
+        color=alt.Color("Categoria:N", scale=alt.Scale(scheme="tableau10")),
+        tooltip=["Categoria", "Totale"]
+    ).properties(
+        title="Distribuzione del Budget (Waterfall)"
+    )
+    return chart
 
 
 
@@ -769,6 +790,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+chart_waterfall = crea_grafico_waterfall(df_totali)
+st.altair_chart(chart_waterfall, use_container_width=True)
+
+
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
