@@ -88,20 +88,6 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
-# --- Creazione del DataFrame dei Totali ---
-# (Ad esempio, usa i totali che hai già calcolato in create_charts)
-totale_fisse = df_fisse["Importo"].sum()
-totale_variabili = df_variabili["Importo"].sum()
-totale_altre = df_altre_entrate["Importo"].sum()
-# Supponiamo che 'stipendio_scelto' sia già definito
-
-categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
-totali = [totale_fisse, totale_variabili, totale_altre, stipendio_scelto]
-
-df_totali = pd.DataFrame({
-    "Categoria": categorie,
-    "Totale": totali
-})
 
 def crea_grafico_waterfall(df_totali):
     """
@@ -170,6 +156,22 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto] # Rimuovi risparmi_mensili
     categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"] # Rimuovi "Risparmi"
     df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
+
+    # --- Creazione del DataFrame dei Totali ---
+    # (Ad esempio, usa i totali che hai già calcolato in create_charts)
+    totale_fisse = df_fisse["Importo"].sum()
+    totale_variabili = df_variabili["Importo"].sum()
+    totale_altre = df_altre_entrate["Importo"].sum()
+    # Supponiamo che 'stipendio_scelto' sia già definito
+
+    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
+    totali = [totale_fisse, totale_variabili, totale_altre, stipendio_scelto]
+
+    df_totali = pd.DataFrame({
+        "Categoria": categorie,
+        "Totale": totali
+    })
+
 
     # --- 3. Creazione Grafici con colori personalizzati ---
     # Mappa dei colori per le categorie
@@ -818,6 +820,10 @@ def main():
             # --- Grafico Categorie ---
             with col2:
                 st.altair_chart(chart_barre, use_container_width=True)
+
+# Visualizza il grafico a waterfall
+chart_waterfall = crea_grafico_waterfall(df_totali)
+st.altair_chart(chart_waterfall, use_container_width=True)
 
 if __name__ == "__main__":
     main()
