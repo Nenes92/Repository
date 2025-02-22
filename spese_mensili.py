@@ -88,6 +88,45 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
+
+def crea_grafico_waterfall(df_totali):
+    """
+    Crea un grafico a waterfall che mostra come il budget totale viene
+    distribuito tra le varie componenti (spese, entrate, ecc.).
+    
+    Il DataFrame df_totali deve contenere le colonne:
+    - "Categoria": il nome della voce (es. "Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto")
+    - "Totale": l'importo corrispondente.
+    """
+    # Calcola il valore cumulativo per ciascuna categoria
+    df_totali = df_totali.copy()
+    df_totali["Cumulativo"] = df_totali["Totale"].cumsum() - df_totali["Totale"]
+    df_totali["Bar_Start"] = df_totali["Cumulativo"]
+    df_totali["Bar_End"] = df_totali["Cumulativo"] + df_totali["Totale"]
+    
+    waterfall = alt.Chart(df_totali).mark_bar().encode(
+        x=alt.X("Categoria:N", title="Categoria", sort=None),
+        y=alt.Y("Bar_Start:Q", title="Budget (€)"),
+        y2="Bar_End:Q",
+        color=alt.Color("Categoria:N", scale=alt.Scale(scheme="tableau10")),
+        tooltip=["Categoria", "Totale"]
+    ).properties(
+        title="Distribuzione del Budget (Waterfall)"
+    )
+    
+    # Aggiungi le etichette per i valori
+    labels = alt.Chart(df_totali).mark_text(
+        dy=-5,  # sposta il testo sopra la barra
+        color="black"
+    ).encode(
+        x=alt.X("Categoria:N", sort=None),
+        y=alt.Y("Bar_End:Q"),
+        text=alt.Text("Totale:Q", format=".2f")
+    )
+    
+    return waterfall + labels
+
+
 @st.cache_data  # Aggiungiamo il decoratore per il caching
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
@@ -199,28 +238,6 @@ def color_text(text, color):
     return f'<span style="color:{color}">{text}</span>'
 
 
-
-def crea_grafico_waterfall(df_totali):
-    """
-    Crea un grafico a waterfall che mostra come il budget totale
-    viene distribuito tra Spese Fisse, Spese Variabili, Altre Entrate e Stipendio Scelto.
-    """
-    # Calcola il cumulativo: per ogni riga, il valore iniziale è la somma dei valori precedenti
-    df_totali = df_totali.copy()
-    df_totali["Cumulativo"] = df_totali["Totale"].cumsum() - df_totali["Totale"]
-    df_totali["Bar_Start"] = df_totali["Cumulativo"]
-    df_totali["Bar_End"] = df_totali["Cumulativo"] + df_totali["Totale"]
-    
-    chart = alt.Chart(df_totali).mark_bar().encode(
-        x=alt.X("Categoria:N", title="Categoria"),
-        y=alt.Y("Bar_Start:Q", title="Valore (€)"),
-        y2="Bar_End:Q",
-        color=alt.Color("Categoria:N", scale=alt.Scale(scheme="tableau10")),
-        tooltip=["Categoria", "Totale"]
-    ).properties(
-        title="Distribuzione del Budget (Waterfall)"
-    )
-    return chart
 
 
 
@@ -795,6 +812,7 @@ if __name__ == "__main__":
 
 
 
+# Visualizza il grafico a waterfall
 chart_waterfall = crea_grafico_waterfall(df_totali)
 st.altair_chart(chart_waterfall, use_container_width=True)
 
