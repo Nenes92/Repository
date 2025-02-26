@@ -511,26 +511,28 @@ def main():
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
-        st.subheader("Impatto delle Spese Fisse sul Budget:")
+        stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
+        stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
 
-        # Calcolo delle percentuali
-        perc_fisse_su_utilizzabile = spese_fisse_totali / stipendio * 100
-        perc_fisse_su_totale = spese_fisse_totali / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100
-
-        # DataFrame con i dati
-        df_percentuali = pd.DataFrame({
-            'Categoria': ['Spese Fisse su Stipendio da Utilizzare', 'Spese Fisse su Stipendio Totale'],
-            'Percentuale': [perc_fisse_su_utilizzabile, perc_fisse_su_totale]
+        df_stacked = pd.DataFrame({
+            'Categoria': ['Stipendio Totale', 'Stipendio Totale', 'Stipendio da Utilizzare', 'Stipendio da Utilizzare'],
+            'Tipo': ['Spese Fisse', 'Rimanente', 'Spese Fisse', 'Rimanente'],
+            'Valore': [
+                spese_fisse_totali,
+                stipendio_totale - spese_fisse_totali,
+                spese_fisse_totali,
+                stipendio_utilizzare - spese_fisse_totali
+            ]
         })
 
-        # Grafico a barre comparativo
-        chart_percentuali = alt.Chart(df_percentuali, title="Impatto delle Spese Fisse sul Budget").mark_bar().encode(
-            x=alt.X('Percentuale:Q', title='Percentuale (%)'),
-            y=alt.Y('Categoria:N', sort='-x', title=''),
-            color=alt.Color('Categoria:N', legend=None)
-        ).properties(width=500, height=100)
+        chart_stacked = alt.Chart(df_stacked, title="Confronto tra Stipendi e Spese Fisse").mark_bar().encode(
+            x=alt.X('Categoria:N', title='Tipo di Stipendio'),
+            y=alt.Y('Valore:Q', title='Euro', stack='zero'),
+            color=alt.Color('Tipo:N', title='Componenti', scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
+            tooltip=['Tipo', 'Valore']
+        ).properties(width=500, height=300)
 
-        st.altair_chart(chart_percentuali, use_container_width=True)
+        st.altair_chart(chart_stacked, use_container_width=True)
 
 
 
