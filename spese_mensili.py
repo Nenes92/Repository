@@ -526,7 +526,7 @@ def main():
         })
 
         # Chart per lo Stipendio Totale (colori spenti, opachi)
-        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50).encode(
+        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50, outerRadius=35).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", 
@@ -545,7 +545,7 @@ def main():
         )
 
         # Chart per lo Stipendio da Utilizzare (colori originali)
-        chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=20, outerRadius=35).encode(
+        chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=50, outerRadius=35).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", 
@@ -707,7 +707,7 @@ def main():
             })
 
             # Creazione del grafico ad anello (donut chart)
-            chart_savings = alt.Chart(df_savings).mark_arc(innerRadius=20, outerRadius=35).encode(
+            chart_savings = alt.Chart(df_savings).mark_arc(innerRadius=50, outerRadius=35).encode(
                 theta=alt.Theta(field="Value", type="quantitative"),
                 color=alt.Color(
                     field="Component",
@@ -730,7 +730,7 @@ def main():
                 title="Risparmiati del mese",
                 width=70,
                 height=70,
-                padding=10
+                padding={"left": 10, "right": 10, "top": 10, "bottom": 10}
             )
 
             st.altair_chart(chart_savings, use_container_width=False)
