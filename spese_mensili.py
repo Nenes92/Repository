@@ -511,35 +511,46 @@ def main():
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
+        # Calcolo dei due stipendi
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
         stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
 
-        # Creazione del DataFrame per i grafici a torta (donut)
-        df_pie = pd.DataFrame({
-            'Salary_Type': ['Stipendio Totale'] * 2 + ['Stipendio da Utilizzare'] * 2,
-            'Component': ['Spese Fisse', 'Rimanente'] * 2,
-            'Value': [
-                spese_fisse_totali,
-                stipendio_totale - spese_fisse_totali,
-                spese_fisse_totali,
-                stipendio_utilizzare - spese_fisse_totali
-            ]
+        # DataFrame separato per ciascun tipo di stipendio
+        df_totale = pd.DataFrame({
+            'Component': ['Spese Fisse', 'Rimanente'],
+            'Value': [spese_fisse_totali, stipendio_totale - spese_fisse_totali]
+        })
+        df_utilizzare = pd.DataFrame({
+            'Component': ['Spese Fisse', 'Rimanente'],
+            'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
-        # Creazione dei donut chart con faceting per confrontare le due tipologie di stipendio
-        chart_donut = alt.Chart(df_pie, title="Distribuzione Spese Fisse rispetto agli Stipendi").mark_arc(innerRadius=50).encode(
+        # Chart per lo Stipendio Totale
+        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(field="Component", type="nominal", 
                             scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
             tooltip=['Component', 'Value']
-        ).facet(
-            facet=alt.Facet('Salary_Type:N', title=None),
-            columns=2
         ).properties(
-            title="Distribuzione Spese Fisse rispetto agli Stipendi",
-            width=200,
+            title="Stipendio Totale", 
+            width=200, 
             height=200
         )
+
+        # Chart per lo Stipendio da Utilizzare
+        chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=50).encode(
+            theta=alt.Theta(field="Value", type="quantitative"),
+            color=alt.Color(field="Component", type="nominal", 
+                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
+            tooltip=['Component', 'Value']
+        ).properties(
+            title="Stipendio da Utilizzare", 
+            width=200, 
+            height=200
+        )
+
+        # Unione orizzontale dei due grafici
+        chart_donut = chart_totale | chart_utilizzare
 
         st.altair_chart(chart_donut, use_container_width=True)
 
