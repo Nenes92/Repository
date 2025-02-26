@@ -514,10 +514,11 @@ def main():
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
         stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
 
-        df_stacked = pd.DataFrame({
-            'Categoria': ['Stipendio Totale', 'Stipendio Totale', 'Stipendio da Utilizzare', 'Stipendio da Utilizzare'],
-            'Tipo': ['Spese Fisse', 'Rimanente', 'Spese Fisse', 'Rimanente'],
-            'Valore': [
+        # Creazione del DataFrame per i grafici a torta (donut)
+        df_pie = pd.DataFrame({
+            'Salary_Type': ['Stipendio Totale'] * 2 + ['Stipendio da Utilizzare'] * 2,
+            'Component': ['Spese Fisse', 'Rimanente'] * 2,
+            'Value': [
                 spese_fisse_totali,
                 stipendio_totale - spese_fisse_totali,
                 spese_fisse_totali,
@@ -525,14 +526,22 @@ def main():
             ]
         })
 
-        chart_stacked = alt.Chart(df_stacked, title="Confronto tra Stipendi e Spese Fisse").mark_bar().encode(
-            x=alt.X('Categoria:N', title='Tipo di Stipendio'),
-            y=alt.Y('Valore:Q', title='Euro', stack='zero'),
-            color=alt.Color('Tipo:N', title='Componenti', scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
-            tooltip=['Tipo', 'Valore']
-        ).properties(width=500, height=300)
+        # Creazione dei donut chart con faceting per confrontare le due tipologie di stipendio
+        chart_donut = alt.Chart(df_pie, title="Distribuzione Spese Fisse rispetto agli Stipendi").mark_arc(innerRadius=50).encode(
+            theta=alt.Theta(field="Value", type="quantitative"),
+            color=alt.Color(field="Component", type="nominal", 
+                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
+            tooltip=['Component', 'Value']
+        ).facet(
+            facet=alt.Facet('Salary_Type:N', title=None),
+            columns=2
+        ).properties(
+            title="Distribuzione Spese Fisse rispetto agli Stipendi",
+            width=200,
+            height=200
+        )
 
-        st.altair_chart(chart_stacked, use_container_width=True)
+        st.altair_chart(chart_donut, use_container_width=True)
 
 
 
