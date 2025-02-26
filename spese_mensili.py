@@ -567,7 +567,7 @@ def main():
         chart_donut = (chart_totale | chart_utilizzare).resolve_scale(color='independent')
 
         # Centratura del grafico usando le colonne di Streamlit
-        col1vuoto, col2utilizzato, col3vuoto = st.columns([0.5, 1, 0.5])
+        _, col2utilizzato, _ = st.columns([0.5, 1, 0.5])
         with col2utilizzato:
             st.altair_chart(chart_donut, use_container_width=True)
 
@@ -728,6 +728,8 @@ def main():
                 tooltip=['Component', 'Value']
             ).properties(
                 title="Risparmiati del mese",
+                orient='top',          # 'top', 'bottom', 'left', 'right', 'top-left', ecc.
+                direction='horizontal', # 'horizontal' o 'vertical'
                 width=150,
                 height=150
             )
