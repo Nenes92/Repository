@@ -721,7 +721,7 @@ def main():
                             'Risparmi da Spese Quotidiane', 
                             'Spesi'
                         ],
-                        range=['#808080', '#FFFF99', '#808080', '#FFFF99', 'rgba(211, 211, 211, 0.7)']
+                        range=['#808080', '#FFFF99', '#808080', '#FFFF99', 'E0E0E0']
                     ),
                     legend=alt.Legend(title=None, orient='right', direction='vertical')
                 ),
