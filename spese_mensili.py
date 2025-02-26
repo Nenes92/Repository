@@ -674,7 +674,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-        left_left_col, _ = st.columns([1, 2])
+        left_left_col, _, _ = st.columns([1, 1, 2])
         with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
@@ -721,15 +721,15 @@ def main():
                             'Risparmi da Spese Quotidiane', 
                             'Spesi'
                         ],
-                        range=['#808080', '#808080', '#FFFF99', '#FFFF99', '#D3D3D3']
+                        range=['#808080', '#FFFF99', '#808080', '#FFFF99', '#D3D3D3']
                     ),
                     legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
                 title="Risparmiati del mese",
-                width=200,
-                height=200
+                width=70,
+                height=700
             )
 
             st.altair_chart(chart_savings, use_container_width=True)
