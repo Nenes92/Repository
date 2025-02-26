@@ -986,10 +986,10 @@ def crea_grafico_stipendi(data):
     data_completa = pd.concat([
         data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi"],
                   var_name="Categoria", value_name="Valore"),
-        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"],
+        data.melt(id_vars=["Mese"], value_vars=["Media Stipendi", "Media Risparmi", "Media Stipendi NO 13°/PDR"],
                   var_name="Categoria", value_name="Valore")
     ])
-    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR"]
+    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendi", "Media Risparmi", "Media Stipendi NO 13°/PDR"]
     scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
 
     base = alt.Chart(data_completa).encode(
@@ -1261,8 +1261,8 @@ with col_table:
     with col_somme1:
         st.markdown(f"**Somma Stipendi:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Stipendi:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
-        if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-            st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
+        if "Media Stipendi NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
+            st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendi NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme2:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
