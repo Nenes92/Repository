@@ -526,7 +526,7 @@ def main():
         })
 
         # Chart per lo Stipendio Totale (colori spenti, opachi)
-        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50, outerRadius=35).encode(
+        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", 
@@ -540,12 +540,12 @@ def main():
             tooltip=['Value']
         ).properties(
             title="Stipendio Totale", 
-            width=70, 
-            height=70
+            width=100, 
+            height=100
         )
 
         # Chart per lo Stipendio da Utilizzare (colori originali)
-        chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=50, outerRadius=35).encode(
+        chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=35, outerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", 
@@ -559,8 +559,8 @@ def main():
             tooltip=['Value']
         ).properties(
             title="Stipendio da Utilizzare", 
-            width=70, 
-            height=70
+            width=100, 
+            height=100
         )
 
         # Unione orizzontale dei due grafici con scale di colore indipendenti
@@ -674,7 +674,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-        _, left_left_col, _ = st.columns([1, 1, 1])
+        _, left_left_col, _ = st.columns([0.5, 1.5, 1])
         with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
@@ -707,7 +707,7 @@ def main():
             })
 
             # Creazione del grafico ad anello (donut chart)
-            chart_savings = alt.Chart(df_savings).mark_arc(innerRadius=50, outerRadius=35).encode(
+            chart_savings = alt.Chart(df_savings).mark_arc(innerRadius=35, outerRadius=50).encode(
                 theta=alt.Theta(field="Value", type="quantitative"),
                 color=alt.Color(
                     field="Component",
@@ -728,11 +728,11 @@ def main():
                 tooltip=['Component', 'Value']
             ).properties(
                 title="Risparmiati del mese",
-                width=70,
-                height=70,
+                width=100,
+                height=100,
             )
 
-            st.altair_chart(chart_savings, use_container_width=True)
+            st.altair_chart(chart_savings, use_container_width=False)
 
 
 
