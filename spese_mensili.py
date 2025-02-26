@@ -674,7 +674,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-        _, left_left_col, _ = st.columns([0.5, 1.5, 1])
+        _, left_left_col, _ = st.columns([1, 1, 1])
         with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
