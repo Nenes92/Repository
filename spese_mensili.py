@@ -674,7 +674,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-        left_left_col, _, _ = st.columns([1, 1, 2])
+        _, left_left_col, _ = st.columns([1, 2, 1])
         with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
@@ -729,7 +729,7 @@ def main():
             ).properties(
                 title="Risparmiati del mese",
                 width=70,
-                height=700
+                height=70
             )
 
             st.altair_chart(chart_savings, use_container_width=True)
