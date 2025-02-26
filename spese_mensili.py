@@ -730,10 +730,9 @@ def main():
                 title="Risparmiati del mese",
                 width=70,
                 height=70,
-                padding={"left": 10, "right": 10, "top": 10, "bottom": 10}
             )
 
-            st.altair_chart(chart_savings, use_container_width=False)
+            st.altair_chart(chart_savings, use_container_width=True)
 
 
 
