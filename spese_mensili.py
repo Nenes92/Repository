@@ -517,11 +517,11 @@ def main():
 
         # DataFrame per ciascun grafico
         df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Rimanente'],
+            'Component': ['Spese Fisse', 'Risparmiabili'],
             'Value': [spese_fisse_totali, stipendio_totale - spese_fisse_totali]
         })
         df_utilizzare = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Rimanente'],
+            'Component': ['Spese Fisse', 'Risparmiabili'],
             'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
@@ -532,7 +532,7 @@ def main():
                 field="Component", 
                 type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Rimanente'], 
+                    domain=['Spese Fisse', 'Risparmiabili'], 
                     range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']
                 ),
                 legend=None
@@ -551,7 +551,7 @@ def main():
                 field="Component", 
                 type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Rimanente'], 
+                    domain=['Spese Fisse', 'Risparmiabili'], 
                     range=['#FF6961', '#77DD77']
                 ),
                 legend=alt.Legend(title=None)
@@ -674,6 +674,67 @@ def main():
                 unsafe_allow_html=True,
             )
 
+            # Assicurati di avere già definiti:
+            # risparmio_stipendi, risparmi_mese_precedente, risparmio_da_spendere, risparmio_spese_quotidiane
+            # stipendio_totale (ad esempio: stipendio_originale + sum(ALTRE_ENTRATE.values()))
+
+            # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
+            savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
+            savings_from_previous = risparmi_mese_precedente       # Risparmi portati dal mese precedente
+            savings_from_da_spendere = risparmio_da_spendere       # Risparmio extra dalla quota "Da spendere"
+            savings_from_daily = risparmio_spese_quotidiane        # Risparmio extra dalla quota "Spese quotidiane"
+
+            # Totale dei risparmi
+            total_savings = savings_from_salary + savings_from_previous + savings_from_da_spendere + savings_from_daily
+
+            # Calcolo della parte non risparmiata rispetto allo stipendio totale
+            non_saved = stipendio_totale - total_savings
+
+            # Creazione del DataFrame per il grafico ad anello
+            df_savings = pd.DataFrame({
+                'Component': [
+                    'Risparmi da Stipendi', 
+                    'Risparmi da Mese Precedente', 
+                    'Risparmi da Spendere', 
+                    'Risparmi da Spese Quotidiane', 
+                    'Non Risparmiati'
+                ],
+                'Value': [
+                    savings_from_salary, 
+                    savings_from_previous, 
+                    savings_from_da_spendere, 
+                    savings_from_daily, 
+                    non_saved
+                ]
+            })
+
+            # Creazione del grafico ad anello (donut chart)
+            chart_savings = alt.Chart(df_savings).mark_arc(innerRadius=50).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component",
+                    type="nominal",
+                    scale=alt.Scale(
+                        # Specifica l'ordine (domain) e i colori da usare
+                        domain=[
+                            'Risparmi da Stipendi', 
+                            'Risparmi da Mese Precedente', 
+                            'Risparmi da Spendere', 
+                            'Risparmi da Spese Quotidiane', 
+                            'Non Risparmiati'
+                        ],
+                        range=['#FF6961', '#FFA07A', '#77DD77', '#98FB98', '#D3D3D3']
+                    ),
+                    legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
+                ),
+                tooltip=['Component', 'Value']
+            ).properties(
+                title="Breakdown dei Risparmi del Mese rispetto allo Stipendio Totale",
+                width=200,
+                height=200
+            )
+
+            st.altair_chart(chart_savings, use_container_width=True)
 
 
 
