@@ -529,24 +529,26 @@ def main():
         chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(field="Component", type="nominal", 
-                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FFB3B0', '#B3E6B3'])),
+                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']),
+                            legend=alt.Legend(title=None)),  # Rimuove il titolo dalla legenda
             tooltip=['Value']
         ).properties(
             title="Stipendio Totale", 
-            width=200, 
-            height=200
+            width=70, 
+            height=70
         )
 
         # Chart per lo Stipendio da Utilizzare
         chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(field="Component", type="nominal", 
-                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
+                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77']),
+                            legend=alt.Legend(title=None)),  # Rimuove il titolo dalla legenda
             tooltip=['Value']
         ).properties(
             title="Stipendio da Utilizzare", 
-            width=200, 
-            height=200
+            width=70, 
+            height=70
         )
 
         # Unione orizzontale dei due grafici
