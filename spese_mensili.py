@@ -727,7 +727,7 @@ def main():
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
-                title=None,
+                title="",
                 width=70,
                 height=70
             )
