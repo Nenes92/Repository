@@ -723,13 +723,13 @@ def main():
                         ],
                         range=['#808080', '#FFFF99', '#808080', '#FFFF99', 'rgba(211, 211, 211, 0.7)']
                     ),
-                    legend=alt.Legend(title=None, orient='right', direction='horizontal')
+                    legend=alt.Legend(title=None, orient='right', direction='vertical')
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
                 title="Risparmiati del mese",
-                width=150,
-                height=150
+                width=250,
+                height=250
             )
 
             st.altair_chart(chart_savings, use_container_width=True)
