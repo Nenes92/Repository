@@ -511,6 +511,27 @@ def main():
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
         st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
+        st.subheader("Impatto delle Spese Fisse sul Budget:")
+
+        # Calcolo delle percentuali
+        perc_fisse_su_utilizzabile = spese_fisse_totali / stipendio * 100
+        perc_fisse_su_totale = spese_fisse_totali / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100
+
+        # DataFrame con i dati
+        df_percentuali = pd.DataFrame({
+            'Categoria': ['Spese Fisse su Stipendio da Utilizzare', 'Spese Fisse su Stipendio Totale'],
+            'Percentuale': [perc_fisse_su_utilizzabile, perc_fisse_su_totale]
+        })
+
+        # Grafico a barre comparativo
+        chart_percentuali = alt.Chart(df_percentuali, title="Impatto delle Spese Fisse sul Budget").mark_bar().encode(
+            x=alt.X('Percentuale:Q', title='Percentuale (%)'),
+            y=alt.Y('Categoria:N', sort='-x', title=''),
+            color=alt.Color('Categoria:N', legend=None)
+        ).properties(width=500, height=100)
+
+        st.altair_chart(chart_percentuali, use_container_width=True)
+
 
 
 
@@ -679,29 +700,6 @@ def main():
                     testo2 = "risparmiato"
                 st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
         st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
-
-
-    st.markdown("---")
-    st.subheader("Impatto delle Spese Fisse sul Budget:")
-
-    # Calcolo delle percentuali
-    perc_fisse_su_utilizzabile = spese_fisse_totali / stipendio * 100
-    perc_fisse_su_totale = spese_fisse_totali / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100
-
-    # DataFrame con i dati
-    df_percentuali = pd.DataFrame({
-        'Categoria': ['Spese Fisse su Stipendio da Utilizzare', 'Spese Fisse su Stipendio Totale'],
-        'Percentuale': [perc_fisse_su_utilizzabile, perc_fisse_su_totale]
-    })
-
-    # Grafico a barre comparativo
-    chart_percentuali = alt.Chart(df_percentuali, title="Impatto delle Spese Fisse sul Budget").mark_bar().encode(
-        x=alt.X('Percentuale:Q', title='Percentuale (%)'),
-        y=alt.Y('Categoria:N', sort='-x', title=''),
-        color=alt.Color('Categoria:N', legend=None)
-    ).properties(width=500, height=100)
-
-    st.altair_chart(chart_percentuali, use_container_width=True)
 
 
     # Visualizzazione dei grafici e della tabella delle percentuali
