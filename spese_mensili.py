@@ -535,7 +535,7 @@ def main():
                     domain=['Spese Fisse', 'Rimanente'], 
                     range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']
                 ),
-                legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
+                legend=alt.Legend(title=None)
             ),
             tooltip=['Value']
         ).properties(
@@ -563,14 +563,13 @@ def main():
             height=70
         )
 
-        # Unione orizzontale dei due grafici
-        chart_donut = chart_totale | chart_utilizzare
+        # Unione orizzontale dei due grafici con scale di colore indipendenti
+        chart_donut = (chart_totale | chart_utilizzare).resolve_scale(color='independent')
 
         # Centratura del grafico usando le colonne di Streamlit
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
+        col1vuoto, col2utilizzato, col3vuoto = st.columns([1, 1, 1])
+        with col2utilizzato:
             st.altair_chart(chart_donut, use_container_width=True)
-
 
 
 
