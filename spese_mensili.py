@@ -666,7 +666,7 @@ def main():
                 colore = "#89CFF0"  # Azzurro
                 testo = "trasferire"
                 somma_valori = risparmi_mese_precedente + 25.50 + totale_carta
-                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi + <span style="color:{colore}; font-size: 14px;">€25.50</span> da Netf/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi + <span style="color:{colore}; font-size: 14px;">€25.50</span> da Disn/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
             else:
                 totale_carta = sum(spese_carta.values())
                 if carta == "ING":
@@ -680,6 +680,28 @@ def main():
                 st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
         st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
+
+    st.markdown("---")
+    st.subheader("Impatto delle Spese Fisse sul Budget:")
+
+    # Calcolo delle percentuali
+    perc_fisse_su_utilizzabile = spese_fisse_totali / stipendio * 100
+    perc_fisse_su_totale = spese_fisse_totali / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100
+
+    # DataFrame con i dati
+    df_percentuali = pd.DataFrame({
+        'Categoria': ['Spese Fisse su Stipendio da Utilizzare', 'Spese Fisse su Stipendio Totale'],
+        'Percentuale': [perc_fisse_su_utilizzabile, perc_fisse_su_totale]
+    })
+
+    # Grafico a barre comparativo
+    chart_percentuali = alt.Chart(df_percentuali, title="Impatto delle Spese Fisse sul Budget").mark_bar().encode(
+        x=alt.X('Percentuale:Q', title='Percentuale (%)'),
+        y=alt.Y('Categoria:N', sort='-x', title=''),
+        color=alt.Color('Categoria:N', legend=None)
+    ).properties(width=500, height=100)
+
+    st.altair_chart(chart_percentuali, use_container_width=True)
 
 
     # Visualizzazione dei grafici e della tabella delle percentuali
@@ -911,7 +933,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )
     
     barre = base_stack.mark_bar(opacity=0.8).encode(
-        x=alt.X("Mese_str:N", sort=order, axis=alt.Axis(labelAngle=-45)),
+        x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("lower:Q", title="Valore (€)"),
         y2="upper:Q",
         color=alt.Color("Categoria:N", scale=alt.Scale(
