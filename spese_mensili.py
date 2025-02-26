@@ -366,7 +366,7 @@ def main():
                                 color_map["Spese Variabili"], 
                                 color_map["Risparmi"]
                             ]),
-                            legend=alt.Legend(title="Componenti")),
+                            legend=alt.Legend(title=None)),
             tooltip=['Categoria', 'Tipo', 'Totale']
         )
 
@@ -515,7 +515,7 @@ def main():
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
         stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
 
-        # DataFrame separato per ciascun tipo di stipendio
+        # DataFrame per ciascun grafico
         df_totale = pd.DataFrame({
             'Component': ['Spese Fisse', 'Rimanente'],
             'Value': [spese_fisse_totali, stipendio_totale - spese_fisse_totali]
@@ -525,12 +525,18 @@ def main():
             'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
-        # Chart per lo Stipendio Totale
+        # Chart per lo Stipendio Totale (colori spenti, opachi)
         chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
-            color=alt.Color(field="Component", type="nominal", 
-                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']),
-                            legend=alt.Legend(title=None)),  # Rimuove il titolo dalla legenda
+            color=alt.Color(
+                field="Component", 
+                type="nominal", 
+                scale=alt.Scale(
+                    domain=['Spese Fisse', 'Rimanente'], 
+                    range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']
+                ),
+                legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
+            ),
             tooltip=['Value']
         ).properties(
             title="Stipendio Totale", 
@@ -538,12 +544,18 @@ def main():
             height=70
         )
 
-        # Chart per lo Stipendio da Utilizzare
+        # Chart per lo Stipendio da Utilizzare (colori originali)
         chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
-            color=alt.Color(field="Component", type="nominal", 
-                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77']),
-                            legend=alt.Legend(title=None)),  # Rimuove il titolo dalla legenda
+            color=alt.Color(
+                field="Component", 
+                type="nominal", 
+                scale=alt.Scale(
+                    domain=['Spese Fisse', 'Rimanente'], 
+                    range=['#FF6961', '#77DD77']
+                ),
+                legend=alt.Legend(title=None)
+            ),
             tooltip=['Value']
         ).properties(
             title="Stipendio da Utilizzare", 
@@ -554,7 +566,10 @@ def main():
         # Unione orizzontale dei due grafici
         chart_donut = chart_totale | chart_utilizzare
 
-        st.altair_chart(chart_donut, use_container_width=True)
+        # Centratura del grafico usando le colonne di Streamlit
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.altair_chart(chart_donut, use_container_width=True)
 
 
 
