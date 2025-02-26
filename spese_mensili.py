@@ -692,8 +692,8 @@ def main():
             df_savings = pd.DataFrame({
                 'Component': [
                     'Risparmi da Stipendi', 
-                    'Risparmi da Mese Precedente', 
                     'Risparmi da Spendere', 
+                    'Risparmi da Mese Precedente', 
                     'Risparmi da Spese Quotidiane', 
                     'Spesi'
                 ],
@@ -716,8 +716,8 @@ def main():
                         # Specifica l'ordine (domain) e i colori da usare
                         domain=[
                             'Risparmi da Stipendi', 
-                            'Risparmi da Mese Precedente', 
                             'Risparmi da Spendere', 
+                            'Risparmi da Mese Precedente', 
                             'Risparmi da Spese Quotidiane', 
                             'Spesi'
                         ],
@@ -727,9 +727,9 @@ def main():
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
-                title="",
-                width=70,
-                height=70
+                title="Risparmiati del mese",
+                width=200,
+                height=200
             )
 
             st.altair_chart(chart_savings, use_container_width=True)
