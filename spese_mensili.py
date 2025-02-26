@@ -630,7 +630,8 @@ def main():
 
 
         # --- CALCOLO E VISUALIZZAZIONE RISPARMIATI DEL MESE ---
-        _, right_col = st.columns([1, 2]) # Crea due colonne, il titolo va nella seconda
+        _, right_col = st.columns([1, 2])
+        left_left_col, _ = st.columns([1, 2])
         with right_col:
             st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
             st.subheader("Risparmiati del mese:")
@@ -674,10 +675,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
-            # Assicurati di avere già definiti:
-            # risparmio_stipendi, risparmi_mese_precedente, risparmio_da_spendere, risparmio_spese_quotidiane
-            # stipendio_totale (ad esempio: stipendio_originale + sum(ALTRE_ENTRATE.values()))
-
+        with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
             savings_from_previous = risparmi_mese_precedente       # Risparmi portati dal mese precedente
@@ -697,7 +695,7 @@ def main():
                     'Risparmi da Mese Precedente', 
                     'Risparmi da Spendere', 
                     'Risparmi da Spese Quotidiane', 
-                    'Non Risparmiati'
+                    'Spesi'
                 ],
                 'Value': [
                     savings_from_salary, 
@@ -721,17 +719,17 @@ def main():
                             'Risparmi da Mese Precedente', 
                             'Risparmi da Spendere', 
                             'Risparmi da Spese Quotidiane', 
-                            'Non Risparmiati'
+                            'Spesi'
                         ],
-                        range=['#FF6961', '#FFA07A', '#77DD77', '#98FB98', '#D3D3D3']
+                        range=['#808080', '#808080', '#FFFF99', '#FFFF99', '#D3D3D3']
                     ),
                     legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
-                title="Breakdown dei Risparmi del Mese rispetto allo Stipendio Totale",
-                width=200,
-                height=200
+                title=None,
+                width=70,
+                height=70
             )
 
             st.altair_chart(chart_savings, use_container_width=True)
