@@ -1259,10 +1259,10 @@ with col_table:
     
     col_somme1, col_somme2 = st.columns(2)
     with col_somme1:
-        st.markdown(f"**Somma Stipendio:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Stipendio:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Stipendi:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Stipendi:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
         if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-            st.markdown(f"**Media Stipendio NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
+            st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme2:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
