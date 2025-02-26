@@ -529,8 +529,8 @@ def main():
         chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(field="Component", type="nominal", 
-                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
-            tooltip=['Component', 'Value']
+                            scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FFB3B0', '#B3E6B3'])),
+            tooltip=['Value']
         ).properties(
             title="Stipendio Totale", 
             width=200, 
@@ -542,7 +542,7 @@ def main():
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(field="Component", type="nominal", 
                             scale=alt.Scale(domain=['Spese Fisse', 'Rimanente'], range=['#FF6961', '#77DD77'])),
-            tooltip=['Component', 'Value']
+            tooltip=['Value']
         ).properties(
             title="Stipendio da Utilizzare", 
             width=200, 
