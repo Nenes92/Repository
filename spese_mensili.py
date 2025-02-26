@@ -631,7 +631,6 @@ def main():
 
         # --- CALCOLO E VISUALIZZAZIONE RISPARMIATI DEL MESE ---
         _, right_col = st.columns([1, 2])
-        left_left_col, _ = st.columns([1, 2])
         with right_col:
             st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
             st.subheader("Risparmiati del mese:")
@@ -675,6 +674,7 @@ def main():
                 unsafe_allow_html=True,
             )
 
+        left_left_col, _ = st.columns([1, 2])
         with left_left_col:
             # Calcolo dei singoli risparmi (assumendo che le variabili siano già state calcolate in precedenza)
             savings_from_salary = risparmio_stipendi            # Risparmio derivante dalla scelta dello stipendio
