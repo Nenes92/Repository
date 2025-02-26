@@ -721,15 +721,13 @@ def main():
                             'Risparmi da Spese Quotidiane', 
                             'Spesi'
                         ],
-                        range=['#808080', '#FFFF99', '#808080', '#FFFF99', '#D3D3D3']
+                        range=['#808080', '#FFFF99', '#808080', '#FFFF99', 'rgba(211, 211, 211, 0.7)']
                     ),
-                    legend=alt.Legend(title=None)  # Rimuove il titolo dalla legenda
+                    legend=alt.Legend(title=None, orient='right', direction='horizontal')
                 ),
                 tooltip=['Component', 'Value']
             ).properties(
                 title="Risparmiati del mese",
-                orient='top',          # 'top', 'bottom', 'left', 'right', 'top-left', ecc.
-                direction='horizontal', # 'horizontal' o 'vertical'
                 width=150,
                 height=150
             )
