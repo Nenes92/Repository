@@ -986,8 +986,8 @@ def crea_grafico_stipendi(data):
     data_completa = pd.concat([
         data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
                   var_name="Categoria", value_name="Valore"),
-        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte"],
-                  var_name="Categoria", value_name="Valore")
+        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
+          var_name="Categoria", value_name="Valore")
     ])
     dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte"]
     scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
@@ -1262,7 +1262,7 @@ with col_table:
     st.dataframe(df_stip, use_container_width=True)
     
     # Calcola medie e statistiche
-    data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
+    data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     
     col_somme1, col_somme2, col_somme3 = st.columns(3)
