@@ -995,38 +995,44 @@ def crea_grafico_stipendi(data):
     # Le altre serie (linee)
     line_categories = [cat for cat in data_completa["Categoria"].unique() if cat not in bar_categories]
 
-    # Per l'asse X, creiamo una colonna formattata
+    # Crea una colonna formattata per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
 
     # Suddividi il dataset in due: uno per le barre e uno per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
     df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
 
-    # Grafico a linee (con i punti) per le serie lineari
+    # Per il grafico a linee, usa il campo formattato anche qui
     base_line = alt.Chart(df_line).encode(
-        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
+        x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]), 
-                         legend=alt.Legend(title="Linee"))
+        color=alt.Color("Categoria:N", scale=alt.Scale(
+            domain=line_categories,
+            range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]
+        ), legend=alt.Legend(title="Linee"))
     )
     points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]))
+        color=alt.Color("Categoria:N", scale=alt.Scale(
+            domain=line_categories,
+            range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]
+        ))
     )
     chart_line = line_chart + points_chart
 
-    # Grafico a barre per "Risparmi" e "Messi da parte Totali"
-    # Utilizziamo xOffset per disporre le barre affiancate
+    # Grafico a barre per "Risparmi" e "Messi da parte Totali" (barre affiancate)
     chart_bar = alt.Chart(df_bar).mark_bar().encode(
-        x=alt.X("Mese:T", title="Mese"),
-        xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
+        x=alt.X("Mese_str:N", title="Mese"),
+        xOffset="Categoria:N",  # Questo crea barre affiancate
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=["#FFFFCC", "#FFD700"]),
-                        legend=alt.Legend(title="Barre"))
+        color=alt.Color("Categoria:N", scale=alt.Scale(
+            domain=bar_categories,
+            range=["#FFFFCC", "#FFD700"]
+        ), legend=alt.Legend(title="Barre"))
     )
 
-    # Sovrapponi i due grafici; per avere lo stesso asse Y, risolviamo le scale in modalità shared
+    # Sovrapponi i due grafici usando la stessa scala per l'asse Y
     final_chart = alt.layer(chart_line, chart_bar).resolve_scale(y="shared")
     return final_chart
 
