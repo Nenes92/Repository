@@ -1004,8 +1004,8 @@ def crea_grafico_stipendi(data):
 
     # Grafico a linee (con i punti) per le serie lineari
     base_line = alt.Chart(df_line).encode(
-    x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
-    y=alt.Y("Valore:Q", title="Valore (€)")
+        x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
+        y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]), 
