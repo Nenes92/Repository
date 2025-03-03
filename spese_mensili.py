@@ -1004,7 +1004,7 @@ def crea_grafico_stipendi(data):
 
     # Per il grafico a linee, usa il campo formattato anche qui
     base_line = alt.Chart(df_line).encode(
-        x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
+        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
@@ -1023,7 +1023,7 @@ def crea_grafico_stipendi(data):
 
     # Grafico a barre per "Risparmi" e "Messi da parte Totali" (barre affiancate)
     chart_bar = alt.Chart(df_bar).mark_bar().encode(
-        x=alt.X("Mese_str:N", title="Mese"),
+        x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",  # Questo crea barre affiancate
         y=alt.Y("Valore:Q", title="Valore (€)"),
         color=alt.Color("Categoria:N", scale=alt.Scale(
