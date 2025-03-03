@@ -1263,7 +1263,7 @@ with col_table:
     
     # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi"])
-    stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi"])
+    stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     
     col_somme1, col_somme2, col_somme3 = st.columns(3)
     with col_somme1:
