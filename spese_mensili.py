@@ -1254,7 +1254,7 @@ st.markdown("---")
 st.subheader("Dati Storici Stipendi/Risparmi")
 
 # --- Sezione Visualizzazione (Tabella e Grafico) ---
-col_table, col_chart = st.columns([1, 3])
+col_table, col_chart = st.columns([1.3, 3])
 with col_table:
     df_stip = data_stipendi.copy()
     if not df_stip.empty:
@@ -1275,8 +1275,8 @@ with col_table:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme3:
-        st.markdown(f"**Somma Messi da parte:** <span style='color:#FFFF99;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Messi da parte:** <span style='color:#84B6F4;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Messi da parte:** <span style='color:#FFD700;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
 with col_chart:
     st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
