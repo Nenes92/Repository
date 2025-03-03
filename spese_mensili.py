@@ -989,8 +989,8 @@ def crea_grafico_stipendi(data):
         data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
           var_name="Categoria", value_name="Valore")
     ])
-    dominio_categorie = ["Stipendio", "Risparmi", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"]
-    scala_colori = ["#77DD77", "#FFFF99", "#FF6961", "#84B6F4", "#FFA07A"]
+    dominio_categorie = ["Stipendio", "Risparmi", "Messi da parte Totali", "Media Stipendio", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    scala_colori = ["#77DD77", "#FFFF99", "FFD700", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     base = alt.Chart(data_completa).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
