@@ -981,79 +981,54 @@ def calcola_medie(data, colonne):
             data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
     return data
 
-def crea_grafico_stipendi_con_barre(data):
-    """
-    Crea un grafico che visualizza i valori reali (Risparmi e Messi da parte Totali) 
-    come barre affiancate e le medie come linee.
-    """
-    # Prepara i dati in formato long, includendo sia i valori reali sia le medie
+def crea_grafico_stipendi(data):
+    # Prepara i dati unendo i valori originali e le medie
     data_completa = pd.concat([
         data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
                   var_name="Categoria", value_name="Valore"),
         data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
                   var_name="Categoria", value_name="Valore")
     ])
-    
-    # Assicurati che la colonna "Mese" sia nel formato datetime e crea una colonna formattata per l'asse X
-    data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
-    
-    # Definisci i domini e le palette per le due tipologie:
+
+    # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
+    # Le altre serie (linee)
     line_categories = [cat for cat in data_completa["Categoria"].unique() if cat not in bar_categories]
-    
-    # Palette per le barre
-    palette_bar = {
-        "Risparmi": "#FFFFCC",      # Giallo molto chiaro sbiadito
-        "Messi da parte Totali": "#FFD700"  # Giallo dorato
-    }
-    
-    # Palette per le linee (puoi adattarla come preferisci)
-    palette_line = {
-        "Stipendio": "#77DD77",
-        "Media Stipendio": "#FF6961",
-        "Media Stipendio NO 13°/PDR": "#FFA07A",
-        "Media Risparmi": "#84B6F4",
-        "Media Messi da parte Totali": "#2E75B6"
-    }
-    
-    # Separa i dati in due DataFrame
+
+    # Per l'asse X, creiamo una colonna formattata
+    data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
+
+    # Suddividi il dataset in due: uno per le barre e uno per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
-    df_line = data_completa[data_completa["Categoria"].isin(line_categories)]
-    
-    # Crea il grafico a barre con xOffset per affiancare le barre
+    df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
+
+    # Grafico a linee (con i punti) per le serie lineari
+    base_line = alt.Chart(df_line).encode(
+    x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
+    y=alt.Y("Valore:Q", title="Valore (€)")
+    )
+    line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]), 
+                         legend=alt.Legend(title="Linee"))
+    )
+    points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "#84B6F4"]))
+    )
+    chart_line = line_chart + points_chart
+
+    # Grafico a barre per "Risparmi" e "Messi da parte Totali"
+    # Utilizziamo xOffset per disporre le barre affiancate
     chart_bar = alt.Chart(df_bar).mark_bar().encode(
-        x=alt.X("Mese:T", title="Mese"),
-        xOffset=alt.X("Categoria:N", title=""),  # Questo crea le barre affiancate
+        x=alt.X("Mese_str:N", title="Mese"),
+        xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=list(palette_bar.keys()), range=list(palette_bar.values())),
-                        legend=alt.Legend(title="Valori Reali"))
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=["#FFFFCC", "#FFD700"]),
+                        legend=alt.Legend(title="Barre"))
     )
-    
-    # Crea il grafico a linee per le medie
-    chart_line = alt.Chart(df_line).mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        x=alt.X("Mese:T", title="Mese"),
-        y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=list(palette_line.keys()), range=list(palette_line.values())),
-                        legend=alt.Legend(title="Medie"))
-    )
-    
-    # Aggiungi anche i punti alle linee, se desideri
-    chart_points = alt.Chart(df_line).mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        x=alt.X("Mese:T", title="Mese"),
-        y=alt.Y("Valore:Q"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=list(palette_line.keys()), range=list(palette_line.values())))
-    )
-    
-    # Sovrapponi barre e linee (con i punti)
-    grafico_finale = alt.layer(chart_bar, chart_line + chart_points).resolve_scale(
-        x="shared", y="shared"
-    ).properties(
-        height=500,
-        width="container",
-        title="Confronto mensile: Valori reali (Barre) e Medie (Linee)"
-    )
-    
-    return grafico_finale
+
+    # Sovrapponi i due grafici; per avere lo stesso asse Y, risolviamo le scale in modalità shared
+    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(y="shared")
+    return final_chart
 
 def crea_grafico_bollette_linea_continua(data_completa, order):
     """
