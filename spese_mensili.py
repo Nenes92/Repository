@@ -1000,7 +1000,7 @@ def crea_grafico_stipendi(data):
 
     # Suddividi il dataset in due: uno per le barre e uno per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
-    df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
+    df_line = data_completa[~data_completa["Categoria"].isin(line_categories)]
 
     # Grafico a linee (con i punti) per le serie lineari
     base_line = alt.Chart(df_line).encode(
