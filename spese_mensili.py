@@ -990,7 +990,7 @@ def crea_grafico_stipendi(data):
           var_name="Categoria", value_name="Valore")
     ])
     dominio_categorie = ["Stipendio", "Risparmi", "Messi da parte Totali", "Media Stipendio", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    scala_colori = ["#77DD77", "#FFFF99", "FFD700", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
+    scala_colori = ["#77DD77", "#FFFFCC", "#FFD700", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     base = alt.Chart(data_completa).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
