@@ -992,8 +992,10 @@ def crea_grafico_stipendi(data):
 
     # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
+    bar_color_range = ["#FFFFCC", "#FFD700"]
     # Le altre serie (linee)
-    line_categories = [cat for cat in data_completa["Categoria"].unique() if cat not in bar_categories]
+    line_categories = ["Stipendio", "Media Stipendio", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
@@ -1008,11 +1010,10 @@ def crea_grafico_stipendi(data):
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "##84B6F4"]), 
-                         legend=alt.Legend(title="Linee"))
+        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))
     )
     points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=["#77DD77", "#FF6961", "#FFA07A", "##84B6F4"]))
+        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))
     )
     chart_line = line_chart + points_chart
 
@@ -1022,8 +1023,7 @@ def crea_grafico_stipendi(data):
         x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=["#FFFFCC", "#FFD700"]),
-                        legend=alt.Legend(title="Barre"))
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range))
     )
 
     # Sovrapponi i due grafici; per avere lo stesso asse Y, risolviamo le scale in modalità shared
