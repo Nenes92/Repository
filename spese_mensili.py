@@ -1280,13 +1280,13 @@ st.subheader("Dati Storici Stipendi/Risparmi")
 # --- Sezione Visualizzazione (Tabella e Grafico) ---
 col_table, col_chart = st.columns([1.3, 3])
 with col_table:
-    # Crea una copia per la visualizzazione
+    # Crea una copia per la visualizzazione della tabella
     df_stip_display = data_stipendi.copy()
     if not df_stip_display.empty:
         df_stip_display["Mese"] = df_stip_display["Mese"].dt.strftime("%B %Y")
     st.dataframe(df_stip_display, use_container_width=True)
     
-    # Calcola medie e statistiche
+    # Calcola medie e statistiche sul DataFrame originale
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     
@@ -1304,7 +1304,7 @@ with col_table:
         st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
 with col_chart:
-    st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
+    st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
