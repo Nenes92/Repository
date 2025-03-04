@@ -1026,8 +1026,11 @@ def crea_grafico_stipendi(data):
         color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range))
     )
 
-    # Sovrapponi i due grafici; per avere lo stesso asse Y, risolviamo le scale in modalità shared
-    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(y="shared")
+    # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
+    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(
+        y="shared",
+        color="independent"
+    )
     return final_chart
 
 def crea_grafico_bollette_linea_continua(data_completa, order):
