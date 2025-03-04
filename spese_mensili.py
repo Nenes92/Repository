@@ -1006,7 +1006,7 @@ def crea_grafico_stipendi(data):
 
     # Grafico a linee (con i punti) per le serie lineari
     base_line = alt.Chart(df_line).encode(
-        x=alt.X("Mese_str:N", title="Mese", axis=alt.Axis(tickCount="month")),
+        x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
@@ -1020,7 +1020,7 @@ def crea_grafico_stipendi(data):
     # Grafico a barre per "Risparmi" e "Messi da parte Totali"
     # Utilizziamo xOffset per disporre le barre affiancate
     chart_bar = alt.Chart(df_bar).mark_bar().encode(
-        x=alt.X("Mese_str:N", title="Mese"),
+        x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
         y=alt.Y("Valore:Q", title="Valore (€)"),
         color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range))
@@ -1280,13 +1280,12 @@ st.subheader("Dati Storici Stipendi/Risparmi")
 # --- Sezione Visualizzazione (Tabella e Grafico) ---
 col_table, col_chart = st.columns([1.3, 3])
 with col_table:
-    # Crea una copia per la visualizzazione della tabella
-    df_stip_display = data_stipendi.copy()
-    if not df_stip_display.empty:
-        df_stip_display["Mese"] = df_stip_display["Mese"].dt.strftime("%B %Y")
-    st.dataframe(df_stip_display, use_container_width=True)
+    df_stip = data_stipendi.copy()
+    if not df_stip.empty:
+        df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
+    st.dataframe(df_stip, use_container_width=True)
     
-    # Calcola medie e statistiche sul DataFrame originale
+    # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     
@@ -1304,7 +1303,7 @@ with col_table:
         st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
 with col_chart:
-    st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500), use_container_width=True)
+    st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=500, width='container'), use_container_width=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
 
