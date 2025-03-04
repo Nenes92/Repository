@@ -1280,10 +1280,11 @@ st.subheader("Dati Storici Stipendi/Risparmi")
 # --- Sezione Visualizzazione (Tabella e Grafico) ---
 col_table, col_chart = st.columns([1.3, 3])
 with col_table:
-    df_stip = data_stipendi.copy()
-    if not df_stip.empty:
-        df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
-    st.dataframe(df_stip, use_container_width=True)
+    # Crea una copia per la visualizzazione
+    df_stip_display = data_stipendi.copy()
+    if not df_stip_display.empty:
+        df_stip_display["Mese"] = df_stip_display["Mese"].dt.strftime("%B %Y")
+    st.dataframe(df_stip_display, use_container_width=True)
     
     # Calcola medie e statistiche
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
