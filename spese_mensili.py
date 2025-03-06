@@ -1023,7 +1023,7 @@ def crea_grafico_stipendi(data):
         x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range))
+        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range), title="Risparmi")
     )
 
     # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
