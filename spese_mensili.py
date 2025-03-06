@@ -1016,7 +1016,7 @@ def crea_grafico_stipendi(data):
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
-    line_chart = base_line.mark_line(strokeWidth=2, size=30, strokeDash=[5,5]).encode(
+    line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         alt.Color("Categoria:N",
                   scale=alt.Scale(domain=line_categories, range=line_color_range),
                   title="Stipendi")
@@ -1030,7 +1030,7 @@ def crea_grafico_stipendi(data):
 
     # Grafico a barre per "Risparmi" e "Messi da parte Totali"
     # Utilizziamo xOffset per disporre le barre affiancate
-    chart_bar = alt.Chart(df_bar).mark_bar().encode(
+    chart_bar = alt.Chart(df_bar).mark_bar(size=30).encode(
         x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",
         y=alt.Y("Valore:Q", title="Valore (€)"),
