@@ -989,6 +989,13 @@ def crea_grafico_stipendi(data):
         data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
                   var_name="Categoria", value_name="Valore")
     ])
+    
+    # Rinominare le categorie per rendere plurale quelle relative agli stipendi
+    data_completa["Categoria"] = data_completa["Categoria"].replace({
+        "Stipendio": "Stipendi",
+        "Media Stipendio": "Media Stipendi",
+        "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
+    })
 
     # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
