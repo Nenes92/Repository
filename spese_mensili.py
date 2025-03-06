@@ -996,32 +996,30 @@ def crea_grafico_stipendi(data):
         )
     ])
 
-    # Rinominare le categorie per rendere plurale quelle relative agli stipendi
+    # Rinomina le categorie relative agli stipendi in forma plurale
     data_completa["Categoria"] = data_completa["Categoria"].replace({
         "Stipendio": "Stipendi",
         "Media Stipendio": "Media Stipendi",
         "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
     })
 
-    # Definisci le serie da visualizzare come barre (impilate)
+    # Serie per le barre (impilate) e per le linee
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     bar_color_range = ["#FFFFCC", "#FFD700"]
-    # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
-    # Crea la colonna per l'asse X
+    # Crea la colonna formattata per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
 
-    # Seleziona i dati per le barre e per le linee
-    # Assicurati di creare una copia per le barre per poter aggiungere il campo stack_order
+    # Separa i dati per le barre e per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)].copy()
     df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
 
     # Aggiungi un campo di ordinamento per le barre
     df_bar["stack_order"] = df_bar["Categoria"].map({"Risparmi": 0, "Messi da parte Totali": 1})
 
-    # Grafico a linee (con i punti) per le serie lineari
+    # Grafico a linee (con punti) per le serie non impilate
     base_line = alt.Chart(df_line).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
