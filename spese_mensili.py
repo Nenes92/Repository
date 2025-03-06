@@ -984,16 +984,10 @@ def calcola_medie(data, colonne):
 def crea_grafico_stipendi(data):
     # Prepara i dati unendo i valori originali e le medie
     data_completa = pd.concat([
-        data.melt(
-            id_vars=["Mese"],
-            value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
-            var_name="Categoria", value_name="Valore"
-        ),
-        data.melt(
-            id_vars=["Mese"],
-            value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
-            var_name="Categoria", value_name="Valore"
-        )
+        data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
+                  var_name="Categoria", value_name="Valore"),
+        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
+                  var_name="Categoria", value_name="Valore")
     ])
 
     # Rinominare le categorie per rendere plurale quelle relative agli stipendi
@@ -1003,21 +997,21 @@ def crea_grafico_stipendi(data):
         "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
     })
 
-    # Serie da visualizzare come barre (impilate)
+    # Definisci le serie da visualizzare come barre (impilate)
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     bar_color_range = ["#FFFFCC", "#FFD700"]
-    # Serie da visualizzare come linee
+    # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
-    # Crea la colonna per l'asse X (formattata)
+    # Crea la colonna per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
 
     # Seleziona i dati per le barre e per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
     df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
 
-    # Grafico a linee (con punti) per le serie lineari
+    # Grafico a linee (con i punti) per le serie lineari
     base_line = alt.Chart(df_line).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
@@ -1063,7 +1057,7 @@ def crea_grafico_stipendi(data):
         baseline="middle",
         color="black"
     ).encode(
-        x=alt.X("Mese_str:N", title="Mese"),
+        x=alt.X("Mese_str:N", title="Mese"),  # Rimosso sort=order
         y=alt.Y("mid:Q"),
         text=alt.Text("Valore:Q", format=".2f")
     )
