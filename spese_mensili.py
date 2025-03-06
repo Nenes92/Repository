@@ -984,10 +984,16 @@ def calcola_medie(data, colonne):
 def crea_grafico_stipendi(data):
     # Prepara i dati unendo i valori originali e le medie
     data_completa = pd.concat([
-        data.melt(id_vars=["Mese"], value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
-                  var_name="Categoria", value_name="Valore"),
-        data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
-                  var_name="Categoria", value_name="Valore")
+        data.melt(
+            id_vars=["Mese"],
+            value_vars=["Stipendio", "Risparmi", "Messi da parte Totali"],
+            var_name="Categoria", value_name="Valore"
+        ),
+        data.melt(
+            id_vars=["Mese"],
+            value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
+            var_name="Categoria", value_name="Valore"
+        )
     ])
 
     # Rinominare le categorie per rendere plurale quelle relative agli stipendi
@@ -997,17 +1003,17 @@ def crea_grafico_stipendi(data):
         "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
     })
 
-    # Definisci le serie da visualizzare come barre (che verranno impilate)
+    # Serie da visualizzare come barre (impilate)
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     bar_color_range = ["#FFFFCC", "#FFD700"]
-    # Le altre serie (linee)
-    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    # Serie da visualizzare come linee
+    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
-    # Creazione della colonna per l'asse X
+    # Crea la colonna per l'asse X (formattata)
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
 
-    # Seleziona i dati per le barre (impilate) e per le linee
+    # Seleziona i dati per le barre e per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
     df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
 
@@ -1029,13 +1035,12 @@ def crea_grafico_stipendi(data):
     chart_line = line_chart + points_chart
 
     # Grafico a barre impilate per "Risparmi" e "Messi da parte Totali"
-    # Utilizziamo transform_stack per impilare i valori per ciascun mese
     stacked_bar = alt.Chart(df_bar).transform_stack(
         stack='Valore',
         groupby=['Mese_str'],
         sort=[{'field': 'Categoria', 'order': 'ascending'}],
         as_=['lower', 'upper']
-    ).mark_bar().encode(
+    ).mark_bar(size=60).encode(
         x=alt.X("Mese_str:N", title="Mese"),
         y=alt.Y("lower:Q", title="Valore (€)"),
         y2="upper:Q",
@@ -1045,7 +1050,7 @@ def crea_grafico_stipendi(data):
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
 
-    # Aggiungi etichette centrate per ciascun segmento impilato
+    # Etichette centrate per ciascun segmento impilato
     labels = alt.Chart(df_bar).transform_stack(
         stack='Valore',
         groupby=['Mese_str'],
@@ -1063,7 +1068,7 @@ def crea_grafico_stipendi(data):
         text=alt.Text("Valore:Q", format=".2f")
     )
 
-    # Sovrapponi il grafico a linee e quello a barre impilate (con etichette)
+    # Sovrapponi i layer: linee, barre impilate e etichette
     final_chart = alt.layer(chart_line, stacked_bar, labels).resolve_scale(
         y="shared",
         color="independent"
