@@ -997,21 +997,21 @@ def crea_grafico_stipendi(data):
         "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
     })
 
-    # Definisci le serie che vuoi visualizzare come barre
+    # Definisci le serie da visualizzare come barre (che verranno impilate)
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     bar_color_range = ["#FFFFCC", "#FFD700"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
-    # Per l'asse X, creiamo una colonna formattata
+    # Creazione della colonna per l'asse X
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
 
-    # Suddividi il dataset in due: uno per le barre e uno per le linee
+    # Seleziona i dati per le barre (impilate) e per le linee
     df_bar = data_completa[data_completa["Categoria"].isin(bar_categories)]
     df_line = data_completa[~data_completa["Categoria"].isin(bar_categories)]
 
-    # Grafico a linee (con i punti) per le serie lineari
+    # Grafico a linee (con punti) per le serie lineari
     base_line = alt.Chart(df_line).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
@@ -1028,19 +1028,43 @@ def crea_grafico_stipendi(data):
     )
     chart_line = line_chart + points_chart
 
-    # Grafico a barre per "Risparmi" e "Messi da parte Totali"
-    # Utilizziamo xOffset per disporre le barre affiancate
-    chart_bar = alt.Chart(df_bar).mark_bar(size=30).encode(
-        x=alt.X("Mese:T", title="Mese"),
-        xOffset="Categoria:N",
-        y=alt.Y("Valore:Q", title="Valore (€)"),
+    # Grafico a barre impilate per "Risparmi" e "Messi da parte Totali"
+    # Utilizziamo transform_stack per impilare i valori per ciascun mese
+    stacked_bar = alt.Chart(df_bar).transform_stack(
+        stack='Valore',
+        groupby=['Mese_str'],
+        sort=[{'field': 'Categoria', 'order': 'ascending'}],
+        as_=['lower', 'upper']
+    ).mark_bar().encode(
+        x=alt.X("Mese_str:N", title="Mese"),
+        y=alt.Y("lower:Q", title="Valore (€)"),
+        y2="upper:Q",
         color=alt.Color("Categoria:N",
                         scale=alt.Scale(domain=bar_categories, range=bar_color_range),
-                        title="Risparmi")
+                        title="Risparmi"),
+        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
 
-    # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
-    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(
+    # Aggiungi etichette centrate per ciascun segmento impilato
+    labels = alt.Chart(df_bar).transform_stack(
+        stack='Valore',
+        groupby=['Mese_str'],
+        sort=[{'field': 'Categoria', 'order': 'ascending'}],
+        as_=['lower', 'upper']
+    ).transform_calculate(
+        mid="(datum.lower + datum.upper) / 2"
+    ).mark_text(
+        align="center",
+        baseline="middle",
+        color="black"
+    ).encode(
+        x=alt.X("Mese_str:N", title="Mese"),
+        y=alt.Y("mid:Q"),
+        text=alt.Text("Valore:Q", format=".2f")
+    )
+
+    # Sovrapponi il grafico a linee e quello a barre impilate (con etichette)
+    final_chart = alt.layer(chart_line, stacked_bar, labels).resolve_scale(
         y="shared",
         color="independent"
     )
