@@ -1010,11 +1010,14 @@ def crea_grafico_stipendi(data):
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))
-        color=alt.Color(scale=alt.Scale(title="Risparmi"))
+        alt.Color("Categoria:N",
+                scale=alt.Scale(domain=line_categories, range=line_color_range),
+                title="Stipendi")
     )
     points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
-        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))
+        alt.Color("Categoria:N",
+                scale=alt.Scale(domain=line_categories, range=line_color_range),
+                title="Stipendi")
     )
     chart_line = line_chart + points_chart
 
