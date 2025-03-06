@@ -1008,6 +1008,7 @@ def crea_grafico_stipendi(data):
     base_line = alt.Chart(df_line).encode(
         x=alt.X("Mese:T", title="Mese", axis=alt.Axis(tickCount="month")),
         y=alt.Y("Valore:Q", title="Valore (€)")
+        color=alt.Color(title="Risparmi")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))
