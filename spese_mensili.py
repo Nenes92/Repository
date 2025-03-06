@@ -989,7 +989,7 @@ def crea_grafico_stipendi(data):
         data.melt(id_vars=["Mese"], value_vars=["Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"],
                   var_name="Categoria", value_name="Valore")
     ])
-    
+
     # Rinominare le categorie per rendere plurale quelle relative agli stipendi
     data_completa["Categoria"] = data_completa["Categoria"].replace({
         "Stipendio": "Stipendi",
@@ -1001,7 +1001,7 @@ def crea_grafico_stipendi(data):
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     bar_color_range = ["#FFFFCC", "#FFD700"]
     # Le altre serie (linee)
-    line_categories = ["Stipendio", "Media Stipendio", "Media Stipendio NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
@@ -1018,13 +1018,13 @@ def crea_grafico_stipendi(data):
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         alt.Color("Categoria:N",
-                scale=alt.Scale(domain=line_categories, range=line_color_range),
-                title="Stipendi")
+                  scale=alt.Scale(domain=line_categories, range=line_color_range),
+                  title="Stipendi")
     )
     points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
         alt.Color("Categoria:N",
-                scale=alt.Scale(domain=line_categories, range=line_color_range),
-                title="Stipendi")
+                  scale=alt.Scale(domain=line_categories, range=line_color_range),
+                  title="Stipendi")
     )
     chart_line = line_chart + points_chart
 
@@ -1032,9 +1032,11 @@ def crea_grafico_stipendi(data):
     # Utilizziamo xOffset per disporre le barre affiancate
     chart_bar = alt.Chart(df_bar).mark_bar().encode(
         x=alt.X("Mese:T", title="Mese"),
-        xOffset="Categoria:N",  # Questa codifica crea il raggruppamento delle barre
+        xOffset="Categoria:N",
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        color=alt.Color("Categoria:N", scale=alt.Scale(domain=bar_categories, range=bar_color_range), title="Risparmi")
+        color=alt.Color("Categoria:N",
+                        scale=alt.Scale(domain=bar_categories, range=bar_color_range),
+                        title="Risparmi")
     )
 
     # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
