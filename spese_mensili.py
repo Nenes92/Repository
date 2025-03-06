@@ -1058,7 +1058,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
         color=alt.Color("Categoria:N", scale=alt.Scale(
             domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
             range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
-            legend=alt.Legend(title="Categorie")),
+            legend=alt.Legend(title="Bollette")),
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
     
@@ -1289,7 +1289,7 @@ with col_table:
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     
-    col_somme1, col_somme2, col_somme3 = st.columns(3)
+    col_somme1, col_somme2, col_somme3 = st.columns([1.3, 1, 1])
     with col_somme1:
         st.markdown(f"**Somma Stipendi:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Stipendi:** <span style='color:#FF6961;'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
