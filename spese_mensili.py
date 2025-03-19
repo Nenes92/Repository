@@ -537,7 +537,11 @@ def main():
                 ),
                 legend=None
             ),
-            tooltip=['Value']
+            tooltip=[
+                alt.Tooltip("Component:N", title="Categoria"),
+                alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                alt.Tooltip("Value:Q", title="Percentuale", aggregate="sum", format=".1%")
+            ]
         ).properties(
             title="Stipendio Totale", 
             width=100, 
@@ -556,7 +560,11 @@ def main():
                 ),
                 legend=alt.Legend(title=None)
             ),
-            tooltip=['Value']
+            tooltip=[
+                alt.Tooltip("Component:N", title="Categoria"),
+                alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                alt.Tooltip("Value:Q", title="Percentuale", aggregate="sum", format=".1%")
+            ]
         ).properties(
             title="Stipendio da Utilizzare", 
             width=100, 
