@@ -18,10 +18,6 @@ def set_page_config():
     pass # Rimuoviamo il contenuto di questa funzione, non è più necessario
 
 # /////  
-# Variabili inizializzate
-input_stipendio_originale=2485
-input_risparmi_mese_precedente=0
-input_stipendio_scelto=2150
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
