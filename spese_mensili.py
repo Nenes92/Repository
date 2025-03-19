@@ -1030,14 +1030,19 @@ def crea_grafico_stipendi(data):
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
         alt.Color("Categoria:N",
-                  scale=alt.Scale(domain=line_categories, range=line_color_range),
-                  title="Stipendi")
-    )
+                scale=alt.Scale(domain=line_categories, range=line_color_range),
+                title="Stipendi"
+        ),
+        order=alt.Order("Categoria:N", sort="ascending")  # Assegna priorità di rendering alle linee
+    ).properties(zindex=1)
+
     points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
         alt.Color("Categoria:N",
-                  scale=alt.Scale(domain=line_categories, range=line_color_range),
-                  title="Stipendi")
-    )
+                scale=alt.Scale(domain=line_categories, range=line_color_range),
+                title="Stipendi"
+        ),
+        order=alt.Order("Categoria:N", sort="ascending")
+    ).properties(zindex=1)
     chart_line = line_chart + points_chart
 
     # Grafico a barre per "Risparmi" e "Messi da parte Totali"
