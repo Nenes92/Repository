@@ -1014,7 +1014,7 @@ def crea_grafico_stipendi(data):
     bar_color_range = ["#FFFFCC", "#FFD700"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.7)", "#FFA07A", "#84B6F4", "#2E75B6"]
+    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.35)", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
