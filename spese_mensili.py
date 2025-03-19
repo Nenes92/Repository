@@ -1011,10 +1011,10 @@ def crea_grafico_stipendi(data):
 
     # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
-    bar_color_range = ["rgba(255, 255, 204, 0.5)", "#CFCB62"]
+    bar_color_range = ["rgba(255, 255, 204, 0.2)", "#CFCB62"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.2)", "#FFA07A", "rgba(132, 182, 244, 0.5)", "#2E75B6"]
+    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.2)", "#FFA07A", "rgba(132, 182, 244, 0.2)", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
@@ -1329,8 +1329,8 @@ with col_table:
         if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
             st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme2:
-        st.markdown(f"**Somma Risparmi:** <span style='color:rgba(255, 255, 204, 0.5);'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Risparmi:** <span style='color:rgba(132, 182, 244, 0.5);'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Risparmi:** <span style='color:rgba(255, 255, 204, 0.2);'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Risparmi:** <span style='color:rgba(132, 182, 244, 0.2);'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme3:
         st.markdown(f"**Somma Messi da parte:** <span style='color:#CFCB62;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
