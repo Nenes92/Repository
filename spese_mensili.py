@@ -1057,7 +1057,7 @@ def crea_grafico_stipendi(data):
     )
 
     # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
-    final_chart = alt.layer(chart_bar, chart_line).resolve_scale(
+    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(
         y="shared",
         color="independent"
     )
