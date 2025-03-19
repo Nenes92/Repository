@@ -537,7 +537,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['rgba(255, 100, 100, 0.5)', 'rgba(184, 192, 112, 0.5)']
+                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)']
                 ),
                 legend=None
             ),
@@ -1011,10 +1011,10 @@ def crea_grafico_stipendi(data):
 
     # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
-    bar_color_range = ["#FFFFCC", "#CFCB62"]
+    bar_color_range = ["rgba(255, 255, 204, 0.5)", "#CFCB62"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.35)", "#FFA07A", "#84B6F4", "#2E75B6"]
+    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.2)", "#FFA07A", "(rgba(132, 182, 244, 0.5)", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
@@ -1052,7 +1052,7 @@ def crea_grafico_stipendi(data):
 
     # Etichette sopra le barre di "Messi da parte Totali"
     text_labels = alt.Chart(df_bar[df_bar["Categoria"] == "Messi da parte Totali"]).mark_text(
-        dy=-20, size=12, fontWeight='bold', color='white'
+        dy=-20, size=12, color='white'
     ).encode(
         x=alt.X("Mese:T"),
         y=alt.Y("Valore:Q"),
@@ -1245,9 +1245,9 @@ with col_sx_stip:
         stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
         aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
     with col_input2:
-        risparmi = st.number_input("Risparmi (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
+        risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
         # Usa un key unico per l’input dei "Messi da parte Totali"
-        messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key="messi_da_parte_input")
+        messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL)(€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key="messi_da_parte_input")
         elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
     # Quando aggiorni un record esistente, assicurati di usare il valore dell’input corretto:
@@ -1325,12 +1325,12 @@ with col_table:
     col_somme1, col_somme2, col_somme3 = st.columns([1.3, 1, 1])
     with col_somme1:
         st.markdown(f"**Somma Stipendi:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Stipendi:** <span style='color:rgba(255, 105, 97, 0.5);'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Stipendi:** <span style='color:rgba(255, 105, 97, 0.2);'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
         if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
             st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme2:
-        st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Risparmi:** <span style='color:'rgba(255, 255, 204, 0.5);'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Risparmi:** <span style='color:'rgba(132, 182, 244, 0.5);'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme3:
         st.markdown(f"**Somma Messi da parte:** <span style='color:#CFCB62;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
