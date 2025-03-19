@@ -1041,7 +1041,6 @@ def crea_grafico_stipendi(data):
     chart_line = line_chart + points_chart
 
     # Grafico a barre per "Risparmi" e "Messi da parte Totali"
-    # Utilizziamo xOffset per disporre le barre affiancate
     chart_bar = alt.Chart(df_bar).mark_bar(size=60).encode(
         x=alt.X("Mese:T", title="Mese"),
         xOffset="Categoria:N",
@@ -1051,8 +1050,17 @@ def crea_grafico_stipendi(data):
                         title="Risparmi")
     )
 
+    # Etichette sopra le barre di "Messi da parte Totali"
+    text_labels = alt.Chart(df_bar[df_bar["Categoria"] == "Messi da parte Totali"]).mark_text(
+        dy=-10, size=12, fontWeight='bold', color='black'
+    ).encode(
+        x=alt.X("Mese:T"),
+        y=alt.Y("Valore:Q"),
+        text=alt.Text("Valore:Q")
+    )
+
     # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
-    final_chart = alt.layer(chart_bar, chart_line).resolve_scale(
+    final_chart = alt.layer(chart_bar, text_labels, chart_line).resolve_scale(
         y="shared",
         color="independent"
     )
