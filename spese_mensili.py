@@ -508,8 +508,8 @@ def main():
 
         st.markdown("---")
         st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#D2B48C; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#FFFF99; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#D2B48C; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#D2B48C; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
         # Calcolo dei due stipendi
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
@@ -533,7 +533,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['rgba(255, 179, 176, 0.5)', 'rgba(179, 230, 179, 0.5)']
+                    range=['rgba(255, 179, 176, 0.5)', 'rgba(210, 180, 140, 0.5)']
                 ),
                 legend=None
             ),
@@ -552,7 +552,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['#FF6961', '#77DD77']
+                    range=['#FF6961', '#D2B48C']
                 ),
                 legend=alt.Legend(title=None)
             ),
