@@ -1014,7 +1014,7 @@ def crea_grafico_stipendi(data):
     bar_color_range = ["#FFFFCC", "#FFD700"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    line_color_range = ["#77DD77", "#FF6961", "#FFA07A", "#84B6F4", "#2E75B6"]
+    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.7)", "#FFA07A", "#84B6F4", "#2E75B6"]
 
     # Per l'asse X, creiamo una colonna formattata
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%b %Y")
@@ -1317,7 +1317,7 @@ with col_table:
     col_somme1, col_somme2, col_somme3 = st.columns([1.3, 1, 1])
     with col_somme1:
         st.markdown(f"**Somma Stipendi:** <span style='color:#77DD77;'>{stats_stip['Stipendio']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Media Stipendi:** <span style='color:rgba(255, 105, 97, 0.7);'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Media Stipendi:** <span style='color:rgba(255, 105, 97, 0.5);'>{stats_stip['Stipendio']['media']:,.2f} €</span>", unsafe_allow_html=True)
         if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
             st.markdown(f"**Media Stipendi NO 13°/PDR:** <span style='color:#FFA07A;'>{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme2:
