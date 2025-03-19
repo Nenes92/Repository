@@ -1465,7 +1465,7 @@ with col_bol_table:
     
     # Input per il budget mensile (se necessario per il calcolo del saldo)    
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = -100
+        saldo_iniziale = 700
         saldi = []
         for _, row in data.iterrows():
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
