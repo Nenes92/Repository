@@ -18,6 +18,10 @@ def set_page_config():
     pass # Rimuoviamo il contenuto di questa funzione, non è più necessario
 
 # /////  
+# Variabili inizializzate
+input_stipendio_originale=2485
+input_risparmi_mese_precedente=0
+input_stipendio_scelto=2150
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -1461,7 +1465,7 @@ with col_bol_table:
     
     # Input per il budget mensile (se necessario per il calcolo del saldo)    
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = 700
+        saldo_iniziale = -50
         saldi = []
         for _, row in data.iterrows():
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
