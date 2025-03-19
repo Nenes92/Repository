@@ -1052,7 +1052,7 @@ def crea_grafico_stipendi(data):
 
     # Etichette sopra le barre di "Messi da parte Totali"
     text_labels = alt.Chart(df_bar[df_bar["Categoria"] == "Messi da parte Totali"]).mark_text(
-        dy=-10, size=12, fontWeight='bold', color='black'
+        dy=-20, size=12, fontWeight='bold', color='white'
     ).encode(
         x=alt.X("Mese:T"),
         y=alt.Y("Valore:Q"),
