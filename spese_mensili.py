@@ -1011,7 +1011,7 @@ def crea_grafico_stipendi(data):
 
     # Definisci le serie che vuoi visualizzare come barre
     bar_categories = ["Risparmi", "Messi da parte Totali"]
-    bar_color_range = ["#FFFFCC", "#FFD700"]
+    bar_color_range = ["#FFFFCC", "#CFCB62"]
     # Le altre serie (linee)
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
     line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.35)", "#FFA07A", "#84B6F4", "#2E75B6"]
@@ -1324,7 +1324,7 @@ with col_table:
         st.markdown(f"**Somma Risparmi:** <span style='color:#FFFF99;'>{stats_stip['Risparmi']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Risparmi:** <span style='color:#84B6F4;'>{stats_stip['Risparmi']['media']:,.2f} €</span>", unsafe_allow_html=True)
     with col_somme3:
-        st.markdown(f"**Somma Messi da parte:** <span style='color:#FFD700;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"**Somma Messi da parte:** <span style='color:#CFCB62;'>{stats_stip['Messi da parte Totali']['somma']:,.2f} €</span>", unsafe_allow_html=True)
         st.markdown(f"**Media Messi da parte:** <span style='color:#2E75B6;'>{stats_stip['Messi da parte Totali']['media']:,.2f} €</span>", unsafe_allow_html=True)
 
 with col_chart:
@@ -1465,7 +1465,7 @@ with col_bol_table:
     
     # Input per il budget mensile (se necessario per il calcolo del saldo)    
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = -50
+        saldo_iniziale = 100
         saldi = []
         for _, row in data.iterrows():
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
