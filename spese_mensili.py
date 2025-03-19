@@ -1052,7 +1052,7 @@ def crea_grafico_stipendi(data):
     )
 
     # Sovrapponi i due grafici; per avere lo stesso asse Y e scale colore indipendenti
-    final_chart = alt.layer(chart_line, chart_bar).resolve_scale(
+    final_chart = alt.layer(chart_bar, chart_line).resolve_scale(
         y="shared",
         color="independent"
     )
@@ -1465,7 +1465,7 @@ with col_bol_table:
     
     # Input per il budget mensile (se necessario per il calcolo del saldo)    
     def calcola_saldo(data, decisione_budget_bollette_mensili):
-        saldo_iniziale = 0
+        saldo_iniziale = -50
         saldi = []
         for _, row in data.iterrows():
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
