@@ -533,7 +533,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['rgba(255, 179, 176, 0.5)', 'rgba(210, 180, 140, 0.5)']
+                    range=['rgba(255, 100, 100, 0.5)', 'rgba(230, 200, 160, 0.5)']
                 ),
                 legend=None
             ),
