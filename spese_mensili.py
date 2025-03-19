@@ -507,9 +507,9 @@ def main():
 
 
         st.markdown("---")
-        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#D2B48C; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#D2B48C; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#D2B48C; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
+        st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#DBC08A; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#DBC08A; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
+        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#DBC08A; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
 
         # Calcolo dei due stipendi
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
@@ -537,7 +537,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['rgba(255, 100, 100, 0.5)', 'rgba(230, 200, 160, 0.5)']
+                    range=['rgba(255, 100, 100, 0.5)', 'rgba(219, 192, 138, 0.5)']
                 ),
                 legend=None
             ),
@@ -560,7 +560,7 @@ def main():
                 type="nominal", 
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['#FF6961', '#D2B48C']
+                    range=['#FF6961', '#DBC08A']
                 ),
                 legend=alt.Legend(title=None)
             ),
