@@ -525,6 +525,10 @@ def main():
             'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
+        # Creiamo la colonna per la percentuale nel dataframe
+        df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
+        df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
+
         # Chart per lo Stipendio Totale (colori spenti, opachi)
         chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
@@ -540,7 +544,7 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Value:Q", title="Percentuale", aggregate="sum", format=".1%")
+                alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
             ]
         ).properties(
             title="Stipendio Totale", 
@@ -563,7 +567,7 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Value:Q", title="Percentuale", aggregate="sum", format=".1%")
+                alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
             ]
         ).properties(
             title="Stipendio da Utilizzare", 
