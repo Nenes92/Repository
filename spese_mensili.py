@@ -587,12 +587,11 @@ def main():
         text_labels = alt.Chart(df_utilizzare).mark_text(
             fontSize=12, 
             fontWeight='bold', 
-            color='white'
+            color='black'  # Puoi cambiare colore per migliorare visibilità
         ).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             text=alt.Text("Percentuale:Q", format=".1f"),
-            radius=alt.value(30),  # Mantiene le etichette dentro il cerchio
-            dy=alt.value(0)  # Sposta le etichette leggermente sopra o sotto
+            color=alt.Color(field="Component", type="nominal")  # Per mantenere il colore corrispondente
         )
 
         # Combinazione del grafico e delle etichette
