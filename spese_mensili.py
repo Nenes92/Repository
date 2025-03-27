@@ -587,24 +587,11 @@ def main():
         text_labels = alt.Chart(df_utilizzare).mark_text(
             fontSize=12, 
             fontWeight='bold', 
-            color='black',  # Cambia il colore per migliorare la visibilità
-            align='center'  # Per centrare il testo all'interno del cerchio
+            color='black'  # Puoi cambiare colore per migliorare visibilità
         ).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             text=alt.Text("Percentuale:Q", format=".1f"),
-            color=alt.Color(field="Component", type="nominal")  # Mantieni il colore corrispondente
-        ).properties(
-            title="Stipendio da Utilizzare",
-            width=100, 
-            height=100
-        )
-
-        # Creiamo la variabile per regolare la posizione verticale delle etichette
-        dy_offset = 0  # Inizia da zero e aumenta il valore per spostare le etichette una sopra l'altra
-
-        # Aggiungi l'overlay delle etichette sopra il grafico
-        chart_finale = chart_utilizzare + text_labels.encode(
-            dy=alt.value(dy_offset)
+            color=alt.Color(field="Component", type="nominal")  # Per mantenere il colore corrispondente
         )
 
         # Combinazione del grafico e delle etichette
