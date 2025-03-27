@@ -435,6 +435,7 @@ def main():
                         f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>',
                         unsafe_allow_html=True
                     )
+                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
                 elif voce in ["Condominio"]:
                     st.markdown(
                         f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span>'
@@ -465,7 +466,6 @@ def main():
                         f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>',
                         unsafe_allow_html=True
                     )
-                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
                 elif voce in ["Trasporti"]:
                     st.markdown(
                         f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span>'
