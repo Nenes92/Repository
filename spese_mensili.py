@@ -522,11 +522,12 @@ def main():
         # Calcolo dei due stipendi
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
         stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
+        risparmio_variabile_di_appoggio = stipendio_totale - spese_fisse_totali - risparmiabili
 
         # DataFrame per ciascun grafico
         df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili'],
-            'Value': [spese_fisse_totali, risparmiabili]
+            'Component': ['Spese Fisse', 'Risparmiabili', 'Risparmi'],
+            'Value': [spese_fisse_totali, risparmiabili, risparmio_variabile_di_appoggio]
         })
         df_utilizzare = pd.DataFrame({
             'Component': ['Spese Fisse', 'Risparmiabili'],
@@ -544,8 +545,8 @@ def main():
                 field="Component", 
                 type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili'], 
-                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)']
+                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmi'], 
+                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(144, 238, 144, 0.3)']
                 ),
                 legend=None
             ),
