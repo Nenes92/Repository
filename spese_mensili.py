@@ -560,6 +560,20 @@ def main():
             height=100
         )
 
+        # Etichette con percentuali
+        text_labels_totale = alt.Chart(df_totale).mark_text(
+            fontSize=12, 
+            fontWeight='bold', 
+            color='black'  # Puoi cambiare colore per migliorare visibilità
+        ).encode(
+            theta=alt.Theta(field="Value", type="quantitative"),
+            text=alt.Text("Percentuale:Q", format=".1f"),
+            color=alt.Color(field="Component", type="nominal")  # Per mantenere il colore corrispondente
+        )
+
+        # Combinazione del grafico e delle etichette
+        chart_finale_totale = chart_totale + text_labels_totale
+
         # Chart per lo Stipendio da Utilizzare (colori originali)
         chart_utilizzare = alt.Chart(df_utilizzare).mark_arc(innerRadius=35, outerRadius=50).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
@@ -584,7 +598,7 @@ def main():
         )
 
         # Etichette con percentuali
-        text_labels = alt.Chart(df_utilizzare).mark_text(
+        text_labels_utilizzare = alt.Chart(df_utilizzare).mark_text(
             fontSize=12, 
             fontWeight='bold', 
             color='black'  # Puoi cambiare colore per migliorare visibilità
@@ -595,10 +609,10 @@ def main():
         )
 
         # Combinazione del grafico e delle etichette
-        chart_finale = chart_utilizzare + text_labels
+        chart_finale_utilizzare = chart_utilizzare + text_labels_utilizzare
 
         # Unione orizzontale dei due grafici con scale di colore indipendenti
-        chart_donut = (chart_totale | chart_finale).resolve_scale(color='independent')
+        chart_donut = (chart_finale_totale | chart_finale_utilizzare).resolve_scale(color='independent')
 
         # Centratura del grafico usando le colonne di Streamlit
         _, col2utilizzato, _ = st.columns([0.5, 1, 0.5])
