@@ -19,9 +19,9 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=2485
+input_stipendio_originale=2200
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2150
+input_stipendio_scelto=2000
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -516,8 +516,8 @@ def main():
 
         st.markdown("---")
         st.markdown(f'**Totale Spese Fisse:** <span style="color:#F08080;">€{spese_fisse_totali:.2f}</span><span style="color:#B8C070; float:right;"> - Risparmiabili: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#808080;"> Stipendio da Utilizzare - Spese fisse = </span>€{risparmiabili:.2f}</span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</span> <small span style="color:#B8C070; float:right;"> {(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare </span>', unsafe_allow_html=True)
-        st.markdown(f' <small span style="color:#F08080;"> {(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</span> <small span style="color:#B8C070; float:right;"> {(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale </span>', unsafe_allow_html=True)
+        st.markdown(f' <small style="color:#F08080;"> {(spese_fisse_totali) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</small> ' f'<small style="color:#B8C070; float:right;">{(risparmiabili) / stipendio * 100:.2f} % dello Stipendio da Utilizzare</small>', unsafe_allow_html=True)
+        st.markdown(f' <small style="color:#F08080;">{(spese_fisse_totali) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</small> ' f'<small style="color:#B8C070; float:right;">{(risparmiabili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</small>', unsafe_allow_html=True)
 
         # Calcolo dei due stipendi
         stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
