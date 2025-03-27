@@ -591,11 +591,8 @@ def main():
         ).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             text=alt.Text("Percentuale:Q", format=".1f"),
-            radius=alt.value(20),  # Mantiene le etichette dentro il cerchio
-            dy=alt.condition(
-                alt.datum.Component == "Spese Fisse", alt.value(-10), alt.value(10)  # Sposta una su e una giù
-            ),
-            color=alt.Color(field="Component", type="nominal")  
+            radius=alt.value(30),  # Mantiene le etichette dentro il cerchio
+            dy=alt.value(0)  # Sposta le etichette leggermente sopra o sotto
         )
 
         # Combinazione del grafico e delle etichette
