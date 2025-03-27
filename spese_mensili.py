@@ -583,8 +583,22 @@ def main():
             height=100
         )
 
+        # Etichette con percentuali
+        text_labels = alt.Chart(df_utilizzare).mark_text(
+            fontSize=12, 
+            fontWeight='bold', 
+            color='black'  # Puoi cambiare colore per migliorare visibilità
+        ).encode(
+            theta=alt.Theta(field="Value", type="quantitative"),
+            text=alt.Text("Percentuale:Q", format=".1f"),
+            color=alt.Color(field="Component", type="nominal")  # Per mantenere il colore corrispondente
+        )
+
+        # Combinazione del grafico e delle etichette
+        chart_finale = chart_utilizzare + text_labels
+
         # Unione orizzontale dei due grafici con scale di colore indipendenti
-        chart_donut = (chart_totale | chart_utilizzare).resolve_scale(color='independent')
+        chart_donut = (chart_totale | chart_finale).resolve_scale(color='independent')
 
         # Centratura del grafico usando le colonne di Streamlit
         _, col2utilizzato, _ = st.columns([0.5, 1, 0.5])
