@@ -526,7 +526,7 @@ def main():
 
         # DataFrame per ciascun grafico
         df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili', 'Risparmi'],
+            'Component': ['Spese Fisse', 'Risparmiabili', 'Risparmi mese prec.'],
             'Value': [spese_fisse_totali, risparmiabili, risparmio_variabile_di_appoggio]
         })
         df_utilizzare = pd.DataFrame({
@@ -545,8 +545,8 @@ def main():
                 field="Component", 
                 type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmi'], 
-                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(144, 238, 144, 0.3)']
+                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmi mese prec.'], 
+                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(102, 170, 102, 0.3)']
                 ),
                 legend=None
             ),
@@ -691,7 +691,7 @@ def main():
             )
             st.markdown(
                 f'<div style="text-align:center;"><small style="color:#808080;">Risparmi da Stipendi</small> + <small style="color:#808080;">Risparmi da Mese Prec</small> + <small style="color:#FFFF99;">Risparmi Da Spendere</small> +  <small style="color:#FFFF99;">Risparmi Da Spese Quotidiane</small></div>'
-                f'<div style="text-align:center;"><small style="color:#FFFF99;">{(risparmi_mensili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</small></div>',
+                f'<div style="text-align:center;"><small style="color:#77DD77;">{(risparmi_mensili) / (stipendio_originale + sum(ALTRE_ENTRATE.values())) * 100:.2f} % dello Stipendio Totale</small></div>',
                 unsafe_allow_html=True,
             )
 
