@@ -68,7 +68,7 @@ SPESE = {
         "Spotify": 3,
         "Disney+": 3.5,
         "Wind": 10,
-        "BNL C.C.": 4.5,
+        "BNL C.C.": 7.6,
         "ING C.C.": 2
     },
     "Variabili": {
