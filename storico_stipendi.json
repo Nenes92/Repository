@@ -76,5 +76,17 @@
         "Stipendio": 2277.0,
         "Risparmi": 157.0,
         "Messi da parte Totali": 0.0
+    },
+    {
+        "Mese": "2025-04-01 00:00:00",
+        "Stipendio": 2302.0,
+        "Risparmi": 0.0,
+        "Messi da parte Totali": 0.0
+    },
+    {
+        "Mese": "2025-05-01 00:00:00",
+        "Stipendio": 2452.0,
+        "Risparmi": 114.0,
+        "Messi da parte Totali": 1077.0
     }
 ]
