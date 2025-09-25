@@ -50,26 +50,26 @@ viaggi=0.06
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Mutuo": 500,
-        "Bollette": 220,
-        "Condominio": 100,
-        "Garages": 30,
-        "Pulizia Casa": 30,
+        "Mutuo": 0 #/500,
+        "Bollette": 0 #/220,
+        "Condominio": 0 #/100,
+        "Garages": 0 #/30,
+        "Pulizia Casa": 0 #/30,
         "MoneyFarm - PAC 5": 100,
         "Cometa": 30,
         "Alleanza - PAC": 100,
         "Macchina": 180,
-        "Trasporti": 135,
+        "Trasporti": 150,
         "Sport": 90,
         "Psicologo": 100,
         "World Food Programme": 30,
         "Beneficienza": 15,
         "Netflix": 8.5,
-        "Spotify": 3,
+        "Spotify": 3.5,
         "Disney+": 3.5,
         "Wind": 10,
-        "BNL C.C.": 7.6,
-        "ING C.C.": 2
+        "BNL C.C.": 9.4,
+        "ING C.C.": 0 #/2
     },
     "Variabili": {
         "Emergenze/Compleanni": emergenze_compleanni,
@@ -85,7 +85,7 @@ SPESE = {
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Affitto Garage": 000,
+    "Affitto Garage": 0 0 #/,
     "Altro": 0
 }
 
@@ -1561,3 +1561,4 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
