@@ -19,9 +19,9 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=2200
+input_stipendio_originale=1000
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2000
+input_stipendio_scelto=1000
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -1561,6 +1561,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
