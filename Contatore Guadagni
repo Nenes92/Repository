@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💶 Contatore Guadagno Turni</title>
+
+<!-- Manifest con icona Base64 -->
+<link rel="manifest" href="data:application/manifest+json,{
+  'name':'Contatore Guadagno',
+  'short_name':'Guadagno',
+  'start_url':'index.html',
+  'display':'standalone',
+  'background_color':'#f4f6f8',
+  'theme_color':'#2a9d8f',
+  'icons':[{
+    'src':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAz0lEQVR42u3XsQ2DMBCE4eRrDc2EtD4C0kOmM1BFgB+uGb0HcklhDF2yHkA7Yl4PZLZt9/Bv1zu+2Nmd2v/p7N0sYH+W/1Dq7c+Yo/Sr8Ku/5N6Qy7h7wv8wVQ/qJu/+pQXv8Uq9CzL5C2D6lCz/ALm/zEvkJQ+y/Ypz/QHb6nYN+obU9uD2j0SqqhNOo9duI4N+ojgVtR3jRz0Q/1t3Y6C6ifV6ZsKcK+LcAAAAASUVORK5CYII=',
+    'sizes':'192x192',
+    'type':'image/png'
+  }]
+}">
+
+<meta name="theme-color" content="#2a9d8f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Guadagno">
+
+<style>
+  body { font-family: Arial; text-align:center; padding:30px; background:#f4f6f8;}
+  h1 { margin-bottom:20px; color:#333;}
+  #display { font-size:2.5rem; font-weight:bold; color:#2a9d8f; margin:20px 0;}
+  #summary { font-size:1.1rem; color:#444; margin-top:10px;}
+  .controls { margin-top:15px;}
+  button { background:#2a9d8f; color:white; border:none; padding:10px 20px; margin:5px; border-radius:6px; cursor:pointer; font-size:1rem;}
+  button:hover { background:#21867a;}
+  select,label{ margin:5px; font-size:1rem;}
+</style>
+</head>
+<body>
+
+<h1>💶 Contatore Guadagno</h1>
+
+<div>
+<label for="shift">Turno:</label>
+<select id="shift">
+<option value="matt">Mattina (06-14)</option>
+<option value="pom">Pomeriggio (14-22)</option>
+<option value="not">Notte (22-06)</option>
+</select>
+
+<label><input type="checkbox" id="holiday"> Festivo</label>
+</div>
+
+<div id="display">€0.00</div>
+<div id="summary"></div>
+
+<div class="controls">
+<button id="startBtn">Start</button>
+<button id="stopBtn">Stop</button>
+<button id="resetBtn">Reset</button>
+</div>
+
+<script>
+// === CONFIG ===
+const monthly = 2484;
+const daysPerMonth = 20.88;
+const daily = monthly / daysPerMonth;
+const baseHour = daily / 8;
+const multipliers = { normal:1, night:1.2, holiday:1.5, holidayNight:1.6 };
+
+let earned = 0, timer = null, lastTick = null;
+let shiftStart = null, shiftEnd = null;
+
+function multiplierForHour(hour, isHoliday){
+    const isNight = hour>=18 || hour<6;
+    if(isHoliday) return isNight? multipliers.holidayNight : multipliers.holiday;
+    return isNight? multipliers.night : multipliers.normal;
+}
+function ratePerSecondAt(date,isHoliday){
+    return (baseHour * multiplierForHour(date.getHours(), isHoliday))/3600;
+}
+function computeShiftTimes(shiftName){
+    const now = new Date();
+    let start = new Date(now), end = new Date(now);
+    if(shiftName==="matt"){ start.setHours(6,0,0,0); end.setHours(14,0,0,0);}
+    else if(shiftName==="pom"){ start.setHours(14,0,0,0); end.setHours(22,0,0,0);}
+    else if(shiftName==="not"){
+        if(now.getHours()<6){ start.setDate(start.getDate()-1);}
+        start.setHours(22,0,0,0); end = new Date(start); end.setDate(end.getDate()+1); end.setHours(6,0,0,0);
+    }
+    return {start,end};
+}
+
+function updateDisplay(){ document.getElementById("display").textContent = "€"+earned.toFixed(2); }
+function finishShift(){ stopCounter(); document.getElementById("summary").textContent = `✅ Turno concluso. Guadagno totale: €${earned.toFixed(2)}`; }
+
+function startCounter(){
+    if(timer) return;
+    const shiftName = document.getElementById("shift").value;
+    const isHoliday = document.getElementById("holiday").checked;
+    ({start:shiftStart,end:shiftEnd}=computeShiftTimes(shiftName));
+
+    // calcola arretrato
+    const now = new Date();
+    let t = new Date(shiftStart);
+    while(t<now && t<shiftEnd){ earned += ratePerSecondAt(t,isHoliday); t.setSeconds(t.getSeconds()+1); }
+    updateDisplay();
+
+    lastTick = now;
+    timer = setInterval(()=>{
+        const now = new Date();
+        if(now>=shiftEnd){ finishShift(); return;}
+        const elapsed = (now - lastTick)/1000;
+        for(let i=0;i<Math.round(elapsed);i++){
+            const t = new Date(lastTick.getTime()+(i+1)*1000);
+            earned += ratePerSecondAt(t,isHoliday);
+        }
+        lastTick = now;
+        updateDisplay();
+    },1000);
+}
+function stopCounter(){ clearInterval(timer); timer=null; }
+function resetCounter(){ stopCounter(); earned=0; updateDisplay(); document.getElementById("summary").textContent=""; }
+
+document.getElementById("startBtn").addEventListener("click",startCounter);
+document.getElementById("stopBtn").addEventListener("click",stopCounter);
+document.getElementById("resetBtn").addEventListener("click",resetCounter);
+updateDisplay();
+</script>
+
+</body>
+</html>
