@@ -28,8 +28,8 @@ limite_da_spendere=80
 max_spese_quotidiane=400
 decisione_budget_bollette_mensili=100
 
-emergenze_compleanni=0.1
-viaggi=0.06
+emergenze_compleanni=0.15
+viaggi=0.07
 # /////  
 
 # stipendio_originale = input - quanto prendi
@@ -50,11 +50,11 @@ viaggi=0.06
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Mutuo": 0, #/500,
-        "Bollette": 0, #/220,
-        "Condominio": 0, #/100,
+        "Mutuo": 460, #/500,
+        "Bollette": 150, #/220,
+        "Condominio": 40, #/100,
         "Garages": 0, #/30,
-        "Pulizia Casa": 0, #/30,
+        "Pulizia Casa": 30, #/30,
         "MoneyFarm - PAC 5": 100,
         "Cometa": 30,
         "Alleanza - PAC": 100,
@@ -69,7 +69,7 @@ SPESE = {
         "Disney+": 4,
         "Wind": 10,
         "BNL C.C.": 9.4,
-        "ING C.C.": 0, #/2
+        "ING C.C.": 2, #/2
     },
     "Variabili": {
         "Emergenze/Compleanni": emergenze_compleanni,
@@ -1562,6 +1562,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
