@@ -85,7 +85,7 @@ SPESE = {
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Garages": 0, #/0,
+    "Seconda Entrata": 0, #/0,
     "Altro": 0
 }
 
@@ -148,7 +148,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spese quotidiane": "#FFFF99",
         "Altro": "#6495ED",
         "Macchina (Mamma)": "#D2B48C",
-        "Affitto Garage": "#D8BFD8",
+        "Seconda Entrata": "#D8BFD8",
         "Stipendio Originale": "#5792E8",
         "Stipendio Utilizzato": "#6CBCD0",
         "Altre Entrate": "#77DD77",
@@ -794,7 +794,7 @@ def main():
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
             elif voce in ["Altro"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
-            elif voce in ["Affitto Garage"]:
+            elif voce in ["Seconda Entrata"]:
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
