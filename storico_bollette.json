@@ -160,5 +160,23 @@
         "Internet": 26.95,
         "Tari": 0.0,
         "Saldo": NaN
+    },
+    {
+        "Mese": "2025-10-01 00:00:00",
+        "Elettricit\u00e0": 0.0,
+        "Gas": 0.0,
+        "Acqua": 0.0,
+        "Internet": 26.95,
+        "Tari": 0.0,
+        "Saldo": NaN
+    },
+    {
+        "Mese": "2025-11-01 00:00:00",
+        "Elettricit\u00e0": 0.0,
+        "Gas": 0.0,
+        "Acqua": 0.0,
+        "Internet": 26.95,
+        "Tari": 0.0,
+        "Saldo": NaN
     }
 ]
