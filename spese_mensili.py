@@ -56,7 +56,6 @@ SPESE = {
         "Garages": 0, #/30,
         "Pulizia Casa": 0, #/30,
         "MoneyFarm - PAC 5": 100,
-        "Cometa": 30,
         "Alleanza - PAC": 100,
         "Macchina": 180,
         "Trasporti": 200,
@@ -78,7 +77,7 @@ SPESE = {
         "Spese quotidiane": 0  # Inizializzato a zero
     },
     "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "ING": ["Condominio", "Garages", "MoneyFarm - PAC 5", "Cometa", "Alleanza - PAC", "World Food Programme", "Macchina", "Wind", "ING C.C."],
+    "ING": ["Condominio", "Garages", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Wind", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
 
@@ -97,7 +96,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # DataFrame per Spese Fisse (con accorpamento)
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC")| (df_fisse["Categoria"] == "Cometa"), "Categoria"] = "Investimenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
@@ -128,7 +127,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Garages": "#CD5C5C",
         "Pulizia Casa": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
-        "Cometa": "#6495ED",
         "Alleanza - PAC": "#6495ED",
         "Macchina": "#D2B48C",
         "Trasporti": "#D2B48C",
@@ -1562,6 +1560,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
