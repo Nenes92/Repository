@@ -112,5 +112,17 @@
         "Stipendio": 2484.0,
         "Risparmi": 141.0,
         "Messi da parte Totali": 1291.88
+    },
+    {
+        "Mese": "2025-10-01 00:00:00",
+        "Stipendio": 2564.0,
+        "Risparmi": 30.0,
+        "Messi da parte Totali": 1291.88
+    },
+    {
+        "Mese": "2025-11-01 00:00:00",
+        "Stipendio": 2785.0,
+        "Risparmi": 15.0,
+        "Messi da parte Totali": 1410.79
     }
 ]
