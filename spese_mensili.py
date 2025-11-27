@@ -50,11 +50,11 @@ viaggi=0.07
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Mutuo": 460, #/500,
-        "Bollette": 150, #/220,
-        "Condominio": 40, #/100,
+        "Mutuo": 0, #/430,
+        "Bollette": 0, #/1500,
+        "Condominio": 0, #/40,
         "Garages": 0, #/30,
-        "Pulizia Casa": 30, #/30,
+        "Pulizia Casa": 0, #/30,
         "MoneyFarm - PAC 5": 100,
         "Cometa": 30,
         "Alleanza - PAC": 100,
@@ -69,7 +69,7 @@ SPESE = {
         "Disney+": 4,
         "Wind": 10,
         "BNL C.C.": 9.4,
-        "ING C.C.": 2, #/2
+        "ING C.C.": 0, #/2
     },
     "Variabili": {
         "Emergenze/Compleanni": emergenze_compleanni,
@@ -1562,6 +1562,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
