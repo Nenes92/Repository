@@ -54,6 +54,7 @@ SPESE = {
         "Bollette": 0, #/1500,
         "Condominio": 0, #/40,
         "Garages": 0, #/30,
+        "Cucina": 0, #/200,
         "Pulizia Casa": 0, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
@@ -77,7 +78,7 @@ SPESE = {
         "Spese quotidiane": 0  # Inizializzato a zero
     },
     "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "ING": ["Condominio", "Garages", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Wind", "ING C.C."],
+    "ING": ["Condominio", "Garages", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Wind", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
 
@@ -100,7 +101,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
-    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Garages") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
+    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Garages") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()  # Aggrega per categoria
 
     # DataFrame per Spese Variabili
@@ -125,6 +126,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Bollette": "#CD5C5C",
         "Condominio": "#CD5C5C",
         "Garages": "#CD5C5C",
+        "Cucina": "#CD5C5C",
         "Pulizia Casa": "#CD5C5C",
         "MoneyFarm - PAC 5": "#6495ED",
         "Alleanza - PAC": "#6495ED",
@@ -459,6 +461,12 @@ def main():
                         unsafe_allow_html=True
                     )
                 elif voce in ["Garages"]:
+                    st.markdown(
+                        f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span>'
+                        f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>',
+                        unsafe_allow_html=True
+                    )
+                elif voce in ["Cucina"]:
                     st.markdown(
                         f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span>'
                         f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>',
@@ -1560,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
