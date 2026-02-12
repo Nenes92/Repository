@@ -50,26 +50,26 @@ viaggi=0.07
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Mutuo": 0, #/430,
-        "Bollette": 0, #/1500,
+        "Mutuo": 0, #/431.16,
+        "Bollette": 0, #/165,
         "Condominio": 0, #/40,
         "Garages": 0, #/30,
         "Cucina": 0, #/200,
         "Pulizia Casa": 0, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
-        "Macchina": 180,
+        "Macchina": 178.75,
         "Trasporti": 200,
         "Sport": 90,
         "Psicologo": 100,
         "World Food Programme": 30,
-        "Beneficienza": 15,
+        "Beneficienza": 10,
         "Netflix": 8.5,
         "Spotify": 3.5,
         "Disney+": 4,
-        "Fastweb (Casa+Cel)": 34.9,
-        "BNL C.C.": 9.4,
-        "ING C.C.": 0, #/2
+        "Fastweb (Casa+Cel)": 0, #/34.9,
+        "BNL C.C.": 7.4,
+        "ING C.C.": 2 #/2
     },
     "Variabili": {
         "Emergenze/Compleanni": emergenze_compleanni,
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
