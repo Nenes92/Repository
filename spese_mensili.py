@@ -51,11 +51,11 @@ viaggi=0.07
 SPESE = {
     "Fisse": {
         "Mutuo": 431.16,
-        "Bollette": 165, #/165,
-        "Condominio": 40, #/40,
+        "Bollette": 0, #/165,
+        "Condominio": 0, #/40,
         "Garages": 0, #/30,
-        "Cucina": 315, #/200,
-        "Pulizia Casa": 30, #/30,
+        "Cucina": 0, #/200,
+        "Pulizia Casa": 0, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
         "Macchina": 178.75,
@@ -67,7 +67,7 @@ SPESE = {
         "Netflix": 8.5,
         "Spotify": 3.5,
         "Disney+": 4,
-        "Fastweb (Casa+Cel)": 34.9, #/34.9,
+        "Fastweb (Casa+Cel)": 0, #/34.9,
         "BNL C.C.": 7.4,
         "ING C.C.": 2
     },
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
