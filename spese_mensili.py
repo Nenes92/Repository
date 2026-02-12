@@ -67,7 +67,7 @@ SPESE = {
         "Netflix": 8.5,
         "Spotify": 3.5,
         "Disney+": 4,
-        "Wind": 10,
+        "Fastweb (Internet+Tel)": 10,
         "BNL C.C.": 9.4,
         "ING C.C.": 0, #/2
     },
@@ -78,7 +78,7 @@ SPESE = {
         "Spese quotidiane": 0  # Inizializzato a zero
     },
     "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "ING": ["Condominio", "Garages", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Wind", "ING C.C."],
+    "ING": ["Condominio", "Garages", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Fastweb (Internet+Tel)", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
 
@@ -98,7 +98,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Wind") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Fastweb (Internet+Tel)") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Garages") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
@@ -139,7 +139,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Netflix": "#D2691E",
         "Spotify": "#D2691E",
         "Disney+": "#D2691E",
-        "Wind": "#D2691E",
+        "Fastweb (Internet+Tel)": "#D2691E",
         "BNL C.C.": "#D2691E",
         "ING C.C.": "#D2691E",
         "Emergenze/Compleanni": "#50C878",
@@ -481,7 +481,7 @@ def main():
 
         with col_right:
             for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Wind"]:
+                if voce in ["Fastweb (Internet+Tel)"]:
                     st.markdown(
                         f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span>'
                         f'<span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>',
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
