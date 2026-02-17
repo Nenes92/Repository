@@ -85,8 +85,8 @@ SPESE = {
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Seconda Entrata": 70, #/0,
-    "Altro": 30
+    "Seconda Entrata": 0, #/0,
+    "Altro": 0
 }
 
 @st.cache_data  # Aggiungiamo il decoratore per il caching
