@@ -85,8 +85,8 @@ SPESE = {
 # Dizionario delle altre entrate
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Seconda Entrata": 0, #/0,
-    "Altro": 0
+    "Seconda Entrata": 70, #/0,
+    "Altro": 30
 }
 
 @st.cache_data  # Aggiungiamo il decoratore per il caching
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
