@@ -58,7 +58,7 @@ SPESE = {
         "Pulizia Casa": 40, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
-        "Macchina": 178.75,
+        "Macchina": 180,
         "Trasporti": 210,
         "Sport": 90,
         "Psicologo": 100,
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
