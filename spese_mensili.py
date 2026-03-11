@@ -25,8 +25,8 @@ input_stipendio_scelto=1000
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
-max_spese_quotidiane=400
-decisione_budget_bollette_mensili=100
+max_spese_quotidiane=370
+decisione_budget_bollette_mensili=165
 
 emergenze_compleanni=0.15
 viaggi=0.07
@@ -50,12 +50,12 @@ viaggi=0.07
 # Dizionario delle spese (ristrutturato)
 SPESE = {
     "Fisse": {
-        "Mutuo": 0, #/431.16,
+        "Mutuo": 435,
         "Bollette": 165,
-        "Condominio": 44,
-        "Garages": 0, #/30,
-        "Cucina": 0, #/200,
-        "Pulizia Casa": 0, #/30,
+        "Condominio": 45,
+        "Altro": 0, #/30,
+        "Cucina": 315, #/315,
+        "Pulizia Casa": 40, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
         "Macchina": 178.75,
@@ -67,7 +67,7 @@ SPESE = {
         "Netflix": 8.5,
         "Spotify": 3.5,
         "Disney+": 4,
-        "Fastweb (Casa+Cel)": 0, #/34.9,
+        "Fastweb (Casa+Cel)": 35, #/34.9,
         "BNL C.C.": 7.4,
         "ING C.C.": 2
     },
@@ -1568,6 +1568,7 @@ with col_bol_chart:
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:5px;border-width:0;color:gray;background-color:gray">', unsafe_allow_html=True)
+
 
 
 
