@@ -839,7 +839,7 @@ def main():
                 testo = "trasferire"
                 somma_disney_spoti = SPESE["Fisse"]["Disney+"]*3 + SPESE["Fisse"]["Spotify"]*5
                 somma_valori = risparmi_mese_precedente - somma_disney_spoti + totale_carta
-                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi + <span style="color:{colore}; font-size: 14px;">€{SPESE["Fisse"]["Disney+"]*1 + SPESE["Fisse"]["Spotify"]*4:.2f}</span> da Disn/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - <span style="color:{colore}; font-size: 14px;">€{SPESE["Fisse"]["Disney+"]*1 + SPESE["Fisse"]["Spotify"]*4:.2f}</span> da Disn/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
             else:
                 totale_carta = sum(spese_carta.values())
                 if carta == "ING":
