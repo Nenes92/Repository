@@ -54,7 +54,7 @@ SPESE = {
         "Bollette": 180,
         "Condominio": 45,
         "Altro": 0, #/30,
-        "Cucina": 315, #/315,
+        "Cucina": 0, #/315,
         "Pulizia Casa": 40, #/30,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
