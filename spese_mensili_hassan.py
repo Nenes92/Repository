@@ -1,3 +1,4 @@
+
 # python -m streamlit run C:\Users\longh\Desktop\temp.py
 
 import altair as alt
@@ -425,10 +426,10 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Fastweb (Casa+Cel)": "#D2691E",
         "BNL C.C.": "#D2691E",
         "ING C.C.": "#D2691E",
-        "Emergenze/Compleanni": "#50C878",
-        "Viaggi": "#50C878",
-        "Da spendere": "#FFFF99",
-        "Spese quotidiane": "#FFB347",
+        "Emergenze/Compleanni": "#4ADE80",
+        "Viaggi": "#166534", 
+        "Da spendere": "#FACC15", 
+        "Spese quotidiane": "#FB923C",
         "Macchina (Mamma)": "#D2B48C",
         "Seconda Entrata": "#D8BFD8",
         "Stipendio Originale": "#5792E8",
@@ -453,37 +454,42 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         outerRadius=100, innerRadius=40
     ).encode(
         theta=alt.Theta(field="Importo", type="quantitative"),
-        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=None),
+        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=alt.Legend(
+            title=None,
+            orient='right',
+            direction='vertical',
+            labelColor='rgba(255,255,255,0.85)',
+            labelFontSize=12,
+            symbolType='circle',
+            symbolSize=100,
+            padding=6
+        )),
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
 
-    text_fisse = alt.Chart(df_fisse).mark_text(radius=145, size=11, align='center').encode(
-        theta=alt.Theta(field="Importo", type="quantitative", stack=True),
-        text=alt.Text("Categoria:N"),
-        color=alt.value("rgba(255,255,255,0.85)"),
-    )
-
-    chart_fisse = (chart_fisse + text_fisse).properties(title='Distribuzione Spese Fisse').interactive()
-
+    chart_fisse = chart_fisse.properties(title='Distribuzione Spese Fisse', width=280, height=280).interactive()
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-        range=['#50C878', '#3CB371', '#FFFF99', '#FFB347']
+        range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
     )
     chart_variabili_arc = alt.Chart(df_variabili, title='Distribuzione Spese Variabili').mark_arc(
         outerRadius=100, innerRadius=40
     ).encode(
         theta=alt.Theta(field="Importo", type="quantitative"),
-        color=alt.Color(field="Categoria", type="nominal", scale=variabili_color_scale, legend=None),
+        color=alt.Color(field="Categoria", type="nominal", scale=variabili_color_scale, legend=alt.Legend(
+            title=None,
+            orient='right',
+            direction='vertical',
+            labelColor='rgba(255,255,255,0.85)',
+            labelFontSize=12,
+            symbolType='circle',
+            symbolSize=100,
+            padding=6
+        )),
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
-    text_variabili = alt.Chart(df_variabili).mark_text(radius=145, size=11, align='center').encode(
-        theta=alt.Theta(field="Importo", type="quantitative", stack=True),
-        text=alt.Text("Categoria:N"),
-        color=alt.Color(field="Categoria", type="nominal", scale=variabili_color_scale, legend=None),
-    )
-    chart_variabili = (chart_variabili_arc + text_variabili).properties(title='Distribuzione Spese Variabili').interactive()
-
+    chart_variabili = chart_variabili_arc.properties(title='Distribuzione Spese Variabili', width=280, height=280).interactive()
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Altre Entrate donut — no legend, tooltip only
@@ -505,20 +511,20 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         color=alt.Color(
             field="Categoria", type="nominal",
             scale=alt.Scale(domain=ae_domains, range=ae_ranges),
-            legend=None
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=12,
+                symbolType='circle',
+                symbolSize=100,
+                padding=6
+            )
         ),
         tooltip=["Categoria", "Importo", "Percentuale"]
     )
-    ae_text = alt.Chart(df_altre_entrate_chart).mark_text(radius=105, size=11).encode(
-        theta=alt.Theta(field="Importo", type="quantitative", stack=True),
-        text=alt.Text("Categoria:N"),
-        color=alt.Color(
-            field="Categoria", type="nominal",
-            scale=alt.Scale(domain=ae_domains, range=ae_ranges),
-            legend=None
-        )
-    )
-    chart_altre_entrate = (ae_arc + ae_text).properties(
+    chart_altre_entrate = ae_arc.properties(
         title='Distribuzione Altre Entrate'
     ).interactive()
     
@@ -728,7 +734,7 @@ def main():
             <div class="kpi-card">
                 <div class="kpi-label">Totale Spese Fisse</div>
                 <div class="kpi-value" style="color:#f87171;">{_sf}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfp}% dello stipendio</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfp}% dello stipendio da utilizzare</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Risparmiabili</div>
@@ -843,17 +849,17 @@ def main():
         for voce, importo in SPESE["Variabili"].items():
             if voce in ["Emergenze/Compleanni"]:
                 percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#4ADE80") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Viaggi"]:
                 percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#66D1A3") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#166534") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Spese quotidiane"]:
                 percentuale_da_spendere = (SPESE["Variabili"]["Da spendere"] / risparmiabili * 100) if risparmiabili != 0 else 0
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FB923C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
             elif voce in ["Da spendere"]:
                 spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
                 risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#F0E68C") + f'<span style="margin-right: 20px; color:#808080;">- {(da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi if risparmiabili_dopo_emergenze_viaggi != 0 else 0):.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
+                st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FACC15") + f'<span style="margin-right: 20px; color:#808080;">- {(da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi if risparmiabili_dopo_emergenze_viaggi != 0 else 0):.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
             if voce == "Da spendere":
@@ -864,6 +870,7 @@ def main():
                 spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
                 risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
                 st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
+
 
         st.markdown("---")
         _sv = f"€{spese_variabili_totali:.2f}"
@@ -1024,21 +1031,23 @@ def main():
         df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
 
         carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=35, outerRadius=60).encode(
-            theta=alt.Theta(field="Totale", type="quantitative"),
-            color=alt.Color(
-                field="Carta", type="nominal",
-                scale=alt.Scale(
-                    domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                    range=['#D2691E', '#89CFF0', '#77DD77', '#a78bfa']
-                ),
-                legend=alt.Legend(title=None)
+        theta=alt.Theta(field="Totale", type="quantitative"),
+        color=alt.Color(
+            field="Carta", type="nominal",
+            scale=alt.Scale(
+                domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
             ),
-            tooltip=[
-                alt.Tooltip("Carta:N", title="Carta"),
-                alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-            ]
+            legend=alt.Legend(title=None)
+            
+        ),
+        tooltip=[
+            alt.Tooltip("Carta:N", title="Carta"),
+            alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+        ]
         ).properties( width=180, height=200)
+
 
         chart_carte = carte_arc
         st.altair_chart(chart_carte, use_container_width=True)
@@ -1213,11 +1222,10 @@ def crea_grafico_stipendi(data):
     bar_categories = ["Risparmi", "Messi da parte Totali"]
     # FIX 1: Risparmi bar overlapping inside Messi da parte Totali
     # Use opacity layering - Messi da parte Totali as base, Risparmi overlaid
-    bar_color_range = ["rgba(255, 255, 153, 0.5)", "#CFCB62"]
+    bar_color_range = ["rgba(255, 165, 0, 0.5)", "#4CAF50"]
 
     line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
-    line_color_range = ["#77DD77", "rgba(255, 105, 97, 0.2)", "#FFA07A", "rgba(132, 182, 244, 0.2)", "#2E75B6"]
-
+    line_color_range = ["#5792E8", "#f87171", "#fb923c", "#FFA040", "#90EE90"]
     # FIX 2: Month labels - use full month names diagonal like Bollette chart
     data_completa["Mese"] = pd.to_datetime(data_completa["Mese"], errors="coerce")
     data_completa["Mese_str"] = data_completa["Mese"].dt.strftime("%B %Y")
@@ -1231,14 +1239,14 @@ def crea_grafico_stipendi(data):
     df_risparmi = df_bar[df_bar["Categoria"] == "Risparmi"]
 
     # FIX 2: Use Mese_str with diagonal labels like Bollette chart
-    base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#CFCB62", opacity=0.8).encode(
+    base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#4CAF50", opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("Valore:Q", title="Valore (€)"),
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
     )
 
     # FIX 1: Risparmi overlaid ON TOP of Messi da parte (same x position, smaller/different color)
-    base_bar_risparmi = alt.Chart(df_risparmi).mark_bar(size=40, color="rgba(255,255,153,0.6)", opacity=0.9).encode(
+    base_bar_risparmi = alt.Chart(df_risparmi).mark_bar(size=40, color="rgba(255,165,0,0.6)", opacity=0.9).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi),
         y=alt.Y("Valore:Q"),
         tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
@@ -1257,9 +1265,9 @@ def crea_grafico_stipendi(data):
         y=alt.Y("Valore:Q", title="Valore (€)")
     )
     line_chart = base_line.mark_line(strokeWidth=2, strokeDash=[5,5]).encode(
-        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
+    alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
     )
-    points_chart = base_line.mark_point(shape="diamond", size=100, filled=True, opacity=0.7).encode(
+    points_chart = base_line.mark_point(shape="circle", size=60, filled=True, opacity=0.85).encode(
         alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
     )
     chart_line = line_chart + points_chart
@@ -1493,7 +1501,7 @@ with col_table:
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom:8px;">
             <div class="kpi-label">Somma Stipendi</div>
-            <div class="kpi-value" style="color:#34d399;font-size:16px;">{_s1}</div>
+            <div class="kpi-value" style="color:#5792E8;font-size:16px;">{_s1}</div>
         </div>
         <div class="kpi-card" style="margin-bottom:8px;">
             <div class="kpi-label">Media Stipendi</div>
@@ -1510,21 +1518,21 @@ with col_table:
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom:8px;">
             <div class="kpi-label">Somma Risparmi</div>
-            <div class="kpi-value" style="color:#fde047;font-size:16px;">{_r1}</div>
+            <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Media Risparmi</div>
-            <div class="kpi-value" style="color:#60a5fa;font-size:16px;">{_r2}</div>
+            <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme3:
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom:8px;">
             <div class="kpi-label">Somma Messi da Parte</div>
-            <div class="kpi-value" style="color:#CFCB62;font-size:16px;">{_m1}</div>
+            <div class="kpi-value" style="color:#1D9E75;font-size:16px;">{_m1}</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-label">Media Messi da Parte</div>
-            <div class="kpi-value" style="color:#60a5fa;font-size:16px;">{_m2}</div>
+            <div class="kpi-value" style="color:#90EE90;font-size:16px;">{_m2}</div>
         </div>""", unsafe_allow_html=True)
 
 with col_chart:
@@ -1536,36 +1544,74 @@ with col_chart:
             chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
             ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
 
-            # Blue bars for Stipendio
-            bars = alt.Chart(chart_data).mark_bar(
-                color="#5792E8", opacity=0.8, size=30
+            # Bar: Messi da parte (badi - background)
+            bars_messi = alt.Chart(chart_data).mark_bar(
+                color="#1D9E75", opacity=0.6, size=30
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese",
                         axis=alt.Axis(labelAngle=-45)),
-                y=alt.Y("Stipendio:Q", title="Valore (€)"),
-                tooltip=["Mese_str:N", "Stipendio:Q"]
+                y=alt.Y("Messi da parte Totali:Q", title="Valore (€)"),
+                tooltip=["Mese_str:N", "Messi da parte Totali:Q"]
             )
 
-            # Green line for Risparmi
-            line_risparmi = alt.Chart(chart_data).mark_line(
-                color="#77DD77", strokeWidth=2, point=True
+            # Bar: Risparmi (sovrapposta - overlay)
+            bars_risparmi = alt.Chart(chart_data).mark_bar(
+                color="#EF9F27", opacity=0.85, size=30
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi),
                 y=alt.Y("Risparmi:Q"),
                 tooltip=["Mese_str:N", "Risparmi:Q"]
             )
 
-            # Yellow line for Messi da parte Totali
-            line_messi = alt.Chart(chart_data).mark_line(
-                color="#CFCB62", strokeWidth=2, point=True
+            # Line: Stipendi
+            line_stipendi = alt.Chart(chart_data).mark_line(
+                color="#5792E8", strokeWidth=2, point=True
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi),
-                y=alt.Y("Messi da parte Totali:Q"),
-                tooltip=["Mese_str:N", "Messi da parte Totali:Q"]
+                y=alt.Y("Stipendio:Q"),
+                tooltip=["Mese_str:N", "Stipendio:Q"]
+            )
+
+            # Line: Media Stipendi
+            line_media_stip = alt.Chart(chart_data).mark_line(
+                color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True
+            ).encode(
+                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                y=alt.Y("Media Stipendio:Q"),
+                tooltip=["Mese_str:N", "Media Stipendio:Q"]
+            )
+
+            # Line: Media NO 13/PDR
+            line_media_no13 = alt.Chart(chart_data).mark_line(
+                color="#fb923c", strokeWidth=2, strokeDash=[3,3], point=True
+            ).encode(
+                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+                tooltip=["Mese_str:N", "Media Stipendio NO 13°/PDR:Q"]
+            )
+
+            # Line: Media Risparmi
+            line_media_risp = alt.Chart(chart_data).mark_line(
+                color="#FFA040", strokeWidth=2, strokeDash=[4,4], point=True
+            ).encode(
+                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                y=alt.Y("Media Risparmi:Q"),
+                tooltip=["Mese_str:N", "Media Risparmi:Q"]
+            )
+
+            # Line: Media Messi da parte
+            line_media_messi = alt.Chart(chart_data).mark_line(
+                color="#90EE90", strokeWidth=2, strokeDash=[5,5], point=True
+            ).encode(
+                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                y=alt.Y("Media Messi da parte Totali:Q"),
+                tooltip=["Mese_str:N", "Media Messi da parte Totali:Q"]
             )
 
             grafico_finale = alt.layer(
-                bars, line_risparmi, line_messi
+                bars_messi, bars_risparmi,
+                line_stipendi, line_media_stip, line_media_no13,
+                line_media_risp, line_media_messi
             ).properties(
                 title="Storico Stipendi e Risparmi",
                 height=400
@@ -1573,6 +1619,33 @@ with col_chart:
 
             st.altair_chart(grafico_finale, use_container_width=True)
 
+            # Legend labels  <-- YAHAN SE ADD KARO
+            st.markdown("""
+            <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; padding:10px 16px; 
+                        background:rgba(255,255,255,0.04); border-radius:10px;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media NO 13°/PDR
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media Risparmi
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                    <span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Errore nel grafico: {e}")
     else:
@@ -1586,7 +1659,7 @@ st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear
 #############################
 
 st.markdown('<div class="section-pill">🧾 Bollette</div>', unsafe_allow_html=True)
-st.title("Storico Bollette")
+st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradient(90deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Storico Bollette</h1>', unsafe_allow_html=True)
 
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
@@ -1686,14 +1759,33 @@ with col_bol_table:
     
     stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
-    col_bol_somme1, col_bol_somme2 = st.columns(2)
+    col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
     with col_bol_somme1:
-        st.markdown(f"**Somma Elettricità:** <span style='color:#84B6F4;'>{stats_bollette['Elettricità']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Somma Gas:** <span style='color:#FF6961;'>{stats_bollette['Gas']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Somma Elettricità</div>
+            <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Somma Gas</div>
+            <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+        </div>""", unsafe_allow_html=True)
     with col_bol_somme2:
-        st.markdown(f"**Somma Acqua:** <span style='color:#96DED1;'>{stats_bollette['Acqua']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Somma Tari:** <span style='color:#C19A6B;'>{stats_bollette['Tari']['somma']:,.2f} €</span>", unsafe_allow_html=True)
-        st.markdown(f"**Somma Internet:** <span style='color:#FFF5A1;'>{stats_bollette['Internet']['somma']:,.2f} €</span>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Somma Acqua</div>
+            <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Somma Tari</div>
+            <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+        </div>""", unsafe_allow_html=True)
+    with col_bol_somme3:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">Somma Internet</div>
+            <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+        </div>""", unsafe_allow_html=True)
     
     def calcola_saldo(data, decisione_budget_bollette_mensili):
         saldo_iniziale = 0
