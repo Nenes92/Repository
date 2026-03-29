@@ -1449,7 +1449,7 @@ with col_sx_stip:
             placeholder.success(f"Record per {selected_mese} eliminato!")
             time.sleep(3)
             placeholder.empty()
-         else:
+        else:
             placeholder = st.empty()
             placeholder.error(f"Nessun record trovato per {selected_mese}.")
             time.sleep(3)
