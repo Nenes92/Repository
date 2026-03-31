@@ -725,10 +725,10 @@ def main():
         st.markdown("---")
         _sf = f"€{spese_fisse_totali:.2f}"
         _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
-        _sfpo = f"{(spese_fisse_totali)/tot_utilizzare*100:.1f}"
+        _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
         _ri = f"€{risparmiabili:.2f}"
         _rip = f"{(risparmiabili)/stipendio*100:.1f}"
-        _ripo = f"{(risparmiabili)/tot_utilizzare*100:.1f}"
+        _ripo = f"{(risparmiabili)/tot_stipendio*100:.1f}"
         st.markdown(f"""
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
             <div class="kpi-card">
