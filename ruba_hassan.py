@@ -348,7 +348,7 @@ viaggi=0.07
 SPESE = {
     "Fisse": {
         "Mutuo": 435,
-        "Bollette": 165,
+        "Bollette": 180,
         "Condominio": 45,
         "Altro": 0,
         "Cucina": 315,
@@ -359,12 +359,12 @@ SPESE = {
         "Trasporti": 165,
         "Sport": 90,
         "Psicologo": 100,
+        "Altro/C": 150,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
         "Spotify": 3.5,
         "Disney+": 4,
-        "Fastweb (Casa+Cel)": 35,
         "BNL C.C.": 7.4,
         "ING C.C.": 2
     },
@@ -374,8 +374,8 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0
     },
-    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
-    "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "Fastweb (Casa+Cel)", "ING C.C."],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Altro/C", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
 
@@ -391,8 +391,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "Fastweb (Casa+Cel)") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo"), "Categoria"] = "Salute"
+    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Altro/C"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
@@ -418,12 +418,12 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
+        "Altro/C": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
         "Spotify": "#D2691E",
         "Disney+": "#D2691E",
-        "Fastweb (Casa+Cel)": "#D2691E",
         "BNL C.C.": "#D2691E",
         "ING C.C.": "#D2691E",
         "Emergenze/Compleanni": "#4ADE80",
@@ -699,7 +699,7 @@ def main():
                     st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
                 elif voce in ["World Food Programme"]:
                     st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Sport", "Psicologo"]:
+                elif voce in ["Sport", "Psicologo", "Altro/C"]:
                     st.markdown(f'<span style="color: #80E6E6;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
                 elif voce in ["Altro"]:
                     st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
@@ -710,9 +710,7 @@ def main():
 
         with col_right:
             for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Fastweb (Casa+Cel)"]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Disney+", "Netflix", "Spotify"]:
+                if voce in ["Disney+", "Netflix", "Spotify"]:
                     st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
                 elif voce in ["BNL C.C."]:
                     st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
@@ -996,12 +994,13 @@ def main():
                            for voce in SPESE[carta]}
             spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
             if carta == "Revolut":
-                totale_carta = revolut_expenses
-                colore = "#89CFF0"
+                totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                colore = "#89CFF0"  # Azzurro
                 testo = "trasferire"
-                somma_disney_spoti = SPESE["Fisse"]["Disney+"]*3 + SPESE["Fisse"]["Spotify"]*5
-                somma_valori = risparmi_mese_precedente - somma_disney_spoti + totale_carta
-                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 14px;">€{SPESE["Fisse"]["Disney+"]*1 + SPESE["Fisse"]["Spotify"]*4:.2f}</span> + <span style="color:{colore}; font-size: 14px;">€{SPESE["Fisse"]["Disney+"]*2 + SPESE["Fisse"]["Spotify"]*1:.2f}</span>) da Disn/Spoti -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> &nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 14px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
             else:
                 totale_carta = sum(spese_carta.values())
                 if carta == "ING":
@@ -1017,7 +1016,7 @@ def main():
 
         # FIX 4: NEW "Carte" donut chart
         st.markdown("---")
-        st.subheader("Distribuzione Carte:")
+        st.markdown("**📊 Distribuzione Carte:**")
 
         # Calculate totals per card
         ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
