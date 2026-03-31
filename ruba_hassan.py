@@ -904,6 +904,7 @@ def main():
 
     risp_left, risp_right = st.columns([1, 1])
     with risp_left:
+        st.markdown("**📊 Distribuzione Risparmi:**")
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
         df_savings_raw = pd.DataFrame({
