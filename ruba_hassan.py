@@ -635,7 +635,7 @@ def main():
         # Replace negative values with 0 for display
         df_totali_impilati['Totale'] = df_totali_impilati['Totale'].clip(lower=0)
 
-        base = alt.Chart(df_totali_impilati, title='📊 Confronto Totali per Categoria').transform_stack(
+        base = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').transform_stack(
             stack='Totale',
             groupby=['Categoria'],
             sort=[{'field': 'Tipo', 'order': 'descending'}],
@@ -671,7 +671,7 @@ def main():
             text=alt.Text('Totale:Q', format='.2f')
         )
 
-        chart_barre = (bars + labels).properties(title='Confronto Totali per Categoria')
+        chart_barre = (bars + labels).properties(title='📊 Confronto Totali per Categoria')
 
     df_fisse_percentuali = df_fisse.rename(columns={'Importo': 'Valore €'})
     df_fisse['Valore €'] = df_fisse['Importo'].apply(lambda x: f"€ {x:.2f}")
