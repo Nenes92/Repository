@@ -725,19 +725,23 @@ def main():
         st.markdown("---")
         _sf = f"€{spese_fisse_totali:.2f}"
         _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
+        _sfpo = f"{(spese_fisse_totali)/stipendio_originale*100:.1f}"
         _ri = f"€{risparmiabili:.2f}"
         _rip = f"{(risparmiabili)/stipendio*100:.1f}"
+        _ripo = f"{(risparmiabili)/stipendio_originale*100:.1f}"
         st.markdown(f"""
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
             <div class="kpi-card">
                 <div class="kpi-label">Totale Spese Fisse</div>
                 <div class="kpi-value" style="color:#f87171;">{_sf}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfp}% dello stipendio da utilizzare</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfpo}% dello stipendio originale</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Risparmiabili</div>
                 <div class="kpi-value" style="color:#a3e635;">{_ri}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio originale</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
