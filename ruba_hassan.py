@@ -846,6 +846,7 @@ def main():
 
         for voce, importo in SPESE["Variabili"].items():
             if voce in ["Emergenze/Compleanni"]:
+                st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
                 percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
                 st.markdown(color_text(f"- {voce}: €{importo:.2f}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#4ADE80") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
             elif voce in ["Viaggi"]:
