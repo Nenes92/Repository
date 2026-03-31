@@ -467,7 +467,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
 
-    chart_fisse = chart_fisse.properties(title='Distribuzione Spese Fisse', width=280, height=280).interactive()
+    chart_fisse = chart_fisse.properties(title='🏠 Distribuzione Spese Fisse', width=280, height=280).interactive()
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
@@ -489,7 +489,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         )),
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
-    chart_variabili = chart_variabili_arc.properties(title='Distribuzione Spese Variabili', width=280, height=280).interactive()
+    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=280, height=280).interactive()
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Altre Entrate donut — no legend, tooltip only
@@ -525,7 +525,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         tooltip=["Categoria", "Importo", "Percentuale"]
     )
     chart_altre_entrate = ae_arc.properties(
-        title='Distribuzione Altre Entrate'
+        title='➕ Distribuzione Altre Entrate'
     ).interactive()
     
     return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
@@ -635,7 +635,7 @@ def main():
         # Replace negative values with 0 for display
         df_totali_impilati['Totale'] = df_totali_impilati['Totale'].clip(lower=0)
 
-        base = alt.Chart(df_totali_impilati, title='Confronto Totali per Categoria').transform_stack(
+        base = alt.Chart(df_totali_impilati, title='📊 Confronto Totali per Categoria').transform_stack(
             stack='Totale',
             groupby=['Categoria'],
             sort=[{'field': 'Tipo', 'order': 'descending'}],
@@ -833,7 +833,7 @@ def main():
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
         st.markdown("---")
-        st.markdown('<div class="section-pill">📊 Spese Variabili</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
         st.subheader("Spese Variabili Rimanenti:")
 
         da_spendere = 0
