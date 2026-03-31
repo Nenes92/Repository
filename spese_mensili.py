@@ -332,14 +332,14 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=1000
+input_stipendio_originale=2300
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=1000
+input_stipendio_scelto=2000
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
 max_spese_quotidiane=370
-decisione_budget_bollette_mensili=165
+decisione_budget_bollette_mensili=180
 
 emergenze_compleanni=0.15
 viaggi=0.07
@@ -348,7 +348,7 @@ viaggi=0.07
 SPESE = {
     "Fisse": {
         "Mutuo": 435,
-        "Bollette": 180,
+        "Bollette": decisione_budget_bollette_mensili,
         "Condominio": 45,
         "Altro": 0,
         "Cucina": 315,
