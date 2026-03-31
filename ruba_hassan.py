@@ -827,7 +827,7 @@ def main():
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
         st.markdown("---")
-        st.markdown("**📊 Distribuzione Stipendi:**")
+        st.markdown("**💶 Distribuzione Stipendi:**")
         st.altair_chart(chart_donut, use_container_width=True)
 
     # --- COLONNA 2: SPESE VARIABILI ---
@@ -904,7 +904,7 @@ def main():
 
     risp_left, risp_right = st.columns([1, 1])
     with risp_left:
-        st.markdown("**📊 Distribuzione Risparmi:**")
+        st.markdown("**💰 Distribuzione Risparmi:**")
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
         df_savings_raw = pd.DataFrame({
@@ -1017,7 +1017,7 @@ def main():
 
         # FIX 4: NEW "Carte" donut chart
         st.markdown("---")
-        st.markdown("**📊 Distribuzione Carte:**")
+        st.markdown("**💳 Distribuzione Carte:**")
 
         # Calculate totals per card
         ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
