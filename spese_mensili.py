@@ -540,7 +540,7 @@ def main():
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     st.title("Calcolatore di Spese Personali")
 
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
     with col1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -906,62 +906,6 @@ def main():
     risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
     risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
 
-    risp_left, risp_right = st.columns([1, 1])
-    with risp_left:
-        st.markdown("**💰 Distribuzione Risparmi:**")
-        savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-        non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
-        df_savings_raw = pd.DataFrame({
-            'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-            'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
-        })
-        df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-        if not df_savings.empty:
-            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=60, outerRadius=110).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal",
-                    scale=alt.Scale(
-                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-                        range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
-                    ),
-                    legend=alt.Legend(
-                        title=None, orient='bottom', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
-                        symbolSize=80, padding=8, columns=2
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip('Component:N', title='Tipo'),
-                    alt.Tooltip('Value:Q', title='€', format='.2f')
-                ]
-            ).properties(
-                title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
-                width=280, height=280
-            ).configure_view(strokeWidth=0, fill='transparent'
-            ).configure_title(color='rgba(255,255,255,0.7)')
-            st.altair_chart(chart_savings_arc, use_container_width=True)
-
-    with risp_right:
-        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
-        st.subheader("Risparmiati del mese:")
-        kpi_val = f"€{risparmi_mensili_calc:.2f}"
-        kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
-        st.markdown(f"""
-        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-            <div class="kpi-label">Tot. Risparmiato</div>
-            <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
-        </div>
-        """, unsafe_allow_html=True)
-        v1 = f"€{risparmio_stipendi_calc:.2f}"
-        v2 = f"€{risparmi_mese_precedente:.2f}"
-        v3 = f"€{risparmio_da_spendere_calc:.2f}"
-        v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
-        st.markdown(
-            f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
-            unsafe_allow_html=True
-        )
 
 
     # --- COLONNA 3: ALTRE ENTRATE ---
@@ -1059,6 +1003,65 @@ def main():
         chart_carte = carte_arc
         st.altair_chart(chart_carte, use_container_width=True)
 
+
+    with col5:
+        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
+        st.subheader("Risparmiati del mese:")
+        kpi_val = f"€{risparmi_mensili_calc:.2f}"
+        kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+        st.markdown(f"""
+        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+            <div class="kpi-label">Tot. Risparmiato</div>
+            <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+        </div>
+        """, unsafe_allow_html=True)
+        v1 = f"€{risparmio_stipendi_calc:.2f}"
+        v2 = f"€{risparmi_mese_precedente:.2f}"
+        v3 = f"€{risparmio_da_spendere_calc:.2f}"
+        v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
+        st.markdown(
+            f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown("**💰 Distribuzione Risparmi:**")
+        savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+        non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
+        df_savings_raw = pd.DataFrame({
+            'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+            'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
+        })
+        df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+        if not df_savings.empty:
+            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=60, outerRadius=110).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component", type="nominal",
+                    scale=alt.Scale(
+                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+                        range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
+                    ),
+                    legend=alt.Legend(
+                        title=None, orient='bottom', direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
+                        symbolSize=80, padding=8, columns=2
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip('Component:N', title='Tipo'),
+                    alt.Tooltip('Value:Q', title='€', format='.2f')
+                ]
+            ).properties(
+                title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
+                width=280, height=280
+            ).configure_view(strokeWidth=0, fill='transparent'
+            ).configure_title(color='rgba(255,255,255,0.7)')
+            st.altair_chart(chart_savings_arc, use_container_width=True)
+            
+
+
+    
     # Visualizzazione grafici
     with st.container():
         st.markdown("---")
