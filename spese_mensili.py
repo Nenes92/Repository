@@ -540,7 +540,7 @@ def main():
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     st.title("Calcolatore di Spese Personali")
 
-    col1, col2, col3 = st.columns([1, 1, 1.4])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
     with col1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -991,6 +991,9 @@ def main():
         st.markdown('<div style="height: 80px;"></div>', unsafe_allow_html=True)
 
         st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:rgba(255,255,255,0.12);">', unsafe_allow_html=True)
+
+
+    with col4:
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
         st.subheader("Trasferimenti sulle Carte:")
 
