@@ -1024,7 +1024,8 @@ def main():
             f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
             unsafe_allow_html=True
         )
-
+        
+        st.markdown("---")
         st.markdown("**💰 Distribuzione Risparmi:**")
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
