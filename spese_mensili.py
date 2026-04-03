@@ -541,7 +541,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4, col_stip_inserimento5 = st.columns([1, 1, 1, 1, 1])
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 0.7, 1, 1])
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -933,7 +933,7 @@ def main():
             <div class="kpi-value" style="color:#34d399;">{_ae}</div>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=False)
 
 
     with col4:
