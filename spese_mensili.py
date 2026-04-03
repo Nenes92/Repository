@@ -997,49 +997,59 @@ def main():
                 'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             })
             df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-            df_savings["Percentuale"] = (
-                df_savings["Value"] / df_savings["Value"].sum() * 100
-            ).round(1)
-        with col_risparmi_2:
-            if not df_savings.empty:
-                chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
-                    theta=alt.Theta(field="Value", type="quantitative"),
-                    color=alt.Color(
-                        field="Component", type="nominal",
-                        scale=alt.Scale(
-                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
-                        ),
-                        legend=alt.Legend(
-                            title=None,
-                            orient='right',
-                            direction='vertical',
-                            labelColor='rgba(255,255,255,0.65)',
-                            labelFontSize=11,
-                            symbolSize=40,
-                            padding=2,
-                            offset=5  # 👈 distanza dal grafico (chiave!)
-                        )
-                    ),
-                    tooltip=[
-                        alt.Tooltip('Component:N', title='Risparmi da'),
-                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
-                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                    ]
-                ).properties(
-                    title="💰 Distribuzione Risparmi",
-                    width=200,
-                    height=200
-                ).configure_title(
-                    anchor='middle'
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent'
-                )
+            totale = df_savings["Value"].sum()
+            if totale != 0:
+                df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
+            else:
+                df_savings["Percentuale"] = 0
             
-                # mantiene colori indipendenti se hai più chart simili
-                chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-                st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+            with col_risparmi_2:
+                if not df_savings.empty:
+                    # base chart
+                    base = alt.Chart(df_savings).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Component",
+                            type="nominal",
+                            scale=alt.Scale(
+                                domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                                range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5
+                            )
+                        )
+                    )
+            
+                    # ciambella
+                    arc = base.mark_arc(innerRadius=40, outerRadius=70)
+            
+                    # percentuale sulle fette
+                    text = base.mark_text(radius=55, size=11, color='white').encode(
+                        text=alt.Text('Percentuale:Q', format=".1f")
+                    )
+            
+                    # combinazione dei due layer
+                    chart_savings_arc = (arc + text).properties(
+                        title="💰 Distribuzione Risparmi",
+                        width=200,
+                        height=200
+                    ).configure_title(anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    )
+            
+                    # mantiene colori indipendenti se hai più chart simili
+                    chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
+                    st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
     with col5:
         st.markdown("---")
