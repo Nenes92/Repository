@@ -932,6 +932,7 @@ def main():
             <div class="kpi-value" style="color:#34d399;">{_ae}</div>
         </div>
         """, unsafe_allow_html=True)
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
 
 
@@ -967,6 +968,7 @@ def main():
 
         # FIX 4: NEW "Carte" donut chart
         st.markdown("**💳 Distribuzione Carte:**")
+        st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
 
         # Calculate totals per card
         ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
@@ -1007,6 +1009,7 @@ def main():
         st.subheader("Risparmiati del mese:")
         kpi_val = f"€{risparmi_mensili_calc:.2f}"
         kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+        st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
             <div class="kpi-label">Tot. Risparmiato</div>
@@ -1022,7 +1025,8 @@ def main():
             f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
             unsafe_allow_html=True
         )
-        
+
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
         st.markdown("**💰 Distribuzione Risparmi:**")
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
