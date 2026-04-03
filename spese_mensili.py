@@ -935,9 +935,48 @@ def main():
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
 
-
-
     with col4:
+        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
+        st.subheader("Risparmiati del mese:")
+    
+        kpi_val = f"€{risparmi_mensili_calc:.2f}"
+        kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+    
+        # valori già calcolati
+        v1 = risparmio_stipendi_calc
+        v2 = risparmi_mese_precedente
+        v3 = risparmio_da_spendere_calc
+        v4 = risparmio_spese_quotidiane_calc
+        
+        def riga(voce, valore, colore, extra=""):
+            return f"""
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                width:420px;
+                color:{colore};
+                margin-bottom:4px;
+            ">
+                <span style="display:flex; align-items:center;">
+                    - {voce}
+                    <span style="
+                        display:inline-block;
+                        width:0;
+                        height:0;
+                        border-top:5px solid transparent;
+                        border-bottom:5px solid transparent;
+                        border-right:5px solid #89CFF0;
+                        margin-left:8px;
+                    "></span>
+                </span>
+                <span>€{valore:.2f}</span>
+            </div>
+            {extra}
+            """
+
+
+    with col5:
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
         st.subheader("Trasferimenti sulle Carte:")
 
@@ -1004,50 +1043,7 @@ def main():
         st.altair_chart(chart_carte, use_container_width=True)
 
 
-    with col5:
-        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
-        st.subheader("Risparmiati del mese:")
-    
-        kpi_val = f"€{risparmi_mensili_calc:.2f}"
-        kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
-    
-        # valori già calcolati
-        v1 = risparmio_stipendi_calc
-        v2 = risparmi_mese_precedente
-        v3 = risparmio_da_spendere_calc
-        v4 = risparmio_spese_quotidiane_calc
-        
-        def riga(voce, valore, colore, extra=""):
-            return f"""
-            <div style="
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                width:420px;
-                color:{colore};
-                margin-bottom:4px;
-            ">
-                <span style="display:flex; align-items:center;">
-                    - {voce}
-                    <span style="
-                        display:inline-block;
-                        width:0;
-                        height:0;
-                        border-top:5px solid transparent;
-                        border-bottom:5px solid transparent;
-                        border-right:5px solid #89CFF0;
-                        margin-left:8px;
-                    "></span>
-                </span>
-                <span>€{valore:.2f}</span>
-            </div>
-            {extra}
-            """
-        
-        # Stampa principale dei risparmi
-        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
-        st.subheader("Risparmiati del mese:")
-        
+                
         # Stipendi + Mese precedente + Da spendere + Quotidiane
         html_risparmi = ""
         html_risparmi += riga("Stipendi", v1, "#9ca3af")
@@ -1056,59 +1052,6 @@ def main():
         html_risparmi += riga("Quotidiane", v4, "#fbbf24")
         
         st.markdown(html_risparmi, unsafe_allow_html=True)
-        
-        # Poi puoi continuare con le Variabili dettagliate come prima
-        for voce, importo in SPESE["Variabili"].items():
-        
-            if voce == "Emergenze/Compleanni":
-                perc = percentuali_variabili.get(voce, 0) * 100
-                st.markdown(riga(voce, importo, "#4ADE80"), unsafe_allow_html=True)
-                st.markdown(f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>', unsafe_allow_html=True)
-        
-            elif voce == "Viaggi":
-                perc = percentuali_variabili.get(voce, 0) * 100
-                st.markdown(riga(voce, importo, "#166534"), unsafe_allow_html=True)
-                st.markdown(f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>', unsafe_allow_html=True)
-        
-            elif voce == "Da spendere":
-                spese_ev = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
-                residuo = risparmiabili - spese_ev
-                perc = (da_spendere_senza_limite * 100 / residuo) if residuo != 0 else 0
-        
-                st.markdown(riga(voce, importo, "#FACC15"), unsafe_allow_html=True)
-                st.markdown(f'''
-                <div style="color:#808080; margin-bottom:6px;">
-                    {perc:.2f}% del rimanente €{residuo:.2f} (limite {limite_da_spendere}€)
-                </div>
-                ''', unsafe_allow_html=True)
-        
-                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
-                risparmio = da_spendere_senza_limite - da_spendere
-                st.markdown(f'''
-                <div style="color:#808080; margin-bottom:10px;">
-                    <span style="font-size:0.85em;">
-                        → Reali: €{da_spendere_senza_limite:.2f} | Risparmiati: €{risparmio:.2f}
-                    </span>
-                </div>
-                ''', unsafe_allow_html=True)
-        
-            elif voce == "Spese quotidiane":
-                st.markdown(riga(voce, importo, "#FB923C"), unsafe_allow_html=True)
-                st.markdown(f'<div style="color:#808080; margin-bottom:6px;">Rimanente (limite {max_spese_quotidiane})</div>', unsafe_allow_html=True)
-                spese = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
-                risparmio = spese_quotidiane_senza_limite - spese
-                st.markdown(f'''
-                <div style="color:#808080; margin-bottom:10px;">
-                    <span style="font-size:0.85em;">
-                        → Reali: €{spese_quotidiane_senza_limite:.2f} | Risparmiati: €{risparmio:.2f}
-                    </span>
-                </div>
-                ''', unsafe_allow_html=True)
-        
-            else:
-                st.markdown(riga(voce, importo, "#FFFFFF"), unsafe_allow_html=True)
-
-    
         st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -1154,8 +1097,6 @@ def main():
             st.altair_chart(chart_savings_arc, use_container_width=True)
             
 
-
-    
     # Visualizzazione grafici
     with st.container():
         st.markdown("---")
