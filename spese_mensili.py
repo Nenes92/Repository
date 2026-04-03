@@ -1024,7 +1024,8 @@ def main():
                     <span>Quotidiane</span><span style="color:#fbbf24;">€{v4}</span>
                 </div>
             </small>
-            ''', unsafe_allow_html=True)st.markdown("---")
+            ''', unsafe_allow_html=True)
+        st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
             <div class="kpi-label">Tot. Risparmiato</div>
