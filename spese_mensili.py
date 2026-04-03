@@ -1013,22 +1013,89 @@ def main():
         v2 = f"€{risparmi_mese_precedente:.2f}"
         v3 = f"€{risparmio_da_spendere_calc:.2f}"
         v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
-        st.markdown(f'''
-            <small>
-                <div style="display:flex; justify-content:space-between; width:260px; color:#9ca3af; opacity:0.8;">
-                    <span>Stipendi</span><span>€{v1}</span>
+        def riga(voce, valore, colore, extra=""):
+            return f'''
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                width:420px;
+                color:{colore};
+                margin-bottom:4px;
+            ">
+                <span style="display:flex; align-items:center;">
+                    - {voce}
+                    <span style="
+                        display:inline-block;
+                        width:0;
+                        height:0;
+                        border-top:5px solid transparent;
+                        border-bottom:5px solid transparent;
+                        border-right:5px solid #89CFF0;
+                        margin-left:8px;
+                    "></span>
+                </span>
+                <span>€{valore:.2f}</span>
+            </div>
+            {extra}
+            '''
+        html = '<small>'
+        for voce, importo in SPESE["Variabili"].items():
+        
+            if voce == "Emergenze/Compleanni":
+                perc = percentuali_variabili.get(voce, 0) * 100
+                extra = f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>'
+                html += riga(voce, importo, "#4ADE80", extra)
+        
+            elif voce == "Viaggi":
+                perc = percentuali_variabili.get(voce, 0) * 100
+                extra = f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>'
+                html += riga(voce, importo, "#166534", extra)
+        
+            elif voce == "Da spendere":
+                spese_ev = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
+                residuo = risparmiabili - spese_ev
+        
+                perc = (da_spendere_senza_limite * 100 / residuo) if residuo != 0 else 0
+        
+                extra = f'''
+                <div style="color:#808080; margin-bottom:6px;">
+                    {perc:.2f}% del rimanente €{residuo:.2f} (limite {limite_da_spendere}€)
                 </div>
-                <div style="display:flex; justify-content:space-between; width:260px; color:#60a5fa; opacity:0.8;">
-                    <span>Mese Prec</span><span>€{v2}</span>
+                '''
+        
+                html += riga(voce, importo, "#FACC15", extra)
+        
+                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
+                risparmio = da_spendere_senza_limite - da_spendere
+        
+                html += f'''
+                <div style="color:#808080; margin-bottom:10px;">
+                    <small>→ Reali: €{da_spendere_senza_limite:.2f} | Risparmiati: €{risparmio:.2f}</small>
                 </div>
-                <div style="display:flex; justify-content:space-between; width:260px; color:#fde047; opacity:0.8;">
-                    <span>Da Spendere</span><span>€{v3}</span>
+                '''
+        
+            elif voce == "Spese quotidiane":
+                extra = f'<div style="color:#808080; margin-bottom:6px;">Rimanente (limite {max_spese_quotidiane})</div>'
+                html += riga(voce, importo, "#FB923C", extra)
+        
+                spese = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
+                risparmio = spese_quotidiane_senza_limite - spese
+        
+                html += f'''
+                <div style="color:#808080; margin-bottom:10px;">
+                    <small>→ Reali: €{spese_quotidiane_senza_limite:.2f} | Risparmiati: €{risparmio:.2f}</small>
                 </div>
-                <div style="display:flex; justify-content:space-between; width:260px; color:#fbbf24; opacity:0.8;">
-                    <span>Quotidiane</span><span>€{v4}</span>
-                </div>
-            </small>
-            ''', unsafe_allow_html=True)
+                '''
+        
+            else:
+                html += riga(voce, importo, "#FFFFFF")
+        
+        html += '</small>'
+        
+        st.markdown(html, unsafe_allow_html=True)
+
+    
         st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -1037,10 +1104,6 @@ def main():
             <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown(
-            f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
-            unsafe_allow_html=True
-        )
 
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
         st.markdown("**💰 Distribuzione Risparmi:**")
