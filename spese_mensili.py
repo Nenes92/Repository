@@ -1015,8 +1015,8 @@ def main():
                     ),
                     legend=alt.Legend(
                         title=None,
-                        orient='bottom',
-                        direction='horizontal',
+                        orient='right',
+                        direction='vertical',
                         labelColor='rgba(255,255,255,0.65)',
                         labelFontSize=11,
                         symbolSize=40,      # più piccolo e compatto
