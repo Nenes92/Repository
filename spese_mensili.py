@@ -876,7 +876,7 @@ def main():
 
 
         st.markdown("---")
-        col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 1])
+        col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 1.5])
         with col_spese_variabili_1:
             _sv = f"€{spese_variabili_totali:.2f}"
             st.markdown(f"""
