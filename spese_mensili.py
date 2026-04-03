@@ -989,7 +989,6 @@ def main():
             """, unsafe_allow_html=True)
     
             st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-            st.markdown("**💰 Distribuzione Risparmi:**")
             st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
             savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
@@ -1020,8 +1019,9 @@ def main():
                         )
                     ),
                     tooltip=[
-                        alt.Tooltip('Component:N', title='Tipo'),
-                        alt.Tooltip('Value:Q', title='€', format='.2f')
+                        alt.Tooltip('Component:N', title='Risparmi da'),
+                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f')
+                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                     ]
                 ).properties(
                     title="💰 Distribuzione Risparmi:",
@@ -1069,6 +1069,7 @@ def main():
         st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
         # FIX 4: NEW "Carte" donut chart
+        st.markdown("---")
         st.markdown("**💳 Distribuzione Carte:**")
         st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
 
@@ -1083,7 +1084,7 @@ def main():
                 })
         df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
 
-        carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=35, outerRadius=60).encode(
+        carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
         theta=alt.Theta(field="Totale", type="quantitative"),
         color=alt.Color(
             field="Carta", type="nominal",
@@ -1091,18 +1092,36 @@ def main():
                 domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
                 range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
             ),
-            legend=alt.Legend(title=None)
-            
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                labelColor='rgba(255,255,255,0.65)',
+                labelFontSize=11,
+                symbolSize=40,
+                padding=2,
+                offset=20  # 👈 distanza dal grafico (chiave!)
+            )
+
         ),
         tooltip=[
             alt.Tooltip("Carta:N", title="Carta"),
             alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
             alt.Tooltip("Percentuale:Q", title="%", format=".1f")
         ]
-        ).properties( width=180, height=200)
+        ).properties(
+            title="💰 Distribuzione Risparmi:",
+            width=200,
+            height=200
+        ).configure_title(
+            anchor='middle'
+        ).configure_view(
+            strokeWidth=0,
+            fill='transparent'
+        )
 
 
-        chart_carte = carte_arc
+        chart_carte = carte_arc.resolve_scale(color='independent')
         st.altair_chart(chart_carte, use_container_width=True)
 
 
