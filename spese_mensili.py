@@ -1009,13 +1009,14 @@ def main():
                             range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
                         ),
                         legend=alt.Legend(
-                            title=None,
+                            title="💰 Distribuzione Risparmi:",
                             orient='right',
                             direction='vertical',
                             labelColor='rgba(255,255,255,0.65)',
                             labelFontSize=11,
-                            symbolSize=40,      # più piccolo e compatto
-                            padding=2           # meno spazio verticale tra le voci
+                            symbolSize=40,
+                            padding=2,
+                            offset=20  # 👈 distanza dal grafico (chiave!)
                         )
                     ),
                     tooltip=[
