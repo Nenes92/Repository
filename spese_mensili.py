@@ -1030,13 +1030,16 @@ def main():
             
                     # ciambella
                     arc = base.mark_arc(innerRadius=40, outerRadius=70)
-            
-                    # percentuale al centro di ogni fetta
-                    text = base.mark_text(radius=55, size=11, color='black').encode(
+                    text = base.mark_text(
+                        radius=55,    # distanza dal centro
+                        size=11,
+                        color='black',  # colore visibile
+                        fontWeight='bold'
+                    ).encode(
                         text=alt.Text('Percentuale:Q', format=".1f"),
-                        theta=alt.Theta(field='Value', type='quantitative', stack='zero'),  # essenziale
+                        theta=alt.Theta(field='Value', type='quantitative', stack='zero')
                     )
-            
+                    
                     chart_savings_arc = (arc + text).properties(
                         title="💰 Distribuzione Risparmi",
                         width=200,
