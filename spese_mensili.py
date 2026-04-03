@@ -913,7 +913,7 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
     with col3:
         st.markdown("---")
-        st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=False)
         st.subheader("Altre Entrate:")
         for voce, importo in ALTRE_ENTRATE.items():
             if voce in ["Macchina (Mamma)"]:
@@ -932,7 +932,7 @@ def main():
             <div class="kpi-label">Totale Altre Entrate</div>
             <div class="kpi-value" style="color:#34d399;">{_ae}</div>
         </div>
-        """, unsafe_allow_html=False)
+        """, unsafe_allow_html=True)
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
 
