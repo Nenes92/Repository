@@ -1005,12 +1005,10 @@ def main():
             
             with col_risparmi_2:
                 if not df_savings.empty:
-                    # base chart
-                    base = alt.Chart(df_savings).encode(
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
-                            field="Component",
-                            type="nominal",
+                            field="Component", type="nominal",
                             scale=alt.Scale(
                                 domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
                                 range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
@@ -1023,36 +1021,32 @@ def main():
                                 labelFontSize=11,
                                 symbolSize=40,
                                 padding=2,
-                                offset=5
+                                offset=5  # 👈 distanza dal grafico (chiave!)
                             )
-                        )
-                    )
-            
-                    # ciambella
-                    arc = base.mark_arc(innerRadius=40, outerRadius=70)
-                    text = base.mark_text(
-                        radius=55,    # distanza dal centro
-                        size=11,
-                        color='black',  # colore visibile
-                        fontWeight='bold'
-                    ).encode(
-                        text=alt.Text('Percentuale:Q', format=".1f"),
-                        theta=alt.Theta(field='Value', type='quantitative', stack='zero')
-                    )
-                    
-                    chart_savings_arc = (arc + text).properties(
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Component:N', title='Risparmi da'),
+                            alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        ]
+                    ).properties(
                         title="💰 Distribuzione Risparmi",
                         width=200,
                         height=200
-                    ).configure_title(anchor='middle'
+                    ).configure_title(
+                        anchor='middle'
                     ).configure_view(
                         strokeWidth=0,
                         fill='transparent'
                     )
-            
+                
+                    # mantiene colori indipendenti se hai più chart simili
                     chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
                     st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
+
+
+                            
     with col5:
         st.markdown("---")
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
