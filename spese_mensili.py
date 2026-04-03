@@ -975,6 +975,58 @@ def main():
             {extra}
             """
 
+        # Stipendi + Mese precedente + Da spendere + Quotidiane
+        html_risparmi = ""
+        html_risparmi += riga("Stipendi", v1, "#9ca3af")
+        html_risparmi += riga("Mese Prec", v2, "#60a5fa")
+        html_risparmi += riga("Da Spendere", v3, "#fde047")
+        html_risparmi += riga("Quotidiane", v4, "#fbbf24")
+        
+        st.markdown(html_risparmi, unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown(f"""
+        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+            <div class="kpi-label">Tot. Risparmiato</div>
+            <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+        st.markdown("**💰 Distribuzione Risparmi:**")
+        savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+        non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
+        df_savings_raw = pd.DataFrame({
+            'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+            'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
+        })
+        df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+        if not df_savings.empty:
+            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=60, outerRadius=110).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component", type="nominal",
+                    scale=alt.Scale(
+                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+                        range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
+                    ),
+                    legend=alt.Legend(
+                        title=None, orient='bottom', direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
+                        symbolSize=80, padding=8, columns=2
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip('Component:N', title='Tipo'),
+                    alt.Tooltip('Value:Q', title='€', format='.2f')
+                ]
+            ).properties(
+                title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
+                width=280, height=280
+            ).configure_view(strokeWidth=0, fill='transparent'
+            ).configure_title(color='rgba(255,255,255,0.7)')
+            st.altair_chart(chart_savings_arc, use_container_width=True)
+
 
     with col5:
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
@@ -1044,57 +1096,6 @@ def main():
 
 
                 
-        # Stipendi + Mese precedente + Da spendere + Quotidiane
-        html_risparmi = ""
-        html_risparmi += riga("Stipendi", v1, "#9ca3af")
-        html_risparmi += riga("Mese Prec", v2, "#60a5fa")
-        html_risparmi += riga("Da Spendere", v3, "#fde047")
-        html_risparmi += riga("Quotidiane", v4, "#fbbf24")
-        
-        st.markdown(html_risparmi, unsafe_allow_html=True)
-        st.markdown("---")
-        st.markdown(f"""
-        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-            <div class="kpi-label">Tot. Risparmiato</div>
-            <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        st.markdown("**💰 Distribuzione Risparmi:**")
-        savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-        non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
-        df_savings_raw = pd.DataFrame({
-            'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-            'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
-        })
-        df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-        if not df_savings.empty:
-            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=60, outerRadius=110).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal",
-                    scale=alt.Scale(
-                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-                        range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
-                    ),
-                    legend=alt.Legend(
-                        title=None, orient='bottom', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
-                        symbolSize=80, padding=8, columns=2
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip('Component:N', title='Tipo'),
-                    alt.Tooltip('Value:Q', title='€', format='.2f')
-                ]
-            ).properties(
-                title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
-                width=280, height=280
-            ).configure_view(strokeWidth=0, fill='transparent'
-            ).configure_title(color='rgba(255,255,255,0.7)')
-            st.altair_chart(chart_savings_arc, use_container_width=True)
             
 
     # Visualizzazione grafici
