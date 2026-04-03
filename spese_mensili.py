@@ -1032,7 +1032,9 @@ def main():
                 height=270
             ).configure_view(
                 strokeWidth=0,
-                fill='transparent'
+                fill='transparent',
+                # elimina padding extra verticale
+                padding={'top': 0, 'bottom': 0, 'left': 0, 'right': 0}
             )
         
             # mantiene colori indipendenti se hai più chart simili
