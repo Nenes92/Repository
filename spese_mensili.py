@@ -1009,7 +1009,7 @@ def main():
                             range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
                         ),
                         legend=alt.Legend(
-                            title="💰 Distribuzione Risparmi:",
+                            title=None,
                             orient='right',
                             direction='vertical',
                             labelColor='rgba(255,255,255,0.65)',
@@ -1024,8 +1024,9 @@ def main():
                         alt.Tooltip('Value:Q', title='€', format='.2f')
                     ]
                 ).properties(
+                    title="💰 Distribuzione Risparmi:",
                     width=200,
-                    height=270
+                    height=200
                 ).configure_view(
                     strokeWidth=0,
                     fill='transparent'
