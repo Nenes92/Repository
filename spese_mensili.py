@@ -1029,7 +1029,6 @@ def main():
                     height=200
                 ).configure_title(
                     anchor='middle'
-                )
                 ).configure_view(
                     strokeWidth=0,
                     fill='transparent'
