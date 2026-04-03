@@ -1070,7 +1070,6 @@ def main():
 
         # FIX 4: NEW "Carte" donut chart
         st.markdown("---")
-        st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
 
         # Calculate totals per card
         ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
