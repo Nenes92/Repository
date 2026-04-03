@@ -994,7 +994,7 @@ def main():
             non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
             df_savings_raw = pd.DataFrame({
                 'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-                'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
+                'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             })
             df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
         with col_risparmi_2:
@@ -1004,8 +1004,8 @@ def main():
                     color=alt.Color(
                         field="Component", type="nominal",
                         scale=alt.Scale(
-                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
+                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
                         ),
                         legend=alt.Legend(
                             title=None,
