@@ -937,6 +937,7 @@ def main():
 
 
     with col4:
+        st.markdown("---")
         st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
         st.subheader("Risparmiati del mese:")
     
@@ -1030,6 +1031,7 @@ def main():
 
 
     with col5:
+        st.markdown("---")
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
         st.subheader("Trasferimenti sulle Carte:")
 
