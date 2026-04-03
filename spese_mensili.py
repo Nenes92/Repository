@@ -931,7 +931,7 @@ def main():
                 ).properties(
                     title="💸 Distribuzione Spese Variabili",
                     width=200,
-                    height=200
+                    height=220
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
