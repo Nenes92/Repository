@@ -978,7 +978,7 @@ def main():
         st.markdown(html_risparmi, unsafe_allow_html=True)
         st.markdown("---")
         
-        col_risparmi_1, col_risparmi_2 = st.columns(1, 2)
+        col_risparmi_1, col_risparmi_2 = st.columns([1, 2])
         with col_risparmi_1:
             st.markdown(f"""
             <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
