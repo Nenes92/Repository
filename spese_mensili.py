@@ -997,6 +997,9 @@ def main():
                 'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             })
             df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+            df_savings["Percentuale"] = (
+                df_savings["Value"] / df_savings["Value"].sum() * 100
+            ).round(1)
         with col_risparmi_2:
             if not df_savings.empty:
                 chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
