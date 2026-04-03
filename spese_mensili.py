@@ -830,6 +830,7 @@ def main():
 
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
         st.markdown("**💶 Distribuzione Stipendi:**")
         st.altair_chart(chart_donut, use_container_width=True)
 
@@ -881,6 +882,7 @@ def main():
             <div class="kpi-value" style="color:#fde047;">{_sv}</div>
         </div>
         """, unsafe_allow_html=True)
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
         pass  # Risparmiati section moved below col1,2,3
 
@@ -923,6 +925,7 @@ def main():
                 st.write(f"- {voce}: €{importo:.2f}")
 
         _ae = f"€{sum(ALTRE_ENTRATE.values()):.2f}"
+        st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
             <div class="kpi-label">Totale Altre Entrate</div>
@@ -930,9 +933,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div style="height: 80px;"></div>', unsafe_allow_html=True)
 
-        st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:rgba(255,255,255,0.12);">', unsafe_allow_html=True)
 
 
     with col4:
@@ -965,7 +966,6 @@ def main():
         st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
         # FIX 4: NEW "Carte" donut chart
-        st.markdown("---")
         st.markdown("**💳 Distribuzione Carte:**")
 
         # Calculate totals per card
