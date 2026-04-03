@@ -540,16 +540,17 @@ def main():
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     st.title("Calcolatore di Spese Personali")
 
+    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4, col_stip_inserimento5 = st.columns([1, 1, 1, 1, 1])
     col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
-    with col1:
+    with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50)
-    with col2:
+    with col_stip_inserimento2:
         st.markdown('<div style="height: 40px;"></div>', unsafe_allow_html=True)
         stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50)
         st.markdown('<div style="height: 45px;"></div>', unsafe_allow_html=True)
-    with col3:
+    with col_stip_inserimento3:
         st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
         tot_stipendio = stipendio_originale + sum(ALTRE_ENTRATE.values())
         tot_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
