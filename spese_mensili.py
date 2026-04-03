@@ -1116,7 +1116,8 @@ def main():
                 anchor='middle'
             ).configure_view(
                 strokeWidth=0,
-                fill='transparent'
+                fill='transparent',
+                padding={"top": 10}
             )
     
     
