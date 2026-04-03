@@ -1004,7 +1004,7 @@ def main():
         })
         df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
         if not df_savings.empty:
-            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=60, outerRadius=110).encode(
+            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
                 theta=alt.Theta(field="Value", type="quantitative"),
                 color=alt.Color(
                     field="Component", type="nominal",
@@ -1015,7 +1015,7 @@ def main():
                     legend=alt.Legend(
                         title=None, orient='bottom', direction='vertical',
                         labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
-                        symbolSize=80, padding=8, columns=2
+                        symbolSize=60, padding=4
                     )
                 ),
                 tooltip=[
@@ -1024,7 +1024,7 @@ def main():
                 ]
             ).properties(
                 title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
-                width=200, height=250
+                width=200, height=270
             #).configure_view(strokeWidth=0, fill='transparent'
             #).configure_title(color='rgba(255,255,255,0.7)'
             )
