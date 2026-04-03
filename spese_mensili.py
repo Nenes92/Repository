@@ -1112,7 +1112,7 @@ def main():
                 title="💳 Distribuzione Carte",
                 width=200,
                 height=200,
-                padding={"top": 20}
+                padding={"top": 70}
             ).configure_title(
                 anchor='middle'
             ).configure_view(
