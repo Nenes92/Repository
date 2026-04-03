@@ -1039,9 +1039,9 @@ def main():
                 st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
     with col5:
+        st.markdown("---")
         col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.3, 1])
         with col_Distribuzione_Carte_1:
-            st.markdown("---")
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
             st.subheader("Trasferimenti sulle Carte:")
     
@@ -1071,9 +1071,7 @@ def main():
             st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
         # FIX 4: NEW "Carte" donut chart
-        with col_Distribuzione_Carte_2:
-            st.markdown("---")
-    
+        with col_Distribuzione_Carte_2:    
             # Calculate totals per card
             ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
             revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
