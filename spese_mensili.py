@@ -541,7 +541,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4, col_stip_inserimento5 = st.columns([1, 1, 1, 1, 1])
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1.5])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -1112,7 +1112,7 @@ def main():
                 title="💳 Distribuzione Carte",
                 width=200,
                 height=350,
-                padding={"top": 130}
+                padding={"top": 100}
             ).configure_title(
                 anchor='middle'
             ).configure_view(
