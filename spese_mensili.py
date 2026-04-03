@@ -1024,7 +1024,7 @@ def main():
                 ]
             ).properties(
                 title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
-                width=200, height=200
+                width=200, height=250
             #).configure_view(strokeWidth=0, fill='transparent'
             #).configure_title(color='rgba(255,255,255,0.7)'
             )
