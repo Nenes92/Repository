@@ -830,7 +830,6 @@ def main():
 
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
-        st.markdown("---")
         st.markdown("**💶 Distribuzione Stipendi:**")
         st.altair_chart(chart_donut, use_container_width=True)
 
@@ -923,7 +922,6 @@ def main():
             else:
                 st.write(f"- {voce}: €{importo:.2f}")
 
-        st.markdown("---")
         _ae = f"€{sum(ALTRE_ENTRATE.values()):.2f}"
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
@@ -1025,7 +1023,6 @@ def main():
             unsafe_allow_html=True
         )
         
-        st.markdown("---")
         st.markdown("**💰 Distribuzione Risparmi:**")
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
