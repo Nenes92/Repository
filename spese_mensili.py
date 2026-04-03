@@ -1015,7 +1015,7 @@ def main():
                             labelFontSize=11,
                             symbolSize=40,
                             padding=2,
-                            offset=20  # 👈 distanza dal grafico (chiave!)
+                            offset=5  # 👈 distanza dal grafico (chiave!)
                         )
                     ),
                     tooltip=[
@@ -1041,7 +1041,7 @@ def main():
     with col5:
         st.markdown("---")
         st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 1])
+        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
         with col_Distribuzione_Carte_1:
             st.subheader("Trasferimenti sulle Carte:")
     
@@ -1099,7 +1099,7 @@ def main():
                     labelFontSize=11,
                     symbolSize=40,
                     padding=2,
-                    offset=10  # 👈 distanza dal grafico (chiave!)
+                    offset=5  # 👈 distanza dal grafico (chiave!)
                 )
     
             ),
