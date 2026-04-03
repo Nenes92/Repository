@@ -1014,18 +1014,18 @@ def main():
         v3 = f"€{risparmio_da_spendere_calc:.2f}"
         v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
         st.markdown(f'''
-            <small style="color:rgba(255,255,255,0.4);">
-                <div style="display:flex; justify-content:space-between; width:250px;">
-                    <span>Stipendi</span><span style="color:#9ca3af;">€{v1}</span>
+            <small>
+                <div style="display:flex; justify-content:space-between; width:260px; color:#9ca3af; opacity:0.8;">
+                    <span>Stipendi</span><span>€{v1}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; width:250px;">
-                    <span>Mese Prec</span><span style="color:#60a5fa;">€{v2}</span>
+                <div style="display:flex; justify-content:space-between; width:260px; color:#60a5fa; opacity:0.8;">
+                    <span>Mese Prec</span><span>€{v2}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; width:250px;">
-                    <span>Da Spendere</span><span style="color:#fde047;">€{v3}</span>
+                <div style="display:flex; justify-content:space-between; width:260px; color:#fde047; opacity:0.8;">
+                    <span>Da Spendere</span><span>€{v3}</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; width:250px;">
-                    <span>Quotidiane</span><span style="color:#fbbf24;">€{v4}</span>
+                <div style="display:flex; justify-content:space-between; width:260px; color:#fbbf24; opacity:0.8;">
+                    <span>Quotidiane</span><span>€{v4}</span>
                 </div>
             </small>
             ''', unsafe_allow_html=True)
