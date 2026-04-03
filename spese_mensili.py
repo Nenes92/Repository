@@ -1032,7 +1032,7 @@ def main():
                     arc = base.mark_arc(innerRadius=40, outerRadius=70)
             
                     # percentuale al centro di ogni fetta
-                    text = base.mark_text(radius=55, size=11, color='white').encode(
+                    text = base.mark_text(radius=55, size=11, color='black').encode(
                         text=alt.Text('Percentuale:Q', format=".1f"),
                         theta=alt.Theta(field='Value', type='quantitative', stack='zero'),  # essenziale
                     )
