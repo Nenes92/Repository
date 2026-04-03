@@ -962,15 +962,6 @@ def main():
             ">
                 <span style="display:flex; align-items:center;">
                     - {voce}
-                    <span style="
-                        display:inline-block;
-                        width:0;
-                        height:0;
-                        border-top:5px solid transparent;
-                        border-bottom:5px solid transparent;
-                        border-right:5px solid #89CFF0;
-                        margin-left:8px;
-                    "></span>
                 </span>
                 <span>€{valore:.2f}</span>
             </div>
