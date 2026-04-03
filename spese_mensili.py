@@ -1111,13 +1111,13 @@ def main():
             ).properties(
                 title="💳 Distribuzione Carte",
                 width=200,
-                height=200
+                height=200,
+                padding={"top": 20}
             ).configure_title(
                 anchor='middle'
             ).configure_view(
                 strokeWidth=0,
                 fill='transparent',
-                padding={"top": 20, "bottom": 0, "left": 0, "right": 0}
             )
     
     
