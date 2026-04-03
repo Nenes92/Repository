@@ -1024,7 +1024,7 @@ def main():
                         alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                     ]
                 ).properties(
-                    title="💰 Distribuzione Risparmi:",
+                    title="💰 Distribuzione Risparmi",
                     width=200,
                     height=200
                 ).configure_title(
@@ -1070,7 +1070,6 @@ def main():
 
         # FIX 4: NEW "Carte" donut chart
         st.markdown("---")
-        st.markdown("**💳 Distribuzione Carte:**")
         st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
 
         # Calculate totals per card
@@ -1110,7 +1109,7 @@ def main():
             alt.Tooltip("Percentuale:Q", title="%", format=".1f")
         ]
         ).properties(
-            title="💰 Distribuzione Risparmi:",
+            title="💳 Distribuzione Carte",
             width=200,
             height=200
         ).configure_title(
