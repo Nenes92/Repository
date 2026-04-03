@@ -979,10 +979,10 @@ def main():
 
         # Stipendi + Mese precedente + Da spendere + Quotidiane
         html_risparmi = ""
-        html_risparmi += riga("Stipendi", v1, "#9ca3af")
-        html_risparmi += riga("Mese Prec", v2, "#60a5fa")
-        html_risparmi += riga("Da Spendere", v3, "#fde047")
-        html_risparmi += riga("Quotidiane", v4, "#fbbf24")
+        html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af")
+        html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa")
+        html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047")
+        html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C")
         
         st.markdown(html_risparmi, unsafe_allow_html=True)
         st.markdown("---")
