@@ -1039,88 +1039,91 @@ def main():
                 st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
     with col5:
-        st.markdown("---")
-        st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-        st.subheader("Trasferimenti sulle Carte:")
-
-        for carta in ["ING", "Revolut", "BNL"]:
-            spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
-                           for voce in SPESE[carta]}
-            spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-            if carta == "Revolut":
-                totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-                colore = "#89CFF0"  # Azzurro
-                testo = "trasferire"
-                somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 14px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
-            else:
-                totale_carta = sum(spese_carta.values())
-                if carta == "ING":
-                    colore = "#D2691E"
+        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.3, 1])
+        with col_Distribuzione_Carte_1:
+            st.markdown("---")
+            st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
+            st.subheader("Trasferimenti sulle Carte:")
+    
+            for carta in ["ING", "Revolut", "BNL"]:
+                spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                               for voce in SPESE[carta]}
+                spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+                if carta == "Revolut":
+                    totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                    colore = "#89CFF0"  # Azzurro
                     testo = "trasferire"
-                elif carta == "BNL":
-                    colore = "green"
-                    colore2 = "#77DD77"
-                    testo = "mantenere"
-                    testo2 = "risparmiato"
-                st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
-        st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
+                    somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                    spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                    somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                    st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 14px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 14px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 14px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 14px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                else:
+                    totale_carta = sum(spese_carta.values())
+                    if carta == "ING":
+                        colore = "#D2691E"
+                        testo = "trasferire"
+                    elif carta == "BNL":
+                        colore = "green"
+                        colore2 = "#77DD77"
+                        testo = "mantenere"
+                        testo2 = "risparmiato"
+                    st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
+            st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
 
         # FIX 4: NEW "Carte" donut chart
-        st.markdown("---")
-
-        # Calculate totals per card
-        ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
-        revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
-        bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
-
-        df_carte = pd.DataFrame({
-            'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-            'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
-                })
-        df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
-
-        carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
-        theta=alt.Theta(field="Totale", type="quantitative"),
-        color=alt.Color(
-            field="Carta", type="nominal",
-            scale=alt.Scale(
-                domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+        with col_Distribuzione_Carte_2:
+            st.markdown("---")
+    
+            # Calculate totals per card
+            ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
+            revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
+            bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
+    
+            df_carte = pd.DataFrame({
+                'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
+                    })
+            df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
+    
+            carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
+            theta=alt.Theta(field="Totale", type="quantitative"),
+            color=alt.Color(
+                field="Carta", type="nominal",
+                scale=alt.Scale(
+                    domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                    range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                ),
+                legend=alt.Legend(
+                    title=None,
+                    orient='right',
+                    direction='vertical',
+                    labelColor='rgba(255,255,255,0.65)',
+                    labelFontSize=11,
+                    symbolSize=40,
+                    padding=2,
+                    offset=20  # 👈 distanza dal grafico (chiave!)
+                )
+    
             ),
-            legend=alt.Legend(
-                title=None,
-                orient='right',
-                direction='vertical',
-                labelColor='rgba(255,255,255,0.65)',
-                labelFontSize=11,
-                symbolSize=40,
-                padding=2,
-                offset=20  # 👈 distanza dal grafico (chiave!)
+            tooltip=[
+                alt.Tooltip("Carta:N", title="Carta"),
+                alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+            ]
+            ).properties(
+                title="💳 Distribuzione Carte",
+                width=200,
+                height=200
+            ).configure_title(
+                anchor='middle'
+            ).configure_view(
+                strokeWidth=0,
+                fill='transparent'
             )
-
-        ),
-        tooltip=[
-            alt.Tooltip("Carta:N", title="Carta"),
-            alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
-            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-        ]
-        ).properties(
-            title="💳 Distribuzione Carte",
-            width=200,
-            height=200
-        ).configure_title(
-            anchor='middle'
-        ).configure_view(
-            strokeWidth=0,
-            fill='transparent'
-        )
-
-
-        chart_carte = carte_arc.resolve_scale(color='independent')
-        st.altair_chart(chart_carte, use_container_width=True)
+    
+    
+            chart_carte = carte_arc.resolve_scale(color='independent')
+            st.altair_chart(chart_carte, use_container_width=True)
 
 
                 
