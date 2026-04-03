@@ -876,14 +876,61 @@ def main():
 
 
         st.markdown("---")
-        _sv = f"€{spese_variabili_totali:.2f}"
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">Totale Spese Variabili</div>
-            <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+        col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 1])
+        with col_spese_variabili_1:
+            _sv = f"€{spese_variabili_totali:.2f}"
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-label">Totale Spese Variabili</div>
+                <div class="kpi-value" style="color:#fde047;">{_sv}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+        with col_spese_variabili_2:
+            if not df_savings.empty:
+                chart_savings_arc_col2 = alt.Chart(df_savings).mark_arc(
+                    innerRadius=40,
+                    outerRadius=70
+                ).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Component", type="nominal",
+                        scale=alt.Scale(
+                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                        ),
+                        legend=alt.Legend(
+                            title=None,
+                            orient='right',
+                            direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)',
+                            labelFontSize=11,
+                            symbolSize=40,
+                            padding=2,
+                            offset=5
+                        )
+                    ),
+                    tooltip=[
+                        alt.Tooltip('Component:N', title='Risparmi da'),
+                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                    ]
+                ).properties(
+                    title="💰 Distribuzione Spese Variabili",
+                    width=200,
+                    height=200
+                ).configure_title(
+                    anchor='middle'
+                ).configure_view(
+                    strokeWidth=0,
+                    fill='transparent'
+                )
+        
+                # mantiene colori indipendenti se hai più chart simili
+                chart_savings_arc_col2 = chart_savings_arc_col2.resolve_scale(color='independent')
+                st.altair_chart(chart_savings_arc_col2, use_container_width=True)
+
 
     # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
