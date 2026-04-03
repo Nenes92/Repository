@@ -932,8 +932,8 @@ def main():
             <div class="kpi-label">Totale Altre Entrate</div>
             <div class="kpi-value" style="color:#34d399;">{_ae}</div>
         </div>
-        """, unsafe_allow_html=True)
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=False)
+        """, unsafe_allow_html=False)
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
 
     with col4:
