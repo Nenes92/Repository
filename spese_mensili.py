@@ -1020,7 +1020,7 @@ def main():
                     ),
                     tooltip=[
                         alt.Tooltip('Component:N', title='Risparmi da'),
-                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f')
+                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
                         alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                     ]
                 ).properties(
