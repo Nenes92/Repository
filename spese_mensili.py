@@ -888,17 +888,30 @@ def main():
             st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
         with col_spese_variabili_2:
-            if not df_savings.empty:
-                chart_savings_arc_col2 = alt.Chart(df_savings).mark_arc(
-                    innerRadius=40,
-                    outerRadius=70
+            # Creo il DataFrame per il grafico delle spese variabili
+            df_spese_variabili = pd.DataFrame({
+                'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                'Value': [
+                    SPESE["Variabili"]["Emergenze/Compleanni"],
+                    SPESE["Variabili"]["Viaggi"],
+                    SPESE["Variabili"]["Da spendere"],
+                    SPESE["Variabili"]["Spese quotidiane"]
+                ]
+            })
+        
+            # Solo voci con importo > 0
+            df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
+        
+            if not df_spese_variabili.empty:
+                chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
+                    innerRadius=40, outerRadius=70
                 ).encode(
                     theta=alt.Theta(field="Value", type="quantitative"),
                     color=alt.Color(
-                        field="Component", type="nominal",
+                        field="Voce", type="nominal",
                         scale=alt.Scale(
-                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                            domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                            range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
                         ),
                         legend=alt.Legend(
                             title=None,
@@ -912,12 +925,11 @@ def main():
                         )
                     ),
                     tooltip=[
-                        alt.Tooltip('Component:N', title='Risparmi da'),
-                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
-                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        alt.Tooltip('Voce:N', title='Voce'),
+                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f')
                     ]
                 ).properties(
-                    title="💰 Distribuzione Spese Variabili",
+                    title="💸 Distribuzione Spese Variabili",
                     width=200,
                     height=200
                 ).configure_title(
@@ -927,10 +939,7 @@ def main():
                     fill='transparent'
                 )
         
-                # mantiene colori indipendenti se hai più chart simili
-                chart_savings_arc_col2 = chart_savings_arc_col2.resolve_scale(color='independent')
-                st.altair_chart(chart_savings_arc_col2, use_container_width=True)
-
+                st.altair_chart(chart_spese_variabili, use_container_width=True)
 
     # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
