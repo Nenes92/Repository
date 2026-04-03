@@ -1028,7 +1028,8 @@ def main():
             #).configure_view(strokeWidth=0, fill='transparent'
             #).configure_title(color='rgba(255,255,255,0.7)'
             )
-            st.altair_chart(chart_savings_arc, use_container_width=True)
+            chart_donut_Distribuzione_Risparmi = (chart_savings_arc).resolve_scale(color='independent')
+            st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
 
     with col5:
