@@ -898,16 +898,15 @@ def main():
                     SPESE["Variabili"]["Spese quotidiane"]
                 ]
             })
-        
+            
             # Solo voci con importo > 0
             df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
-            df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-            totale = df_savings["Value"].sum()
-            if totale != 0:
-                df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
-            else:
-                df_savings["Percentuale"] = 0
-                
+            
+            # Calcolo le percentuali relative alle spese variabili
+            totale_spese = df_spese_variabili["Value"].sum()
+            df_spese_variabili["Percentuale"] = (df_spese_variabili["Value"] / totale_spese * 100).round(1) if totale_spese != 0 else 0
+            
+            # Creazione del grafico
             if not df_spese_variabili.empty:
                 chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
                     innerRadius=40, outerRadius=70
@@ -933,7 +932,7 @@ def main():
                     tooltip=[
                         alt.Tooltip('Voce:N', title='Voce'),
                         alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
                     ]
                 ).properties(
                     title="💸 Distribuzione Spese Variabili",
@@ -945,9 +944,8 @@ def main():
                     strokeWidth=0,
                     fill='transparent'
                 )
-        
+            
                 st.altair_chart(chart_spese_variabili, use_container_width=True)
-
     # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
 
