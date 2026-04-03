@@ -1040,7 +1040,7 @@ def main():
 
     with col5:
         st.markdown("---")
-        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.3, 1])
+        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 1])
         with col_Distribuzione_Carte_1:
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
             st.subheader("Trasferimenti sulle Carte:")
@@ -1111,8 +1111,8 @@ def main():
             ).properties(
                 title="💳 Distribuzione Carte",
                 width=200,
-                height=200,
-                padding={"top": 70}
+                height=350,
+                padding={"top": 130}
             ).configure_title(
                 anchor='middle'
             ).configure_view(
