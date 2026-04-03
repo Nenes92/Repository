@@ -996,6 +996,7 @@ def main():
 
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
         st.markdown("**💰 Distribuzione Risparmi:**")
+        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
         savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
         non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
         df_savings_raw = pd.DataFrame({
@@ -1013,8 +1014,8 @@ def main():
                         range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
                     ),
                     legend=alt.Legend(
-                        title=None, orient='bottom', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=12,
+                        title=None, orient='right', direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
                         symbolSize=60, padding=4
                     )
                 ),
