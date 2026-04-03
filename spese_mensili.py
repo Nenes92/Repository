@@ -1019,8 +1019,8 @@ def main():
                         direction='vertical',
                         labelColor='rgba(255,255,255,0.65)',
                         labelFontSize=11,
-                        symbolSize=40,      # più piccolo e compatto
-                        padding=2           # meno spazio verticale tra le voci
+                        symbolSize=40,
+                        padding=2
                     )
                 ),
                 tooltip=[
@@ -1033,13 +1033,20 @@ def main():
             ).configure_view(
                 strokeWidth=0,
                 fill='transparent',
-                # elimina padding extra verticale
                 padding={'top': 0, 'bottom': 0, 'left': 0, 'right': 0}
+            ).configure_legend(
+                orient='right',
+                title=None,
+                labelFontSize=11,
+                labelColor='rgba(255,255,255,0.65)',
+                symbolSize=40,
+                padding=2
             )
         
-            # mantiene colori indipendenti se hai più chart simili
-            chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-            st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+            # Risolve scale indipendente se ci fossero più grafici con colori diversi
+            chart_donut_distribuzione = chart_savings_arc.resolve_scale(color='independent')
+        
+            st.altair_chart(chart_donut_distribuzione, use_container_width=True)
 
     with col5:
         st.markdown("---")
