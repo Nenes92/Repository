@@ -977,58 +977,62 @@ def main():
         
         st.markdown(html_risparmi, unsafe_allow_html=True)
         st.markdown("---")
-        st.markdown(f"""
-        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-            <div class="kpi-label">Tot. Risparmiato</div>
-            <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        st.markdown("**💰 Distribuzione Risparmi:**")
-        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-        savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-        non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
-        df_savings_raw = pd.DataFrame({
-            'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-            'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
-        })
-        df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-        if not df_savings.empty:
-            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal",
-                    scale=alt.Scale(
-                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
-                        range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
-                    ),
-                    legend=alt.Legend(
-                        title=None,
-                        orient='right',
-                        direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)',
-                        labelFontSize=11,
-                        symbolSize=40,      # più piccolo e compatto
-                        padding=2           # meno spazio verticale tra le voci
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip('Component:N', title='Tipo'),
-                    alt.Tooltip('Value:Q', title='€', format='.2f')
-                ]
-            ).properties(
-                width=200,
-                height=270
-            ).configure_view(
-                strokeWidth=0,
-                fill='transparent'
-            )
         
-            # mantiene colori indipendenti se hai più chart simili
-            chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-            st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+        col_risparmi_1, col_risparmi_2 = st.columns(1, 2)
+        with col_risparmi_1:
+            st.markdown(f"""
+            <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+                <div class="kpi-label">Tot. Risparmiato</div>
+                <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            st.markdown("**💰 Distribuzione Risparmi:**")
+            st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+            savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+            non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
+            df_savings_raw = pd.DataFrame({
+                'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+                'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc, non_saved_calc]
+            })
+            df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+        with col_risparmi_2:
+            if not df_savings.empty:
+                chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Component", type="nominal",
+                        scale=alt.Scale(
+                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
+                        ),
+                        legend=alt.Legend(
+                            title=None,
+                            orient='right',
+                            direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)',
+                            labelFontSize=11,
+                            symbolSize=40,      # più piccolo e compatto
+                            padding=2           # meno spazio verticale tra le voci
+                        )
+                    ),
+                    tooltip=[
+                        alt.Tooltip('Component:N', title='Tipo'),
+                        alt.Tooltip('Value:Q', title='€', format='.2f')
+                    ]
+                ).properties(
+                    width=200,
+                    height=270
+                ).configure_view(
+                    strokeWidth=0,
+                    fill='transparent'
+                )
+            
+                # mantiene colori indipendenti se hai più chart simili
+                chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
+                st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
     with col5:
         st.markdown("---")
