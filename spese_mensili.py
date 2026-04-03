@@ -901,7 +901,13 @@ def main():
         
             # Solo voci con importo > 0
             df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
-        
+            df_savings_spese_variabili = df_savings_spese_variabili_raw[df_savings_spese_variabili_raw["Value"] > 0].copy()
+            totale = df_savings_spese_variabili["Value"].sum()
+            if totale != 0:
+                df_savings_spese_variabili["Percentuale"] = (df_savings_spese_variabili["Value"] / totale * 100).round(1)
+            else:
+                df_savings_spese_variabili["Percentuale"] = 0
+
             if not df_spese_variabili.empty:
                 chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
                     innerRadius=40, outerRadius=70
@@ -927,11 +933,12 @@ def main():
                     tooltip=[
                         alt.Tooltip('Voce:N', title='Voce'),
                         alt.Tooltip('Value:Q', title='Importo (€)', format='.2f')
+                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                     ]
                 ).properties(
                     title="💸 Distribuzione Spese Variabili",
                     width=200,
-                    height=240
+                    height=220
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
