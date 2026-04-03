@@ -993,7 +993,7 @@ def main():
             savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
             df_savings_raw = pd.DataFrame({
-                'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane', 'Spesi'],
+                'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
                 'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
             })
             df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
