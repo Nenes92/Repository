@@ -1011,12 +1011,13 @@ def main():
         kpi_val = f"€{risparmi_mensili_calc:.2f}"
         kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
     
-        v1 = f"€{risparmio_stipendi_calc:.2f}"
-        v2 = f"€{risparmi_mese_precedente:.2f}"
-        v3 = f"€{risparmio_da_spendere_calc:.2f}"
-        v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
-    
-        def riga(voce, valore, colore):
+        # valori già calcolati
+        v1 = risparmio_stipendi_calc
+        v2 = risparmi_mese_precedente
+        v3 = risparmio_da_spendere_calc
+        v4 = risparmio_spese_quotidiane_calc
+        
+        def riga(voce, valore, colore, extra=""):
             return f"""
             <div style="
                 display:flex;
@@ -1040,31 +1041,41 @@ def main():
                 </span>
                 <span>€{valore:.2f}</span>
             </div>
+            {extra}
             """
-    
-        # ✅ wrapper stabile (no <small>)
+        
+        # Stampa principale dei risparmi
+        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
+        st.subheader("Risparmiati del mese:")
+        
+        # Stipendi + Mese precedente + Da spendere + Quotidiane
+        html_risparmi = ""
+        html_risparmi += riga("Stipendi", v1, "#9ca3af")
+        html_risparmi += riga("Mese Prec", v2, "#60a5fa")
+        html_risparmi += riga("Da Spendere", v3, "#fde047")
+        html_risparmi += riga("Quotidiane", v4, "#fbbf24")
+        
+        st.markdown(html_risparmi, unsafe_allow_html=True)
+        
+        # Poi puoi continuare con le Variabili dettagliate come prima
         for voce, importo in SPESE["Variabili"].items():
         
             if voce == "Emergenze/Compleanni":
                 perc = percentuali_variabili.get(voce, 0) * 100
-        
                 st.markdown(riga(voce, importo, "#4ADE80"), unsafe_allow_html=True)
                 st.markdown(f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>', unsafe_allow_html=True)
         
             elif voce == "Viaggi":
                 perc = percentuali_variabili.get(voce, 0) * 100
-        
                 st.markdown(riga(voce, importo, "#166534"), unsafe_allow_html=True)
                 st.markdown(f'<div style="color:#808080; margin-bottom:8px;">{perc:.2f}% dei Risparmiabili</div>', unsafe_allow_html=True)
         
             elif voce == "Da spendere":
                 spese_ev = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
                 residuo = risparmiabili - spese_ev
-        
                 perc = (da_spendere_senza_limite * 100 / residuo) if residuo != 0 else 0
         
                 st.markdown(riga(voce, importo, "#FACC15"), unsafe_allow_html=True)
-        
                 st.markdown(f'''
                 <div style="color:#808080; margin-bottom:6px;">
                     {perc:.2f}% del rimanente €{residuo:.2f} (limite {limite_da_spendere}€)
@@ -1073,7 +1084,6 @@ def main():
         
                 da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
                 risparmio = da_spendere_senza_limite - da_spendere
-        
                 st.markdown(f'''
                 <div style="color:#808080; margin-bottom:10px;">
                     <span style="font-size:0.85em;">
@@ -1084,12 +1094,9 @@ def main():
         
             elif voce == "Spese quotidiane":
                 st.markdown(riga(voce, importo, "#FB923C"), unsafe_allow_html=True)
-        
                 st.markdown(f'<div style="color:#808080; margin-bottom:6px;">Rimanente (limite {max_spese_quotidiane})</div>', unsafe_allow_html=True)
-        
                 spese = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
                 risparmio = spese_quotidiane_senza_limite - spese
-        
                 st.markdown(f'''
                 <div style="color:#808080; margin-bottom:10px;">
                     <span style="font-size:0.85em;">
@@ -1100,7 +1107,6 @@ def main():
         
             else:
                 st.markdown(riga(voce, importo, "#FFFFFF"), unsafe_allow_html=True)
-
 
     
         st.markdown("---")
