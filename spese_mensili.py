@@ -1009,7 +1009,22 @@ def main():
         st.subheader("Risparmiati del mese:")
         kpi_val = f"€{risparmi_mensili_calc:.2f}"
         kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
-        st.markdown("---")
+        st.markdown(f'''
+            <small style="color:rgba(255,255,255,0.4);">
+                <div style="display:flex; justify-content:space-between; width:250px;">
+                    <span>Stipendi</span><span style="color:#9ca3af;">€{v1}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; width:250px;">
+                    <span>Mese Prec</span><span style="color:#60a5fa;">€{v2}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; width:250px;">
+                    <span>Da Spendere</span><span style="color:#fde047;">€{v3}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; width:250px;">
+                    <span>Quotidiane</span><span style="color:#fbbf24;">€{v4}</span>
+                </div>
+            </small>
+            ''', unsafe_allow_html=True)st.markdown("---")
         st.markdown(f"""
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
             <div class="kpi-label">Tot. Risparmiato</div>
