@@ -1031,12 +1031,12 @@ def main():
                     # ciambella
                     arc = base.mark_arc(innerRadius=40, outerRadius=70)
             
-                    # percentuale sulle fette
+                    # percentuale al centro di ogni fetta
                     text = base.mark_text(radius=55, size=11, color='white').encode(
-                        text=alt.Text('Percentuale:Q', format=".1f")
+                        text=alt.Text('Percentuale:Q', format=".1f"),
+                        theta=alt.Theta(field='Value', type='quantitative', stack='zero'),  # essenziale
                     )
             
-                    # combinazione dei due layer
                     chart_savings_arc = (arc + text).properties(
                         title="💰 Distribuzione Risparmi",
                         width=200,
@@ -1047,7 +1047,6 @@ def main():
                         fill='transparent'
                     )
             
-                    # mantiene colori indipendenti se hai più chart simili
                     chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
                     st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
 
