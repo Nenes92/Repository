@@ -1024,7 +1024,7 @@ def main():
                     alt.Tooltip('Value:Q', title='€', format='.2f')
                 ]
             ).properties(
-                title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
+                title=None,
                 width=200, height=270
             #).configure_view(strokeWidth=0, fill='transparent'
             #).configure_title(color='rgba(255,255,255,0.7)'
