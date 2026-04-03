@@ -1117,7 +1117,7 @@ def main():
             ).configure_view(
                 strokeWidth=0,
                 fill='transparent',
-                padding={"top": 10}
+                padding={"top": 20, "bottom": 0, "left": 0, "right": 0}
             )
     
     
