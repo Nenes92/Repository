@@ -1014,9 +1014,13 @@ def main():
                         range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24', '#374151']
                     ),
                     legend=alt.Legend(
-                        title=None, orient='right', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
-                        symbolSize=60, padding=4
+                        title=None,
+                        orient='right',
+                        direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)',
+                        labelFontSize=11,
+                        symbolSize=40,      # più piccolo e compatto
+                        padding=2           # meno spazio verticale tra le voci
                     )
                 ),
                 tooltip=[
@@ -1024,14 +1028,16 @@ def main():
                     alt.Tooltip('Value:Q', title='€', format='.2f')
                 ]
             ).properties(
-                legend=alt.Legend(title=None)
-                width=200, height=270
-            #).configure_view(strokeWidth=0, fill='transparent'
-            #).configure_title(color='rgba(255,255,255,0.7)'
+                width=200,
+                height=270
+            ).configure_view(
+                strokeWidth=0,
+                fill='transparent'
             )
-            chart_donut_Distribuzione_Risparmi = (chart_savings_arc).resolve_scale(color='independent')
+        
+            # mantiene colori indipendenti se hai più chart simili
+            chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
             st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
-
 
     with col5:
         st.markdown("---")
