@@ -1009,6 +1009,10 @@ def main():
         st.subheader("Risparmiati del mese:")
         kpi_val = f"€{risparmi_mensili_calc:.2f}"
         kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+        v1 = f"€{risparmio_stipendi_calc:.2f}"
+        v2 = f"€{risparmi_mese_precedente:.2f}"
+        v3 = f"€{risparmio_da_spendere_calc:.2f}"
+        v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
         st.markdown(f'''
             <small style="color:rgba(255,255,255,0.4);">
                 <div style="display:flex; justify-content:space-between; width:250px;">
@@ -1033,10 +1037,6 @@ def main():
             <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
         </div>
         """, unsafe_allow_html=True)
-        v1 = f"€{risparmio_stipendi_calc:.2f}"
-        v2 = f"€{risparmi_mese_precedente:.2f}"
-        v3 = f"€{risparmio_da_spendere_calc:.2f}"
-        v4 = f"€{risparmio_spese_quotidiane_calc:.2f}"
         st.markdown(
             f'<small style="color:rgba(255,255,255,0.4);">Stipendi <span style="color:#9ca3af;">{v1}</span> + Mese Prec <span style="color:#60a5fa;">{v2}</span> + Da Spendere <span style="color:#fde047;">{v3}</span> + Quotidiane <span style="color:#fbbf24;">{v4}</span></small>',
             unsafe_allow_html=True
