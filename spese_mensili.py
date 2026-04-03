@@ -901,13 +901,13 @@ def main():
         
             # Solo voci con importo > 0
             df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
-            df_savings_spese_variabili = df_savings_spese_variabili_raw[df_savings_spese_variabili_raw["Value"] > 0].copy()
-            totale = df_savings_spese_variabili["Value"].sum()
+            df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+            totale = df_savings["Value"].sum()
             if totale != 0:
-                df_savings_spese_variabili["Percentuale"] = (df_savings_spese_variabili["Value"] / totale * 100).round(1)
+                df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
             else:
-                df_savings_spese_variabili["Percentuale"] = 0
-
+                df_savings["Percentuale"] = 0
+                
             if not df_spese_variabili.empty:
                 chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
                     innerRadius=40, outerRadius=70
