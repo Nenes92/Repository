@@ -932,7 +932,7 @@ def main():
                     ),
                     tooltip=[
                         alt.Tooltip('Voce:N', title='Voce'),
-                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f')
+                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
                         alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                     ]
                 ).properties(
