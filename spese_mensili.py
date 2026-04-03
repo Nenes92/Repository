@@ -1026,7 +1026,8 @@ def main():
                 title=alt.TitleParams("Composizione Risparmi", color='rgba(255,255,255,0.7)', fontSize=13, anchor='middle'),
                 width=160, height=160
             #).configure_view(strokeWidth=0, fill='transparent'
-            #).configure_title(color='rgba(255,255,255,0.7)')
+            #).configure_title(color='rgba(255,255,255,0.7)'
+            )
             st.altair_chart(chart_savings_arc, use_container_width=True)
 
 
