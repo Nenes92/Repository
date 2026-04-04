@@ -570,8 +570,8 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-    with col_stip_inserimento4:
-        # CREAZIONE NOTA
+     with col_stip_inserimento4:
+        #CREAZIONE NOTA
         NOTE_HEADERS = ["id", "testo"]
         worksheet_name = "Note"
         
@@ -583,42 +583,21 @@ def main():
             df_note = pd.DataFrame([{"id": 1, "testo": ""}])
             save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
         
-        # Preleva il testo della nota (id = 1)
+        # Prendi il testo della nota (id = 1)
         nota_corrente = df_note.loc[df_note["id"] == 1, "testo"].values[0]
         
-        # Titolo stile pill
+        # ───────── Text area modificabile ─────────
         st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
+        testo = st.text_area("Scrivi qui la tua nota:", value=nota_corrente, height=200)
         
-        # Text area stile post-it giallo chiaro, trasparente, testo nero
-        testo = st.text_area(
-            label="",
-            value=nota_corrente,
-            height=200,
-            key="nota_personale",
-            help="Promemoria personale",
-        )
-        
-        st.markdown(f"""
-        <style>
-        div.stTextArea > div > textarea {{
-            background-color: #6495ED !important;  /* giallo chiaro trasparente */
-            color: black !important;                                  /* testo nero */
-            border-radius: 10px !important;
-            padding: 10px !important;
-            box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
-            font-family: sans-serif;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Bottone per salvare
+        # ───────── Bottone per salvare ─────────
         if st.button("Salva Nota"):
             df_note.loc[df_note["id"] == 1, "testo"] = testo
             if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                 st.success("Nota salvata!")
             else:
-                st.error("Errore durante il salvataggio.")        
-        # FINE CREAZIONE NOTA
+                st.error("Errore durante il salvataggio.")    
+        #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
