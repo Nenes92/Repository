@@ -395,7 +395,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Altro/C"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
-    #df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
+    df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
 
     df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
@@ -451,6 +451,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
     # FIX 3: Donut labels outside with connector lines for Spese Fisse
     categorie_presenti = df_fisse["Categoria"].unique()
+    
     chart_fisse = alt.Chart(df_fisse).mark_arc(
         innerRadius=40, outerRadius=70
     ).encode(
@@ -489,7 +490,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         strokeWidth=0,
         fill='transparent'
     )
-
 
 
 def main():
