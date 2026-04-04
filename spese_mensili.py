@@ -452,23 +452,26 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             innerRadius=40, outerRadius=70, 
         ).encode(
             theta=alt.Theta(field="Importo", type="quantitative"),
+            categorie_presenti = df_fisse["Categoria"].tolist()
             color=alt.Color(
-                field="Categoria", type="nominal",
+                field="Categoria",
+                type="nominal",
                 scale=alt.Scale(
-                    domain=list(color_map.keys()), range=list(color_map.values())
+                    domain=categorie_presenti,
+                    range=[color_map[c] for c in categorie_presenti]
                 ),
                 legend=alt.Legend(
-                title=None,
-                orient='right',
-                direction='vertical',
-                labelColor='rgba(255,255,255,0.85)',
-                columns=2,
-                labelFontSize=11,
-                symbolSize=40,
-                padding=2,
-                offset=5
+                    title=None,
+                    orient='right',
+                    direction='vertical',
+                    columns=2,
+                    labelColor='rgba(255,255,255,0.85)',
+                    labelFontSize=11,
+                    symbolSize=40,
+                    padding=2,
+                    offset=5
                 )
-            ),
+            )
             tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
         ).properties(
             title="🏠 Distribuzione Spese Fisse",
