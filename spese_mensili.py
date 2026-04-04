@@ -330,9 +330,9 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=2300
+input_stipendio_originale=2350
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2000
+input_stipendio_scelto=2350
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
