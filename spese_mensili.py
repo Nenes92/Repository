@@ -601,7 +601,7 @@ def main():
         st.markdown(f"""
         <style>
         div.stTextArea > div > textarea {{
-            background-color: rgba(255, 255, 150, 0.3) !important;  /* giallo chiaro trasparente */
+            background-color: #6495ED !important;  /* giallo chiaro trasparente */
             color: black !important;                                  /* testo nero */
             border-radius: 10px !important;
             padding: 10px !important;
