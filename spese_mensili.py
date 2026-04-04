@@ -1172,7 +1172,7 @@ def main():
         # Visualizzazione grafici
         with st.container():
             with st.container():
-                col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.5, 1, 1, 0.5])
+                col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.25, 1, 1, 0.1])
                 with col1_1:
                     st.altair_chart(chart_fisse, use_container_width=True)
                 with col1_2:
