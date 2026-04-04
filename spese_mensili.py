@@ -1369,28 +1369,6 @@ def main():
                     st.dataframe(styled_df_variabili, use_container_width=True)
                     st.markdown('<small style="color:#808080;">Percentuali sui Risparmiabili</small>', unsafe_allow_html=True)
 
-        with st.container():
-            col1, col2 = st.columns([1.5, 2])
-            with col1:
-                col1_1, col1_2 = st.columns([1, 1])
-                with col1_1:
-                    st.altair_chart(chart_altre_entrate, use_container_width=True)
-                with col1_2:
-                    st.markdown("<br><br><br>", unsafe_allow_html=True)
-                    st.subheader("Dettaglio Altre Entrate:")
-                    df_altre_entrate = df_altre_entrate.rename(columns={'Importo': 'Valore €'})
-                    st.write(df_altre_entrate.columns)
-                    df_altre_entrate["Valore €"] = df_altre_entrate["Valore €"].apply(lambda x: f"€ {x:.2f}")
-                    styled_df_altre_entrate = (
-                        df_altre_entrate[["Categoria", "Valore €", "Percentuale"]].style
-                        .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                        .applymap(lambda x: f"color: {color_map.get(x, '')}" if x in df_altre_entrate["Categoria"].unique() else "", subset=["Categoria"])
-                        .set_properties(**{'text-align': 'center'})
-                    )
-                    st.dataframe(styled_df_altre_entrate)
-                    st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
-            with col2:
-                st.altair_chart(chart_barre, use_container_width=True)
 
 if __name__ == "__main__":
     main()
