@@ -1151,7 +1151,7 @@ def main():
                 ).properties(
                     title="💰 Distribuzione Risparmi",
                     width=200,
-                    height=200
+                    height=220
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
@@ -1239,7 +1239,7 @@ def main():
             ).properties(
                 title="💳 Distribuzione Carte",
                 width=200,
-                height=200,
+                height=220,
             ).configure_title(
                 anchor='middle'
             ).configure_view(
