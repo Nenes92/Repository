@@ -588,11 +588,11 @@ def main():
         
         # ───────── Text area modificabile ─────────
         # ───────── Titolo e bottone sulla stessa riga ─────────
-        col1, col2 = st.columns([3, 1])  # col1 più larga per il titolo, col2 stretta per il bottone
-        with col1:
+        col_nota1, col_nota2 = st.columns([7, 1])  # col1 più larga per il titolo, col2 stretta per il bottone
+        with col_nota1:
             st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
         
-        with col2:
+        with col_nota2:
             if st.button("Salva Nota"):
                 df_note.loc[df_note["id"] == 1, "testo"] = testo
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
