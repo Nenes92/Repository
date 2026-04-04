@@ -480,7 +480,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             fill='transparent'
         )
     
-        st.altair_chart(chart_fisse, use_container_width=True)
+    st.altair_chart(chart_fisse, use_container_width=True)
 # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
