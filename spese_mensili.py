@@ -448,25 +448,40 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # FIX 3: Donut labels outside with connector lines for Spese Fisse
-    chart_fisse = alt.Chart(df_fisse, title='Distribuzione Spese Fisse').mark_arc(
-        outerRadius=100, innerRadius=40
-    ).encode(
-        theta=alt.Theta(field="Importo", type="quantitative"),
-        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=alt.Legend(
-            title=None,
-            orient='right',
-            direction='vertical',
-            labelColor='rgba(255,255,255,0.85)',
-            labelFontSize=12,
-            symbolType='circle',
-            symbolSize=100,
-            padding=6
-        )),
-        tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
-    )
-
-    chart_fisse = chart_fisse.properties(title='🏠 Distribuzione Spese Fisse', width=280, height=280).interactive()
-    # FIX 3: Donut labels outside with connector lines for Spese Variabili
+    chart_fisse = alt.Chart(df_fisse).mark_arc(
+            innerRadius=40, outerRadius=70, 
+        ).encode(
+            theta=alt.Theta(field="Importo", type="quantitative"),
+            color=alt.Color(
+                field="Categoria", type="nominal",
+                scale=alt.Scale(
+                    domain=list(color_map.keys()), range=list(color_map.values())
+                ),
+                legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=11,
+                symbolSize=40,
+                padding=2,
+                offset=5
+                )
+            ),
+            tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
+        ).properties(
+            title="🏠 Distribuzione Spese Fisse",
+            width=200,
+            height=220
+        ).configure_title(
+            anchor='middle'
+        ).configure_view(
+            strokeWidth=0,
+            fill='transparent'
+        )
+    
+        st.altair_chart(chart_fisse, use_container_width=True)
+# FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
         range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
