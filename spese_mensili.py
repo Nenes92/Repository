@@ -387,18 +387,40 @@ ALTRE_ENTRATE = {
 
 
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
-    import pandas as pd
-    import altair as alt
 
     # =========================
-    # DATI BASE
+    # DATI SPESE FISSE
     # =========================
-    df_fisse_raw = pd.DataFrame.from_dict(
-        SPESE["Fisse"], orient="index", columns=["Importo"]
-    ).reset_index().rename(columns={"index": "Categoria"})
+    df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+    df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
+    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
+    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Altro/C"), "Categoria"] = "Salute"
+    df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
+    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
+    df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
+    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # =========================
-    # COLORI COMPLETI (per main)
+    # DATI SPESE VARIABILI
+    # =========================
+    df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+    df_variabili['Percentuale'] = (df_variabili['Importo'] / risparmiabili).map('{:.2%}'.format)
+
+    # =========================
+    # ALTRE ENTRATE
+    # =========================
+    df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+
+    # =========================
+    # TOTALI
+    # =========================
+    totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto]
+    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
+    df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
+
+    # =========================
+    # COLOR MAP COMPLETA
     # =========================
     color_map = {
         "Mutuo": "#CD5C5C",
@@ -441,91 +463,44 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     }
 
     # =========================
-    # AGGREGAZIONE PER DONUT MACRO
+    # CHART SPESE FISSE
     # =========================
-    df_fisse = df_fisse_raw.copy()
-    df_fisse.loc[df_fisse["Categoria"].isin(["World Food Programme", "Beneficienza"]), "Categoria"] = "Donazioni"
-    df_fisse.loc[df_fisse["Categoria"].isin(["MoneyFarm - PAC 5", "Alleanza - PAC"]), "Categoria"] = "Investimenti"
-    df_fisse.loc[df_fisse["Categoria"].isin(["Netflix", "Disney+", "Spotify", "BNL C.C.", "ING C.C."]), "Categoria"] = "Abbonamenti"
-    df_fisse.loc[df_fisse["Categoria"].isin(["Sport", "Psicologo", "Altro/C"]), "Categoria"] = "Salute"
-    df_fisse.loc[df_fisse["Categoria"].isin(["Trasporti", "Macchina"]), "Categoria"] = "Macchina"
-    df_fisse.loc[df_fisse["Categoria"].isin(["Bollette", "Mutuo", "Condominio", "Altro", "Cucina", "Pulizia Casa"]), "Categoria"] = "Casa"
-    df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
-    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
-
-    # =========================
-    # DETTAGLIO PER SOTTO-SPESE
-    # =========================
-    df_fisse_dettaglio = df_fisse_raw.copy()
-    df_fisse_dettaglio['MacroCategoria'] = df_fisse_dettaglio['Categoria']
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["World Food Programme", "Beneficienza"]), "MacroCategoria"] = "Donazioni"
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["MoneyFarm - PAC 5", "Alleanza - PAC"]), "MacroCategoria"] = "Investimenti"
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Netflix", "Disney+", "Spotify", "BNL C.C.", "ING C.C."]), "MacroCategoria"] = "Abbonamenti"
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Sport", "Psicologo", "Altro/C"]), "MacroCategoria"] = "Salute"
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Trasporti", "Macchina"]), "MacroCategoria"] = "Macchina"
-    df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Bollette", "Mutuo", "Condominio", "Altro", "Cucina", "Pulizia Casa"]), "MacroCategoria"] = "Casa"
-    df_fisse_dettaglio['Percentuale'] = (df_fisse_dettaglio['Importo'] / stipendio_scelto).map('{:.2%}'.format)
-
-    # =========================
-    # CHART FISSE (DONUT CON DETTAGLIO)
-    # =========================
-    chart_fisse = alt.Chart(df_fisse_dettaglio).mark_arc(
-        innerRadius=40,
-        outerRadius=70,
-        stroke='white',
-        strokeWidth=0.7,
-        strokeDash=[2,2]
-    ).encode(
+    categorie_presenti = df_fisse["Categoria"].unique()
+    chart_fisse = alt.Chart(df_fisse).mark_arc(innerRadius=40, outerRadius=70).encode(
         theta=alt.Theta(field="Importo", type="quantitative"),
         color=alt.Color(
-            field="MacroCategoria",
+            field="Categoria",
             type="nominal",
             scale=alt.Scale(
-                domain=list(set(df_fisse_dettaglio['MacroCategoria'])),
-                range=[color_map[c] for c in set(df_fisse_dettaglio['MacroCategoria'])]
+                domain=categorie_presenti,
+                range=[color_map[c] for c in categorie_presenti]
             ),
-            legend=None
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                columns=2,
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=11,
+                symbolSize=40,
+                padding=2,
+                offset=5
+            )
         ),
-        detail="Categoria",
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     ).properties(
         title="🏠 Distribuzione Spese Fisse",
         width=200,
         height=220
-    )
+    ).configure_title(anchor='middle').configure_view(strokeWidth=0, fill='transparent')
 
     # =========================
-    # LEGGENDA DETTAGLIO
-    # =========================
-    legend_chart = alt.Chart(df_fisse_dettaglio).mark_point(size=80).encode(
-        y=alt.Y("Categoria:N", axis=alt.Axis(title=None)),
-        color=alt.Color(
-            field="MacroCategoria",
-            type="nominal",
-            scale=alt.Scale(
-                domain=list(set(df_fisse_dettaglio['MacroCategoria'])),
-                range=[color_map[c] for c in set(df_fisse_dettaglio['MacroCategoria'])]
-            ),
-            legend=alt.Legend(
-                title=None,
-                columns=2,
-                labelColor='rgba(255,255,255,0.85)',
-                labelFontSize=11
-            )
-        )
-    ).properties(width=200)
-
-    chart_fisse = chart_fisse | legend_chart
-
-    # =========================
-    # ALTRI CHARTS (placeholder)
+    # PLACEHOLDER CHARTS
     # =========================
     chart_variabili = None
     chart_altre_entrate = None
 
     return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
-
-
 def main():
 
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
