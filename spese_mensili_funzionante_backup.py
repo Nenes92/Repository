@@ -550,22 +550,39 @@ def main():
         st.markdown('<div style="height: 45px;"></div>', unsafe_allow_html=True)
     with col_stip_inserimento3:
         st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
+    
         tot_stipendio = stipendio_originale + sum(ALTRE_ENTRATE.values())
         tot_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
+    
         _ts = f"€{tot_stipendio:,.2f}"
         _tu = f"€{tot_utilizzare:,.2f}"
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">Stipendio Totale</div>
-            <div class="kpi-value" style="color:#34d399;">{_ts}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">Originale + Altre Entrate</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Stipendio da Utilizzare</div>
-            <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">Scelto + Altre Entrate</div>
-        </div>
-        """, unsafe_allow_html=True)
+    
+        # ───────── Divisione in 2 colonne ─────────
+        col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2)
+    
+        # ───────── Prima card ─────────
+        with col_stip_inserimento3_1:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-label">Stipendio Totale</div>
+                <div class="kpi-value" style="color:#34d399;">{_ts}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
+                    Originale + Altre Entrate
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+        # ───────── Seconda card ─────────
+        with col_stip_inserimento3_2:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-label">Stipendio da Utilizzare</div>
+                <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
+                    Scelto + Altre Entrate
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_stip_inserimento4:
         # ───────── STILE POST-IT (UNA VOLTA SOLA) ─────────
