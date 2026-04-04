@@ -452,7 +452,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             innerRadius=40, outerRadius=70, 
         ).encode(
             theta=alt.Theta(field="Importo", type="quantitative"),
-            categorie_presenti = df_fisse["Categoria"].tolist()
+            categorie_presenti = df_fisse["Categoria"].tolist(),
             color=alt.Color(
                 field="Categoria",
                 type="nominal",
