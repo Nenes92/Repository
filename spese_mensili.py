@@ -595,7 +595,7 @@ def main():
             
             with col:
                 # Titolo + bottone sulla stessa riga
-                col_title_nota, col_btn_nota = st.columns([7, 1])
+                col_title_nota, col_btn_nota = st.columns([2, 1])
                 with col_title_nota:
                     st.markdown(f'<div class="section-pill">📝 Nota {nota_id}</div>', unsafe_allow_html=True)
                 with col_btn_nota:
