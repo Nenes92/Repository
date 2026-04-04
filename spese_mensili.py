@@ -568,39 +568,47 @@ def main():
         """, unsafe_allow_html=True)
 
     with col_stip_inserimento4:
-        # CREAZIONE NOTA
+        # CREAZIONE NOTE
         NOTE_HEADERS = ["id", "testo"]
         worksheet_name = "Note"
         
         # Carica i dati esistenti
         df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
         
-        # Se il foglio è vuoto, creiamo la riga iniziale
+        # Se il foglio è vuoto, creiamo le righe iniziali per 3 note
         if df_note.empty:
-            df_note = pd.DataFrame([{"id": 1, "testo": ""}])
+            df_note = pd.DataFrame([
+                {"id": 1, "testo": ""},
+                {"id": 2, "testo": ""},
+                {"id": 3, "testo": ""}
+            ])
             save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
         
-        # Prendi il testo della nota (id = 1)
-        nota_corrente = df_note.loc[df_note["id"] == 1, "testo"].values[0]
+        # ───────── Funzione helper per creare una nota ─────────
+        def render_nota(nota_id):
+            nota_corrente = df_note.loc[df_note["id"] == nota_id, "testo"].values[0]
+            
+            # Titolo + bottone sulla stessa riga
+            col_title, col_btn = st.columns([7, 1])
+            with col_title:
+                st.markdown(f'<div class="section-pill">📝 Nota {nota_id}</div>', unsafe_allow_html=True)
+            with col_btn:
+                salva = st.button(f"Salva Nota {nota_id}", key=f"btn_{nota_id}")
+            
+            # Text area modificabile
+            testo = st.text_area("", value=nota_corrente, height=200, key=f"text_{nota_id}")
+            
+            # Salvataggio
+            if salva:
+                df_note.loc[df_note["id"] == nota_id, "testo"] = testo
+                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.success(f"Nota {nota_id} salvata!")
+                else:
+                    st.error(f"Errore durante il salvataggio della Nota {nota_id}.")
         
-        # ───────── Titolo e bottone sulla stessa riga ─────────
-        col_nota1, col_nota2 = st.columns([7, 1])
-        with col_nota1:
-            st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
-        
-        with col_nota2:
-            salva = st.button("Salva Nota")  # solo il bottone
-        
-        # ───────── Text area modificabile ─────────
-        testo = st.text_area("", value=nota_corrente, height=200)  # sempre renderizzata, senza label
-        
-        # ───────── Salvataggio ─────────
-        if salva:
-            df_note.loc[df_note["id"] == 1, "testo"] = testo
-            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                st.success("Nota salvata!")
-            else:
-                st.error("Errore durante il salvataggio.")
+        # Renderizza le 3 note
+        for i in range(1, 4):
+            render_nota(i)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
