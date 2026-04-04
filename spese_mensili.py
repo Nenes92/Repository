@@ -1379,8 +1379,8 @@ def main():
                     st.markdown("<br><br><br>", unsafe_allow_html=True)
                     st.subheader("Dettaglio Altre Entrate:")
                     df_altre_entrate = df_altre_entrate.rename(columns={'Importo': 'Valore €'})
-                    if "Valore €" in df_altre_entrate.columns:
-                        df_altre_entrate["Valore €"] = df_altre_entrate["Valore €"].apply(lambda x: f"€ {x:.2f}")
+                    st.write(df_altre_entrate.columns)
+                    df_altre_entrate["Valore €"] = df_altre_entrate["Valore €"].apply(lambda x: f"€ {x:.2f}")
                     styled_df_altre_entrate = (
                         df_altre_entrate[["Categoria", "Valore €", "Percentuale"]].style
                         .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
