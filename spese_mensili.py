@@ -623,7 +623,7 @@ def main():
                 testo = st.text_area(
                     "",
                     value=nota_corrente,
-                    height=220,
+                    height=150,
                     key=f"text_{nota_id}"
                 )
     
