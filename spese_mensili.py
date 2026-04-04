@@ -587,16 +587,19 @@ def main():
         nota_corrente = df_note.loc[df_note["id"] == 1, "testo"].values[0]
         
         # ───────── Text area modificabile ─────────
-        st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
-        testo = st.text_area("", value=nota_corrente, height=200)
+        # ───────── Titolo e bottone sulla stessa riga ─────────
+        col1, col2 = st.columns([7, 1])  # col1 più larga per il titolo, col2 stretta per il bottone
+        with col1:
+            st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
         
-        # ───────── Bottone per salvare ─────────
-        if st.button("Salva Nota"):
-            df_note.loc[df_note["id"] == 1, "testo"] = testo
-            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                st.success("Nota salvata!")
-            else:
-                st.error("Errore durante il salvataggio.")    
+        with col2:
+            if st.button("Salva Nota"):
+                df_note.loc[df_note["id"] == 1, "testo"] = testo
+                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.success("Nota salvata!")
+                else:
+                    st.error("Errore durante il salvataggio.")
+                testo = st.text_area("", value=nota_corrente, height=200)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
