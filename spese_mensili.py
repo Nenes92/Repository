@@ -539,7 +539,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+    col1, col2, col3 = st.columns([1, 2, 2])
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -928,411 +928,415 @@ def main():
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        st.markdown("---")
-        st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
-        st.subheader("Spese Variabili Rimanenti:")
-
-        da_spendere = 0
-        spese_quotidiane = 0
-        spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
-
-        risparmio_stipendi = stipendio_originale - stipendio_scelto
-        risparmio_da_spendere = 0
-        risparmio_spese_quotidiane = 0
-
-        for voce, importo in SPESE["Variabili"].items():
-            if voce in ["Emergenze/Compleanni"]:
-                percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#4ADE80") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
-            elif voce in ["Viaggi"]:
-                percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#166534") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
-            elif voce in ["Spese quotidiane"]:
-                percentuale_da_spendere = (SPESE["Variabili"]["Da spendere"] / risparmiabili * 100) if risparmiabili != 0 else 0
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FB923C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
-            elif voce in ["Da spendere"]:
-                spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
-                risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FACC15") + f'<span style="margin-right: 20px; color:#808080;">- {(da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi if risparmiabili_dopo_emergenze_viaggi != 0 else 0):.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
-            else:
-                st.write(f"- {voce}: €{importo:.2f}")
-            if voce == "Da spendere":
-                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
-                risparmio_da_spendere = da_spendere_senza_limite - da_spendere
-                st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmio_da_spendere:.2f}</small>', "#808080"), unsafe_allow_html=True)
-            if voce == "Spese quotidiane":
-                spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
-                risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
-                st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
-
-
-        st.markdown("---")
-        col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 2])
-        with col_spese_variabili_1:
-            _sv = f"€{spese_variabili_totali:.2f}"
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Totale Spese Variabili</div>
-                <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-
-        with col_spese_variabili_2:
-            # Creo il DataFrame per il grafico delle spese variabili
-            df_spese_variabili = pd.DataFrame({
-                'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-                'Value': [
-                    SPESE["Variabili"]["Emergenze/Compleanni"],
-                    SPESE["Variabili"]["Viaggi"],
-                    SPESE["Variabili"]["Da spendere"],
-                    SPESE["Variabili"]["Spese quotidiane"]
-                ]
-            })
-            
-            # Solo voci con importo > 0
-            df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
-            
-            # Calcolo le percentuali relative alle spese variabili
-            totale_spese = df_spese_variabili["Value"].sum()
-            df_spese_variabili["Percentuale"] = (df_spese_variabili["Value"] / totale_spese * 100).round(1) if totale_spese != 0 else 0
-            
-            # Creazione del grafico
-            if not df_spese_variabili.empty:
-                chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
-                    innerRadius=40, outerRadius=70
-                ).encode(
-                    theta=alt.Theta(field="Value", type="quantitative"),
-                    color=alt.Color(
-                        field="Voce", type="nominal",
-                        scale=alt.Scale(
-                            domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-                            range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
-                        ),
-                        legend=alt.Legend(
-                            title=None,
-                            orient='right',
-                            direction='vertical',
-                            labelColor='rgba(255,255,255,0.65)',
-                            labelFontSize=11,
-                            symbolSize=40,
-                            padding=2,
-                            offset=5
-                        )
-                    ),
-                    tooltip=[
-                        alt.Tooltip('Voce:N', title='Voce'),
-                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                        alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+        col2_left, col2_right = st.columns([1, 1])
+        with col2_left:
+            st.markdown("---")
+            st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
+            st.subheader("Spese Variabili Rimanenti:")
+    
+            da_spendere = 0
+            spese_quotidiane = 0
+            spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
+    
+            risparmio_stipendi = stipendio_originale - stipendio_scelto
+            risparmio_da_spendere = 0
+            risparmio_spese_quotidiane = 0
+    
+            for voce, importo in SPESE["Variabili"].items():
+                if voce in ["Emergenze/Compleanni"]:
+                    percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#4ADE80") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                elif voce in ["Viaggi"]:
+                    percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#166534") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                elif voce in ["Spese quotidiane"]:
+                    percentuale_da_spendere = (SPESE["Variabili"]["Da spendere"] / risparmiabili * 100) if risparmiabili != 0 else 0
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FB923C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
+                elif voce in ["Da spendere"]:
+                    spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
+                    risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FACC15") + f'<span style="margin-right: 20px; color:#808080;">- {(da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi if risparmiabili_dopo_emergenze_viaggi != 0 else 0):.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
+                else:
+                    st.write(f"- {voce}: €{importo:.2f}")
+                if voce == "Da spendere":
+                    da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
+                    risparmio_da_spendere = da_spendere_senza_limite - da_spendere
+                    st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmio_da_spendere:.2f}</small>', "#808080"), unsafe_allow_html=True)
+                if voce == "Spese quotidiane":
+                    spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
+                    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
+                    st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
+    
+    
+            st.markdown("---")
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 2])
+            with col_spese_variabili_1:
+                _sv = f"€{spese_variabili_totali:.2f}"
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-label">Totale Spese Variabili</div>
+                    <div class="kpi-value" style="color:#fde047;">{_sv}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+    
+            with col_spese_variabili_2:
+                # Creo il DataFrame per il grafico delle spese variabili
+                df_spese_variabili = pd.DataFrame({
+                    'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                    'Value': [
+                        SPESE["Variabili"]["Emergenze/Compleanni"],
+                        SPESE["Variabili"]["Viaggi"],
+                        SPESE["Variabili"]["Da spendere"],
+                        SPESE["Variabili"]["Spese quotidiane"]
                     ]
-                ).properties(
-                    title="💸 Distribuzione Spese Variabili",
-                    width=200,
-                    height=220
-                ).configure_title(
-                    anchor='middle'
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent'
-                )
-            
-                st.altair_chart(chart_spese_variabili, use_container_width=True)
-    # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
-    st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
-
-    # Recalculate risparmi variables for this section
-    risparmi_mensili_calc = stipendio_originale - stipendio_scelto
-    percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-    for voce, percentuale in percentuali_variabili_calc.items():
-        SPESE["Variabili"][voce] = percentuale * risparmiabili
-    da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
-    SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
-    spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
-    SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
-    if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
-        risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
-    if da_spendere_senza_limite_calc > limite_da_spendere:
-        risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
-    risparmi_mensili_calc += risparmi_mese_precedente
-    risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
-    risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
-    risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
+                })
+                
+                # Solo voci con importo > 0
+                df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
+                
+                # Calcolo le percentuali relative alle spese variabili
+                totale_spese = df_spese_variabili["Value"].sum()
+                df_spese_variabili["Percentuale"] = (df_spese_variabili["Value"] / totale_spese * 100).round(1) if totale_spese != 0 else 0
+                
+                # Creazione del grafico
+                if not df_spese_variabili.empty:
+                    chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
+                        innerRadius=40, outerRadius=70
+                    ).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Voce", type="nominal",
+                            scale=alt.Scale(
+                                domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                                range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Voce:N', title='Voce'),
+                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                        ]
+                    ).properties(
+                        title="💸 Distribuzione Spese Variabili",
+                        width=200,
+                        height=220
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    )
+                
+                    st.altair_chart(chart_spese_variabili, use_container_width=True)
+        # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
+        st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+    
+        # Recalculate risparmi variables for this section
+        risparmi_mensili_calc = stipendio_originale - stipendio_scelto
+        percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
+        for voce, percentuale in percentuali_variabili_calc.items():
+            SPESE["Variabili"][voce] = percentuale * risparmiabili
+        da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
+        SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
+        spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
+        SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
+        if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
+            risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
+        if da_spendere_senza_limite_calc > limite_da_spendere:
+            risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
+        risparmi_mensili_calc += risparmi_mese_precedente
+        risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
+        risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
+        risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
 
 
 
     # --- COLONNA 3: ALTRE ENTRATE ---
+        with col2_right:
+            st.markdown("---")
+            st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+            st.subheader("Altre Entrate:")
+        
+            for voce, importo in ALTRE_ENTRATE.items():
+                if voce in ["Macchina (Mamma)"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+                elif voce in ["Altro"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+                elif voce in ["Seconda Entrata"]:
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
+                else:
+                    st.write(f"- {voce}: €{importo:.2f}")
+        
+            totale_altre = sum(ALTRE_ENTRATE.values())
+            _ae = f"€{totale_altre:.2f}"
+            
+            st.markdown("---")
+            col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+            with col_altre_entrate_1:
+                st.markdown(f"""
+                <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                    <div class="kpi-label">Totale Altre Entrate</div>
+                    <div class="kpi-value" style="color:#34d399;">{_ae}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            
+            with col_altre_entrate_2:
+                # --- Grafico ---
+                # Creo il DataFrame per il grafico delle altre entrate
+                df_altre_entrate = pd.DataFrame({
+                    'Voce': list(ALTRE_ENTRATE.keys()),
+                    'Value': list(ALTRE_ENTRATE.values())
+                })
+            
+                # Solo voci con importo > 0
+                df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+            
+                # Calcolo le percentuali relative alle altre entrate
+                totale_entrate = df_altre_entrate["Value"].sum()
+                df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+            
+                if not df_altre_entrate.empty:
+                    chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                        innerRadius=40, outerRadius=70
+                    ).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Voce", type="nominal",
+                            scale=alt.Scale(
+                                domain=list(ALTRE_ENTRATE.keys()),
+                                range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Voce:N', title='Voce'),
+                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                        ]
+                    ).properties(
+                        title="➕ Distribuzione Altre Entrate",
+                        width=200,
+                        height=220
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    )
+            
+                    st.altair_chart(chart_altre_entrate, use_container_width=True)
+        
+
     with col3:
-        st.markdown("---")
-        st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-        st.subheader("Altre Entrate:")
-    
-        for voce, importo in ALTRE_ENTRATE.items():
-            if voce in ["Macchina (Mamma)"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-            elif voce in ["Altro"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
-            elif voce in ["Seconda Entrata"]:
-                st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
-            else:
-                st.write(f"- {voce}: €{importo:.2f}")
-    
-        totale_altre = sum(ALTRE_ENTRATE.values())
-        _ae = f"€{totale_altre:.2f}"
+        col3_left, col3_right = st.columns([1, 1])
+        with col3_left:
+            st.markdown("---")
+            st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
+            st.subheader("Risparmiati del mese:")
         
-        st.markdown("---")
-        col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
-        with col_altre_entrate_1:
-            st.markdown(f"""
-            <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-                <div class="kpi-label">Totale Altre Entrate</div>
-                <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            kpi_val = f"€{risparmi_mensili_calc:.2f}"
+            kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
         
-        with col_altre_entrate_2:
-            # --- Grafico ---
-            # Creo il DataFrame per il grafico delle altre entrate
-            df_altre_entrate = pd.DataFrame({
-                'Voce': list(ALTRE_ENTRATE.keys()),
-                'Value': list(ALTRE_ENTRATE.values())
-            })
-        
-            # Solo voci con importo > 0
-            df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-        
-            # Calcolo le percentuali relative alle altre entrate
-            totale_entrate = df_altre_entrate["Value"].sum()
-            df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-        
-            if not df_altre_entrate.empty:
-                chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                    innerRadius=40, outerRadius=70
-                ).encode(
-                    theta=alt.Theta(field="Value", type="quantitative"),
-                    color=alt.Color(
-                        field="Voce", type="nominal",
-                        scale=alt.Scale(
-                            domain=list(ALTRE_ENTRATE.keys()),
-                            range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
-                        ),
-                        legend=alt.Legend(
-                            title=None,
-                            orient='right',
-                            direction='vertical',
-                            labelColor='rgba(255,255,255,0.65)',
-                            labelFontSize=11,
-                            symbolSize=40,
-                            padding=2,
-                            offset=5
-                        )
-                    ),
-                    tooltip=[
-                        alt.Tooltip('Voce:N', title='Voce'),
-                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                        alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                    ]
-                ).properties(
-                    title="➕ Distribuzione Altre Entrate",
-                    width=200,
-                    height=220
-                ).configure_title(
-                    anchor='middle'
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent'
-                )
-        
-                st.altair_chart(chart_altre_entrate, use_container_width=True)
-    
-
-    with col4:
-        st.markdown("---")
-        st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
-        st.subheader("Risparmiati del mese:")
-    
-        kpi_val = f"€{risparmi_mensili_calc:.2f}"
-        kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
-    
-        # valori già calcolati
-        v1 = risparmio_stipendi_calc
-        v2 = risparmi_mese_precedente
-        v3 = risparmio_da_spendere_calc
-        v4 = risparmio_spese_quotidiane_calc
-        
-        def riga(voce, valore, colore, extra=""):
-            return f"""
-            <div style="
-                color:{colore};
-                margin-bottom:4px;
-            ">
-                - {voce}: €{valore:.2f}
-            </div>
-            {extra}
-            """
-
-        # Stipendi + Mese precedente + Da spendere + Quotidiane
-        html_risparmi = ""
-        html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af")
-        html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa")
-        html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047")
-        html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C")
-        
-        st.markdown(html_risparmi, unsafe_allow_html=True)
-        st.markdown("---")
-        
-        col_risparmi_1, col_risparmi_2 = st.columns([1, 2])
-        with col_risparmi_1:
-            st.markdown(f"""
-            <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-                <div class="kpi-label">Tot. Risparmiato</div>
-                <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-            savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-            non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
-            df_savings_raw = pd.DataFrame({
-                'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-            })
-            df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-            totale = df_savings["Value"].sum()
-            if totale != 0:
-                df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
-            else:
-                df_savings["Percentuale"] = 0
+            # valori già calcolati
+            v1 = risparmio_stipendi_calc
+            v2 = risparmi_mese_precedente
+            v3 = risparmio_da_spendere_calc
+            v4 = risparmio_spese_quotidiane_calc
             
-        with col_risparmi_2:
-            if not df_savings.empty:
-                chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
-                    theta=alt.Theta(field="Value", type="quantitative"),
-                    color=alt.Color(
-                        field="Component", type="nominal",
-                        scale=alt.Scale(
-                            domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                            range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
-                        ),
-                        legend=alt.Legend(
-                            title=None,
-                            orient='right',
-                            direction='vertical',
-                            labelColor='rgba(255,255,255,0.65)',
-                            labelFontSize=11,
-                            symbolSize=40,
-                            padding=2,
-                            offset=5  # 👈 distanza dal grafico (chiave!)
-                        )
-                    ),
-                    tooltip=[
-                        alt.Tooltip('Component:N', title='Risparmi'),
-                        alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
-                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                    ]
-                ).properties(
-                    title="💰 Distribuzione Risparmi",
-                    width=200,
-                    height=220
-                ).configure_title(
-                    anchor='middle'
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent'
-                )
+            def riga(voce, valore, colore, extra=""):
+                return f"""
+                <div style="
+                    color:{colore};
+                    margin-bottom:4px;
+                ">
+                    - {voce}: €{valore:.2f}
+                </div>
+                {extra}
+                """
+    
+            # Stipendi + Mese precedente + Da spendere + Quotidiane
+            html_risparmi = ""
+            html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af")
+            html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa")
+            html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047")
+            html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C")
             
-                # mantiene colori indipendenti se hai più chart simili
-                chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-                st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
-
+            st.markdown(html_risparmi, unsafe_allow_html=True)
+            st.markdown("---")
+            
+            col_risparmi_1, col_risparmi_2 = st.columns([1, 2])
+            with col_risparmi_1:
+                st.markdown(f"""
+                <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+                    <div class="kpi-label">Tot. Risparmiato</div>
+                    <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+                savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
+                df_savings_raw = pd.DataFrame({
+                    'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                    'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                })
+                df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+                totale = df_savings["Value"].sum()
+                if totale != 0:
+                    df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
+                else:
+                    df_savings["Percentuale"] = 0
+                
+            with col_risparmi_2:
+                if not df_savings.empty:
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Component", type="nominal",
+                            scale=alt.Scale(
+                                domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                                range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5  # 👈 distanza dal grafico (chiave!)
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Component:N', title='Risparmi'),
+                            alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        ]
+                    ).properties(
+                        title="💰 Distribuzione Risparmi",
+                        width=200,
+                        height=220
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    )
+                
+                    # mantiene colori indipendenti se hai più chart simili
+                    chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
+                    st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+    
 
 
                             
-    with col5:
-        st.markdown("---")
-        st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-        col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
-        with col_Distribuzione_Carte_1:
-            st.subheader("Trasferimenti sulle Carte:")
-    
-            for carta in ["ING", "Revolut", "BNL"]:
-                spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
-                               for voce in SPESE[carta]}
-                spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-                if carta == "Revolut":
-                    totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-                    colore = "#89CFF0"  # Azzurro
-                    testo = "trasferire"
-                    somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                    spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                    somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                    st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 11px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 11px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 11px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 11px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
-                else:
-                    totale_carta = sum(spese_carta.values())
-                    if carta == "ING":
-                        colore = "#D2691E"
+        with col3_right:
+            st.markdown("---")
+            st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
+            with col_Distribuzione_Carte_1:
+                st.subheader("Trasferimenti sulle Carte:")
+        
+                for carta in ["ING", "Revolut", "BNL"]:
+                    spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                                   for voce in SPESE[carta]}
+                    spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+                    if carta == "Revolut":
+                        totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                        colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                    elif carta == "BNL":
-                        colore = "green"
-                        colore2 = "#77DD77"
-                        testo = "mantenere"
-                        testo2 = "risparmiato"
-                    st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
-            st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
-
-        # FIX 4: NEW "Carte" donut chart
-        with col_Distribuzione_Carte_2:    
-            # Calculate totals per card
-            ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
-            revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
-            bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                        somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                        st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 11px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 11px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 11px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 11px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                    else:
+                        totale_carta = sum(spese_carta.values())
+                        if carta == "ING":
+                            colore = "#D2691E"
+                            testo = "trasferire"
+                        elif carta == "BNL":
+                            colore = "green"
+                            colore2 = "#77DD77"
+                            testo = "mantenere"
+                            testo2 = "risparmiato"
+                        st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
+                st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
     
-            df_carte = pd.DataFrame({
-                'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
-                    })
-            df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
-    
-            carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
-            theta=alt.Theta(field="Totale", type="quantitative"),
-            color=alt.Color(
-                field="Carta", type="nominal",
-                scale=alt.Scale(
-                    domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                    range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+            # FIX 4: NEW "Carte" donut chart
+            with col_Distribuzione_Carte_2:    
+                # Calculate totals per card
+                ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
+                revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
+                bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
+        
+                df_carte = pd.DataFrame({
+                    'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                    'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
+                        })
+                df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
+        
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
+                theta=alt.Theta(field="Totale", type="quantitative"),
+                color=alt.Color(
+                    field="Carta", type="nominal",
+                    scale=alt.Scale(
+                        domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                        range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                    ),
+                    legend=alt.Legend(
+                        title=None,
+                        orient='right',
+                        direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)',
+                        labelFontSize=11,
+                        symbolSize=40,
+                        padding=2,
+                        offset=5  # 👈 distanza dal grafico (chiave!)
+                    )
+        
                 ),
-                legend=alt.Legend(
-                    title=None,
-                    orient='right',
-                    direction='vertical',
-                    labelColor='rgba(255,255,255,0.65)',
-                    labelFontSize=11,
-                    symbolSize=40,
-                    padding=2,
-                    offset=5  # 👈 distanza dal grafico (chiave!)
-                )
-    
-            ),
-            tooltip=[
-                alt.Tooltip("Carta:N", title="Carta"),
-                alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-            ]
-            ).properties(
-                title="💳 Distribuzione Carte",
-                width=200,
-                height=220,
-            ).configure_title(
-                anchor='middle'
-            ).configure_view(
-                strokeWidth=0,
-                fill='transparent',
-            )    
-    
-            chart_carte = carte_arc.resolve_scale(color='independent')
-            st.altair_chart(chart_carte, use_container_width=True)
+                tooltip=[
+                    alt.Tooltip("Carta:N", title="Carta"),
+                    alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+                    alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                ]
+                ).properties(
+                    title="💳 Distribuzione Carte",
+                    width=200,
+                    height=220,
+                ).configure_title(
+                    anchor='middle'
+                ).configure_view(
+                    strokeWidth=0,
+                    fill='transparent',
+                )    
+        
+                chart_carte = carte_arc.resolve_scale(color='independent')
+                st.altair_chart(chart_carte, use_container_width=True)
 
 
 
