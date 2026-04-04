@@ -616,19 +616,8 @@ def main():
                         unsafe_allow_html=True
                     )
     
-                with col_btn_nota:
-                    st.markdown("""
-                        <style>
-                        .small-button button {
-                            padding: 1px 4px !important;
-                            font-size: 10px !important;
-                            border-radius: 3px !important;
-                        }
-                        </style>
-                        """, unsafe_allow_html=True)
-                    st.markdown('<div class="small-button">', unsafe_allow_html=True)
+                with col_btn_nota: 
                     salva = st.button("Salva", key=f"btn_{nota_id}")
-                    st.markdown('</div>', unsafe_allow_html=True)
     
                 # textarea stile post-it
                 testo = st.text_area(
