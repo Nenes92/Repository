@@ -1163,17 +1163,10 @@ def main():
         def riga(voce, valore, colore, extra=""):
             return f"""
             <div style="
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                width:40px;
                 color:{colore};
                 margin-bottom:4px;
             ">
-                <span style="display:flex; align-items:center;">
-                    - {voce}
-                </span>
-                <span>€{valore:.2f}</span>
+                - {voce}: €{valore:.2f}
             </div>
             {extra}
             """
