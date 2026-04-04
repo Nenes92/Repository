@@ -586,6 +586,11 @@ def main():
         
         # ───────── Funzione helper per creare una nota ─────────
         def render_nota(nota_id):
+            # Controlla se esiste la riga, se no creala
+            if nota_id not in df_note["id"].values:
+                df_note.loc[len(df_note)] = {"id": nota_id, "testo": ""}
+                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
+            
             nota_corrente = df_note.loc[df_note["id"] == nota_id, "testo"].values[0]
             
             # Titolo + bottone sulla stessa riga
