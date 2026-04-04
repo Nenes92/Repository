@@ -539,7 +539,7 @@ def main():
     st.title("Calcolatore di Spese Personali")
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+    col1, col2, col3 = st.columns([1, 2, 2])
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -767,7 +767,7 @@ def main():
 
     df_fisse_percentuali = df_fisse.rename(columns={'Importo': 'Valore €'})
     df_fisse['Valore €'] = df_fisse['Importo'].apply(lambda x: f"€ {x:.2f}")
-
+    
     # --- COLONNA 1: SPESE FISSE ---
     with col1:
         st.markdown("---")
