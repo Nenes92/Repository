@@ -491,9 +491,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     )
 
 
-def color_text(text, color):
-    return f'<span style="color:{color}">{text}</span>'
-
 
 def main():
 
