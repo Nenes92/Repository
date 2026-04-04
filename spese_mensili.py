@@ -348,7 +348,7 @@ SPESE = {
         "Mutuo": 435,
         "Bollette": decisione_budget_bollette_mensili,
         "Condominio": 45,
-        "Altro": 0,
+        "Altro": 150,
         "Cucina": 315,
         "Pulizia Casa": 40,
         "MoneyFarm - PAC 5": 100,
