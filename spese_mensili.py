@@ -1260,7 +1260,7 @@ def main():
                             field="Component", type="nominal",
                             scale=alt.Scale(
                                 domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                                range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
                             ),
                             legend=alt.Legend(
                                 title=None,
