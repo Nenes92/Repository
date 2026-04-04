@@ -608,15 +608,15 @@ def main():
     
             with col:
                 # titolo + bottone
-                col_title, col_btn = st.columns([2, 1])
+                col_title_nota, col_btn_nota = st.columns([2, 1])
     
-                with col_title:
+                with col_title_nota:
                     st.markdown(
                         f'<div class="section-pill">📝 Promemoria {nota_id}</div>',
                         unsafe_allow_html=True
                     )
     
-                with col_btn:
+                with col_btn_nota:
                     salva = st.button("Salva", key=f"btn_{nota_id}")
     
                 # textarea stile post-it
@@ -636,11 +636,11 @@ def main():
                         st.error("Errore salvataggio")
     
         # ───────── 3 NOTE AFFIANCATE ─────────
-        col1, col2, col3 = st.columns(3)
+        col_nota_testo1, col_nota_testo2, col_nota_testo3 = st.columns(3)
     
-        render_nota(1, col1)
-        render_nota(2, col2)
-        render_nota(3, col3)
+        render_nota(1, col_nota_testo1)
+        render_nota(2, col_nota_testo2)
+        render_nota(3, col_nota_testo3)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
