@@ -585,7 +585,7 @@ def main():
             save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
         
         # ───────── Funzione helper per creare una nota ─────────
-        def render_nota(nota_id):
+        def render_nota(nota_id, col):
             # Controlla se esiste la riga, se no creala
             if nota_id not in df_note["id"].values:
                 df_note.loc[len(df_note)] = {"id": nota_id, "testo": ""}
@@ -593,27 +593,50 @@ def main():
             
             nota_corrente = df_note.loc[df_note["id"] == nota_id, "testo"].values[0]
             
-            # Titolo + bottone sulla stessa riga
-            col_title, col_btn = st.columns([7, 1])
-            with col_title:
-                st.markdown(f'<div class="section-pill">📝 Nota {nota_id}</div>', unsafe_allow_html=True)
-            with col_btn:
-                salva = st.button(f"Salva Nota {nota_id}", key=f"btn_{nota_id}")
-            
-            # Text area modificabile
-            testo = st.text_area("", value=nota_corrente, height=200, key=f"text_{nota_id}")
-            
-            # Salvataggio
-            if salva:
-                df_note.loc[df_note["id"] == nota_id, "testo"] = testo
-                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                    st.success(f"Nota {nota_id} salvata!")
-                else:
-                    st.error(f"Errore durante il salvataggio della Nota {nota_id}.")
-        
-        # Renderizza le 3 note
-        for i in range(1, 4):
-            render_nota(i)
+            with col:
+                # Titolo + bottone sulla stessa riga
+                col_title, col_btn = st.columns([7, 1])
+                with col_title:
+                    st.markdown(f'<div class="section-pill">📝 Nota {nota_id}</div>', unsafe_allow_html=True)
+                with col_btn:
+                    salva = st.button(f"Salva Nota {nota_id}", key=f"btn_{nota_id}")
+                
+                # Text area modificabile stile post-it giallo chiaro
+                st.markdown(f"""
+                <div style="
+                    background-color: rgba(255, 241, 118, 0.5);   /* giallo molto chiaro e trasparente */
+                    padding: 10px;
+                    border-radius: 10px;
+                    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+                    font-family: sans-serif;
+                    white-space: pre-wrap;
+                ">
+                <textarea style="
+                    width: 100%;
+                    height: 180px;
+                    border: none;
+                    background: transparent;
+                    font-size: 14px;
+                    font-family: sans-serif;
+                    color: black;
+                    resize: vertical;
+                ">{nota_corrente}</textarea>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Salvataggio
+                if salva:
+                    df_note.loc[df_note["id"] == nota_id, "testo"] = st.session_state[f"text_{nota_id}"]
+                    if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                        st.success(f"Nota {nota_id} salvata!")
+                    else:
+                        st.error(f"Errore durante il salvataggio della Nota {nota_id}.")
+    
+        # ───────── Creazione colonne per le 3 note ─────────
+        col1, col2, col3 = st.columns(3)
+        render_nota(1, col1)
+        render_nota(2, col2)
+        render_nota(3, col3)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
