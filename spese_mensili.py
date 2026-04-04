@@ -599,7 +599,7 @@ def main():
                     st.success("Nota salvata!")
                 else:
                     st.error("Errore durante il salvataggio.")
-                testo = st.text_area("", value=nota_corrente, height=200)
+                testo = st.text_area("argag", value=nota_corrente, height=200)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
