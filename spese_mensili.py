@@ -989,67 +989,70 @@ def main():
         _ae = f"€{totale_altre:.2f}"
         
         st.markdown("---")
-        st.markdown(f"""
-        <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-            <div class="kpi-label">Totale Altre Entrate</div>
-            <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-    
-        # --- Grafico ---
-        # Creo il DataFrame per il grafico delle altre entrate
-        df_altre_entrate = pd.DataFrame({
-            'Voce': list(ALTRE_ENTRATE.keys()),
-            'Value': list(ALTRE_ENTRATE.values())
-        })
-    
-        # Solo voci con importo > 0
-        df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-    
-        # Calcolo le percentuali relative alle altre entrate
-        totale_entrate = df_altre_entrate["Value"].sum()
-        df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-    
-        if not df_altre_entrate.empty:
-            chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                innerRadius=40, outerRadius=70
-            ).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Voce", type="nominal",
-                    scale=alt.Scale(
-                        domain=list(ALTRE_ENTRATE.keys()),
-                        range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+        col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+        with col_altre_entrate_1:
+            st.markdown(f"""
+            <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                <div class="kpi-label">Totale Altre Entrate</div>
+                <div class="kpi-value" style="color:#34d399;">{_ae}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+        
+        with col_altre_entrate_2:
+            # --- Grafico ---
+            # Creo il DataFrame per il grafico delle altre entrate
+            df_altre_entrate = pd.DataFrame({
+                'Voce': list(ALTRE_ENTRATE.keys()),
+                'Value': list(ALTRE_ENTRATE.values())
+            })
+        
+            # Solo voci con importo > 0
+            df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+        
+            # Calcolo le percentuali relative alle altre entrate
+            totale_entrate = df_altre_entrate["Value"].sum()
+            df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+        
+            if not df_altre_entrate.empty:
+                chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                    innerRadius=40, outerRadius=70
+                ).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Voce", type="nominal",
+                        scale=alt.Scale(
+                            domain=list(ALTRE_ENTRATE.keys()),
+                            range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+                        ),
+                        legend=alt.Legend(
+                            title=None,
+                            orient='right',
+                            direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)',
+                            labelFontSize=11,
+                            symbolSize=40,
+                            padding=2,
+                            offset=5
+                        )
                     ),
-                    legend=alt.Legend(
-                        title=None,
-                        orient='right',
-                        direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)',
-                        labelFontSize=11,
-                        symbolSize=40,
-                        padding=2,
-                        offset=5
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip('Voce:N', title='Voce'),
-                    alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                    alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                ]
-            ).properties(
-                title="➕ Distribuzione Altre Entrate",
-                width=200,
-                height=220
-            ).configure_title(
-                anchor='middle'
-            ).configure_view(
-                strokeWidth=0,
-                fill='transparent'
-            )
-    
-            st.altair_chart(chart_altre_entrate, use_container_width=True)
+                    tooltip=[
+                        alt.Tooltip('Voce:N', title='Voce'),
+                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                        alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                    ]
+                ).properties(
+                    title="➕ Distribuzione Altre Entrate",
+                    width=200,
+                    height=220
+                ).configure_title(
+                    anchor='middle'
+                ).configure_view(
+                    strokeWidth=0,
+                    fill='transparent'
+                )
+        
+                st.altair_chart(chart_altre_entrate, use_container_width=True)
     
 
     with col4:
