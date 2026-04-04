@@ -385,9 +385,8 @@ ALTRE_ENTRATE = {
 
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
-
     # =========================
-    # BASE DATI
+    # DATI BASE
     # =========================
     df_fisse_raw = pd.DataFrame.from_dict(
         SPESE["Fisse"], orient="index", columns=["Importo"]
@@ -408,10 +407,9 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
 
     # =========================
-    # VERSIONE DETTAGLIO (NUOVA)
+    # VERSIONE DETTAGLIO PER IL DONUT
     # =========================
     df_fisse_dettaglio = df_fisse_raw.copy()
-
     df_fisse_dettaglio["MacroCategoria"] = df_fisse_dettaglio["Categoria"]
 
     df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["World Food Programme", "Beneficienza"]), "MacroCategoria"] = "Donazioni"
@@ -421,12 +419,13 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Trasporti", "Macchina"]), "MacroCategoria"] = "Macchina"
     df_fisse_dettaglio.loc[df_fisse_dettaglio["Categoria"].isin(["Bollette", "Mutuo", "Condominio", "Altro", "Cucina", "Pulizia Casa"]), "MacroCategoria"] = "Casa"
 
+    df_fisse_dettaglio['Percentuale'] = (df_fisse_dettaglio['Importo'] / stipendio_scelto).map('{:.2%}'.format)
+
     # =========================
     # ALTRE TABELLE
     # =========================
     df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
-
     df_variabili['Percentuale'] = (df_variabili['Importo'] / risparmiabili).map('{:.2%}'.format)
 
     totali = [
@@ -435,12 +434,11 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         df_altre_entrate["Importo"].sum(),
         stipendio_scelto
     ]
-
     categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
     df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
 
     # =========================
-    # COLORI (macro)
+    # COLORI MACRO
     # =========================
     color_map_macro = {
         "Casa": "#CD5C5C",
@@ -451,9 +449,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Abbonamenti": "#D2691E"
     }
 
-    # percentuali
-    df_fisse_dettaglio['Percentuale'] = (df_fisse_dettaglio['Importo'] / stipendio_scelto).map('{:.2%}'.format)
-
     # =========================
     # CHART DETTAGLIATO
     # =========================
@@ -462,10 +457,9 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         outerRadius=70,
         stroke='white',
         strokeWidth=0.7,
-        strokeDash=[2,2]   # 👈 divisori tratteggiati
+        strokeDash=[2,2]
     ).encode(
         theta=alt.Theta(field="Importo", type="quantitative"),
-
         color=alt.Color(
             field="MacroCategoria",
             type="nominal",
@@ -473,11 +467,9 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
                 domain=list(color_map_macro.keys()),
                 range=list(color_map_macro.values())
             ),
-            legend=None  # 👈 disattiviamo
+            legend=None
         ),
-
         detail="Categoria",
-
         tooltip=[
             "Categoria",
             "Importo",
@@ -490,7 +482,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     )
 
     # =========================
-    # LEGENDA CUSTOM (singole voci)
+    # LEGENDA CUSTOM
     # =========================
     legend_chart = alt.Chart(df_fisse_dettaglio).mark_point(size=80).encode(
         y=alt.Y("Categoria:N", axis=alt.Axis(title=None)),
@@ -513,10 +505,19 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     # =========================
     # COMBINAZIONE
     # =========================
-    final_chart = chart_fisse | legend_chart
+    chart_fisse = chart_fisse | legend_chart
 
-    return final_chart
-    
+    # =========================
+    # PLACEHOLDER PER GLI ALTRI CHARTS
+    # =========================
+    chart_variabili = None
+    chart_altre_entrate = None
+    color_map = {}
+
+    # =========================
+    # RITORNO TUTTO COME ASPETTATO DAL MAIN
+    # =========================
+    return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map    
 # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
