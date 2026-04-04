@@ -1146,7 +1146,49 @@ def main():
                     )
             
                     st.altair_chart(chart_altre_entrate, use_container_width=True)
-        
+    
+        # Visualizzazione grafici
+        with st.container():
+            st.markdown("---")
+            with st.container():
+                col1, col2 = st.columns(2)
+                with col1:
+                    col1_1, col1_2 = st.columns([1, 1])
+                    with col1_1:
+                        st.altair_chart(chart_fisse, use_container_width=True)
+                    with col1_2:
+                        st.subheader("Dettaglio Spese Fisse:")
+                        df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
+                        df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
+                        styled_df_fisse = (
+                            df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
+                            .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                            .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
+                            .set_properties(**{'text-align': 'center'})
+                        )
+                        st.dataframe(styled_df_fisse, use_container_width=True)
+                        st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
+    
+                with col2:
+                    col2_1, col2_2 = st.columns([1, 1])
+                    with col2_1:
+                        if not df_variabili.empty and df_variabili['Importo'].sum() > 0:
+                            st.altair_chart(chart_variabili, use_container_width=True)
+                        else:
+                            st.info("Inserisci uno stipendio maggiore delle spese fisse")
+                    with col2_2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.subheader("Dettaglio Spese Variabili:")
+                        formatted_df_variabili = df_variabili.rename(columns={'Importo': 'Valore €'})
+                        formatted_df_variabili["Valore €"] = formatted_df_variabili["Valore €"].apply(lambda x: f"€ {x:.2f}")
+                        styled_df_variabili = (
+                            formatted_df_variabili[["Categoria", "Valore €", "Percentuale"]].style
+                            .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                            .map(lambda x: f"color: {color_map.get(x, '')}" if x in formatted_df_variabili["Categoria"].unique() else "", subset=["Categoria"])
+                            .set_properties(**{'text-align': 'center'})
+                        )
+                        st.dataframe(styled_df_variabili, use_container_width=True)
+                        st.markdown('<small style="color:#808080;">Percentuali sui Risparmiabili</small>', unsafe_allow_html=True)
 
     with col3:
         col3_left, col3_right = st.columns([1, 1])
@@ -1341,48 +1383,6 @@ def main():
         st.markdown("---")
 
 
-    # Visualizzazione grafici
-    with st.container():
-        st.markdown("---")
-        with st.container():
-            col1, col2 = st.columns(2)
-            with col1:
-                col1_1, col1_2 = st.columns([1, 1])
-                with col1_1:
-                    st.altair_chart(chart_fisse, use_container_width=True)
-                with col1_2:
-                    st.subheader("Dettaglio Spese Fisse:")
-                    df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
-                    df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-                    styled_df_fisse = (
-                        df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
-                        .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                        .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
-                        .set_properties(**{'text-align': 'center'})
-                    )
-                    st.dataframe(styled_df_fisse, use_container_width=True)
-                    st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
-
-            with col2:
-                col2_1, col2_2 = st.columns([1, 1])
-                with col2_1:
-                    if not df_variabili.empty and df_variabili['Importo'].sum() > 0:
-                        st.altair_chart(chart_variabili, use_container_width=True)
-                    else:
-                        st.info("Inserisci uno stipendio maggiore delle spese fisse")
-                with col2_2:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.subheader("Dettaglio Spese Variabili:")
-                    formatted_df_variabili = df_variabili.rename(columns={'Importo': 'Valore €'})
-                    formatted_df_variabili["Valore €"] = formatted_df_variabili["Valore €"].apply(lambda x: f"€ {x:.2f}")
-                    styled_df_variabili = (
-                        formatted_df_variabili[["Categoria", "Valore €", "Percentuale"]].style
-                        .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                        .map(lambda x: f"color: {color_map.get(x, '')}" if x in formatted_df_variabili["Categoria"].unique() else "", subset=["Categoria"])
-                        .set_properties(**{'text-align': 'center'})
-                    )
-                    st.dataframe(styled_df_variabili, use_container_width=True)
-                    st.markdown('<small style="color:#808080;">Percentuali sui Risparmiabili</small>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
