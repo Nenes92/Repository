@@ -570,7 +570,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-     with col_stip_inserimento4:
+    with col_stip_inserimento4:
         #CREAZIONE NOTA
         NOTE_HEADERS = ["id", "testo"]
         worksheet_name = "Note"
