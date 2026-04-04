@@ -588,7 +588,7 @@ def main():
         
         # ───────── Text area modificabile ─────────
         st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
-        testo = st.text_area(value=nota_corrente, height=200)
+        testo = st.text_area("", value=nota_corrente, height=200)
         
         # ───────── Bottone per salvare ─────────
         if st.button("Salva Nota"):
