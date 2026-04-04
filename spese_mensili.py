@@ -3,6 +3,7 @@
 
 import altair as alt
 import streamlit as st
+import mysql.connector
 import pandas as pd
 import json
 import os
@@ -540,7 +541,7 @@ def main():
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     st.title("Calcolatore di Spese Personali")
 
-    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4, col_stip_inserimento5 = st.columns([1, 1, 1, 1, 1])
+    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
     col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
     with col_stip_inserimento1:
@@ -568,6 +569,83 @@ def main():
             <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">Scelto + Altre Entrate</div>
         </div>
         """, unsafe_allow_html=True)
+
+    #CREAZIONE NOTA
+    with col_stip_inserimento4:
+        import streamlit as st
+        import mysql.connector
+        from datetime import datetime
+        
+        # --- Funzioni DB ---
+        def leggi_nota_unica():
+            """Legge la nota unica dal DB"""
+            conn = mysql.connector.connect(
+                host=st.secrets["db"]["host"],
+                user=st.secrets["db"]["user"],
+                password=st.secrets["db"]["password"],
+                database=st.secrets["db"]["database"]
+            )
+            cursor = conn.cursor()
+            # Se non esiste, crea una riga vuota
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS note_unica (
+                    id INT PRIMARY KEY,
+                    contenuto TEXT,
+                    data_aggiornamento DATETIME
+                )
+            """)
+            conn.commit()
+            
+            cursor.execute("SELECT contenuto FROM note_unica WHERE id=1")
+            result = cursor.fetchone()
+            if result:
+                nota = result[0]
+            else:
+                # crea riga vuota
+                cursor.execute("INSERT INTO note_unica (id, contenuto, data_aggiornamento) VALUES (1, '', %s)", (datetime.now(),))
+                conn.commit()
+                nota = ""
+            cursor.close()
+            conn.close()
+            return nota
+        
+        def salva_nota_unica(nota):
+            """Salva/aggiorna la nota unica"""
+            conn = mysql.connector.connect(
+                host=st.secrets["db"]["host"],
+                user=st.secrets["db"]["user"],
+                password=st.secrets["db"]["password"],
+                database=st.secrets["db"]["database"]
+            )
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE note_unica
+                SET contenuto=%s, data_aggiornamento=%s
+                WHERE id=1
+            """, (nota, datetime.now()))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        
+        # --- Interfaccia Streamlit ---
+        st.markdown("### 📝 Promemoria Mensili")
+        
+        # Carica la nota
+        if "nota_unica" not in st.session_state:
+            st.session_state.nota_unica = leggi_nota_unica()
+        
+        # Text area per modificare la nota
+        st.session_state.nota_unica = st.text_area(
+            "Scrivi i tuoi promemoria (puoi fare un elenco puntato usando '-')",
+            st.session_state.nota_unica,
+            height=200
+        )
+        
+        # Bottone per salvare
+        if st.button("💾 Salva Nota"):
+            salva_nota_unica(st.session_state.nota_unica)
+            st.success("Nota salvata!")
+    #FINECREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
