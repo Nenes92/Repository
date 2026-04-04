@@ -1166,7 +1166,7 @@ def main():
                 display:flex;
                 justify-content:space-between;
                 align-items:center;
-                width:420px;
+                width:40px;
                 color:{colore};
                 margin-bottom:4px;
             ">
