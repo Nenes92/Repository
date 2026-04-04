@@ -1325,8 +1325,6 @@ def main():
             st.altair_chart(chart_carte, use_container_width=True)
 
 
-                
-            
 
     # Visualizzazione grafici
     with st.container():
