@@ -572,7 +572,6 @@ def main():
 
     with col_stip_inserimento4:
         # CREAZIONE NOTA
-        # ───────── Promemoria Personale ─────────
         NOTE_HEADERS = ["id", "testo"]
         worksheet_name = "Note"
         
@@ -590,37 +589,35 @@ def main():
         # Titolo stile pill
         st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
         
-        # ───────── Text area modificabile con stile post-it ─────────
+        # Text area stile post-it giallo chiaro, trasparente, testo nero
+        testo = st.text_area(
+            label="",
+            value=nota_corrente,
+            height=200,
+            key="nota_personale",
+            help="Promemoria personale",
+        )
+        
         st.markdown(f"""
-        <div style="
-            background-color: #FFF176;   /* giallo pastello */
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 3px 3px 12px rgba(0,0,0,0.25);
+        <style>
+        div.stTextArea > div > textarea {{
+            background-color: rgba(255, 255, 150, 0.3) !important;  /* giallo chiaro trasparente */
+            color: black !important;                                  /* testo nero */
+            border-radius: 10px !important;
+            padding: 10px !important;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
             font-family: sans-serif;
-            white-space: pre-wrap;
-        ">
-        <textarea style="
-            width: 100%;
-            height: 200px;
-            border: none;
-            background: transparent;
-            font-size: 14px;
-            font-family: sans-serif;
-            resize: vertical;
-        ">{nota_corrente}</textarea>
-        </div>
+        }}
+        </style>
         """, unsafe_allow_html=True)
         
-        # ───────── Bottone per salvare ─────────
-        testo = st.text_area("Scrivi qui la tua nota:", value=nota_corrente, height=200)
-        
+        # Bottone per salvare
         if st.button("Salva Nota"):
             df_note.loc[df_note["id"] == 1, "testo"] = testo
             if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                 st.success("Nota salvata!")
             else:
-                st.error("Errore durante il salvataggio.")    
+                st.error("Errore durante il salvataggio.")        
         # FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
