@@ -470,7 +470,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
                     symbolSize=40,
                     padding=2,
                     offset=5
-                )
+                ),
             )
             tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
         ).properties(
