@@ -464,7 +464,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
                 title=None,
                 orient='right',
                 direction='vertical',
-                columns=2,
+                columns=1,
                 labelColor='rgba(255,255,255,0.85)',
                 labelFontSize=11,
                 symbolSize=40,
