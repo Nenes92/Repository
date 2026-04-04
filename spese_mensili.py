@@ -620,9 +620,9 @@ def main():
                     st.markdown("""
                         <style>
                         .small-button button {
-                            padding: 4px 10px !important;
-                            font-size: 12px !important;
-                            border-radius: 8px !important;
+                            padding: 1px 4px !important;
+                            font-size: 10px !important;
+                            border-radius: 3px !important;
                         }
                         </style>
                         """, unsafe_allow_html=True)
