@@ -1337,9 +1337,8 @@ def main():
         
                 chart_carte = carte_arc.resolve_scale(color='independent')
                 st.altair_chart(chart_carte, use_container_width=True)
-        #st.markdown("---")
-            st.markdown("---")    
-    st.markdown("---")
+            st.markdown("---")  
+        st.markdown("---")
 
 
     # Visualizzazione grafici
