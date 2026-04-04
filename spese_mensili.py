@@ -448,41 +448,45 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # FIX 3: Donut labels outside with connector lines for Spese Fisse
+    categorie_presenti = df_fisse["Categoria"].unique()
     chart_fisse = alt.Chart(df_fisse).mark_arc(
-            innerRadius=40, outerRadius=70, 
-        ).encode(
-            theta=alt.Theta(field="Importo", type="quantitative"),
-            categorie_presenti = df_fisse["Categoria"].tolist(),
-            color=alt.Color(
-                field="Categoria",
-                type="nominal",
-                scale=alt.Scale(
-                    domain=categorie_presenti,
-                    range=[color_map[c] for c in categorie_presenti]
-                ),
-                legend=alt.Legend(
-                    title=None,
-                    orient='right',
-                    direction='vertical',
-                    columns=2,
-                    labelColor='rgba(255,255,255,0.85)',
-                    labelFontSize=11,
-                    symbolSize=40,
-                    padding=2,
-                    offset=5
-                ),
+        innerRadius=40, outerRadius=70
+    ).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(
+            field="Categoria",
+            type="nominal",
+            scale=alt.Scale(
+                domain=categorie_presenti,
+                range=[color_map.get(c, "#999999") for c in categorie_presenti]
+            ),
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                columns=2,
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=11,
+                symbolSize=40,
+                padding=2,
+                offset=5
             )
-            tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
-        ).properties(
-            title="🏠 Distribuzione Spese Fisse",
-            width=200,
-            height=220
-        ).configure_title(
-            anchor='middle'
-        ).configure_view(
-            strokeWidth=0,
-            fill='transparent'
-        )
+        ),
+        tooltip=[
+            "Categoria",
+            "Importo",
+            alt.Tooltip(field="Percentuale", title="Percentuale")
+        ]
+    ).properties(
+        title="🏠 Distribuzione Spese Fisse",
+        width=200,
+        height=220
+    ).configure_title(
+        anchor='middle'
+    ).configure_view(
+        strokeWidth=0,
+        fill='transparent'
+    )
     
 # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
