@@ -388,9 +388,6 @@ ALTRE_ENTRATE = {
 
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
-    # =========================
-    # DATI SPESE FISSE
-    # =========================
     df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
@@ -399,29 +396,15 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
-    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
-    # =========================
-    # DATI SPESE VARIABILI
-    # =========================
     df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
+    df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_variabili['Percentuale'] = (df_variabili['Importo'] / risparmiabili).map('{:.2%}'.format)
 
-    # =========================
-    # ALTRE ENTRATE
-    # =========================
-    df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
-
-    # =========================
-    # TOTALI
-    # =========================
     totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto]
     categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
     df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
 
-    # =========================
-    # COLOR MAP COMPLETA
-    # =========================
     color_map = {
         "Mutuo": "#CD5C5C",
         "Bollette": "#CD5C5C",
@@ -455,52 +438,99 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spese Fisse": "#FF6961",
         "Spese Variabili": "#FFFF99",
         "Risparmi": "#A2E88A",
-        "Donazioni": "#B57EDC",
-        "Investimenti": "#6495ED",
-        "Abbonamenti": "#D2691E",
-        "Salute": "#40E0D0",
-        "Casa": "#CD5C5C"
     }
 
-    # =========================
-    # CHART SPESE FISSE
-    # =========================
-    categorie_presenti = df_fisse["Categoria"].unique()
-    chart_fisse = alt.Chart(df_fisse).mark_arc(innerRadius=40, outerRadius=70).encode(
+    color_map["Donazioni"] = "#B57EDC"
+    color_map["Investimenti"] = "#6495ED"
+    color_map["Abbonamenti"] = "#D2691E"
+    color_map["Salute"] = "#40E0D0"
+    color_map["Macchina"] = "#D2B48C"
+    color_map["Casa"] = "#CD5C5C"
+
+    df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
+
+    # FIX 3: Donut labels outside with connector lines for Spese Fisse
+    chart_fisse = alt.Chart(df_fisse, title='Distribuzione Spese Fisse').mark_arc(
+        outerRadius=100, innerRadius=40
+    ).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(field="Categoria", type="nominal", scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())), legend=alt.Legend(
+            title=None,
+            orient='right',
+            direction='vertical',
+            labelColor='rgba(255,255,255,0.85)',
+            labelFontSize=12,
+            symbolType='circle',
+            symbolSize=100,
+            padding=6
+        )),
+        tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
+    )
+
+    chart_fisse = chart_fisse.properties(title='🏠 Distribuzione Spese Fisse', width=280, height=280).interactive()
+    # FIX 3: Donut labels outside with connector lines for Spese Variabili
+    variabili_color_scale = alt.Scale(
+        domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+        range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+    )
+    chart_variabili_arc = alt.Chart(df_variabili, title='Distribuzione Spese Variabili').mark_arc(
+        outerRadius=100, innerRadius=40
+    ).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(field="Categoria", type="nominal", scale=variabili_color_scale, legend=alt.Legend(
+            title=None,
+            orient='right',
+            direction='vertical',
+            labelColor='rgba(255,255,255,0.85)',
+            labelFontSize=12,
+            symbolType='circle',
+            symbolSize=100,
+            padding=6
+        )),
+        tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
+    )
+    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=280, height=280).interactive()
+    df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
+
+    # Altre Entrate donut — no legend, tooltip only
+    df_altre_entrate_chart = df_altre_entrate[df_altre_entrate["Importo"] > 0].copy()
+    if df_altre_entrate_chart.empty:
+        df_altre_entrate_chart = df_altre_entrate.copy()
+
+    ae_cats = df_altre_entrate_chart["Categoria"].tolist()
+    ae_colors_map = {
+        "Macchina (Mamma)": "#D2B48C",
+        "Seconda Entrata": "#D8BFD8",
+        "Altro": "#89CFF0",
+    }
+    ae_domains = ae_cats
+    ae_ranges = [ae_colors_map.get(c, "#888888") for c in ae_cats]
+
+    ae_arc = alt.Chart(df_altre_entrate_chart).mark_arc(outerRadius=80, innerRadius=30).encode(
         theta=alt.Theta(field="Importo", type="quantitative"),
         color=alt.Color(
-            field="Categoria",
-            type="nominal",
-            scale=alt.Scale(
-                domain=categorie_presenti,
-                range=[color_map[c] for c in categorie_presenti]
-            ),
+            field="Categoria", type="nominal",
+            scale=alt.Scale(domain=ae_domains, range=ae_ranges),
             legend=alt.Legend(
                 title=None,
                 orient='right',
                 direction='vertical',
-                columns=2,
                 labelColor='rgba(255,255,255,0.85)',
-                labelFontSize=11,
-                symbolSize=40,
-                padding=2,
-                offset=5
+                labelFontSize=12,
+                symbolType='circle',
+                symbolSize=100,
+                padding=6
             )
         ),
-        tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
-    ).properties(
-        title="🏠 Distribuzione Spese Fisse",
-        width=200,
-        height=220
-    ).configure_title(anchor='middle').configure_view(strokeWidth=0, fill='transparent')
-
-    # =========================
-    # PLACEHOLDER CHARTS
-    # =========================
-    chart_variabili = None
-    chart_altre_entrate = None
-
+        tooltip=["Categoria", "Importo", "Percentuale"]
+    )
+    chart_altre_entrate = ae_arc.properties(
+        title='➕ Distribuzione Altre Entrate'
+    ).interactive()
+    
     return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
+
+
 def main():
 
     st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
