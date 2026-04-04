@@ -570,33 +570,34 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-    #CREAZIONE NOTA
-    NOTE_HEADERS = ["id", "testo"]
-    worksheet_name = "Note"
-    
-    # Carica i dati esistenti
-    df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
-    
-    # Se il foglio è vuoto, creiamo la riga iniziale
-    if df_note.empty:
-        df_note = pd.DataFrame([{"id": 1, "testo": ""}])
-        save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-    
-    # Prendi il testo della nota (id = 1)
-    nota_corrente = df_note.loc[df_note["id"] == 1, "testo"].values[0]
-    
-    # ───────── Text area modificabile ─────────
-    st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
-    testo = st.text_area("Scrivi qui la tua nota:", value=nota_corrente, height=200)
-    
-    # ───────── Bottone per salvare ─────────
-    if st.button("Salva Nota"):
-        df_note.loc[df_note["id"] == 1, "testo"] = testo
-        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-            st.success("Nota salvata!")
-        else:
-            st.error("Errore durante il salvataggio.")    
-    #FINECREAZIONE NOTA
+    with col_stip_inserimento4:
+        #CREAZIONE NOTA
+        NOTE_HEADERS = ["id", "testo"]
+        worksheet_name = "Note"
+        
+        # Carica i dati esistenti
+        df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+        
+        # Se il foglio è vuoto, creiamo la riga iniziale
+        if df_note.empty:
+            df_note = pd.DataFrame([{"id": 1, "testo": ""}])
+            save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
+        
+        # Prendi il testo della nota (id = 1)
+        nota_corrente = df_note.loc[df_note["id"] == 1, "testo"].values[0]
+        
+        # ───────── Text area modificabile ─────────
+        st.markdown('<div class="section-pill">📝 Promemoria Personale</div>', unsafe_allow_html=True)
+        testo = st.text_area("Scrivi qui la tua nota:", value=nota_corrente, height=200)
+        
+        # ───────── Bottone per salvare ─────────
+        if st.button("Salva Nota"):
+            df_note.loc[df_note["id"] == 1, "testo"] = testo
+            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                st.success("Nota salvata!")
+            else:
+                st.error("Errore durante il salvataggio.")    
+        #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
