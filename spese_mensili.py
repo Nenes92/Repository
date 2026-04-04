@@ -595,10 +595,10 @@ def main():
             
             with col:
                 # Titolo + bottone sulla stessa riga
-                col_title, col_btn = st.columns([7, 1])
-                with col_title:
+                col_title_nota, col_btn_nota = st.columns([7, 1])
+                with col_title_nota:
                     st.markdown(f'<div class="section-pill">📝 Nota {nota_id}</div>', unsafe_allow_html=True)
-                with col_btn:
+                with col_btn_nota:
                     salva = st.button(f"Salva Nota {nota_id}", key=f"btn_{nota_id}")
                 
                 # Text area modificabile stile post-it giallo chiaro
@@ -633,10 +633,10 @@ def main():
                         st.error(f"Errore durante il salvataggio della Nota {nota_id}.")
     
         # ───────── Creazione colonne per le 3 note ─────────
-        col1, col2, col3 = st.columns(3)
-        render_nota(1, col1)
-        render_nota(2, col2)
-        render_nota(3, col3)
+        col_nota_testo1, col_nota_testo2, col_nota_testo3 = st.columns(3)
+        render_nota(1, col_nota_testo1)
+        render_nota(2, col_nota_testo2)
+        render_nota(3, col_nota_testo3)
         #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
