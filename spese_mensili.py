@@ -923,8 +923,8 @@ def main():
                 color='rgba(255,255,255,0.7)',
                 fontSize=12
             ),
-            width=220,
-            height=220
+            width=160,
+            height=160
         )
 
         chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
@@ -950,8 +950,8 @@ def main():
                 color='rgba(255,255,255,0.7)',
                 fontSize=12
             ),
-            width=220,
-            height=220
+            width=160,
+            height=160
         )
 
 
