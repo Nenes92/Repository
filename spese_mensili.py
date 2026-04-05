@@ -852,7 +852,7 @@ def main():
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfpo}% dello stipendio totale</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Risparmiabili</div>
+                <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
                 <div class="kpi-value" style="color:#a3e635;">{_ri}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio totale</div>
@@ -954,7 +954,7 @@ def main():
         with col2_left:
             st.markdown("---")
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
-            st.subheader("Spese Variabili Rimanenti:")
+            st.subheader("Spese Variabili:")
     
             da_spendere = 0
             spese_quotidiane = 0
