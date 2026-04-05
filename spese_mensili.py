@@ -917,8 +917,14 @@ def main():
                 alt.Tooltip("Percentuale:Q", title="% sul Totale", format=".1f")
             ]
         ).properties(
-            title=alt.TitleParams("Stipendio Totale", color='rgba(255,255,255,0.7)', fontSize=12),
-            width=220, height=220
+            title=alt.TitleParams(
+                "Stipendio Totale",
+                anchor='middle',   # <-- centra il titolo
+                color='rgba(255,255,255,0.7)',
+                fontSize=12
+            ),
+            width=220,
+            height=220
         )
 
         chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
@@ -938,9 +944,16 @@ def main():
                 alt.Tooltip("Percentuale:Q", title="% su Scelto", format=".1f")
             ]
         ).properties(
-            title=alt.TitleParams("Stipendio da Utilizzare", color='rgba(255,255,255,0.7)', fontSize=12),
-            width=220, height=220
+            title=alt.TitleParams(
+                "Stipendio da Utilizzare",
+                anchor='middle',   # <-- centra il titolo
+                color='rgba(255,255,255,0.7)',
+                fontSize=12
+            ),
+            width=220,
+            height=220
         )
+
 
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
