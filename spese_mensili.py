@@ -1382,7 +1382,7 @@ def main():
                 ).properties(
                     title="💳 Distribuzione Carte",
                     width=200,
-                    height=320,
+                    height=220,
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
