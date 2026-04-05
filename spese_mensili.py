@@ -1192,7 +1192,7 @@ def main():
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'Totale spese fisse: <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
-            st.markdown(f'Totale spese fisse: <span style="color:#f87171; font-size:10pt;">{_sf}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:#f87171; font-size:10pt; Totale spese fisse: ">{_sf}</span>', unsafe_allow_html=True)
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
