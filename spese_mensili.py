@@ -487,20 +487,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         strokeWidth=0,
         fill='transparent'
     )
-    
-    totale = df_fisse["Importo"].sum()
-    text_totale = alt.Chart(pd.DataFrame({
-        "label": [f"Totale: € {totale:,.0f}"]
-    })).mark_text(
-        align='center',
-        baseline='top',
-        fontSize=11,
-        color='rgba(255,255,255,0.85)'
-    ).encode(
-        x=alt.value(100),
-        y=alt.value(210),
-        text='label'
-    )
 
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
