@@ -479,8 +479,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         ]
     ).properties(
         title="🏠 Distribuzione Spese Fisse",
-        width=200,
-        height=220
+        width=160,
+        height=160
     ).configure_title(
         anchor='middle'
     ).configure_view(
@@ -509,7 +509,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         )),
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
-    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=280, height=280).interactive()
+    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=160, height=160).interactive()
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Altre Entrate donut — no legend, tooltip only
