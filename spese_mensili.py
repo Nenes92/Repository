@@ -486,14 +486,22 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     ).configure_view(
         strokeWidth=0,
         fill='transparent'
-    ).properties(
-        title=alt.TitleParams(
-            "Totale Spese Fisse: ",
-            anchor='bottom',
-            color='rgba(255,255,255,0.7)',
-            fontSize=12
-        )
     )
+    
+    totale = df_fisse["Importo"].sum()
+    text_totale = alt.Chart(pd.DataFrame({
+        "label": [f"Totale: € {totale:,.0f}"]
+    })).mark_text(
+        align='center',
+        baseline='top',
+        fontSize=11,
+        color='rgba(255,255,255,0.85)'
+    ).encode(
+        x=alt.value(100),
+        y=alt.value(210),
+        text='label'
+    )
+
     
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
@@ -555,7 +563,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         title='➕ Distribuzione Altre Entrate'
     ).interactive()
     
-    return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
+    return chart_fisse + text_totale, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
 
 
 def color_text(text, color):
