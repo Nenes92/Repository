@@ -1187,7 +1187,6 @@ def main():
         with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             
-        st.markdown('<div class="section-pill";">🏠 Spese Fisse</div>',unsafe_allow_html=True)
         col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
