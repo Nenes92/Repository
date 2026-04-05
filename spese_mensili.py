@@ -1184,7 +1184,7 @@ def main():
     
         # Visualizzazione grafici
         col_center_pill = st.columns([1, 2, 1])[1]
-        with col_center:
+        with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             
         st.markdown('<div class="section-pill";">🏠 Spese Fisse</div>',unsafe_allow_html=True)
