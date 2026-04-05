@@ -568,7 +568,7 @@ def main():
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50)
     with col_stip_inserimento2:
         st.markdown('<div style="height: 40px;"></div>', unsafe_allow_html=True)
-        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, max_value=input_stipendio_originale, value=input_stipendio_scelto, step=50)
+        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, max_value=stipendio_originale, step=50)
         st.markdown('<div style="height: 45px;"></div>', unsafe_allow_html=True)
     with col_stip_inserimento3:
         st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
