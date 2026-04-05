@@ -502,7 +502,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         text='label'
     )
 
-    
+    chart_fisse_2 = chart_fisse + text_totale
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
@@ -563,7 +563,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         title='➕ Distribuzione Altre Entrate'
     ).interactive()
 
-    chart_fisse_2 = chart_fisse + text_totale
     return chart_fisse_2, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
 
 
