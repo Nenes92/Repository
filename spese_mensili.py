@@ -914,7 +914,7 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% sul Totale", format=".1f")
             ]
         ).properties(
             title=alt.TitleParams("Stipendio Totale", color='rgba(255,255,255,0.7)', fontSize=12),
@@ -935,7 +935,7 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% su Scelto", format=".1f")
             ]
         ).properties(
             title=alt.TitleParams("Stipendio da Utilizzare", color='rgba(255,255,255,0.7)', fontSize=12),
