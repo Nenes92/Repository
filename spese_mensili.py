@@ -563,8 +563,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         title='➕ Distribuzione Altre Entrate'
     ).interactive()
 
-    chart_fisse += text_totale
-    return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
+    chart_fisse_2 = chart_fisse + text_totale
+    return chart_fisse_2, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
 
 
 def color_text(text, color):
