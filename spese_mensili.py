@@ -479,7 +479,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         ]
     ).properties(
         title="🏠 Distribuzione Spese Fisse",
-        width=200,
+        width=300,
         height=220
     ).configure_title(
         anchor='middle'
@@ -1343,7 +1343,6 @@ def main():
     
             # FIX 4: NEW "Carte" donut chart
             with col_Distribuzione_Carte_2:  
-                st.subheader("Trasferimenti sulle Carte:")
                 # Calculate totals per card
                 ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
                 revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
