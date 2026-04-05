@@ -1185,9 +1185,9 @@ def main():
         # Visualizzazione grafici
         col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
         with col1_1:
+            st.markdown('<div class="section-pill" style="text-align: center;">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.altair_chart(chart_fisse, use_container_width=True)
         with col1_2:
-            st.markdown('<div class="section-pill" style="text-align: center;">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.subheader("Dettaglio Spese Fisse:")
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
             df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
