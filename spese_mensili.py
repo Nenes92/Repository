@@ -486,6 +486,15 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     ).configure_view(
         strokeWidth=0,
         fill='transparent'
+    ).properties(
+        title=alt.TitleParams(
+            "Totale Spese Fisse: ",
+            anchor='bottom',
+            color='rgba(255,255,255,0.7)',
+            fontSize=12
+        ),
+        width=160,
+        height=160
     )
     
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
