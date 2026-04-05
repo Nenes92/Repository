@@ -1186,6 +1186,7 @@ def main():
         col_center_pill = st.columns([1, 2, 1])[1]
         with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             
         col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
         with col1_1:
