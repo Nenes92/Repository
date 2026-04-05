@@ -479,7 +479,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         ]
     ).properties(
         title="🏠 Distribuzione Spese Fisse",
-        width=300,
+        width=200,
         height=220
     ).configure_title(
         anchor='middle'
@@ -1382,7 +1382,7 @@ def main():
                 ).properties(
                     title="💳 Distribuzione Carte",
                     width=200,
-                    height=220,
+                    height=320,
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
