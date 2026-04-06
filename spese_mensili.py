@@ -680,17 +680,88 @@ def main():
             with col4_postit:
                 nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")
             # ───────── SALVATAGGIO UNICO ─────────
-            if st.button("💾 Salva tutte le note"):
-                df_note.loc[0, "nota1"] = nota1
-                df_note.loc[0, "nota2"] = nota2
-                df_note.loc[0, "nota3"] = nota3
-                df_note.loc[0, "nota4"] = nota4
-        
-                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                    st.success("Note salvate")
-                else:
-                    st.error("Errore salvataggio")
-        #FINE CREAZIONE NOTA
+            with col_stip_inserimento4:
+
+    # ───────── STILE POST-IT ─────────
+    st.markdown("""
+    <style>
+    textarea {
+        background-color: rgba(255, 241, 118, 0.35) !important;
+        color: black !important;
+        border-radius: 12px !important;
+        border: none !important;
+        box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
+        padding: 10px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ───────── CONFIG ─────────
+    NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
+    worksheet_name = "Note"
+
+    df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+
+    # ───────── MIGRAZIONE AUTOMATICA ─────────
+    colonne_attese = NOTE_HEADERS
+
+    for col in colonne_attese:
+        if col not in df_note.columns:
+            df_note[col] = ""
+
+    if "testo" in df_note.columns:
+        df_note["nota1"] = df_note["testo"]
+        df_note = df_note.drop(columns=["testo"])
+
+    if df_note.empty:
+        df_note = pd.DataFrame([{
+            "id": 1,
+            "nota1": "",
+            "nota2": "",
+            "nota3": "",
+            "nota4": ""
+        }])
+
+    save_data_gsheets(worksheet_name, colonne_attese, df_note)
+
+    nota_corrente = df_note.iloc[0]
+
+    # ───────── TITOLO ─────────
+    st.markdown(
+        '<div class="section-pill">📝 Promemoria</div>',
+        unsafe_allow_html=True
+    )
+
+    # ───────── NOTE ─────────
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
+
+    with col2:
+        nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
+
+    with col3:
+        nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
+
+    with col4:
+        nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
+
+    # ───────── BOTTONE A DESTRA (SOTTO) ─────────
+    col_spazio, col_btn = st.columns([6, 1])
+    with col_btn:
+        salva = st.button("💾 Salva", use_container_width=True)
+    # ───────── SALVATAGGIO ─────────
+    if salva:
+        df_note.loc[0, "nota1"] = nota1
+        df_note.loc[0, "nota2"] = nota2
+        df_note.loc[0, "nota3"] = nota3
+        df_note.loc[0, "nota4"] = nota4
+        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+            st.success("Note salvate")
+        else:
+            st.error("Errore salvataggio")
+    #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
