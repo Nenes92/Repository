@@ -671,8 +671,7 @@ def main():
             unsafe_allow_html=True
         )
     
-        col1_postit, col2_postit = st.columns(2)
-        col3_postit, col4_postit = st.columns(2)
+        col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
     
         with col1_postit:
             nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
