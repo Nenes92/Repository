@@ -330,9 +330,9 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=2300
+input_stipendio_originale=2350
 input_risparmi_mese_precedente=0
-input_stipendio_scelto=2000
+input_stipendio_scelto=2350
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -355,9 +355,9 @@ SPESE = {
         "Alleanza - PAC": 100,
         "Macchina": 180,
         "Trasporti": 165,
-        "Sport": 90,
+        "Sport": 70,
         "Psicologo": 100,
-        "Altro/C": 150,
+        "Altro/C": 135,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
@@ -487,7 +487,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         strokeWidth=0,
         fill='transparent'
     )
-    
+
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
     variabili_color_scale = alt.Scale(
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
@@ -509,7 +509,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         )),
         tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
     )
-    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=280, height=280).interactive()
+    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=160, height=160).interactive()
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Altre Entrate donut — no legend, tooltip only
@@ -547,7 +547,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     chart_altre_entrate = ae_arc.properties(
         title='➕ Distribuzione Altre Entrate'
     ).interactive()
-    
+
     return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
 
 
@@ -607,7 +607,7 @@ def main():
             """, unsafe_allow_html=True)
 
     with col_stip_inserimento4:
-        # ───────── STILE POST-IT (UNA VOLTA SOLA) ─────────
+        # ───────── STILE POST-IT ─────────
         st.markdown("""
         <style>
         textarea {
@@ -621,66 +621,82 @@ def main():
         </style>
         """, unsafe_allow_html=True)
     
-        # ───────── CONFIG NOTE ─────────
-        NOTE_HEADERS = ["id", "testo"]
+        # ───────── CONFIG ─────────
+        NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
         worksheet_name = "Note"
-        
-        df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
     
-        # inizializzazione se vuoto
+        df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+        # ───────── MIGRAZIONE AUTOMATICA ─────────
+        colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
+        
+        # Se le colonne nuove non esistono, le creiamo
+        for col in colonne_attese:
+            if col not in df_note.columns:
+                df_note[col] = ""
+        
+        # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
+        if "testo" in df_note.columns:
+            df_note["nota1"] = df_note["testo"]
+            df_note = df_note.drop(columns=["testo"])
+        
+        # Se vuoto → inizializza
         if df_note.empty:
-            df_note = pd.DataFrame([
-                {"id": 1, "testo": ""},
-                {"id": 2, "testo": ""},
-                {"id": 3, "testo": ""}
-            ])
+            df_note = pd.DataFrame([{
+                "id": 1,
+                "nota1": "",
+                "nota2": "",
+                "nota3": "",
+                "nota4": ""
+            }])
+        
+        # Salviamo struttura aggiornata
+        save_data_gsheets(worksheet_name, colonne_attese, df_note)
+    
+        # ───────── INIT (UNA SOLA RIGA) ─────────
+        if df_note.empty:
+            df_note = pd.DataFrame([{
+                "id": 1,
+                "nota1": "",
+                "nota2": "",
+                "nota3": "",
+                "nota4": ""
+            }])
             save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
     
-        # ───────── FUNZIONE NOTA ─────────
-        def render_nota(nota_id, col):
+        nota_corrente = df_note.iloc[0]
     
-            if nota_id not in df_note["id"].values:
-                df_note.loc[len(df_note)] = {"id": nota_id, "testo": ""}
-                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
+        # ───────── UI ─────────
+        st.markdown(
+            '<div class="section-pill">📝 Promemoria</div>',
+            unsafe_allow_html=True
+        )
     
-            nota_corrente = df_note.loc[df_note["id"] == nota_id, "testo"].values[0]
+        col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
     
-            with col:
-                # titolo + bottone
-                col_title_nota, col_btn_nota = st.columns([2, 1])
+        with col1_postit:
+            nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
     
-                with col_title_nota:
-                    st.markdown(
-                        f'<div class="section-pill">📝 Promemoria {nota_id}</div>',
-                        unsafe_allow_html=True
-                    )
+        with col2_postit:
+            nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
     
-                with col_btn_nota: 
-                    salva = st.button("Salva", key=f"btn_{nota_id}")
+        with col3_postit:
+            nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
     
-                # textarea stile post-it
-                testo = st.text_area(
-                    "",
-                    value=nota_corrente,
-                    height=180,
-                    key=f"text_{nota_id}"
-                )
+        with col4_postit:
+            nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
     
-                # salvataggio
-                if salva:
-                    df_note.loc[df_note["id"] == nota_id, "testo"] = testo
-                    if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                        st.success(f"Nota {nota_id} salvata")
-                    else:
-                        st.error("Errore salvataggio")
+        # ───────── SALVATAGGIO UNICO ─────────
+        if st.button("💾 Salva tutte le note"):
+            df_note.loc[0, "nota1"] = nota1
+            df_note.loc[0, "nota2"] = nota2
+            df_note.loc[0, "nota3"] = nota3
+            df_note.loc[0, "nota4"] = nota4
     
-        # ───────── 3 NOTE AFFIANCATE ─────────
-        col_nota_testo1, col_nota_testo2, col_nota_testo3 = st.columns(3)
-    
-        render_nota(1, col_nota_testo1)
-        render_nota(2, col_nota_testo2)
-        render_nota(3, col_nota_testo3)
-        #FINE CREAZIONE NOTA
+            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                st.success("Note salvate")
+            else:
+                st.error("Errore salvataggio")
+    #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
@@ -852,7 +868,7 @@ def main():
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfpo}% dello stipendio totale</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Risparmiabili</div>
+                <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
                 <div class="kpi-value" style="color:#a3e635;">{_ri}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio totale</div>
@@ -914,11 +930,17 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% sul Totale", format=".1f")
             ]
         ).properties(
-            title=alt.TitleParams("Stipendio Totale", color='rgba(255,255,255,0.7)', fontSize=12),
-            width=160, height=160
+            title=alt.TitleParams(
+                "Stipendio Totale",
+                anchor='middle',   # <-- centra il titolo
+                color='rgba(255,255,255,0.7)',
+                fontSize=12
+            ),
+            width=160,
+            height=160
         )
 
         chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
@@ -935,12 +957,19 @@ def main():
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% su Scelto", format=".1f")
             ]
         ).properties(
-            title=alt.TitleParams("Stipendio da Utilizzare", color='rgba(255,255,255,0.7)', fontSize=12),
-            width=160, height=160
+            title=alt.TitleParams(
+                "Stipendio da Utilizzare",
+                anchor='middle',   # <-- centra il titolo
+                color='rgba(255,255,255,0.7)',
+                fontSize=12
+            ),
+            width=160,
+            height=160
         )
+
 
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
@@ -954,7 +983,7 @@ def main():
         with col2_left:
             st.markdown("---")
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
-            st.subheader("Spese Variabili Rimanenti:")
+            st.subheader("Spese Variabili:")
     
             da_spendere = 0
             spese_quotidiane = 0
@@ -1170,23 +1199,27 @@ def main():
                     st.altair_chart(chart_altre_entrate, use_container_width=True)
     
         # Visualizzazione grafici
-        with st.container():
-            with st.container():
-                col1_1, col1_2 = st.columns([1, 1])
-                with col1_1:
-                    st.altair_chart(chart_fisse, use_container_width=True)
-                with col1_2:
-                    st.subheader("Dettaglio Spese Fisse:")
-                    df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
-                    df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-                    styled_df_fisse = (
-                        df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
-                        .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                        .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
-                        .set_properties(**{'text-align': 'center'})
-                    )
-                    st.dataframe(styled_df_fisse, use_container_width=True)
-                    st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
+        col_center_pill = st.columns([1, 2, 1])[1]
+        with col_center_pill:
+            st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
+        with col1_1:
+            st.altair_chart(chart_fisse, use_container_width=True)
+            st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
+        with col1_2:
+            st.subheader("Dettaglio Spese Fisse:")
+            df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
+            df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
+            styled_df_fisse = (
+                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
+                .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
+                .set_properties(**{'text-align': 'center'})
+            )
+            st.dataframe(styled_df_fisse, use_container_width=True)
+            st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
     
                 
 
@@ -1260,7 +1293,7 @@ def main():
                             field="Component", type="nominal",
                             scale=alt.Scale(
                                 domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                range=['#9ca3af', '#60a5fa', '#fde047', '#fbbf24']
+                                range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
                             ),
                             legend=alt.Legend(
                                 title=None,
@@ -1329,7 +1362,7 @@ def main():
                 st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
     
             # FIX 4: NEW "Carte" donut chart
-            with col_Distribuzione_Carte_2:    
+            with col_Distribuzione_Carte_2:  
                 # Calculate totals per card
                 ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
                 revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
@@ -1839,7 +1872,7 @@ with col_chart:
 
             # Line: Media Stipendi
             line_media_stip = alt.Chart(chart_data).mark_line(
-                color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True
+                color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True, opacity=0.4
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi),
                 y=alt.Y("Media Stipendio:Q"),
