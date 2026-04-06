@@ -626,33 +626,18 @@ def main():
         worksheet_name = "Note"
     
         df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+    
         # ───────── MIGRAZIONE AUTOMATICA ─────────
-        colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
-        
-        # Se le colonne nuove non esistono, le creiamo
+        colonne_attese = NOTE_HEADERS
+    
         for col in colonne_attese:
             if col not in df_note.columns:
                 df_note[col] = ""
-        
-        # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
+    
         if "testo" in df_note.columns:
             df_note["nota1"] = df_note["testo"]
             df_note = df_note.drop(columns=["testo"])
-        
-        # Se vuoto → inizializza
-        if df_note.empty:
-            df_note = pd.DataFrame([{
-                "id": 1,
-                "nota1": "",
-                "nota2": "",
-                "nota3": "",
-                "nota4": ""
-            }])
-        
-        # Salviamo struttura aggiornata
-        save_data_gsheets(worksheet_name, colonne_attese, df_note)
     
-        # ───────── INIT (UNA SOLA RIGA) ─────────
         if df_note.empty:
             df_note = pd.DataFrame([{
                 "id": 1,
@@ -661,32 +646,41 @@ def main():
                 "nota3": "",
                 "nota4": ""
             }])
-            save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
+    
+        save_data_gsheets(worksheet_name, colonne_attese, df_note)
     
         nota_corrente = df_note.iloc[0]
     
-        # ───────── UI ─────────
-        st.markdown(
-            '<div class="section-pill">📝 Promemoria</div>',
-            unsafe_allow_html=True
-        )
+        # ───────── HEADER (TITOLO + BOTTONE) ─────────
+        col_title, col_btn = st.columns([5, 1])
     
-        col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
+        with col_title:
+            st.markdown(
+                '<div class="section-pill">📝 Promemoria</div>',
+                unsafe_allow_html=True
+            )
     
-        with col1_postit:
+        with col_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            salva = st.button("💾 Salva", use_container_width=True)
+    
+        # ───────── NOTE ─────────
+        col1, col2, col3, col4 = st.columns(4)
+    
+        with col1:
             nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
     
-        with col2_postit:
+        with col2:
             nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
     
-        with col3_postit:
+        with col3:
             nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
     
-        with col4_postit:
+        with col4:
             nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
     
-        # ───────── SALVATAGGIO UNICO ─────────
-        if st.button("💾 Salva tutte le note"):
+        # ───────── SALVATAGGIO ─────────
+        if salva:
             df_note.loc[0, "nota1"] = nota1
             df_note.loc[0, "nota2"] = nota2
             df_note.loc[0, "nota3"] = nota3
@@ -696,7 +690,7 @@ def main():
                 st.success("Note salvate")
             else:
                 st.error("Errore salvataggio")
-    #FINE CREAZIONE NOTA
+        #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
