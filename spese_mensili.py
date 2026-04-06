@@ -1458,17 +1458,6 @@ def save_data_local(percorso_file, data):
         time.sleep(3)
         placeholder.empty()
 
-
-def download_data_button(data, file_name):
-    json_data = json.dumps(data.to_dict(orient="records"), indent=4, default=str)
-    st.download_button(
-        label=f"⬇️   Download {file_name}",
-        data=json_data,
-        file_name=file_name,
-        mime="application/json"
-    )
-
-
 #####################################
 # FUNZIONI PER CALCOLI E GRAFICI
 #####################################
@@ -1687,7 +1676,7 @@ st.title("Storico Stipendi e Risparmi")
 STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
 data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
 
-col_sx_stip, col_cx_stip_download, col_dx_stip_chart = st.columns([1, 1, 2])
+col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns([1, 1, 2])
 with col_sx_stip:
     st.subheader("Inserisci Dati")
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
@@ -1751,8 +1740,6 @@ with col_sx_stip:
             time.sleep(3)
             placeholder.empty()
 
-with col_cx_stip_download:
-    download_data_button(data_stipendi, "storico_stipendi.json")
 with col_dx_stip_chart:
     st.markdown("### Confronto Anno su Anno degli Stipendi")
     if not data_stipendi.empty:
@@ -1960,7 +1947,7 @@ st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradien
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
 
-col_sx_bol, col_cx_bol_download, col_dx_bol_chart = st.columns([1, 1, 2])
+col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns([1, 1, 2])
 
 with col_sx_bol:
     with st.container():
@@ -2032,8 +2019,6 @@ with col_sx_bol:
                 time.sleep(3)
                 placeholder.empty()
 
-with col_cx_bol_download:
-    download_data_button(data_bollette, "storico_bollette.json")
 with col_dx_bol_chart:
     st.markdown("### Confronto Anno su Anno delle Bollette")
     if not data_bollette.empty:
