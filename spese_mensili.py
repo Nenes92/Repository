@@ -341,6 +341,10 @@ decisione_budget_bollette_mensili=180
 
 emergenze_compleanni=0.15
 viaggi=0.07
+
+triangolino_verde_BNL = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid green; margin-left:10px;"></span>'
+triangolino_arancione_ING = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #D2691E; margin-left:10px;"></span>'
+triangolino_blu_Revolut = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #89CFF0; margin-left:10px;"></span>'
 # /////  
 
 SPESE = {
@@ -1120,11 +1124,11 @@ def main():
             st.subheader("Altre Entrate:")
             for voce, importo in ALTRE_ENTRATE.items():
                 if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}"'<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid green; margin-left:10px;"></span>', "#E6C48C"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
                 elif voce in ["Altro"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
                 elif voce in ["Seconda Entrata"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
                 else:
                     st.write(f"- {voce}: €{importo:.2f}")
         
