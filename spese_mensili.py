@@ -626,6 +626,31 @@ def main():
         worksheet_name = "Note"
     
         df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+        # ───────── MIGRAZIONE AUTOMATICA ─────────
+        colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
+        
+        # Se le colonne nuove non esistono, le creiamo
+        for col in colonne_attese:
+            if col not in df_note.columns:
+                df_note[col] = ""
+        
+        # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
+        if "testo" in df_note.columns:
+            df_note["nota1"] = df_note["testo"]
+            df_note = df_note.drop(columns=["testo"])
+        
+        # Se vuoto → inizializza
+        if df_note.empty:
+            df_note = pd.DataFrame([{
+                "id": 1,
+                "nota1": "",
+                "nota2": "",
+                "nota3": "",
+                "nota4": ""
+            }])
+        
+        # Salviamo struttura aggiornata
+        save_data_gsheets(worksheet_name, colonne_attese, df_note)
     
         # ───────── INIT (UNA SOLA RIGA) ─────────
         if df_note.empty:
