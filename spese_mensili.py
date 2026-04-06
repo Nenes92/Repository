@@ -653,25 +653,24 @@ def main():
     
         # ───────── TITOLO ─────────
         st.markdown(
-            '<div class="section-pill">📝 Promemoria</div>',
+            '<div class="section-pill">📝 Promemoria/Note</div>',
             unsafe_allow_html=True
         )
     
         # ───────── NOTE ─────────
         col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
-    
+        
         with col1_postit:
-            nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
-    
+            nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150, label_visibility="collapsed")
+        
         with col2_postit:
-            nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
-    
+            nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150, label_visibility="collapsed")
+        
         with col3_postit:
-            nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
-    
+            nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150, label_visibility="collapsed")
+        
         with col4_postit:
-            nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
-    
+            nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")    
         # ───────── BOTTONE A DESTRA (SOTTO) ─────────
         col_spazio, col_btn = st.columns([6, 1])
     
