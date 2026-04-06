@@ -607,80 +607,72 @@ def main():
             """, unsafe_allow_html=True)
 
     with col_stip_inserimento4:
-        # ───────── STILE POST-IT (UNA VOLTA SOLA) ─────────
-        st.markdown("""
-        <style>
-        textarea {
-            background-color: rgba(255, 241, 118, 0.35) !important;
-            color: black !important;
-            border-radius: 12px !important;
-            border: none !important;
-            box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
-            padding: 10px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-        # ───────── CONFIG NOTE ─────────
-        NOTE_HEADERS = ["id", "testo"]
-        worksheet_name = "Note"
-        
-        df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
-    
-        # inizializzazione se vuoto
-        if df_note.empty:
-            df_note = pd.DataFrame([
-                {"id": 1, "testo": ""},
-                {"id": 2, "testo": ""},
-                {"id": 3, "testo": ""}
-            ])
-            save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-    
-        # ───────── FUNZIONE NOTA ─────────
-        def render_nota(nota_id, col):
-    
-            if nota_id not in df_note["id"].values:
-                df_note.loc[len(df_note)] = {"id": nota_id, "testo": ""}
-                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-    
-            nota_corrente = df_note.loc[df_note["id"] == nota_id, "testo"].values[0]
-    
-            with col:
-                # titolo + bottone
-                col_title_nota, col_btn_nota = st.columns([2, 1])
-    
-                with col_title_nota:
-                    st.markdown(
-                        f'<div class="section-pill">📝 Promemoria {nota_id}</div>',
-                        unsafe_allow_html=True
-                    )
-    
-                with col_btn_nota: 
-                    salva = st.button("Salva", key=f"btn_{nota_id}")
-    
-                # textarea stile post-it
-                testo = st.text_area(
-                    "",
-                    value=nota_corrente,
-                    height=180,
-                    key=f"text_{nota_id}"
-                )
-    
-                # salvataggio
-                if salva:
-                    df_note.loc[df_note["id"] == nota_id, "testo"] = testo
-                    if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                        st.success(f"Nota {nota_id} salvata")
-                    else:
-                        st.error("Errore salvataggio")
-    
-        # ───────── 3 NOTE AFFIANCATE ─────────
-        col_nota_testo1, col_nota_testo2, col_nota_testo3 = st.columns(3)
-    
-        render_nota(1, col_nota_testo1)
-        render_nota(2, col_nota_testo2)
-        render_nota(3, col_nota_testo3)
-        #FINE CREAZIONE NOTA
+    # ───────── STILE POST-IT ─────────
+    st.markdown("""
+    <style>
+    textarea {
+        background-color: rgba(255, 241, 118, 0.35) !important;
+        color: black !important;
+        border-radius: 12px !important;
+        border: none !important;
+        box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
+        padding: 10px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ───────── CONFIG ─────────
+    NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
+    worksheet_name = "Note"
+
+    df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+
+    # ───────── INIT (UNA SOLA RIGA) ─────────
+    if df_note.empty:
+        df_note = pd.DataFrame([{
+            "id": 1,
+            "nota1": "",
+            "nota2": "",
+            "nota3": "",
+            "nota4": ""
+        }])
+        save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
+
+    nota_corrente = df_note.iloc[0]
+
+    # ───────── UI ─────────
+    st.markdown(
+        '<div class="section-pill">📝 Promemoria</div>',
+        unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns(2)
+    col3, col4 = st.columns(2)
+
+    with col1:
+        nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
+
+    with col2:
+        nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
+
+    with col3:
+        nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
+
+    with col4:
+        nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
+
+    # ───────── SALVATAGGIO UNICO ─────────
+    if st.button("💾 Salva tutte le note"):
+        df_note.loc[0, "nota1"] = nota1
+        df_note.loc[0, "nota2"] = nota2
+        df_note.loc[0, "nota3"] = nota3
+        df_note.loc[0, "nota4"] = nota4
+
+        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+            st.success("Note salvate")
+        else:
+            st.error("Errore salvataggio")
+    #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
