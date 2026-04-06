@@ -1120,7 +1120,7 @@ def main():
             st.subheader("Altre Entrate:")
             for voce, importo in ALTRE_ENTRATE.items():
                 if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f}"'<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid green; margin-left:10px;"></span>', "#E6C48C"), unsafe_allow_html=True)
                 elif voce in ["Altro"]:
                     st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
                 elif voce in ["Seconda Entrata"]:
@@ -1553,7 +1553,7 @@ def crea_grafico_stipendi(data):
     alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
     )
     points_chart = base_line.mark_point(shape="circle", size=60, filled=True, opacity=0.85).encode(
-        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), detail="Categoria:N", title="Stipendi")
+        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
     )
     chart_line = line_chart + points_chart
 
