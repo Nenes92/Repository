@@ -1553,7 +1553,7 @@ def crea_grafico_stipendi(data):
     alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
     )
     points_chart = base_line.mark_point(shape="circle", size=60, filled=True, opacity=0.85).encode(
-        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range), title="Stipendi")
+        alt.Color("Categoria:N", scale=alt.Scale(domain=line_categories, range=line_color_range))#, title="Stipendi")
     )
     chart_line = line_chart + points_chart
 
