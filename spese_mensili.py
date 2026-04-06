@@ -1113,21 +1113,65 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-            st.subheader("Altre Entrate:")
-        
-            for voce, importo in ALTRE_ENTRATE.items():
-                if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
-                elif voce in ["Altro"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
-                elif voce in ["Seconda Entrata"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
-                else:
-                    st.write(f"- {voce}: €{importo:.2f}")
-        
-            totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}"
+            col_altre_entrate, col_calcolatrice = st.columns([1, 2])
+            with col_altre_entrate:
+                st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+                st.subheader("Altre Entrate:")
+                for voce, importo in ALTRE_ENTRATE.items():
+                    if voce in ["Macchina (Mamma)"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+                    elif voce in ["Altro"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+                    elif voce in ["Seconda Entrata"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
+                    else:
+                        st.write(f"- {voce}: €{importo:.2f}")
+            
+                totale_altre = sum(ALTRE_ENTRATE.values())
+                _ae = f"€{totale_altre:.2f}"
+            with col_calcolatrice:
+                # ───────── STATO ─────────
+                if "calc" not in st.session_state:
+                    st.session_state.calc = ""
+                # ───────── FUNZIONI ─────────
+                def add(val):
+                    st.session_state.calc += str(val)                
+                def clear():
+                    st.session_state.calc = ""                
+                def compute():
+                    try:
+                        st.session_state.calc = str(eval(st.session_state.calc))
+                    except:
+                        st.session_state.calc = "Errore"
+                # ───────── UI ─────────
+                st.markdown("### 🧮")
+                st.text_input(
+                    "",
+                    value=st.session_state.calc,
+                    key="display",
+                    label_visibility="collapsed"
+                )
+                # Bottoni
+                buttons = [
+                    "7","8","9","/",
+                    "4","5","6","*",
+                    "1","2","3","-",
+                    "0",".","=","+"
+                ]
+                cols = st.columns(4)
+                for i, val in enumerate(buttons):
+                    with cols[i % 4]:
+                        if st.button(val, use_container_width=True):
+                            if val == "=":
+                                compute()
+                            else:
+                                add(val)
+                # Riga finale
+                col_c, col_spazio = st.columns([1,3])
+                
+                with col_c:
+                    if st.button("C", use_container_width=True):
+                        clear()
             
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
