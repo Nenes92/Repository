@@ -659,24 +659,29 @@ def main():
     
         # ───────── NOTE ─────────
         col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
+        def postit(col, numero, valore):
+            with col:
+                st.markdown(
+                    f"""
+                    <div style="text-align:right; font-size:10px; color:rgba(0,0,0,0.4); margin-bottom:-10px;">
+                        {numero}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
         
-        with col1_postit:
-            nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150, label_visibility="collapsed")
+                return st.text_area(
+                    "",
+                    value=valore,
+                    height=150,
+                    label_visibility="collapsed",
+                    key=f"nota_{numero}"
+                )
         
-        with col2_postit:
-            nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150, label_visibility="collapsed")
-        
-        with col3_postit:
-            nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150, label_visibility="collapsed")
-        
-        with col4_postit:
-            nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")    
-        # ───────── BOTTONE A DESTRA (SOTTO) ─────────
-        col_spazio, col_btn = st.columns([6, 1])
-    
-        with col_btn:
-            salva = st.button("💾 Salva", use_container_width=True)
-    
+        nota1 = postit(col1_postit, 1, nota_corrente["nota1"])
+        nota2 = postit(col2_postit, 2, nota_corrente["nota2"])
+        nota3 = postit(col3_postit, 3, nota_corrente["nota3"])
+        nota4 = postit(col4_postit, 4, nota_corrente["nota4"])
         # ───────── SALVATAGGIO ─────────
         if salva:
             df_note.loc[0, "nota1"] = nota1
