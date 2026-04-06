@@ -671,19 +671,19 @@ def main():
             unsafe_allow_html=True
         )
     
-        col1, col2 = st.columns(2)
-        col3, col4 = st.columns(2)
+        col1_postit, col2_postit = st.columns(2)
+        col3_postit, col4_postit = st.columns(2)
     
-        with col1:
+        with col1_postit:
             nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
     
-        with col2:
+        with col2_postit:
             nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
     
-        with col3:
+        with col3_postit:
             nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
     
-        with col4:
+        with col4_postit:
             nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
     
         # ───────── SALVATAGGIO UNICO ─────────
