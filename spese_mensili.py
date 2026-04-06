@@ -557,8 +557,11 @@ def color_text(text, color):
 
 def main():
 
-    st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
-    st.title("Calcolatore di Spese Personali")
+    col_titolo_left, col_titolo_center, col_titolo_vuoto = st.columns([1, 1, 1])
+    with col_titolo_left:
+        st.title("Calcolatore di Spese Personali")
+    with col_titolo_center:
+        st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
     col1, col2, col3 = st.columns([1, 2, 2])
