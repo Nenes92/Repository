@@ -651,33 +651,32 @@ def main():
     
         nota_corrente = df_note.iloc[0]
     
-        # ───────── HEADER (TITOLO + BOTTONE) ─────────
-        col_title, col_btn = st.columns([5, 1])
-    
-        with col_title:
-            st.markdown(
-                '<div class="section-pill">📝 Promemoria</div>',
-                unsafe_allow_html=True
-            )
-    
-        with col_btn:
-            st.markdown("<br>", unsafe_allow_html=True)
-            salva = st.button("💾 Salva", use_container_width=True)
+        # ───────── TITOLO ─────────
+        st.markdown(
+            '<div class="section-pill">📝 Promemoria</div>',
+            unsafe_allow_html=True
+        )
     
         # ───────── NOTE ─────────
-        col1, col2, col3, col4 = st.columns(4)
+        col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
     
-        with col1:
+        with col1_postit:
             nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
     
-        with col2:
+        with col2_postit:
             nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
     
-        with col3:
+        with col3_postit:
             nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
     
-        with col4:
+        with col4_postit:
             nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
+    
+        # ───────── BOTTONE A DESTRA (SOTTO) ─────────
+        col_spazio, col_btn = st.columns([6, 1])
+    
+        with col_btn:
+            salva = st.button("💾 Salva", use_container_width=True)
     
         # ───────── SALVATAGGIO ─────────
         if salva:
