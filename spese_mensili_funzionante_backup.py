@@ -341,6 +341,10 @@ decisione_budget_bollette_mensili=180
 
 emergenze_compleanni=0.15
 viaggi=0.07
+
+triangolino_verde_BNL = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid green; margin-left:10px;"></span>'
+triangolino_arancione_ING = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #D2691E; margin-left:10px;"></span>'
+triangolino_blu_Revolut = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #89CFF0; margin-left:10px;"></span>'
 # /////  
 
 SPESE = {
@@ -557,8 +561,11 @@ def color_text(text, color):
 
 def main():
 
-    st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
-    st.title("Calcolatore di Spese Personali")
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    with col_left:
+        st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
+    with col_center:
+        st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
 
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
     col1, col2, col3 = st.columns([1, 2, 2])
@@ -606,97 +613,94 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-    with col_stip_inserimento4:
-        # ───────── STILE POST-IT ─────────
-        st.markdown("""
-        <style>
-        textarea {
-            background-color: rgba(255, 241, 118, 0.35) !important;
-            color: black !important;
-            border-radius: 12px !important;
-            border: none !important;
-            box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
-            padding: 10px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-        # ───────── CONFIG ─────────
-        NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
-        worksheet_name = "Note"
-    
-        df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
-        # ───────── MIGRAZIONE AUTOMATICA ─────────
-        colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
+        with col_stip_inserimento4:
+            # ───────── STILE POST-IT ─────────
+            st.markdown("""
+            <style>
+            textarea {
+                background-color: rgba(255, 241, 118, 0.35) !important;
+                color: black !important;
+                border-radius: 12px !important;
+                border: none !important;
+                box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
+                padding: 10px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
         
-        # Se le colonne nuove non esistono, le creiamo
-        for col in colonne_attese:
-            if col not in df_note.columns:
-                df_note[col] = ""
+            # ───────── CONFIG ─────────
+            NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
+            worksheet_name = "Note"
         
-        # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
-        if "testo" in df_note.columns:
-            df_note["nota1"] = df_note["testo"]
-            df_note = df_note.drop(columns=["testo"])
+            df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+            # ───────── MIGRAZIONE AUTOMATICA ─────────
+            colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
+            
+            # Se le colonne nuove non esistono, le creiamo
+            for col in colonne_attese:
+                if col not in df_note.columns:
+                    df_note[col] = ""
+            
+            # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
+            if "testo" in df_note.columns:
+                df_note["nota1"] = df_note["testo"]
+                df_note = df_note.drop(columns=["testo"])
+            
+            # Se vuoto → inizializza
+            if df_note.empty:
+                df_note = pd.DataFrame([{
+                    "id": 1,
+                    "nota1": "",
+                    "nota2": "",
+                    "nota3": "",
+                    "nota4": ""
+                }])
+            
+            # Salviamo struttura aggiornata
+            save_data_gsheets(worksheet_name, colonne_attese, df_note)
         
-        # Se vuoto → inizializza
-        if df_note.empty:
-            df_note = pd.DataFrame([{
-                "id": 1,
-                "nota1": "",
-                "nota2": "",
-                "nota3": "",
-                "nota4": ""
-            }])
+            # ───────── INIT (UNA SOLA RIGA) ─────────
+            if df_note.empty:
+                df_note = pd.DataFrame([{
+                    "id": 1,
+                    "nota1": "",
+                    "nota2": "",
+                    "nota3": "",
+                    "nota4": ""
+                }])
+                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
         
-        # Salviamo struttura aggiornata
-        save_data_gsheets(worksheet_name, colonne_attese, df_note)
-    
-        # ───────── INIT (UNA SOLA RIGA) ─────────
-        if df_note.empty:
-            df_note = pd.DataFrame([{
-                "id": 1,
-                "nota1": "",
-                "nota2": "",
-                "nota3": "",
-                "nota4": ""
-            }])
-            save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-    
-        nota_corrente = df_note.iloc[0]
-    
-        # ───────── UI ─────────
-        st.markdown(
-            '<div class="section-pill">📝 Promemoria</div>',
-            unsafe_allow_html=True
-        )
-    
-        col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
-    
-        with col1_postit:
-            nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150)
-    
-        with col2_postit:
-            nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150)
-    
-        with col3_postit:
-            nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150)
-    
-        with col4_postit:
-            nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150)
-    
-        # ───────── SALVATAGGIO UNICO ─────────
-        if st.button("💾 Salva tutte le note"):
-            df_note.loc[0, "nota1"] = nota1
-            df_note.loc[0, "nota2"] = nota2
-            df_note.loc[0, "nota3"] = nota3
-            df_note.loc[0, "nota4"] = nota4
-    
-            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                st.success("Note salvate")
-            else:
-                st.error("Errore salvataggio")
-    #FINE CREAZIONE NOTA
+            nota_corrente = df_note.iloc[0]
+        
+            # ───────── UI ─────────
+            st.markdown(
+                '<div class="section-pill">📝 Promemoria</div>',
+                unsafe_allow_html=True
+            )
+            col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
+            with col1_postit:
+                nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150, label_visibility="collapsed")       
+            with col2_postit:
+                nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150, label_visibility="collapsed")            
+            with col3_postit:
+                nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150, label_visibility="collapsed")         
+            with col4_postit:
+                nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")                    
+            # ───────── BOTTONE A DESTRA (SOTTO) ─────────
+            col_spazio, col_btn = st.columns([6, 1])
+            with col_btn:
+                salva = st.button("💾 Salva", use_container_width=True)
+            # ───────── SALVATAGGIO ─────────
+            if salva:
+                df_note.loc[0, "nota1"] = nota1
+                df_note.loc[0, "nota2"] = nota2
+                df_note.loc[0, "nota3"] = nota3
+                df_note.loc[0, "nota4"] = nota4
+                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.success("Note salvate")
+                else:
+                    st.error("Errore salvataggio")
+            #FINE CREAZIONE NOTA
 
     stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
@@ -1118,20 +1122,18 @@ def main():
             st.markdown("---")
             st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
             st.subheader("Altre Entrate:")
-        
             for voce, importo in ALTRE_ENTRATE.items():
                 if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#E6C48C"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
                 elif voce in ["Altro"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#89CFF0"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
                 elif voce in ["Seconda Entrata"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}", "#D8BFD8"), unsafe_allow_html=True)
+                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
                 else:
                     st.write(f"- {voce}: €{importo:.2f}")
         
             totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}"
-            
+            _ae = f"€{totale_altre:.2f}"            
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             with col_altre_entrate_1:
@@ -1239,24 +1241,23 @@ def main():
             v3 = risparmio_da_spendere_calc
             v4 = risparmio_spese_quotidiane_calc
             
-            def riga(voce, valore, colore, extra=""):
+            def riga(voce, valore, colore, triangolino, extra=""):
                 return f"""
                 <div style="
                     color:{colore};
                     margin-bottom:4px;
                 ">
-                    - {voce}: €{valore:.2f}
+                    - {voce}: €{valore:.2f} {triangolino}
                 </div>
                 {extra}
                 """
     
             # Stipendi + Mese precedente + Da spendere + Quotidiane
             html_risparmi = ""
-            html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af")
-            html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa")
-            html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047")
-            html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C")
-            
+            html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af", triangolino_verde_BNL)
+            html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL)
+            html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL)
+            html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL)            
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown("---")
             
@@ -1459,17 +1460,6 @@ def save_data_local(percorso_file, data):
         placeholder.error(f"Errore nel salvataggio di {percorso_file}: {e}")
         time.sleep(3)
         placeholder.empty()
-
-
-def download_data_button(data, file_name):
-    json_data = json.dumps(data.to_dict(orient="records"), indent=4, default=str)
-    st.download_button(
-        label=f"⬇️   Download {file_name}",
-        data=json_data,
-        file_name=file_name,
-        mime="application/json"
-    )
-
 
 #####################################
 # FUNZIONI PER CALCOLI E GRAFICI
@@ -1689,7 +1679,7 @@ st.title("Storico Stipendi e Risparmi")
 STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
 data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
 
-col_sx_stip, col_cx_stip_download, col_dx_stip_chart = st.columns([1, 1, 2])
+col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns([1, 1, 2])
 with col_sx_stip:
     st.subheader("Inserisci Dati")
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
@@ -1753,8 +1743,6 @@ with col_sx_stip:
             time.sleep(3)
             placeholder.empty()
 
-with col_cx_stip_download:
-    download_data_button(data_stipendi, "storico_stipendi.json")
 with col_dx_stip_chart:
     st.markdown("### Confronto Anno su Anno degli Stipendi")
     if not data_stipendi.empty:
@@ -1962,7 +1950,7 @@ st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradien
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
 
-col_sx_bol, col_cx_bol_download, col_dx_bol_chart = st.columns([1, 1, 2])
+col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns([1, 1, 2])
 
 with col_sx_bol:
     with st.container():
@@ -2034,8 +2022,6 @@ with col_sx_bol:
                 time.sleep(3)
                 placeholder.empty()
 
-with col_cx_bol_download:
-    download_data_button(data_bollette, "storico_bollette.json")
 with col_dx_bol_chart:
     st.markdown("### Confronto Anno su Anno delle Bollette")
     if not data_bollette.empty:
