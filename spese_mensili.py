@@ -1241,7 +1241,7 @@ def main():
             v3 = risparmio_da_spendere_calc
             v4 = risparmio_spese_quotidiane_calc
             
-            def riga(voce, valore, colore, extra=""):
+            def riga(voce, valore, colore, triangolino, extra=""):
                 return f"""
                 <div style="
                     color:{colore};
