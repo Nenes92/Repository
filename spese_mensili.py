@@ -1247,7 +1247,7 @@ def main():
                     color:{colore};
                     margin-bottom:4px;
                 ">
-                    - {voce}: €{valore:.2f}
+                    - {voce}: €{valore:.2f} {triangolino}
                 </div>
                 {extra}
                 """
