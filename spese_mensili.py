@@ -1257,7 +1257,7 @@ def main():
             html_risparmi += riga("Dallo Stipendio Originale", v1, triangolino_verde_BNL, "#9ca3af")
             html_risparmi += riga("Dal Mese Precedente", v2, triangolino_verde_BNL, "#60a5fa")
             html_risparmi += riga("Dai 'Da Spendere'", v3, triangolino_verde_BNL, "#fde047")
-            html_risparmi += riga("Dalle 'Spese Quotidiane'", triangolino_verde_BNL, v4, "#FB923C")
+            html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, triangolino_verde_BNL, "#FB923C")
             
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown("---")
