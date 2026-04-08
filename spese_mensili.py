@@ -1024,7 +1024,7 @@ def main():
     
     
             st.markdown("---")
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 2])
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2])
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
                 _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
