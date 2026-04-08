@@ -1239,7 +1239,8 @@ def main():
             st.subheader("Risparmiati del mese:")
         
             kpi_val = f"€{risparmi_mensili_calc:.2f}"
-            kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+            kpi_pct = f"{(risparmi_mensili_calc)/stipendio_utilizzare)*100:.1f}"
+            kpi_pctot = f"{(risparmi_mensili_calc)/stipendio_totale)*100:.1f}"
         
             # valori già calcolati
             v1 = risparmio_stipendi_calc
@@ -1273,7 +1274,8 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
         
