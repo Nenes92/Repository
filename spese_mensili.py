@@ -1033,8 +1033,8 @@ def main():
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_util}% dello Stipendio Utilizzato</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{stipendio_utilizzare}% dello Stipendio da utilizzare</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{stipendio_totale}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
