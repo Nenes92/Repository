@@ -1239,8 +1239,8 @@ def main():
             st.subheader("Risparmiati del mese:")
         
             kpi_val = f"€{risparmi_mensili_calc:.2f}"
-            kpi_pct = f"{(risparmi_mensili_calc)/stipendio_utilizzare)*100:.1f}"
-            kpi_pctot = f"{(risparmi_mensili_calc)/stipendio_totale)*100:.1f}"
+            kpi_pct = f"{risparmi_mensili_calc/stipendio_utilizzare*100:.1f}"
+            kpi_pctot = f"{risparmi_mensili_calc/stipendio_totale*100:.1f}"
         
             # valori già calcolati
             v1 = risparmio_stipendi_calc
