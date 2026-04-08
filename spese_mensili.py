@@ -1027,13 +1027,15 @@ def main():
             col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 2])
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
+                _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
                 _sv_st_util = f"€{spese_variabili_totali/stipendio_utilizzare*100:.1f}"
                 _sv_st_tot = f"€{spese_variabili_totali/stipendio_totale*100:.2f}"
                 st.markdown(f"""
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_util}% dello Stipendio da utilizzare</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_util}% dello Stipendio da Utilizzare</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
