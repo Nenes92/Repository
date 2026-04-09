@@ -1126,29 +1126,39 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-            st.subheader("Altre Entrate:")
-            for voce, importo in ALTRE_ENTRATE.items():
-                if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
-                elif voce in ["Altro"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
-                elif voce in ["Seconda Entrata"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
-                else:
-                    st.write(f"- {voce}: €{importo:.2f}")
-        
+            col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1, 1])
+            with col_altre_entrate_sx:
+                st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+                st.subheader("Altre Entrate:")
+                for voce, importo in ALTRE_ENTRATE.items():
+                    if voce in ["Macchina (Mamma)"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
+                    elif voce in ["Altro"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
+                    elif voce in ["Seconda Entrata"]:
+                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
+                    else:
+                        st.write(f"- {voce}: €{importo:.2f}")
+            with col_altre_entrate_dx:
+                st.markdown(f"""
+                <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                    <div class="kpi-label">Totale Altre Entrate</div>
+                    <div class="kpi-value" style="color:#34d399;">{_ae}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: {_ae_ipot}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            st.markdown("---")
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
             _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
-            st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             with col_altre_entrate_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
                     <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: €{_ae_ipot}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: {_ae_ipot}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
