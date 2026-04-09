@@ -1184,7 +1184,7 @@ def main():
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             percentuale_altre_su_totale_altre = totale_altre/altre_entrate_target
-            _ae_ipot = f"€{percentuale_altre_su_totale_altre *100:.2f}% di Obiettivo Entrate"                    
+            _ae_ipot = f"{percentuale_altre_su_totale_altre *100:.2f}"                    
             with col_altre_entrate_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
