@@ -1127,6 +1127,8 @@ def main():
         with col2_right:
             st.markdown("---")
             col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1, 1])
+            _ae = f"€{totale_altre:.2f}"            
+            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             with col_altre_entrate_sx:
                 st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 st.subheader("Altre Entrate:")
@@ -1140,8 +1142,6 @@ def main():
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
                         totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}"            
-            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             with col_altre_entrate_dx:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
