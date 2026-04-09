@@ -1139,6 +1139,9 @@ def main():
                         st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
+                        totale_altre = sum(ALTRE_ENTRATE.values())
+            _ae = f"€{totale_altre:.2f}"            
+            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             with col_altre_entrate_dx:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
@@ -1149,9 +1152,6 @@ def main():
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
             st.markdown("---")
-            totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}"            
-            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             with col_altre_entrate_1:
                 st.markdown(f"""
