@@ -1130,7 +1130,7 @@ def main():
             col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
-            _ae_ipot = f"€{0.25*stipendio_originale:.2f}"            
+            _ae_ipot = f"€{totale_altre/altre_entrate_target\% di Obiettivo Entrate:.2f}"            
             with col_altre_entrate_sx:
                 st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 st.subheader("Altre Entrate:")
@@ -1189,6 +1189,7 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
                     <div class="kpi-value" style="color:#34d399;">{_ae}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
