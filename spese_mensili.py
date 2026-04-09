@@ -874,7 +874,7 @@ def main():
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
-                <div class="kpi-value" style="color:#a3e635;">{_ri}</div>
+                <div class="kpi-value" style="color:#34d399;">{_ri}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio totale</div>
             </div>
@@ -924,7 +924,7 @@ def main():
                 field="Component", type="nominal",
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
-                    range=['#FF6464', '#a3e635', '#888888']
+                    range=['#FF6464', '#34d399', '#888888']
                 ),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
@@ -952,7 +952,7 @@ def main():
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#a3e635']),
+                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#34d399']),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
                     labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
