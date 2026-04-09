@@ -1129,7 +1129,7 @@ def main():
             col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1, 1])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
-            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
+            _ae_ipot = f"€{0.25*stipendio_originale:.2f}"            
             with col_altre_entrate_sx:
                 st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 st.subheader("Altre Entrate:")
