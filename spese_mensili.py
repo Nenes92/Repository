@@ -1126,7 +1126,7 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1, 1])
+            col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.2])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
             _ae_ipot = f"€{0.25*stipendio_originale:.2f}"            
