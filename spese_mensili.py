@@ -1130,7 +1130,7 @@ def main():
             col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
-            _ae_ipot = f"€{totale_altre/altre_entrate_target\% di Obiettivo Entrate:.2f}"            
+            _ae_ipot = f"€{totale_altre/altre_entrate_target:.2f}% di Obiettivo Entrate"            
             with col_altre_entrate_sx:
                 st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 st.subheader("Altre Entrate:")
