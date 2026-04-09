@@ -1143,14 +1143,38 @@ def main():
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
             with col_altre_entrate_dx:
+                totale_entrate_target = stipendio_originale / 0.8
+                altre_entrate_target = totale_entrate_target - stipendio_originale
+            
+                progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
+                progresso = min(progresso, 1.0)
+            
+                st.markdown("### 🎯 Obiettivo Entrate")
+            
                 st.markdown(f"""
-                <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-                    <div class="kpi-label">Totale Altre Entrate</div>
-                    <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: {_ae_ipot}</div>
+                <div style="font-size:13px; color:rgba(255,255,255,0.6);">
+                Entrate totali desiderate<br>
+                <b style="color:white; font-size:18px;">€{totale_entrate_target:,.2f}</b>
                 </div>
                 """, unsafe_allow_html=True)
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            
+                st.markdown(f"""
+                <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
+                Altre entrate target<br>
+                <b style="color:#34d399; font-size:18px;">€{altre_entrate_target:,.2f}</b>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
+            
+                st.progress(progresso)
+            
+                st.markdown(f"""
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
+                </div>
+                """, unsafe_allow_html=True)
+                
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             with col_altre_entrate_1:
