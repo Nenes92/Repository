@@ -1189,7 +1189,7 @@ def main():
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
-                    <div class="kpi-value" style="color:##77DD77;">{_ae}</div>
+                    <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
                 </div>
                 """, unsafe_allow_html=True)
