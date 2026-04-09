@@ -1167,7 +1167,7 @@ def main():
                 st.markdown(f"""
                 <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
                 Altre entrate target<br>
-                <b style="color:#fef3c7; font-size:18px;">€{altre_entrate_target:,.2f}</b>
+                <b style="color:#8fe28f; font-size:18px;">€{altre_entrate_target:,.2f}</b>
                 </div>
                 """, unsafe_allow_html=True)
             
