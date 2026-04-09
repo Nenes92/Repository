@@ -1997,7 +1997,6 @@ st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear
 #############################
 
 st.markdown('<div class="section-pill">🧾 Storico Bollette</div>', unsafe_allow_html=True)
-st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradient(90deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Storico Bollette</h1>', unsafe_allow_html=True)
 
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
