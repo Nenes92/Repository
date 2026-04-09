@@ -1219,7 +1219,7 @@ def main():
                             field="Voce", type="nominal",
                             scale=alt.Scale(
                                 domain=list(ALTRE_ENTRATE.keys()),
-                                range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+                                range=['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
                             ),
                             legend=alt.Legend(
                                 title=None,
