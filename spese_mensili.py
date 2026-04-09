@@ -1189,7 +1189,6 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
                     <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: {_ae_ipot}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
