@@ -1140,6 +1140,7 @@ def main():
         
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
+            _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
             with col_altre_entrate_1:
@@ -1147,6 +1148,7 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
                     <div class="kpi-value" style="color:#34d399;">{_ae}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">Tot entrate teoriche per stip@80%: €{_ae_ipot}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
