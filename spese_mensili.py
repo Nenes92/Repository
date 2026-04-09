@@ -1127,6 +1127,7 @@ def main():
         with col2_right:
             st.markdown("---")
             col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1, 1])
+            totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
             _ae_ipot = f"€{0.25*stipendio_totale:.2f}"            
             with col_altre_entrate_sx:
@@ -1141,7 +1142,6 @@ def main():
                         st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
-                        totale_altre = sum(ALTRE_ENTRATE.values())
             with col_altre_entrate_dx:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
