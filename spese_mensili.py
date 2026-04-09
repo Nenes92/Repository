@@ -1159,7 +1159,7 @@ def main():
                 <b style="color:white; font-size:18px;">
                 €{totale_entrate_target:,.2f}
                 <span style="font-size:11px; color:rgba(255,255,255,0.4);">
-                (Stipendio = {percentuale_stip:.0f}% delle entrate totali)
+                  Stipendio = {percentuale_stip:.0f}% delle entrate totali
                 </span>
                 </b>
                 </div>
