@@ -1130,8 +1130,6 @@ def main():
             col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}" 
-            percentuale_altre_su_totale_altre = totale_altre/altre_entrate_target
-            _ae_ipot = f"€{percentuale_altre_su_totale_altre *100:.2f}% di Obiettivo Entrate"            
             with col_altre_entrate_sx:
                 st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 st.subheader("Altre Entrate:")
@@ -1147,7 +1145,7 @@ def main():
             with col_altre_entrate_dx:
                 totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
                 altre_entrate_target = totale_entrate_target - stipendio_originale
-            
+
                 progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
                 progresso = min(progresso, 1.0)
             
@@ -1185,6 +1183,8 @@ def main():
                 
             st.markdown("---")
             col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+            percentuale_altre_su_totale_altre = totale_altre/altre_entrate_target
+            _ae_ipot = f"€{percentuale_altre_su_totale_altre *100:.2f}% di Obiettivo Entrate"                    
             with col_altre_entrate_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
