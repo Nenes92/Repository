@@ -127,7 +127,7 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1 {
     font-size: 2rem !important;
     font-weight: 600 !important;
-    background: linear-gradient(90deg, #60a5fa, #a78bfa, #fef3c7);
+    background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -595,7 +595,7 @@ def main():
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Stipendio Totale</div>
-                <div class="kpi-value" style="color:#fef3c7;">{_ts}</div>
+                <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
                     Originale + Altre Entrate
                 </div>
@@ -1189,7 +1189,7 @@ def main():
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                     <div class="kpi-label">Totale Altre Entrate</div>
-                    <div class="kpi-value" style="color:#fef3c7;">{_ae}</div>
+                    <div class="kpi-value" style="color:##77DD77;">{_ae}</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1317,7 +1317,7 @@ def main():
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
-                    <div class="kpi-value" style="color:#fef3c7;">{kpi_val}</div>
+                    <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
                 </div>
@@ -1997,7 +1997,7 @@ st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear
 #############################
 
 st.markdown('<div class="section-pill">🧾 Storico Bollette</div>', unsafe_allow_html=True)
-st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradient(90deg,#60a5fa,#a78bfa,#fef3c7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Storico Bollette</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradient(90deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Storico Bollette</h1>', unsafe_allow_html=True)
 
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
