@@ -384,7 +384,7 @@ SPESE = {
 
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Seconda Entr. dal mese prec.": 0,
+    "2° Entr. dal mese prec.": 0,
     "Altro": 0
 }
 
@@ -434,7 +434,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Da spendere": "#FACC15", 
         "Spese quotidiane": "#FB923C",
         "Macchina (Mamma)": "#D2B48C",
-        "Seconda Entr. dal mese prec.": "#D8BFD8",
+        "2° Entr. dal mese prec.": "#D8BFD8",
         "Stipendio Originale": "#5792E8",
         "Stipendio Utilizzato": "#6CBCD0",
         "Altre Entrate": "#77DD77",
@@ -525,7 +525,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     ae_cats = df_altre_entrate_chart["Categoria"].tolist()
     ae_colors_map = {
         "Macchina (Mamma)": "#D2B48C",
-        "Seconda Entr. dal mese prec.": "#D8BFD8",
+        "2° Entr. dal mese prec.": "#D8BFD8",
         "Altro": "#89CFF0",
     }
     ae_domains = ae_cats
@@ -1139,7 +1139,7 @@ def main():
                         st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
                     elif voce in ["Altro"]:
                         st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
-                    elif voce in ["Seconda Entr. dal mese prec."]:
+                    elif voce in ["2° Entr. dal mese prec."]:
                         st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
