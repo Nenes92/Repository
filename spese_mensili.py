@@ -952,7 +952,7 @@ def main():
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#B8C070']),
+                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#a3e635']),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
                     labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
