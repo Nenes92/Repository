@@ -384,7 +384,7 @@ SPESE = {
 
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Seconda Entrata": 0,
+    "Seconda Entrata dal mese prec.": 0,
     "Altro": 0
 }
 
