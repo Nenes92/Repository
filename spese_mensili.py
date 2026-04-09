@@ -333,6 +333,7 @@ def set_page_config():
 input_stipendio_originale=2350
 input_risparmi_mese_precedente=0
 input_stipendio_scelto=2350
+totale_entrate_target_oltre_lo_stipendio= 0.9
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -1126,7 +1127,7 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.2])
+            col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
             totale_altre = sum(ALTRE_ENTRATE.values())
             _ae = f"€{totale_altre:.2f}"            
             _ae_ipot = f"€{0.25*stipendio_originale:.2f}"            
@@ -1143,21 +1144,27 @@ def main():
                     else:
                         st.write(f"- {voce}: €{importo:.2f}")
             with col_altre_entrate_dx:
-                totale_entrate_target = stipendio_originale / 0.8
+                totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
                 altre_entrate_target = totale_entrate_target - stipendio_originale
             
                 progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
                 progresso = min(progresso, 1.0)
             
                 st.markdown("### 🎯 Obiettivo Entrate")
-            
+
+                percentuale_stip = stipendio_originale / totale_entrate_target * 100
                 st.markdown(f"""
                 <div style="font-size:13px; color:rgba(255,255,255,0.6);">
                 Entrate totali desiderate<br>
-                <b style="color:white; font-size:18px;">€{totale_entrate_target:,.2f}</b>
+                <b style="color:white; font-size:18px;">
+                €{totale_entrate_target:,.2f}
+                <span style="font-size:11px; color:rgba(255,255,255,0.4);">
+                (Stipendio = {percentuale_stip:.0f}% delle entrate totali)
+                </span>
+                </b>
                 </div>
-                """, unsafe_allow_html=True)
-            
+                """, unsafe_allow_html=True)  
+                
                 st.markdown(f"""
                 <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
                 Altre entrate target<br>
