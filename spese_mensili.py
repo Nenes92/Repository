@@ -1283,7 +1283,7 @@ def main():
             <div style="
                 display:flex;
                 width:100%;
-                height:22px;
+                height:220px;
                 border-radius:999px;
                 overflow:hidden;
                 margin-top:10px;
