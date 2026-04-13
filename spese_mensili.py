@@ -1283,15 +1283,17 @@ def main():
             <div style="
                 display:flex;
                 width:100%;
-                height:16px;
+                height:22px;
                 border-radius:999px;
                 overflow:hidden;
                 margin-top:10px;
+                background:#222;
+                padding:2px;
             ">
             """
             
             for _, row in df_fisse.iterrows():
-                categoria = row["Categoria"]
+                categoria = row["Categoria"].strip()
                 valore = row["Importo"]
                 perc = (valore / totale) * 100 if totale > 0 else 0
                 colore = color_map.get(categoria, "#999999")
