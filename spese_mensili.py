@@ -1041,6 +1041,8 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
                 st.progress(progresso)
                 st.markdown(f"""
                 <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
