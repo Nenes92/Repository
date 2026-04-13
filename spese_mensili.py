@@ -1272,6 +1272,42 @@ def main():
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
+
+
+#####################################################################################################################################################################################################################################################################################
+            segmenti = [
+                {"label": "Affitto", "valore": affitto, "colore": "#60a5fa"},
+                {"label": "Bollette", "valore": bollette, "colore": "#a78bfa"},
+                {"label": "Cibo", "valore": cibo, "colore": "#34d399"},
+            ]
+            
+            totale = sum(s["valore"] for s in segmenti)
+            
+            barra_html = '<div style="display:flex;width:100%;height:16px;border-radius:8px;overflow:hidden;">'
+            
+            for s in segmenti:
+                perc = (s["valore"] / totale) * 100 if totale > 0 else 0
+                barra_html += f'''
+                    <div title="{s["label"]}: €{s["valore"]:.2f}"
+                         style="
+                            width:{perc}%;
+                            background:{s["colore"]};
+                         ">
+                    </div>
+                '''
+            
+            barra_html += '</div>'
+            
+            st.markdown(barra_html, unsafe_allow_html=True)
+            
+            for s in segmenti:
+                st.markdown(
+                    f"<span style='color:{s['colore']}'>■</span> {s['label']}",
+                    unsafe_allow_html=True
+                )
+#####################################################################################################################################################################################################################################################################################
+
+
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
