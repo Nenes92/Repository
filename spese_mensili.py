@@ -1043,7 +1043,9 @@ def main():
 
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
-                st.progress(progresso)
+                progresso_altre_entrate = spese_variabili_totali / risparmiabili if risparmiabili > 0 else 0
+                progresso_altre_entrate = min(progresso_altre_entrate, 1.0)
+                st.progress(progresso_altre_entrate)
                 st.markdown(f"""
                 <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
                 Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
