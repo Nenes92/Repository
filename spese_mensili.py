@@ -1040,6 +1040,14 @@ def main():
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                st.progress(progresso)
+                st.markdown(f"""
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
     
             with col_spese_variabili_2:
@@ -1320,13 +1328,6 @@ def main():
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
                     <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.progress(progresso)
-                st.markdown(f"""
-                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
-                Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
                 </div>
                 """, unsafe_allow_html=True)
 
