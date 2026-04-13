@@ -1303,7 +1303,7 @@ def main():
                         background:{colore};
                     ">
                 </div>
-                ""
+                """
             
             barra_html += "</div>"
             
