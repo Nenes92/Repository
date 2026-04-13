@@ -1279,19 +1279,20 @@ def main():
 
             totale = df_fisse["Importo"].sum()
             
-            barra_html = """
-            <div style="
-                display:flex;
-                width:100%;
-                height:220px;
-                border-radius:999px;
-                overflow:hidden;
-                margin-top:10px;
-                background:#222;
-                padding:2px;
-            ">
-            """
+            barra_html = '<div style="display:flex;width:100%;height:22px;border-radius:999px;overflow:hidden;margin-top:10px;background:#222;padding:2px;">'
             
+            for _, row in df_fisse.iterrows():
+                categoria = row["Categoria"].strip()
+                valore = row["Importo"]
+                perc = (valore / totale) * 100 if totale > 0 else 0
+                colore = color_map.get(categoria, "#999999")
+            
+                barra_html += f'<div title="{categoria}: €{valore:.2f}" style="width:{perc}%;background:{colore};"></div>'
+            
+            barra_html += '</div>'
+            
+            st.markdown(barra_html, unsafe_allow_html=True)
+
             for _, row in df_fisse.iterrows():
                 categoria = row["Categoria"].strip()
                 valore = row["Importo"]
