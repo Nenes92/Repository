@@ -1275,36 +1275,40 @@ def main():
 
 
 #####################################################################################################################################################################################################################################################################################
-            segmenti = [
-                {"label": "Affitto", "valore": affitto, "colore": "#60a5fa"},
-                {"label": "Bollette", "valore": bollette, "colore": "#a78bfa"},
-                {"label": "Cibo", "valore": cibo, "colore": "#34d399"},
-            ]
+            # 📊 Costruzione barra segmentata per CATEGORIE (come il donut)
+
+            totale = df_fisse["Importo"].sum()
             
-            totale = sum(s["valore"] for s in segmenti)
+            barra_html = """
+            <div style="
+                display:flex;
+                width:100%;
+                height:16px;
+                border-radius:999px;
+                overflow:hidden;
+                margin-top:10px;
+            ">
+            """
             
-            barra_html = '<div style="display:flex;width:100%;height:16px;border-radius:8px;overflow:hidden;">'
+            for _, row in df_fisse.iterrows():
+                categoria = row["Categoria"]
+                valore = row["Importo"]
+                perc = (valore / totale) * 100 if totale > 0 else 0
+                colore = color_map.get(categoria, "#999999")
             
-            for s in segmenti:
-                perc = (s["valore"] / totale) * 100 if totale > 0 else 0
-                barra_html += f'''
-                    <div title="{s["label"]}: €{s["valore"]:.2f}"
-                         style="
-                            width:{perc}%;
-                            background:{s["colore"]};
-                         ">
-                    </div>
-                '''
+                barra_html += f"""
+                <div title="{categoria}: €{valore:.2f}"
+                    style="
+                        width:{perc}%;
+                        background:{colore};
+                    ">
+                </div>
+                ""
             
-            barra_html += '</div>'
+            barra_html += "</div>"
             
+            st.markdown("**📊 Spese Fisse (vista lineare per categoria):**")
             st.markdown(barra_html, unsafe_allow_html=True)
-            
-            for s in segmenti:
-                st.markdown(
-                    f"<span style='color:{s['colore']}'>■</span> {s['label']}",
-                    unsafe_allow_html=True
-                )
 #####################################################################################################################################################################################################################################################################################
 
 
