@@ -1299,15 +1299,10 @@ def main():
                 perc = (valore / totale) * 100 if totale > 0 else 0
                 colore = color_map.get(categoria, "#999999")
             
-                barra_html += f"""
-                <div title="{categoria}: €{valore:.2f}"
-                    style="
-                        width:{perc}%;
-                        background:{colore};
-                    ">
-                </div>
-                """
-            
+                barra_html += (
+                    f'<div title="{categoria}: €{valore:.2f}" '
+                    f'style="width:{perc}%;background:{colore};"></div>'
+                )
 #####################################################################################################################################################################################################################################################################################
 
 
