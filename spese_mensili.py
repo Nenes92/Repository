@@ -1311,7 +1311,7 @@ def main():
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
             df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
             styled_df_fisse = (
-                df_fisse_percentuali[["Categoria", "Valore €", "% Stip. da Utilizzare"]].style
+                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
                 .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
                 .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
                 .set_properties(**{'text-align': 'center'})
