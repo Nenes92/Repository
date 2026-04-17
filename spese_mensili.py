@@ -451,7 +451,6 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     color_map["Casa"] = "#CD5C5C"
 
     df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
-    df_fisse_percentuali_su_totale['Percentuale'] = (df_fisse['Importo'] / stipendio_totale).map('{:.2%}'.format)
 
     # FIX 3: Donut labels outside with connector lines for Spese Fisse
     categorie_presenti = df_fisse["Categoria"].unique()    
@@ -1311,8 +1310,6 @@ def main():
             st.subheader("Dettaglio Spese Fisse:")
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
             df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-            df_fisse_percentuali_su_totale = df_fisse_percentuali_su_totale.rename(columns={'Importo': 'Valore €'})
-            df_fisse_percentuali_su_totale["Valore €"] = df_fisse_percentuali_su_totale["Valore €"].apply(lambda x: f"€ {x:.2f}")
             styled_df_fisse = (
                 df_fisse_percentuali[["Categoria", "Valore €", "% Stip. da Utilizzare", "% Stip. Totale"]].style
                 .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
