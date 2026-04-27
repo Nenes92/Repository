@@ -354,7 +354,7 @@ SPESE = {
         "Bollette": decisione_budget_bollette_mensili,
         "Condominio": 45,
         "Altro": 0,
-        "Cucina": 315,
+        "Cucina": 0, #315,
         "Pulizia Casa": 40,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
