@@ -683,10 +683,10 @@ TURNI_HEADERS = ["Data", "Turno", "Festivo"]
 TURNI_WORKSHEET = "TurniGuadagni"
 CALENDAR_ICAL_URL = ""
 CALENDAR_ICAL_URLS = {
-    "Mattina": "",
-    "Pomeriggio": "",
-    "Notte": "",
-    "Ferie": "",
+    "Mattina": "https://calendar.google.com/calendar/ical/4581152ea8ed2d32562d91d4e737ef9e0b71ebda1b7984291d81a339c40eaf55%40group.calendar.google.com/public/basic.ics",
+    "Pomeriggio": "https://calendar.google.com/calendar/ical/5583372b5741bf9b7015849d7b23349d7151cd2d0763c83144a65071404b7e04%40group.calendar.google.com/public/basic.ics",
+    "Notte": "https://calendar.google.com/calendar/ical/bbe8a74b626dddc4b57dd69d6ab1e0f0760b971d95eb029ef7d525525c113250%40group.calendar.google.com/public/basic.ics",
+    "Ferie": "https://calendar.google.com/calendar/ical/c3406a4e631b5c206ccd07c267a9346b089f22a9fd7f4dc0cc7ff24140be54c0%40group.calendar.google.com/public/basic.ics",
 }
 
 TURNI_ORARI = {
