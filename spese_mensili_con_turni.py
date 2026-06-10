@@ -626,7 +626,7 @@ def color_text(text, color):
 st.markdown("""
 <style>
 .turni-grid-scroll {
-    max-height: 500px;
+    max-height: 365px;
     overflow-y: auto;
     padding-right: 8px;
 }
@@ -634,6 +634,15 @@ st.markdown("""
 .turni-compact-row [data-testid="stRadio"] label,
 .turni-compact-row [data-testid="stCheckbox"] label {
     font-size: 11px !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button {
+    min-height: 36px !important;
+    padding: 6px 6px !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button p {
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
 }
 .turni-card-small {
     background: rgba(255,255,255,0.045);
@@ -1045,11 +1054,11 @@ def render_live_turni_kpis(stats):
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
         <div class="kpi-label">Stato turno</div>
         <div class="turni-status-row">
-          <span class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
-          <span>{status_text}</span>
+          <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
+          <span id="turni-status-text">{status_text}</span>
         </div>
-        <div class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+        <div id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
+        <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
       </div>
     </div>
     <style>
@@ -1109,6 +1118,10 @@ def render_live_turni_kpis(stats):
       const shiftEnd = {json.dumps(current_shift_end)};
       const monthEl = document.getElementById("turni-live-month");
       const todayEl = document.getElementById("turni-live-today");
+      const dotEl = document.getElementById("turni-status-dot");
+      const statusEl = document.getElementById("turni-status-text");
+      const rateEl = document.getElementById("turni-rate-min");
+      const shiftEl = document.getElementById("turni-shift-label");
 
       function money(value) {{
         return new Intl.NumberFormat("it-IT", {{
@@ -1127,9 +1140,17 @@ def render_live_turni_kpis(stats):
       }}
 
       function tick() {{
+        const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
+        if (ended) {{
+          dotEl.style.background = "#64748b";
+          dotEl.style.boxShadow = "none";
+          statusEl.textContent = "Fuori turno";
+          rateEl.textContent = "0.000 €/min";
+          shiftEl.textContent = "—";
+        }}
       }}
 
       tick();
@@ -1171,9 +1192,10 @@ def render_turni_guadagni_section():
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
 
-        cal_col, summary_col = st.columns([1.35, 0.75], gap="medium")
+        cal_col, summary_col = st.columns([1.55, 0.55], gap="medium")
 
         with cal_col:
+            st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
             prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
             with prev_col:
                 if st.button("←", key="turni_prev_month", use_container_width=True):
@@ -1204,7 +1226,7 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" {info['emoji']}{info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
                     if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
@@ -1230,6 +1252,7 @@ def render_turni_guadagni_section():
               <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span style="color:#ef4444;">Numero rosso = festivo</span>
             </div>
             """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with summary_col:
             st.markdown("#### 🗓️ Riepilogo turni del mese")
