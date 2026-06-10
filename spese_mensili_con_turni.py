@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 import calendar
 import time
 import io
+import urllib.request
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 
 # Google Sheets imports
 try:
@@ -706,6 +711,12 @@ def _money_turni(value):
         return "€0,00"
 
 
+def _now_italy():
+    if ZoneInfo is None:
+        return datetime.now()
+    return datetime.now(ZoneInfo("Europe/Rome")).replace(tzinfo=None)
+
+
 def _parse_bool_turni(value):
     if isinstance(value, bool):
         return value
@@ -847,7 +858,7 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
 
 
 def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None):
-    now = datetime.now() if until is None else until
+    now = _now_italy() if until is None else until
     paga = float(rules["paga_oraria"])
 
     if turno == "Riposo":
@@ -893,21 +904,22 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
     extra += allowance
 
     rate_min = 0.0
-    if start <= datetime.now() <= end:
-        rate_min = paga * (1 + _pct_for_turno(turno, datetime.now(), forced_festivo, rules) / 100) / 60
+    current_now = _now_italy()
+    if start <= current_now <= end:
+        rate_min = paga * (1 + _pct_for_turno(turno, current_now, forced_festivo, rules) / 100) / 60
 
     return {"total": base + extra, "base": base, "extra": extra, "hours": hours, "rate_min": rate_min}
 
 
 def _turni_current_prev_months():
-    now = datetime.now()
+    now = _now_italy()
     current = now.strftime("%Y-%m")
     prev = (pd.Timestamp(now.replace(day=1)) - pd.DateOffset(months=1)).strftime("%Y-%m")
     return current, prev
 
 
 def compute_turni_dashboard(df_turni, rules):
-    now = datetime.now()
+    now = _now_italy()
     today = now.strftime("%Y-%m-%d")
     current_m, prev_m = _turni_current_prev_months()
 
@@ -1025,6 +1037,100 @@ def _turni_month_label(date_value):
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
     ]
     return f"{mesi[date_value.month - 1]} {date_value.year}"
+
+
+def _unfold_ics_lines(text):
+    lines = []
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if raw_line.startswith((" ", "\t")) and lines:
+            lines[-1] += raw_line[1:]
+        else:
+            lines.append(raw_line)
+    return lines
+
+
+def _parse_ics_datetime(value):
+    value = value.strip()
+    if len(value) == 8 and value.isdigit():
+        return datetime.strptime(value, "%Y%m%d")
+    is_utc = value.endswith("Z")
+    value = value.rstrip("Z")
+    for fmt in ("%Y%m%dT%H%M%S", "%Y%m%dT%H%M"):
+        try:
+            parsed = datetime.strptime(value, fmt)
+            if is_utc and ZoneInfo is not None:
+                parsed = parsed.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Rome")).replace(tzinfo=None)
+            return parsed
+        except ValueError:
+            pass
+    return None
+
+
+def _calendar_turno_from_summary(summary):
+    summary_l = summary.strip().lower()
+    mapping = [
+        ("mattina", "Mattina"),
+        ("pomeriggio", "Pomeriggio"),
+        ("notte", "Notte"),
+        ("ferie", "Ferie"),
+    ]
+    for token, turno in mapping:
+        if token in summary_l:
+            return turno
+    if summary_l in ["m", "m.", "morning"]:
+        return "Mattina"
+    if summary_l in ["p", "p.", "evening"]:
+        return "Pomeriggio"
+    if summary_l in ["n", "n.", "night"]:
+        return "Notte"
+    return ""
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_google_calendar_ics(ical_url):
+    with urllib.request.urlopen(ical_url, timeout=15) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def import_turni_from_calendar_ics(ical_url, selected_month):
+    ical_text = load_google_calendar_ics(ical_url)
+    events = []
+    current = None
+    for line in _unfold_ics_lines(ical_text):
+        if line == "BEGIN:VEVENT":
+            current = {}
+            continue
+        if line == "END:VEVENT":
+            if current:
+                events.append(current)
+            current = None
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.split(";", 1)[0].upper()
+        if key in ["SUMMARY", "DTSTART"]:
+            current[key] = value
+
+    rows = []
+    month_key = selected_month.strftime("%Y-%m")
+    seen_dates = set()
+    for event in events:
+        summary = event.get("SUMMARY", "")
+        turno = _calendar_turno_from_summary(summary)
+        start = _parse_ics_datetime(event.get("DTSTART", ""))
+        if not turno or not start:
+            continue
+        data_str = start.strftime("%Y-%m-%d")
+        if not data_str.startswith(month_key) or data_str in seen_dates:
+            continue
+        seen_dates.add(data_str)
+        rows.append({
+            "Data": data_str,
+            "Turno": turno,
+            "Festivo": "festivo" in summary.lower(),
+        })
+    return _normalize_turni_df(pd.DataFrame(rows, columns=TURNI_HEADERS))
 
 
 def render_live_turni_kpis(stats):
@@ -1185,12 +1291,45 @@ def render_turni_guadagni_section():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if "turni_calendar_month" not in st.session_state:
-            today_month = datetime.now().date()
+            today_month = _now_italy().date()
             st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
 
         selected_month = st.session_state.turni_calendar_month
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
+
+        default_calendar_url = ""
+        try:
+            default_calendar_url = st.secrets.get("GOOGLE_CALENDAR_ICAL_URL", "")
+        except Exception:
+            default_calendar_url = ""
+        with st.expander("📆 Sincronizza da Google Calendar", expanded=False):
+            calendar_url = st.text_input(
+                "Link iCal privato del calendario turni",
+                value=st.session_state.get("turni_calendar_ical_url", default_calendar_url),
+                type="password",
+                key="turni_calendar_ical_url"
+            )
+            if st.button("Importa turni del mese da Calendar", use_container_width=True, key="turni_import_calendar"):
+                if not calendar_url:
+                    st.warning("Incolla prima il link iCal privato di Google Calendar.")
+                else:
+                    try:
+                        imported = import_turni_from_calendar_ics(calendar_url, selected_month)
+                        if imported.empty:
+                            st.warning("Non ho trovato eventi riconoscibili per questo mese. Nei titoli usa Mattina, Pomeriggio, Notte o Ferie.")
+                        else:
+                            other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
+                            manual_festivi = df_turni[
+                                df_turni["Data"].str.startswith(month_key)
+                                & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
+                                & (df_turni["Festivo"] == True)
+                            ].copy()
+                            set_turni_draft(pd.concat([other_months, manual_festivi, imported], ignore_index=True))
+                            st.success(f"Importati {len(imported)} turni da Google Calendar. Controlla e poi salva su Google Sheets.")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore import Google Calendar: {e}")
 
         cal_col, summary_col = st.columns([1.55, 0.55], gap="medium")
 
