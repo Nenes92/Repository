@@ -1,5 +1,6 @@
 import altair as alt
 import streamlit as st
+import streamlit.components.v1 as components
 import mysql.connector
 import pandas as pd
 import json
@@ -909,6 +910,7 @@ def compute_turni_dashboard(df_turni, rules):
     hours_live = 0.0
     rate_min = 0.0
     current_shift = "—"
+    current_shift_end = None
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
@@ -925,6 +927,7 @@ def compute_turni_dashboard(df_turni, rules):
             if turno not in ["Ferie", "Riposo"] and start <= now <= end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_shift_end = end
 
         if data[:7] == prev_m:
             calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
@@ -948,6 +951,7 @@ def compute_turni_dashboard(df_turni, rules):
         "hours_live": hours_live,
         "rate_min": rate_min,
         "current_shift": current_shift,
+        "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
     }
 
 
@@ -1007,30 +1011,109 @@ def _turni_month_label(date_value):
     return f"{mesi[date_value.month - 1]} {date_value.year}"
 
 
+def render_live_turni_kpis(stats):
+    live_month = float(stats["live_month"])
+    live_today = float(stats["live_today"])
+    rate_min = float(stats["rate_min"])
+    rate_sec = rate_min / 60
+    payslip_estimate = _money_turni(stats["payslip_estimate"])
+    expected_today = _money_turni(stats["expected_today"])
+    current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_shift_end = stats.get("current_shift_end", "")
+    components.html(f"""
+    <div class="turni-live-grid">
+      <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+        <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
+        <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
+      </div>
+      <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
+        <div class="kpi-label">Oggi — live / totale giornata</div>
+        <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+      </div>
+      <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
+        <div class="kpi-label">Guadagno attuale turno in corso</div>
+        <div class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+      </div>
+    </div>
+    <style>
+      body {{
+        margin: 0;
+        background: transparent;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      .turni-live-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }}
+      .kpi-card {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-height: 72px;
+        box-sizing: border-box;
+      }}
+      .kpi-label {{
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+      }}
+      .kpi-value {{
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 600;
+      }}
+    </style>
+    <script>
+      const start = Date.now();
+      const startMonth = {live_month:.8f};
+      const startToday = {live_today:.8f};
+      const rateSec = {rate_sec:.10f};
+      const shiftEnd = {json.dumps(current_shift_end)};
+      const monthEl = document.getElementById("turni-live-month");
+      const todayEl = document.getElementById("turni-live-today");
+
+      function money(value) {{
+        return new Intl.NumberFormat("it-IT", {{
+          style: "currency",
+          currency: "EUR",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }}).format(value);
+      }}
+
+      function elapsedSeconds() {{
+        if (!rateSec || !shiftEnd) return 0;
+        const now = Date.now();
+        const end = Date.parse(shiftEnd);
+        return Math.max(0, Math.min(now, end) - start) / 1000;
+      }}
+
+      function tick() {{
+        const extra = elapsedSeconds() * rateSec;
+        monthEl.textContent = money(startMonth + extra);
+        todayEl.textContent = money(startToday + extra);
+      }}
+
+      tick();
+      setInterval(tick, 1000);
+    </script>
+    """, height=126)
+
+
 def render_turni_guadagni_section():
     st.markdown('<div class="section-pill">⏱️ Guadagni Turni</div>', unsafe_allow_html=True)
     rules = get_turni_rules()
     df_turni = load_turni_data()
     stats = compute_turni_dashboard(df_turni, rules)
 
-    # KPI in tre card sulla stessa riga: mese, oggi, rateo attuale.
-    st.markdown(f"""
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
-      <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-        <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
-        <div class="kpi-value" style="color:#34d399;">{_money_turni(stats['live_month'])} / {_money_turni(stats['payslip_estimate'])}</div>
-      </div>
-      <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-        <div class="kpi-label">Oggi — live / totale giornata</div>
-        <div class="kpi-value" style="color:#60a5fa;">{_money_turni(stats['live_today'])} / {_money_turni(stats['expected_today'])}</div>
-      </div>
-      <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
-        <div class="kpi-label">Guadagno attuale turno in corso</div>
-        <div class="kpi-value" style="color:#fef3c7;">{stats['rate_min']:.3f} €/min</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{stats['current_shift']}</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    render_live_turni_kpis(stats)
 
     tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
 
