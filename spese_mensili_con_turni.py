@@ -573,9 +573,14 @@ def color_text(text, color):
 st.markdown("""
 <style>
 .turni-grid-scroll {
-    max-height: 430px;
+    max-height: 330px;
     overflow-y: auto;
     padding-right: 8px;
+}
+.turni-compact-row [data-testid="stDateInput"] label,
+.turni-compact-row [data-testid="stRadio"] label,
+.turni-compact-row [data-testid="stCheckbox"] label {
+    font-size: 11px !important;
 }
 .turni-card-small {
     background: rgba(255,255,255,0.045);
@@ -676,6 +681,42 @@ def set_turni_draft(df):
     st.session_state.turni_dirty = True
 
 
+def color_turni_google_sheet(df):
+    """Colora le righe del foglio TurniGuadagni in base al turno.
+    Non è indispensabile per il calcolo: se Google limita la formattazione, il salvataggio resta valido.
+    """
+    client = get_gsheet_client()
+    if not client:
+        return
+    try:
+        worksheet = get_or_create_worksheet(client, SHEET_URL, TURNI_WORKSHEET, TURNI_HEADERS)
+        if not worksheet:
+            return
+        # Header scuro
+        worksheet.format("A1:C1", {
+            "backgroundColor": {"red": 0.05, "green": 0.10, "blue": 0.16},
+            "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True}
+        })
+        colors = {
+            "Mattina": {"red": 0.18, "green": 0.46, "blue": 0.75},
+            "Pomeriggio": {"red": 0.95, "green": 0.52, "blue": 0.22},
+            "Notte": {"red": 0.25, "green": 0.28, "blue": 0.34},
+            "Ferie": {"red": 0.20, "green": 0.62, "blue": 0.35},
+        }
+        df_norm = _normalize_turni_df(df)
+        for i, row in df_norm.reset_index(drop=True).iterrows():
+            turno = str(row.get("Turno", ""))
+            color = colors.get(turno, {"red": 1, "green": 1, "blue": 1})
+            text_color = {"red": 1, "green": 1, "blue": 1} if turno in ["Notte"] else {"red": 0, "green": 0, "blue": 0}
+            worksheet.format(f"A{i+2}:C{i+2}", {
+                "backgroundColor": color,
+                "textFormat": {"foregroundColor": text_color}
+            })
+    except Exception:
+        # Evita di bloccare l'app se la quota formattazione viene superata.
+        pass
+
+
 def save_turni_data(df):
     if df.empty:
         df_save = pd.DataFrame(columns=TURNI_HEADERS)
@@ -683,6 +724,7 @@ def save_turni_data(df):
         df_save = _normalize_turni_df(df)
     ok = save_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, df_save)
     if ok:
+        color_turni_google_sheet(df_save)
         st.session_state.turni_df_draft = df_save.copy()
         st.session_state.turni_dirty = False
     return ok
@@ -917,20 +959,27 @@ def render_turni_guadagni_section():
     tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
 
     with tab_cal:
-        selected_month = st.date_input("Mese da gestire", value=datetime.now().date(), key="turni_month_picker")
+        st.markdown('<div class="turni-compact-row">', unsafe_allow_html=True)
+        month_col, tool_col, fest_col = st.columns([0.9, 1.5, 0.8], gap="small")
+        with month_col:
+            selected_month = st.date_input("Mese da gestire", value=datetime.now().date(), key="turni_month_picker")
+        with tool_col:
+            tool = st.radio(
+                "Turno da assegnare",
+                ["Mattina", "Pomeriggio", "Notte", "Ferie", "Cancella"],
+                horizontal=True,
+                key="turni_tool_radio"
+            )
+        with fest_col:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            festivo_manual = st.checkbox("Festivo manuale", key="turni_festivo_manual")
+        st.markdown('</div>', unsafe_allow_html=True)
+
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
-
-        tool = st.radio(
-            "Turno da assegnare",
-            ["Mattina", "Pomeriggio", "Notte", "Ferie", "Cancella"],
-            horizontal=True,
-            key="turni_tool_radio"
-        )
-        festivo_manual = st.checkbox("Segna come festivo manuale", key="turni_festivo_manual")
         st.caption("Tocca un giorno per assegnare il turno selezionato. Domenica = festivo automatico; la notte sabato→domenica viene spezzata correttamente a mezzanotte.")
 
-        cal_col, summary_col = st.columns([1.12, 1.0], gap="large")
+        cal_col, summary_col = st.columns([1.0, 1.25], gap="large")
 
         with cal_col:
             st.markdown("#### 📅 Calendario")
@@ -986,14 +1035,14 @@ def render_turni_guadagni_section():
                     calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
                     seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
                     festivo_txt = " · festivo manuale" if bool(r["Festivo"]) else ""
-                    cards.append(f"""
-                    <div class="turni-card-small {info['class']}">
-                        <div class="date">{r['Data']}{festivo_txt}</div>
-                        <div class="title" style="color:{info['color']};">{info['emoji']} {turno}</div>
-                        <div class="meta">{seg} · Totale {_money_turni(calc['total'])}</div>
-                        <div class="meta">Base {_money_turni(calc['base'])} · Extra {_money_turni(calc['extra'])}</div>
-                    </div>
-                    """)
+                    cards.append(
+                        f'<div class="turni-card-small {info["class"]}">'
+                        f'<div class="date">{r["Data"]}{festivo_txt}</div>'
+                        f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
+                        f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
+                        f'<div class="meta">Base {_money_turni(calc["base"])} · Extra {_money_turni(calc["extra"])}</div>'
+                        f'</div>'
+                    )
                 cards.append("</div>")
                 st.markdown("".join(cards), unsafe_allow_html=True)
 
