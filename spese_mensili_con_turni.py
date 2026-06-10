@@ -626,7 +626,7 @@ def color_text(text, color):
 st.markdown("""
 <style>
 .turni-grid-scroll {
-    max-height: 405px;
+    max-height: 500px;
     overflow-y: auto;
     padding-right: 8px;
 }
@@ -640,15 +640,15 @@ st.markdown("""
     border: 0.5px solid rgba(255,255,255,0.10);
     border-left: 5px solid rgba(255,255,255,0.25);
     border-radius: 12px;
-    padding: 8px 10px;
-    margin-bottom: 7px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
 }
 .turni-card-small .date {
     font-size: 12px;
     color: rgba(255,255,255,0.58);
 }
 .turni-card-small .title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     margin-top: 2px;
 }
@@ -1139,9 +1139,8 @@ def render_turni_guadagni_section():
         selected_month = st.session_state.turni_calendar_month
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
-        st.caption("Tocca un giorno per assegnare il turno selezionato. Domenica = festivo automatico; la notte sabato→domenica viene spezzata correttamente a mezzanotte.")
 
-        cal_col, summary_col = st.columns([1.0, 1.25], gap="large")
+        cal_col, summary_col = st.columns([1.18, 0.92], gap="medium")
 
         with cal_col:
             prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
@@ -1165,19 +1164,19 @@ def render_turni_guadagni_section():
                 cols = st.columns(7)
                 for c, day in zip(cols, week):
                     if day.month != month:
-                        c.markdown("<div style='height:42px;opacity:.2;'> </div>", unsafe_allow_html=True)
+                        c.markdown("<div style='height:34px;opacity:.2;'> </div>", unsafe_allow_html=True)
                         continue
                     day_str = day.strftime("%Y-%m-%d")
                     row = df_turni[df_turni["Data"] == day_str]
                     if row.empty:
-                        current_label = "—"
+                        current_label = ""
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f"{info['emoji']} {info['short']}"
+                        current_label = f" {info['emoji']}{info['short']}"
                     day_is_festive = day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
-                    if c.button(f"{day_label}\n{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
+                    if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
                         df_new = df_turni[df_turni["Data"] != day_str].copy()
                         if tool != "Cancella":
                             df_new = pd.concat([df_new, pd.DataFrame([{
