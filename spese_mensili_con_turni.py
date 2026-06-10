@@ -625,7 +625,7 @@ def color_text(text, color):
 st.markdown("""
 <style>
 .turni-grid-scroll {
-    max-height: 330px;
+    max-height: 405px;
     overflow-y: auto;
     padding-right: 8px;
 }
@@ -676,7 +676,7 @@ TURNI_ORARI = {
 }
 
 DEFAULT_TURNI_RULES = {
-    "paga_oraria": 14.38,
+    "paga_oraria": 12.60,
     "quota_fissa_mensile": 0.0,
     "m_p_feriale_pct": 20.0,
     "m_p_festivo_giorno_pct": 50.0,
@@ -990,6 +990,23 @@ def _segmenti_turno(data_str, turno, forced_festivo):
     if festivi > 0:
         parts.append(f"{festivi:.0f}h fest.")
     return " / ".join(parts) if parts else "—"
+
+
+def _add_months_turni(date_value, months):
+    month_index = date_value.month - 1 + months
+    year = date_value.year + month_index // 12
+    month = month_index % 12 + 1
+    return datetime(year, month, 1).date()
+
+
+def _turni_month_label(date_value):
+    mesi = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
+    return f"{mesi[date_value.month - 1]} {date_value.year}"
+
+
 def render_turni_guadagni_section():
     st.markdown('<div class="section-pill">⏱️ Guadagni Turni</div>', unsafe_allow_html=True)
     rules = get_turni_rules()
@@ -1019,9 +1036,7 @@ def render_turni_guadagni_section():
 
     with tab_cal:
         st.markdown('<div class="turni-compact-row">', unsafe_allow_html=True)
-        month_col, tool_col, fest_col = st.columns([0.9, 1.5, 0.8], gap="small")
-        with month_col:
-            selected_month = st.date_input("Mese da gestire", value=datetime.now().date(), key="turni_month_picker")
+        tool_col, fest_col = st.columns([1.7, 0.8], gap="small")
         with tool_col:
             tool = st.radio(
                 "Turno da assegnare",
@@ -1034,6 +1049,11 @@ def render_turni_guadagni_section():
             festivo_manual = st.checkbox("Festivo manuale", key="turni_festivo_manual")
         st.markdown('</div>', unsafe_allow_html=True)
 
+        if "turni_calendar_month" not in st.session_state:
+            today_month = datetime.now().date()
+            st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
+
+        selected_month = st.session_state.turni_calendar_month
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
         st.caption("Tocca un giorno per assegnare il turno selezionato. Domenica = festivo automatico; la notte sabato→domenica viene spezzata correttamente a mezzanotte.")
@@ -1041,7 +1061,17 @@ def render_turni_guadagni_section():
         cal_col, summary_col = st.columns([1.0, 1.25], gap="large")
 
         with cal_col:
-            st.markdown("#### 📅 Calendario")
+            prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
+            with prev_col:
+                if st.button("←", key="turni_prev_month", use_container_width=True):
+                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
+                    st.rerun()
+            with title_col:
+                st.markdown(f"#### 📅 Calendario · {_turni_month_label(selected_month)}")
+            with next_col:
+                if st.button("→", key="turni_next_month", use_container_width=True):
+                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
+                    st.rerun()
             weekdays = ["L", "M", "M", "G", "V", "S", "D"]
             cols = st.columns(7)
             for c, wd in zip(cols, weekdays):
@@ -1062,8 +1092,9 @@ def render_turni_guadagni_section():
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
                         current_label = f"{info['emoji']} {info['short']}"
-                    star = " ★" if day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"])) else ""
-                    if c.button(f"{day.day}{star}\n{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
+                    day_is_festive = day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                    day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                    if c.button(f"{day_label}\n{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
                         df_new = df_turni[df_turni["Data"] != day_str].copy()
                         if tool != "Cancella":
                             df_new = pd.concat([df_new, pd.DataFrame([{
@@ -1076,7 +1107,7 @@ def render_turni_guadagni_section():
 
             st.markdown("""
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
-              <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span>★ Festivo</span>
+              <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span style="color:#ef4444;">Numero rosso = festivo</span>
             </div>
             """, unsafe_allow_html=True)
 
