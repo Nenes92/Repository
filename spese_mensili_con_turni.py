@@ -910,14 +910,16 @@ def compute_turni_dashboard(df_turni, rules):
     hours_live = 0.0
     rate_min = 0.0
     current_shift = "—"
+    current_turno = ""
     current_shift_end = None
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
+        has_turno = turno in TURNI_ORARI and turno != ""
 
-        if data[:7] == current_m:
+        if has_turno and data[:7] == current_m:
             calc_live = compute_turno(data, turno, festivo, rules, until=now)
             live_month += calc_live["total"]
             hours_live += calc_live["hours"]
@@ -927,12 +929,15 @@ def compute_turni_dashboard(df_turni, rules):
             if turno not in ["Ferie", "Riposo"] and start <= now <= end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_turno = turno
                 current_shift_end = end
 
-        if data[:7] == prev_m:
+        if has_turno and data[:7] == prev_m:
             calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
             prev_extras += calc_prev["extra"]
 
+        if not has_turno:
+            continue
         start, end = _shift_bounds(data, turno)
         if start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
@@ -951,6 +956,8 @@ def compute_turni_dashboard(df_turni, rules):
         "hours_live": hours_live,
         "rate_min": rate_min,
         "current_shift": current_shift,
+        "current_turno": current_turno,
+        "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
     }
 
@@ -1019,6 +1026,11 @@ def render_live_turni_kpis(stats):
     payslip_estimate = _money_turni(stats["payslip_estimate"])
     expected_today = _money_turni(stats["expected_today"])
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    is_on_shift = bool(stats.get("is_on_shift", False))
+    status_color = "#22c55e" if is_on_shift else "#64748b"
+    status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
+    status_text = f"In turno · {current_turno}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
     components.html(f"""
     <div class="turni-live-grid">
@@ -1031,7 +1043,11 @@ def render_live_turni_kpis(stats):
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
-        <div class="kpi-label">Guadagno attuale turno in corso</div>
+        <div class="kpi-label">Stato turno</div>
+        <div class="turni-status-row">
+          <span class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
+          <span>{status_text}</span>
+        </div>
         <div class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
       </div>
@@ -1068,6 +1084,21 @@ def render_live_turni_kpis(stats):
         font-size: 23px;
         line-height: 1.15;
         font-weight: 600;
+      }}
+      .turni-status-row {{
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: rgba(255,255,255,0.82);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }}
+      .turni-status-dot {{
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
       }}
     </style>
     <script>
@@ -1140,7 +1171,7 @@ def render_turni_guadagni_section():
         year, month = selected_month.year, selected_month.month
         month_key = f"{year}-{month:02d}"
 
-        cal_col, summary_col = st.columns([1.18, 0.92], gap="medium")
+        cal_col, summary_col = st.columns([1.35, 0.75], gap="medium")
 
         with cal_col:
             prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
@@ -1173,16 +1204,23 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" {info['emoji']}{info['short']}"
+                        current_label = f" {info['emoji']}{info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
                     if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
                         df_new = df_turni[df_turni["Data"] != day_str].copy()
-                        if tool != "Cancella":
+                        if festivo_manual:
+                            turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                            df_new = pd.concat([df_new, pd.DataFrame([{
+                                "Data": day_str,
+                                "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
+                                "Festivo": True
+                            }])], ignore_index=True)
+                        elif tool != "Cancella":
                             df_new = pd.concat([df_new, pd.DataFrame([{
                                 "Data": day_str,
                                 "Turno": tool,
-                                "Festivo": bool(festivo_manual)
+                                "Festivo": False
                             }])], ignore_index=True)
                         set_turni_draft(df_new)
                         st.rerun()
@@ -1196,6 +1234,7 @@ def render_turni_guadagni_section():
         with summary_col:
             st.markdown("#### 🗓️ Riepilogo turni del mese")
             month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+            month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
             if month_df.empty:
                 st.info("Nessun turno inserito per il mese selezionato.")
             else:
