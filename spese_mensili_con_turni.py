@@ -60,27 +60,80 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
         st.error(f"Errore connessione Google Sheets: {e}")
         return None
 
-@st.cache_data(ttl=300, show_spinner=False)
-def load_data_gsheets(worksheet_name, headers):
+GSHEETS_CACHE_TTL_SECONDS = 300
+
+
+def _gsheets_cache_key(worksheet_name):
+    return f"gsheets_cache::{worksheet_name}"
+
+
+def _copy_df(df):
+    return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+
+def _format_gsheet_value(header, value):
+    if pd.isna(value):
+        return ""
+    if header == "Mese" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    if header == "Data" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, (bool, int, float)):
+        return value
+    return str(value)
+
+
+def _set_gsheets_cache(worksheet_name, df):
+    st.session_state[_gsheets_cache_key(worksheet_name)] = {
+        "time": time.time(),
+        "data": _copy_df(df),
+    }
+
+
+def _get_gsheets_cache(worksheet_name, allow_stale=False):
+    cached = st.session_state.get(_gsheets_cache_key(worksheet_name))
+    if not cached:
+        return None
+    is_fresh = (time.time() - cached.get("time", 0)) < GSHEETS_CACHE_TTL_SECONDS
+    if is_fresh or allow_stale:
+        return _copy_df(cached.get("data"))
+    return None
+
+
+def load_data_gsheets(worksheet_name, headers, force_reload=False):
+    if not force_reload:
+        cached = _get_gsheets_cache(worksheet_name)
+        if cached is not None:
+            return cached
+
     client = get_gsheet_client()
     if not client:
-        return pd.DataFrame()
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        return cached if cached is not None else pd.DataFrame(columns=headers)
     try:
         worksheet = get_or_create_worksheet(client, SHEET_URL, worksheet_name, headers)
         if not worksheet:
-            return pd.DataFrame()
+            cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+            return cached if cached is not None else pd.DataFrame(columns=headers)
         records = worksheet.get_all_records()
         if not records:
-            return pd.DataFrame(columns=headers)
+            df = pd.DataFrame(columns=headers)
+            _set_gsheets_cache(worksheet_name, df)
+            return df
         df = pd.DataFrame(records)
         if "Mese" in df.columns:
             df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
             df = df.dropna(subset=["Mese"])
             df = df.sort_values(by="Mese").reset_index(drop=True)
+        _set_gsheets_cache(worksheet_name, df)
         return df
     except Exception as e:
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        if cached is not None:
+            st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
+            return cached
         st.error(f"Errore caricamento dati: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
     client = get_gsheet_client()
@@ -90,23 +143,22 @@ def save_data_gsheets(worksheet_name, headers, data):
         worksheet = get_or_create_worksheet(client, SHEET_URL, worksheet_name, headers)
         if not worksheet:
             return False
-        worksheet.clear()
-        worksheet.append_row(headers)
+        if data is None or data.empty:
+            data = pd.DataFrame(columns=headers)
+        data = data.copy()
+        for h in headers:
+            if h not in data.columns:
+                data[h] = ""
+        data = data[headers]
+        rows = [headers]
         for _, row in data.iterrows():
-            row_data = []
-            for h in headers:
-                val = row.get(h, "")
-                if pd.isna(val):
-                    row_data.append("")
-                elif h == "Mese" and hasattr(val, 'strftime'):
-                    row_data.append(val.strftime("%Y-%m-%d"))
-                else:
-                    row_data.append(float(val) if isinstance(val, (int, float)) else str(val))
-            worksheet.append_row(row_data)
+            rows.append([_format_gsheet_value(h, row.get(h, "")) for h in headers])
+        worksheet.clear()
         try:
-            load_data_gsheets.clear()
-        except Exception:
-            pass
+            worksheet.update(values=rows, range_name="A1")
+        except TypeError:
+            worksheet.update("A1", rows)
+        _set_gsheets_cache(worksheet_name, data)
         return True
     except Exception as e:
         st.error(f"Errore salvataggio: {e}")
@@ -670,7 +722,7 @@ def load_turni_data(force_reload=False):
     Così cliccare più giorni nel calendario non fa una read Google Sheets ogni volta.
     """
     if force_reload or "turni_df_draft" not in st.session_state:
-        df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS)
+        df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, force_reload=force_reload)
         st.session_state.turni_df_draft = _normalize_turni_df(df)
         st.session_state.turni_dirty = False
     return st.session_state.turni_df_draft.copy()
@@ -692,11 +744,13 @@ def color_turni_google_sheet(df):
         worksheet = get_or_create_worksheet(client, SHEET_URL, TURNI_WORKSHEET, TURNI_HEADERS)
         if not worksheet:
             return
-        # Header scuro
-        worksheet.format("A1:C1", {
+        formats = [{
+            "range": "A1:C1",
+            "format": {
             "backgroundColor": {"red": 0.05, "green": 0.10, "blue": 0.16},
             "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True}
-        })
+            },
+        }]
         colors = {
             "Mattina": {"red": 0.18, "green": 0.46, "blue": 0.75},
             "Pomeriggio": {"red": 0.95, "green": 0.52, "blue": 0.22},
@@ -708,10 +762,15 @@ def color_turni_google_sheet(df):
             turno = str(row.get("Turno", ""))
             color = colors.get(turno, {"red": 1, "green": 1, "blue": 1})
             text_color = {"red": 1, "green": 1, "blue": 1} if turno in ["Notte"] else {"red": 0, "green": 0, "blue": 0}
-            worksheet.format(f"A{i+2}:C{i+2}", {
-                "backgroundColor": color,
-                "textFormat": {"foregroundColor": text_color}
+            formats.append({
+                "range": f"A{i+2}:C{i+2}",
+                "format": {
+                    "backgroundColor": color,
+                    "textFormat": {"foregroundColor": text_color}
+                },
             })
+        if hasattr(worksheet, "batch_format"):
+            worksheet.batch_format(formats)
     except Exception:
         # Evita di bloccare l'app se la quota formattazione viene superata.
         pass
@@ -1165,22 +1224,25 @@ def main():
             # ───────── CONFIG ─────────
             NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
             worksheet_name = "Note"
-        
-            df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
-            # ───────── MIGRAZIONE AUTOMATICA ─────────
-            colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
-            
-            # Se le colonne nuove non esistono, le creiamo
-            for col in colonne_attese:
-                if col not in df_note.columns:
-                    df_note[col] = ""
-            
-            # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
-            if "testo" in df_note.columns:
-                df_note["nota1"] = df_note["testo"]
-                df_note = df_note.drop(columns=["testo"])
-            
-            # Se vuoto → inizializza
+
+            if "note_df_draft" not in st.session_state:
+                df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+                if "testo" in df_note.columns and "nota1" not in df_note.columns:
+                    df_note["nota1"] = df_note["testo"]
+                for col in NOTE_HEADERS:
+                    if col not in df_note.columns:
+                        df_note[col] = ""
+                if df_note.empty:
+                    df_note = pd.DataFrame([{
+                        "id": 1,
+                        "nota1": "",
+                        "nota2": "",
+                        "nota3": "",
+                        "nota4": ""
+                    }])
+                st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
+
+            df_note = st.session_state.note_df_draft.copy()
             if df_note.empty:
                 df_note = pd.DataFrame([{
                     "id": 1,
@@ -1189,22 +1251,11 @@ def main():
                     "nota3": "",
                     "nota4": ""
                 }])
-            
-            # Salviamo struttura aggiornata
-            save_data_gsheets(worksheet_name, colonne_attese, df_note)
-        
-            # ───────── INIT (UNA SOLA RIGA) ─────────
-            if df_note.empty:
-                df_note = pd.DataFrame([{
-                    "id": 1,
-                    "nota1": "",
-                    "nota2": "",
-                    "nota3": "",
-                    "nota4": ""
-                }])
-                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-        
             nota_corrente = df_note.iloc[0]
+
+            def _nota_value(key):
+                value = nota_corrente.get(key, "")
+                return "" if pd.isna(value) else str(value)
         
             # ───────── UI ─────────
             st.markdown(
@@ -1213,24 +1264,28 @@ def main():
             )
             col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
             with col1_postit:
-                nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150, label_visibility="collapsed")       
+                nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=150, label_visibility="collapsed", key="nota1_text")
             with col2_postit:
-                nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150, label_visibility="collapsed")            
+                nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=150, label_visibility="collapsed", key="nota2_text")
             with col3_postit:
-                nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150, label_visibility="collapsed")         
+                nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=150, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
-                nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")                    
+                nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=150, label_visibility="collapsed", key="nota4_text")
             # ───────── BOTTONE A DESTRA (SOTTO) ─────────
             col_spazio, col_btn = st.columns([6, 1])
             with col_btn:
                 salva = st.button("💾 Salva", use_container_width=True)
             # ───────── SALVATAGGIO ─────────
             if salva:
-                df_note.loc[0, "nota1"] = nota1
-                df_note.loc[0, "nota2"] = nota2
-                df_note.loc[0, "nota3"] = nota3
-                df_note.loc[0, "nota4"] = nota4
+                df_note = pd.DataFrame([{
+                    "id": 1,
+                    "nota1": nota1,
+                    "nota2": nota2,
+                    "nota3": nota3,
+                    "nota4": nota4
+                }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.session_state.note_df_draft = df_note.copy()
                     st.success("Note salvate")
                 else:
                     st.error("Errore salvataggio")
