@@ -60,6 +60,7 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
         st.error(f"Errore connessione Google Sheets: {e}")
         return None
 
+@st.cache_data(ttl=300, show_spinner=False)
 def load_data_gsheets(worksheet_name, headers):
     client = get_gsheet_client()
     if not client:
@@ -102,6 +103,10 @@ def save_data_gsheets(worksheet_name, headers, data):
                 else:
                     row_data.append(float(val) if isinstance(val, (int, float)) else str(val))
             worksheet.append_row(row_data)
+        try:
+            load_data_gsheets.clear()
+        except Exception:
+            pass
         return True
     except Exception as e:
         st.error(f"Errore salvataggio: {e}")
@@ -602,8 +607,7 @@ def _parse_bool_turni(value):
     return str(value).strip().lower() in ["true", "1", "sì", "si", "yes", "festivo"]
 
 
-def load_turni_data():
-    df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS)
+def _normalize_turni_df(df):
     if df.empty:
         return pd.DataFrame(columns=TURNI_HEADERS)
     for col in TURNI_HEADERS:
@@ -618,12 +622,32 @@ def load_turni_data():
     return df.sort_values("Data").reset_index(drop=True)
 
 
+def load_turni_data(force_reload=False):
+    """Carica i turni una sola volta in sessione.
+    Così cliccare più giorni nel calendario non fa una read Google Sheets ogni volta.
+    """
+    if force_reload or "turni_df_draft" not in st.session_state:
+        df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS)
+        st.session_state.turni_df_draft = _normalize_turni_df(df)
+        st.session_state.turni_dirty = False
+    return st.session_state.turni_df_draft.copy()
+
+
+def set_turni_draft(df):
+    st.session_state.turni_df_draft = _normalize_turni_df(df)
+    st.session_state.turni_dirty = True
+
+
 def save_turni_data(df):
     if df.empty:
         df_save = pd.DataFrame(columns=TURNI_HEADERS)
     else:
-        df_save = df[TURNI_HEADERS].copy()
-    return save_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, df_save)
+        df_save = _normalize_turni_df(df)
+    ok = save_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, df_save)
+    if ok:
+        st.session_state.turni_df_draft = df_save.copy()
+        st.session_state.turni_dirty = False
+    return ok
 
 
 def get_turni_rules():
@@ -853,12 +877,26 @@ def render_turni_guadagni_section():
                             "Turno": tool,
                             "Festivo": bool(festivo_manual)
                         }])], ignore_index=True)
-                    if save_turni_data(df_new):
-                        st.rerun()
-                    else:
-                        st.error("Errore nel salvataggio turno")
+                    set_turni_draft(df_new)
+                    st.rerun()
 
         st.markdown("---")
+        if st.session_state.get("turni_dirty", False):
+            st.warning("Modifiche turni non ancora salvate su Google Sheets.")
+        save_col, reload_col = st.columns(2)
+        with save_col:
+            if st.button("💾 Salva modifiche turni su Google Sheets", use_container_width=True, key="turni_save_all"):
+                if save_turni_data(st.session_state.turni_df_draft):
+                    st.success("Turni salvati su Google Sheets")
+                    st.rerun()
+                else:
+                    st.error("Errore nel salvataggio turni")
+        with reload_col:
+            if st.button("🔄 Ricarica turni da Google Sheets", use_container_width=True, key="turni_reload_sheet"):
+                load_turni_data(force_reload=True)
+                st.rerun()
+
+        df_turni = load_turni_data()
         month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
         st.markdown("#### 🗓️ Riepilogo turni del mese")
         if month_df.empty:
@@ -905,7 +943,7 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
 
         st.session_state.turni_rules = rules
-        st.caption("Le regole sono salvate nella sessione Streamlit. I turni invece vengono salvati su Google Sheets nel foglio 'TurniGuadagni'.")
+        st.caption("Le regole sono salvate nella sessione Streamlit. I turni restano in bozza mentre clicchi i giorni e vengono scritti su Google Sheets solo quando premi 'Salva modifiche turni'.")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
