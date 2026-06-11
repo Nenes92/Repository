@@ -672,7 +672,17 @@ def donut_chart_with_labels(df, label_col, value_col, colors, title, width=220, 
             field=label_col,
             type="nominal",
             scale=alt.Scale(domain=domain, range=ranges),
-            legend=None
+            legend=alt.Legend(
+                title=None,
+                orient="bottom",
+                direction="horizontal",
+                columns=2,
+                labelColor="rgba(255,255,255,0.72)",
+                labelFontSize=10,
+                labelLimit=120,
+                symbolSize=55,
+                padding=4
+            )
         ),
         tooltip=[
             alt.Tooltip(f"{label_col}:N", title=label_col),
@@ -680,13 +690,7 @@ def donut_chart_with_labels(df, label_col, value_col, colors, title, width=220, 
         ]
     )
     arc = base.mark_arc(innerRadius=inner_radius, outerRadius=outer_radius)
-    labels = base.mark_text(
-        radius=outer_radius + 24,
-        size=10,
-        color="rgba(255,255,255,0.74)",
-        fontWeight=500
-    ).encode(text=alt.Text(f"{label_col}:N"))
-    return (arc + labels).properties(
+    return arc.properties(
         title=title,
         width=width,
         height=height
@@ -762,7 +766,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Categoria",
         "Importo",
         color_map,
-        "🏠 Distribuzione Spese Fisse",
+        "Spese fisse",
         width=230,
         height=220
     )
@@ -782,7 +786,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             "Da spendere": "#FACC15",
             "Spese quotidiane": "#FB923C",
         },
-        "💸 Distribuzione Spese Variabili",
+        "Spese variabili",
         width=220,
         height=200
     ).interactive()
@@ -807,7 +811,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Categoria",
         "Importo",
         ae_colors_map,
-        "➕ Distribuzione Altre Entrate",
+        "Altre entrate",
         width=220,
         height=200,
         inner_radius=35,
@@ -2299,7 +2303,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_mid_gap, col2_right = st.columns([1.0, 0.08, 1.05], gap="large")
+        col2_left, col2_mid_gap, col2_right = st.columns([0.95, 0.08, 1.16], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2442,7 +2446,7 @@ textarea {
                             "Da spendere": "#FACC15",
                             "Spese quotidiane": "#FB923C",
                         },
-                        "💸 Distribuzione Spese Variabili",
+                        "Spese variabili",
                         width=230,
                         height=220
                     )
@@ -2516,7 +2520,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1.28, 0.68, 0.04], gap="large")
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1.05, 0.9, 0.05], gap="large")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2597,7 +2601,7 @@ textarea {
                             "Voce",
                             "Value",
                             {voce: palette[idx % len(palette)] for idx, voce in enumerate(df_altre_entrate["Voce"].tolist())},
-                            "➕ Distribuzione Altre Entrate",
+                            "Altre entrate",
                             width=230,
                             height=220
                         )
@@ -2672,7 +2676,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_mid_gap, col3_right = st.columns([0.82, 0.08, 1.1], gap="large")
+        col3_left, col3_mid_gap, col3_right = st.columns([0.76, 0.06, 1.18], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -2735,7 +2739,7 @@ textarea {
                             "Da Spendere": "#fde047",
                             "Quotidiane": "#FB923C",
                         },
-                        "💰 Distribuzione Risparmi",
+                        "Risparmi",
                         width=230,
                         height=220
                     ).resolve_scale(color='independent')
@@ -2747,7 +2751,7 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.12, 0.95], gap="large")
             with col_Distribuzione_Carte_1:
                 st.subheader("Trasferimenti sulle Carte:")
         
@@ -2826,7 +2830,7 @@ textarea {
                         "BNL": "#2E7D32",
                         "Risparmiato BNL": "#66BB6A",
                     },
-                    "💳 Distribuzione Carte",
+                    "Carte",
                     width=230,
                     height=220
                 ).resolve_scale(color='independent')
