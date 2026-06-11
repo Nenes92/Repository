@@ -1817,25 +1817,23 @@ def main():
     load_spese_fisse_settings()
     load_altre_entrate_settings()
 
-    col_left, col_center, col_right = st.columns([1, 2, 1])
+    col_left, col_center, col_right = st.columns([1, 2, 1], gap="large")
     with col_left:
         st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     with col_center:
         st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
 
-    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1, 1, 2])
-    col1, col2, col3 = st.columns([1, 2, 2])
+    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
+    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 1.05, 1.25, 2.1], gap="large")
+    col1, col2, col3 = st.columns([1.08, 2, 2], gap="large")
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50)
     with col_stip_inserimento2:
-        st.markdown('<div style="height: 40px;"></div>', unsafe_allow_html=True)
         stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50)
-        st.markdown('<div style="height: 45px;"></div>', unsafe_allow_html=True)
     with col_stip_inserimento3:
-        st.markdown('<div style="height: 30px;"></div>', unsafe_allow_html=True)
-    
         tot_stipendio = stipendio_originale + sum(ALTRE_ENTRATE.values())
         tot_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     
@@ -1843,7 +1841,7 @@ def main():
         _tu = f"€{tot_utilizzare:,.2f}"
     
         # ───────── Divisione in 2 colonne ─────────
-        col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2)
+        col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2, gap="medium")
     
         # ───────── Prima card ─────────
         with col_stip_inserimento3_1:
@@ -1851,7 +1849,7 @@ def main():
             <div class="kpi-card">
                 <div class="kpi-label">Stipendio Totale</div>
                 <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
+                <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
                     Originale + Altre Entrate
                 </div>
             </div>
@@ -1863,7 +1861,7 @@ def main():
             <div class="kpi-card">
                 <div class="kpi-label">Stipendio da Utilizzare</div>
                 <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
+                <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
                     Scelto + Altre Entrate
                 </div>
             </div>
@@ -1873,14 +1871,24 @@ def main():
             # ───────── STILE POST-IT ─────────
             st.markdown("""
             <style>
-            textarea {
-                background-color: rgba(255, 241, 118, 0.35) !important;
-                color: black !important;
-                border-radius: 12px !important;
-                border: none !important;
-                box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
-                padding: 10px !important;
-            }
+textarea {
+    background-color: rgba(255, 241, 118, 0.35) !important;
+    color: black !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: 3px 3px 10px rgba(0,0,0,0.25) !important;
+    padding: 10px !important;
+    resize: none !important;
+}
+
+[data-testid="stPopover"] button {
+    background: rgba(255, 241, 118, 0.18) !important;
+    border: 0.5px solid rgba(255, 241, 118, 0.35) !important;
+    color: #fde68a !important;
+    border-radius: 10px !important;
+    min-height: 42px;
+    width: 100%;
+}
             </style>
             """, unsafe_allow_html=True)
         
@@ -1925,15 +1933,19 @@ def main():
                 '<div class="section-pill">📝 Promemoria</div>',
                 unsafe_allow_html=True
             )
-            col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
+            col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4, gap="small")
             with col1_postit:
-                nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=96, label_visibility="collapsed", key="nota1_text")
+                with st.popover("Nota 1", use_container_width=True):
+                    nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=220, label_visibility="collapsed", key="nota1_text")
             with col2_postit:
-                nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=96, label_visibility="collapsed", key="nota2_text")
+                with st.popover("Nota 2", use_container_width=True):
+                    nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=220, label_visibility="collapsed", key="nota2_text")
             with col3_postit:
-                nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=96, label_visibility="collapsed", key="nota3_text")
+                with st.popover("Nota 3", use_container_width=True):
+                    nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=220, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
-                nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=96, label_visibility="collapsed", key="nota4_text")
+                with st.popover("Nota 4", use_container_width=True):
+                    nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
             salva_spacer, salva_col = st.columns([3, 1])
             with salva_col:
                 salva = st.button("💾 Salva", use_container_width=True, key="save_promemoria")
@@ -2140,7 +2152,7 @@ def main():
         with tab_spese_fisse:
             st.subheader("Spese Fisse:")
 
-            col_left, col_right = st.columns(2)
+            col_left, col_right = st.columns(2, gap="large")
             spese_meta = st.session_state.get("spese_fisse_metadata", {})
             rendered_voci = set()
             group_columns = [col_left, col_right]
@@ -2301,7 +2313,7 @@ def main():
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1, 1])
+        col2_left, col2_right = st.columns([1, 1], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2318,7 +2330,7 @@ def main():
             spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
             risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
 
-            variabili_quote_col, variabili_budget_col = st.columns([1, 1])
+            variabili_quote_col, variabili_budget_col = st.columns([1, 1], gap="large")
             with variabili_quote_col:
                 st.markdown(
                     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
@@ -2384,7 +2396,7 @@ def main():
     
     
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2])
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2], gap="large")
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
                 _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
@@ -2540,7 +2552,7 @@ def main():
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1], gap="large")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2710,7 +2722,7 @@ def main():
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1, 1])
+        col3_left, col3_right = st.columns([1, 1], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
