@@ -1826,7 +1826,7 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 1.05, 1.25, 2.1], gap="large")
-    col1, col2, col3 = st.columns([1.08, 2, 2], gap="large")
+    col1, col_gap_12, col2, col_gap_23, col3 = st.columns([1.08, 0.12, 2.0, 0.12, 2.0], gap="large")
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -2313,7 +2313,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1, 1], gap="large")
+        col2_left, col2_mid_gap, col2_right = st.columns([1.12, 0.08, 0.82], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2552,7 +2552,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1], gap="large")
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1.15, 0.75, 0.1], gap="large")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2664,12 +2664,12 @@ textarea {
                         st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
-        col_center_pill = st.columns([1, 2, 1])[1]
+        col_center_pill = st.columns([1, 2, 1], gap="large")[1]
         with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
+        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.06, 0.46, 1.15, 0.08], gap="large")
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
@@ -2709,20 +2709,30 @@ textarea {
 
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
-            df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
-            df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-            styled_df_fisse = (
-                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
-                .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
-                .set_properties(**{'text-align': 'center'})
-            )
-            st.dataframe(styled_df_fisse, use_container_width=True)
+            dettaglio_rows = []
+            dettaglio_df = df_fisse_percentuali.copy()
+            if "Valore €" in dettaglio_df.columns and "Importo" not in dettaglio_df.columns:
+                dettaglio_df["Importo"] = dettaglio_df["Valore €"]
+            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                categoria = str(row["Categoria"])
+                valore = float(row["Importo"])
+                colore = color_map.get(categoria, "#999999")
+                dettaglio_rows.append(f"""
+                <div style="display:grid;grid-template-columns:8px 1.2fr .8fr .7fr;gap:10px;align-items:center;
+                            padding:9px 10px;margin:6px 0;border-radius:10px;
+                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                    <div style="height:100%;min-height:28px;border-radius:999px;background:{colore};"></div>
+                    <div style="font-size:14px;font-weight:600;color:{colore};">{categoria}</div>
+                    <div style="font-size:14px;color:rgba(255,255,255,.82);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.46);text-align:right;">{row["Percentuale"]}</div>
+                </div>
+                """)
+            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1, 1], gap="large")
+        col3_left, col3_mid_gap, col3_right = st.columns([1.08, 0.08, 0.84], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
