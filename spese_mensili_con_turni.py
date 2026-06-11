@@ -366,7 +366,7 @@ hr {
     margin-bottom: 10px;
 }
 .kpi-label {
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(255,255,255,0.4);
     text-transform: uppercase;
     letter-spacing: 0.9px;
@@ -374,7 +374,7 @@ hr {
 }
 .kpi-value {
     font-family: 'DM Mono', monospace;
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 500;
 }
 
@@ -518,19 +518,27 @@ def _triangle_for_card(carta):
 def _spesa_fissa_row_html(voce, importo, categoria, carta):
     colore = SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#ffffff")
     return (
-        '<div style="font-size:14px;line-height:1.55;margin:1px 0;">'
+        '<div style="font-size:15px;line-height:1.6;margin:2px 0;">'
         f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{_triangle_for_card(carta)}'
         '</div>'
     )
 
 
 def _spesa_variabile_row_html(voce, importo, colore, didascalia):
+    return _money_row_html(voce, importo, colore, triangolino_blu_Revolut, didascalia)
+
+
+def _money_row_html(voce, importo, colore, marker="", didascalia=""):
+    didascalia_html = (
+        f'<div style="font-size:12px;color:rgba(255,255,255,.44);margin-left:10px;margin-top:1px;">{didascalia}</div>'
+        if didascalia else ""
+    )
     return (
-        '<div style="margin:3px 0 7px;line-height:1.25;">'
-        '<div style="font-size:14px;font-weight:500;">'
-        f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{triangolino_blu_Revolut}'
+        '<div style="margin:4px 0 8px;line-height:1.28;">'
+        '<div style="font-size:15px;font-weight:500;">'
+        f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{marker}'
         '</div>'
-        f'<div style="font-size:11px;color:rgba(255,255,255,.42);margin-left:10px;margin-top:1px;">{didascalia}</div>'
+        f'{didascalia_html}'
         '</div>'
     )
 
@@ -2515,15 +2523,18 @@ def main():
                 with col_altre_entrate_sx:
                     st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                     st.subheader("Altre Entrate:")
+                    altre_entrate_colori = {
+                        "Macchina (Mamma)": "#E6C48C",
+                        "Altro": "#89CFF0",
+                        "2° Entr. dal mese prec.": "#D8BFD8",
+                    }
                     for voce, importo in ALTRE_ENTRATE.items():
-                        if voce in ["Macchina (Mamma)"]:
-                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
-                        elif voce in ["Altro"]:
-                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
-                        elif voce in ["2° Entr. dal mese prec."]:
-                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
-                        else:
-                            st.write(f"- {voce}: €{importo:.2f}")
+                        colore = altre_entrate_colori.get(voce, "#34d399")
+                        peso = (importo / totale_altre * 100) if totale_altre else 0
+                        st.markdown(
+                            _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate"),
+                            unsafe_allow_html=True
+                        )
 
                 with col_altre_entrate_dx:
                     totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
@@ -2534,33 +2545,29 @@ def main():
                     st.markdown("### 🎯 Obiettivo Entrate")
                     percentuale_stip = stipendio_originale / totale_entrate_target * 100
                     st.markdown(f"""
-                    <div style="font-size:13px; color:rgba(255,255,255,0.6);">
-                    Entrate totali desiderate<br>
-                    <b style="color:white; font-size:18px;">
-                    €{totale_entrate_target:,.2f}
-                    <span style="font-size:11px; color:rgba(255,255,255,0.4);">
-                    &nbsp;&nbsp;Stipendio = {percentuale_stip:.0f}% delle entrate totali
-                    </span>
-                    </b>
+                    <div style="margin:4px 0 10px;line-height:1.25;">
+                        <div style="font-size:12px;color:rgba(255,255,255,.44);">Entrate totali desiderate</div>
+                        <div style="font-size:19px;font-weight:600;color:rgba(255,255,255,.9);">€{totale_entrate_target:,.2f}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                     st.markdown(f"""
-                    <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
-                    Altre entrate target<br>
-                    <b style="color:#8fe28f; font-size:18px;">€{altre_entrate_target:,.2f}</b>
+                    <div style="margin:4px 0 10px;line-height:1.25;">
+                        <div style="font-size:12px;color:rgba(255,255,255,.44);">Altre entrate target</div>
+                        <div style="font-size:19px;font-weight:600;color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                     st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
                     st.progress(progresso)
                     st.markdown(f"""
-                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                    <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
                     Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
                     </div>
                     """, unsafe_allow_html=True)
 
-                st.markdown("---")
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
                 col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
                 percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
                 _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
@@ -2681,7 +2688,7 @@ def main():
     with col3:
         col3_left, col3_right = st.columns([1, 1])
         with col3_left:
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
             st.subheader("Risparmiati del mese:")
         
@@ -2695,25 +2702,13 @@ def main():
             v3 = risparmio_da_spendere_calc
             v4 = risparmio_spese_quotidiane_calc
             
-            def riga(voce, valore, colore, triangolino, extra=""):
-                return f"""
-                <div style="
-                    color:{colore};
-                    margin-bottom:4px;
-                ">
-                    - {voce}: €{valore:.2f} {triangolino}
-                </div>
-                {extra}
-                """
-    
-            # Stipendi + Mese precedente + Da spendere + Quotidiane
             html_risparmi = ""
-            html_risparmi += riga("Dallo Stipendio Originale", v1, "#9ca3af", triangolino_verde_BNL)
-            html_risparmi += riga("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL)
-            html_risparmi += riga("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL)
-            html_risparmi += riga("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL)            
+            html_risparmi += _money_row_html("Dallo Stipendio Originale", v1, "#9ca3af", triangolino_verde_BNL, "quota lasciata da parte rispetto allo stipendio pieno")
+            html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
+            html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
+            html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
             st.markdown(html_risparmi, unsafe_allow_html=True)
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
             col_risparmi_1, col_risparmi_2 = st.columns([1, 2])
             with col_risparmi_1:
@@ -2787,7 +2782,7 @@ def main():
 
                             
         with col3_right:
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
             col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
             with col_Distribuzione_Carte_1:
@@ -2804,7 +2799,16 @@ def main():
                         somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                         spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                         somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                        st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 11px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 11px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 11px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 11px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
+                        st.markdown(
+                            _money_row_html(
+                                f"Da {testo} su {carta}",
+                                totale_carta,
+                                colore,
+                                _triangle_for_card(carta),
+                                f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
+                            ),
+                            unsafe_allow_html=True
+                        )
                     else:
                         totale_carta = sum(spese_carta.values())
                         if carta == "ING":
@@ -2815,8 +2819,26 @@ def main():
                             colore2 = "#77DD77"
                             testo = "mantenere"
                             testo2 = "risparmiato"
-                        st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span>', unsafe_allow_html=True)
-                st.markdown(f'Totale &nbsp; **<em style="color: #A0A0A0;">{testo2}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore2}">€{risparmi_mensili:.2f}</span>', unsafe_allow_html=True)
+                        st.markdown(
+                            _money_row_html(
+                                f"Da {testo} su {carta}",
+                                totale_carta,
+                                colore,
+                                _triangle_for_card(carta),
+                                "totale delle spese previste su questa carta"
+                            ),
+                            unsafe_allow_html=True
+                        )
+                st.markdown(
+                    _money_row_html(
+                        f"Totale {testo2} su {carta}",
+                        risparmi_mensili,
+                        colore2,
+                        _triangle_for_card(carta),
+                        "quota da lasciare come risparmio"
+                    ),
+                    unsafe_allow_html=True
+                )
     
             # FIX 4: NEW "Carte" donut chart
             with col_Distribuzione_Carte_2:  
