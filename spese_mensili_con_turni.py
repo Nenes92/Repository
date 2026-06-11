@@ -426,7 +426,7 @@ SPESE = {
         "Trasporti": 165,
         "Sport": 70,
         "Psicologo": 100,
-        "Altro/C": 135,
+        "Cane": 135,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
@@ -441,7 +441,7 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0
     },
-    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Altro/C", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Cane", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
@@ -452,6 +452,42 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
+SPESE_FISSE_HEADERS = ["Voce", "Importo"]
+SPESE_FISSE_WORKSHEET = "SpeseFisse"
+
+
+def _normalize_spese_fisse_df(df):
+    if df.empty:
+        return pd.DataFrame(columns=SPESE_FISSE_HEADERS)
+    for col in SPESE_FISSE_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[SPESE_FISSE_HEADERS].copy()
+    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Cane"})
+    df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
+    return df
+
+
+def load_spese_fisse_settings():
+    if "spese_fisse_settings" not in st.session_state:
+        df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
+        settings = SPESE["Fisse"].copy()
+        for _, row in df.iterrows():
+            voce = row["Voce"]
+            if voce in settings:
+                settings[voce] = float(row["Importo"])
+        st.session_state.spese_fisse_settings = settings
+    SPESE["Fisse"].update(st.session_state.spese_fisse_settings)
+
+
+def save_spese_fisse_settings(settings):
+    df = pd.DataFrame([{"Voce": voce, "Importo": importo} for voce, importo in settings.items()])
+    ok = save_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, df)
+    if ok:
+        st.session_state.spese_fisse_settings = settings.copy()
+        SPESE["Fisse"].update(settings)
+    return ok
+
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
@@ -459,7 +495,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
     df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
     df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Altro/C"), "Categoria"] = "Salute"
+    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Cane"), "Categoria"] = "Salute"
     df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
     df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
     df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
@@ -485,7 +521,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
-        "Altro/C": "#40E0D0",
+        "Cane": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
@@ -1489,6 +1525,9 @@ def render_turni_guadagni_section():
                 st.info("Nessun turno inserito per il mese selezionato.")
             else:
                 month_df = month_df.sort_values("Data")
+                today_key = _now_italy().strftime("%Y-%m-%d")
+                focus_candidates = month_df[month_df["Data"] >= today_key]
+                focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
                 cards = ['<div class="turni-grid-scroll">']
                 for _, r in month_df.iterrows():
                     turno = r["Turno"]
@@ -1497,8 +1536,9 @@ def render_turni_guadagni_section():
                     seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
                     data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
                     festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
+                    focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
                     cards.append(
-                        f'<div class="turni-card-small {info["class"]}">'
+                        f'<div{focus_attr} class="turni-card-small {info["class"]}">'
                         f'<div class="date">{r["Data"]}{festivo_txt}</div>'
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
                         f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
@@ -1506,7 +1546,58 @@ def render_turni_guadagni_section():
                         f'</div>'
                     )
                 cards.append("</div>")
-                st.markdown("".join(cards), unsafe_allow_html=True)
+                components.html(f"""
+                <style>
+                  body {{
+                    margin: 0;
+                    background: transparent;
+                    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  }}
+                  .turni-grid-scroll {{
+                    max-height: 365px;
+                    overflow-y: auto;
+                    padding-right: 8px;
+                  }}
+                  .turni-card-small {{
+                    background: rgba(255,255,255,0.045);
+                    border: 0.5px solid rgba(255,255,255,0.10);
+                    border-left: 5px solid rgba(255,255,255,0.25);
+                    border-radius: 12px;
+                    padding: 7px 9px;
+                    margin-bottom: 6px;
+                  }}
+                  .turni-card-small .date {{
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.58);
+                  }}
+                  .turni-card-small .title {{
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-top: 2px;
+                  }}
+                  .turni-card-small .meta {{
+                    font-size: 11px;
+                    color: rgba(255,255,255,0.42);
+                    margin-top: 3px;
+                  }}
+                  .turni-mattina {{ border-left-color:#60a5fa; }}
+                  .turni-pomeriggio {{ border-left-color:#fb923c; }}
+                  .turni-notte {{ border-left-color:#64748b; }}
+                  .turni-ferie {{ border-left-color:#34d399; }}
+                  #turni-focus-card {{
+                    outline: 1px solid rgba(96,165,250,0.45);
+                    outline-offset: -1px;
+                  }}
+                </style>
+                {"".join(cards)}
+                <script>
+                  const focusCard = document.getElementById("turni-focus-card");
+                  const scroller = document.querySelector(".turni-grid-scroll");
+                  if (focusCard && scroller) {{
+                    scroller.scrollTop = Math.max(0, focusCard.offsetTop - 6);
+                  }}
+                </script>
+                """, height=370)
 
         st.markdown("---")
         if st.session_state.get("turni_dirty", False):
@@ -1556,6 +1647,7 @@ def render_turni_guadagni_section():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
+    load_spese_fisse_settings()
 
     col_left, col_center, col_right = st.columns([1, 2, 1])
     with col_left:
@@ -1806,47 +1898,70 @@ def main():
     with col1:
         st.markdown("---")
         st.markdown('<div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
-        st.subheader("Spese Fisse:")
+        tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
-        col_left, col_right = st.columns(2)
+        with tab_decisioni_fisse:
+            settings = SPESE["Fisse"].copy()
+            editor_cols = st.columns(2)
+            editable_settings = {}
+            for idx, (voce, importo) in enumerate(settings.items()):
+                with editor_cols[idx % 2]:
+                    editable_settings[voce] = st.number_input(
+                        voce,
+                        min_value=0.0,
+                        value=float(importo),
+                        step=5.0,
+                        key=f"spesa_fissa_{voce}"
+                    )
+            if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
+                if save_spese_fisse_settings(editable_settings):
+                    st.success("Spese fisse salvate")
+                    st.rerun()
+                else:
+                    st.error("Errore salvataggio spese fisse")
 
-        with col_left:
-            for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Mutuo"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Bollette"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Pulizia Casa"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
-                elif voce in ["Condominio"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Beneficienza"]:
-                    st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["World Food Programme"]:
-                    st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Sport", "Psicologo", "Altro/C"]:
-                    st.markdown(f'<span style="color: #80E6E6;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Altro"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Cucina"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Trasporti"]:
-                    st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+        with tab_spese_fisse:
+            st.subheader("Spese Fisse:")
 
-        with col_right:
-            for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Disney+", "Netflix", "Spotify"]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["BNL C.C."]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["ING C.C."]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
-                    st.markdown(f'<span style="color: #89CFF0;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Macchina"]:
-                    st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+            col_left, col_right = st.columns(2)
+
+            with col_left:
+                for voce, importo in SPESE["Fisse"].items():
+                    if voce in ["Mutuo"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Bollette"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Pulizia Casa"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                        st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+                    elif voce in ["Condominio"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Beneficienza"]:
+                        st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["World Food Programme"]:
+                        st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Sport", "Psicologo", "Cane"]:
+                        st.markdown(f'<span style="color: #80E6E6;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Altro"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Cucina"]:
+                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Trasporti"]:
+                        st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+
+            with col_right:
+                for voce, importo in SPESE["Fisse"].items():
+                    if voce in ["Disney+", "Netflix", "Spotify"]:
+                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["BNL C.C."]:
+                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["ING C.C."]:
+                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
+                        st.markdown(f'<span style="color: #89CFF0;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                    elif voce in ["Macchina"]:
+                        st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
+                        st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
 
         st.markdown("---")
         _sf = f"€{spese_fisse_totali:.2f}"
@@ -2434,7 +2549,7 @@ def main():
                         totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
                         colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                         spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                         somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
                         st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 11px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 11px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 11px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 11px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
