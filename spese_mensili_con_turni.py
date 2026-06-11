@@ -2152,7 +2152,7 @@ def main():
                     if group_index > 1:
                         st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
                     st.markdown(
-                        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.42);margin:8px 0 3px;">{group_name}</div>',
+                        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
                         unsafe_allow_html=True
                     )
                     for voce, importo in group_items:
@@ -2166,7 +2166,7 @@ def main():
                 with col_right:
                     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
                     st.markdown(
-                        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.42);margin:8px 0 3px;">Altre</div>',
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
                         unsafe_allow_html=True
                     )
                     for voce, importo in altre_voci:
@@ -2186,14 +2186,14 @@ def main():
             <div class="kpi-card">
                 <div class="kpi-label">Totale Spese Fisse</div>
                 <div class="kpi-value" style="color:#f87171;">{_sf}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfp}% dello stipendio da utilizzare</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sfpo}% dello stipendio totale</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% dello stipendio da utilizzare</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% dello stipendio totale</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
                 <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio totale</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% dello stipendio totale</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2317,46 +2317,70 @@ def main():
 
             spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
             risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-            for voce, importo in SPESE["Variabili"].items():
-                if voce in ["Emergenze/Compleanni"]:
-                    percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-                    st.markdown(
-                        _spesa_variabile_row_html(voce, importo, "#4ADE80", f"{percentuale_emergenze:.2f}% dei risparmiabili"),
-                        unsafe_allow_html=True
-                    )
-                elif voce in ["Viaggi"]:
-                    percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-                    st.markdown(
-                        _spesa_variabile_row_html(voce, importo, "#166534", f"{percentuale_viaggi:.2f}% dei risparmiabili"),
-                        unsafe_allow_html=True
-                    )
-                elif voce in ["Spese quotidiane"]:
-                    st.markdown(
-                        _spesa_variabile_row_html(voce, importo, "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}"),
-                        unsafe_allow_html=True
-                    )
-                elif voce in ["Da spendere"]:
-                    pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
-                    st.markdown(
-                        _spesa_variabile_row_html(voce, importo, "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"),
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.write(f"- {voce}: €{importo:.2f}")
-                if voce == "Da spendere":
-                    da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
-                    risparmio_da_spendere = da_spendere_senza_limite - da_spendere
-                    st.markdown(
-                        f'<div style="font-size:10.5px;color:rgba(255,255,255,.34);margin:-4px 0 6px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
-                        unsafe_allow_html=True
-                    )
-                if voce == "Spese quotidiane":
-                    spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
-                    risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
-                    st.markdown(
-                        f'<div style="font-size:10.5px;color:rgba(255,255,255,.34);margin:-4px 0 6px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
-                        unsafe_allow_html=True
-                    )
+
+            variabili_quote_col, variabili_budget_col = st.columns([1, 1])
+            with variabili_quote_col:
+                st.markdown(
+                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
+                    unsafe_allow_html=True
+                )
+                percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
+                st.markdown(
+                    _spesa_variabile_row_html(
+                        "Emergenze/Compleanni",
+                        SPESE["Variabili"]["Emergenze/Compleanni"],
+                        "#4ADE80",
+                        f"{percentuale_emergenze:.2f}% dei risparmiabili"
+                    ),
+                    unsafe_allow_html=True
+                )
+                percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
+                st.markdown(
+                    _spesa_variabile_row_html(
+                        "Viaggi",
+                        SPESE["Variabili"]["Viaggi"],
+                        "#166534",
+                        f"{percentuale_viaggi:.2f}% dei risparmiabili"
+                    ),
+                    unsafe_allow_html=True
+                )
+
+            with variabili_budget_col:
+                st.markdown(
+                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Dopo le quote</div>',
+                    unsafe_allow_html=True
+                )
+                pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
+                st.markdown(
+                    _spesa_variabile_row_html(
+                        "Da spendere",
+                        SPESE["Variabili"]["Da spendere"],
+                        "#FACC15",
+                        f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"
+                    ),
+                    unsafe_allow_html=True
+                )
+                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
+                risparmio_da_spendere = da_spendere_senza_limite - da_spendere
+                st.markdown(
+                    f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    _spesa_variabile_row_html(
+                        "Spese quotidiane",
+                        SPESE["Variabili"]["Spese quotidiane"],
+                        "#FB923C",
+                        f"rimanente, con limite a €{max_spese_quotidiane:.2f}"
+                    ),
+                    unsafe_allow_html=True
+                )
+                spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
+                risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
+                st.markdown(
+                    f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
+                    unsafe_allow_html=True
+                )
     
     
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
@@ -2370,9 +2394,9 @@ def main():
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_util}% dello Stipendio da Utilizzare</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% dello Stipendio da Utilizzare</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2382,7 +2406,7 @@ def main():
                 progresso_altre_entrate = min(progresso_altre_entrate, 1.0)
                 st.progress(progresso_altre_entrate)
                 st.markdown(f"""
-                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
                 Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
                 </div>
                 """, unsafe_allow_html=True)
@@ -2576,7 +2600,7 @@ def main():
                     <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
                         <div class="kpi-label">Totale Altre Entrate</div>
                         <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
                     </div>
                     """, unsafe_allow_html=True)
                     st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
@@ -2716,8 +2740,8 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2891,14 +2915,14 @@ def main():
         
                 chart_carte = carte_arc.resolve_scale(color='independent')
                 st.altair_chart(chart_carte, use_container_width=True)
-            st.markdown("---")  
-        st.markdown("---")
+            st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         render_turni_guadagni_section()
 
 if __name__ == "__main__":
     main()
 
-st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
 
 
 #####################################
