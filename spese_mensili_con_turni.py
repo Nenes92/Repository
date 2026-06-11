@@ -454,6 +454,8 @@ ALTRE_ENTRATE = {
 
 SPESE_FISSE_HEADERS = ["Voce", "Importo"]
 SPESE_FISSE_WORKSHEET = "SpeseFisse"
+ALTRE_ENTRATE_HEADERS = ["Voce", "Importo"]
+ALTRE_ENTRATE_WORKSHEET = "AltreEntrate"
 
 
 def _normalize_spese_fisse_df(df):
@@ -486,6 +488,42 @@ def save_spese_fisse_settings(settings):
     if ok:
         st.session_state.spese_fisse_settings = settings.copy()
         SPESE["Fisse"].update(settings)
+    return ok
+
+
+def _normalize_voce_importo_df(df, headers):
+    if df.empty:
+        return pd.DataFrame(columns=headers)
+    for col in headers:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[headers].copy()
+    df["Voce"] = df["Voce"].astype(str)
+    df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
+    return df
+
+
+def load_altre_entrate_settings():
+    if "altre_entrate_settings" not in st.session_state:
+        df = _normalize_voce_importo_df(load_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS), ALTRE_ENTRATE_HEADERS)
+        settings = ALTRE_ENTRATE.copy()
+        for _, row in df.iterrows():
+            voce = row["Voce"]
+            if voce:
+                settings[voce] = float(row["Importo"])
+        st.session_state.altre_entrate_settings = settings
+    ALTRE_ENTRATE.clear()
+    ALTRE_ENTRATE.update(st.session_state.altre_entrate_settings)
+
+
+def save_altre_entrate_settings(settings):
+    cleaned = {str(voce).strip(): float(importo) for voce, importo in settings.items() if str(voce).strip()}
+    df = pd.DataFrame([{"Voce": voce, "Importo": importo} for voce, importo in cleaned.items()])
+    ok = save_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS, df)
+    if ok:
+        st.session_state.altre_entrate_settings = cleaned.copy()
+        ALTRE_ENTRATE.clear()
+        ALTRE_ENTRATE.update(cleaned)
     return ok
 
 @st.cache_data
@@ -1648,6 +1686,7 @@ def render_turni_guadagni_section():
 
 def main():
     load_spese_fisse_settings()
+    load_altre_entrate_settings()
 
     col_left, col_center, col_right = st.columns([1, 2, 1])
     with col_left:
@@ -1759,17 +1798,14 @@ def main():
             )
             col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
             with col1_postit:
-                nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=150, label_visibility="collapsed", key="nota1_text")
+                nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=96, label_visibility="collapsed", key="nota1_text")
             with col2_postit:
-                nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=150, label_visibility="collapsed", key="nota2_text")
+                nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=96, label_visibility="collapsed", key="nota2_text")
             with col3_postit:
-                nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=150, label_visibility="collapsed", key="nota3_text")
+                nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=96, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
-                nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=150, label_visibility="collapsed", key="nota4_text")
-            # ───────── BOTTONE A DESTRA (SOTTO) ─────────
-            col_spazio, col_btn = st.columns([6, 1])
-            with col_btn:
-                salva = st.button("💾 Salva", use_container_width=True)
+                nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=96, label_visibility="collapsed", key="nota4_text")
+            salva = st.button("💾 Salva promemoria", use_container_width=True)
             # ───────── SALVATAGGIO ─────────
             if salva:
                 df_note = pd.DataFrame([{
@@ -2245,129 +2281,148 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
-            totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}" 
-            with col_altre_entrate_sx:
-                st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-                st.subheader("Altre Entrate:")
-                for voce, importo in ALTRE_ENTRATE.items():
-                    if voce in ["Macchina (Mamma)"]:
-                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
-                    elif voce in ["Altro"]:
-                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
-                    elif voce in ["2° Entr. dal mese prec."]:
-                        st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
+            tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
+
+            with tab_altre_decisioni:
+                altre_settings = ALTRE_ENTRATE.copy()
+                editor_cols = st.columns(2)
+                edited_altre = {}
+                for idx, (voce, importo) in enumerate(altre_settings.items()):
+                    with editor_cols[idx % 2]:
+                        edited_altre[voce] = st.number_input(
+                            voce,
+                            min_value=0.0,
+                            value=float(importo),
+                            step=10.0,
+                            key=f"altra_entrata_{voce}"
+                        )
+                new_col1, new_col2 = st.columns([1.4, 0.8])
+                with new_col1:
+                    nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
+                with new_col2:
+                    nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
+                if nuova_voce.strip():
+                    edited_altre[nuova_voce.strip()] = float(nuovo_importo)
+                if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
+                    if save_altre_entrate_settings(edited_altre):
+                        st.success("Altre entrate salvate")
+                        st.rerun()
                     else:
-                        st.write(f"- {voce}: €{importo:.2f}")
-            with col_altre_entrate_dx:
-                totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
-                altre_entrate_target = totale_entrate_target - stipendio_originale
+                        st.error("Errore salvataggio altre entrate")
 
-                progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
-                progresso = min(progresso, 1.0)
-            
-                st.markdown("### 🎯 Obiettivo Entrate")
+            with tab_altre_view:
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
+                totale_altre = sum(ALTRE_ENTRATE.values())
+                _ae = f"€{totale_altre:.2f}"
 
-                percentuale_stip = stipendio_originale / totale_entrate_target * 100
-                st.markdown(f"""
-                <div style="font-size:13px; color:rgba(255,255,255,0.6);">
-                Entrate totali desiderate<br>
-                <b style="color:white; font-size:18px;">
-                €{totale_entrate_target:,.2f}
-                <span style="font-size:11px; color:rgba(255,255,255,0.4);">
-                &nbsp;&nbsp;Stipendio = {percentuale_stip:.0f}% delle entrate totali
-                </span>
-                </b>
-                </div>
-                """, unsafe_allow_html=True)  
-                
-                st.markdown(f"""
-                <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
-                Altre entrate target<br>
-                <b style="color:#8fe28f; font-size:18px;">€{altre_entrate_target:,.2f}</b>
-                </div>
-                """, unsafe_allow_html=True)
-            
-                st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
-            
-                st.progress(progresso)
-            
-                st.markdown(f"""
-                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
-                Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
-                </div>
-                """, unsafe_allow_html=True)
-                
-            st.markdown("---")
-            col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
-            percentuale_altre_su_totale_altre = totale_altre/altre_entrate_target
-            _ae_ipot = f"{percentuale_altre_su_totale_altre *100:.2f}"                    
-            with col_altre_entrate_1:
-                st.markdown(f"""
-                <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-                    <div class="kpi-label">Totale Altre Entrate</div>
-                    <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-            
-            with col_altre_entrate_2:
-                # --- Grafico ---
-                # Creo il DataFrame per il grafico delle altre entrate
-                df_altre_entrate = pd.DataFrame({
-                    'Voce': list(ALTRE_ENTRATE.keys()),
-                    'Value': list(ALTRE_ENTRATE.values())
-                })
-            
-                # Solo voci con importo > 0
-                df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-            
-                # Calcolo le percentuali relative alle altre entrate
-                totale_entrate = df_altre_entrate["Value"].sum()
-                df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-            
-                if not df_altre_entrate.empty:
-                    chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                        innerRadius=40, outerRadius=70
-                    ).encode(
-                        theta=alt.Theta(field="Value", type="quantitative"),
-                        color=alt.Color(
-                            field="Voce", type="nominal",
-                            scale=alt.Scale(
-                                domain=list(ALTRE_ENTRATE.keys()),
-                                range=['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+                with col_altre_entrate_sx:
+                    st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+                    st.subheader("Altre Entrate:")
+                    for voce, importo in ALTRE_ENTRATE.items():
+                        if voce in ["Macchina (Mamma)"]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
+                        elif voce in ["Altro"]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
+                        elif voce in ["2° Entr. dal mese prec."]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
+                        else:
+                            st.write(f"- {voce}: €{importo:.2f}")
+
+                with col_altre_entrate_dx:
+                    totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
+                    altre_entrate_target = totale_entrate_target - stipendio_originale
+                    progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
+                    progresso = min(progresso, 1.0)
+
+                    st.markdown("### 🎯 Obiettivo Entrate")
+                    percentuale_stip = stipendio_originale / totale_entrate_target * 100
+                    st.markdown(f"""
+                    <div style="font-size:13px; color:rgba(255,255,255,0.6);">
+                    Entrate totali desiderate<br>
+                    <b style="color:white; font-size:18px;">
+                    €{totale_entrate_target:,.2f}
+                    <span style="font-size:11px; color:rgba(255,255,255,0.4);">
+                    &nbsp;&nbsp;Stipendio = {percentuale_stip:.0f}% delle entrate totali
+                    </span>
+                    </b>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown(f"""
+                    <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
+                    Altre entrate target<br>
+                    <b style="color:#8fe28f; font-size:18px;">€{altre_entrate_target:,.2f}</b>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
+                    st.progress(progresso)
+                    st.markdown(f"""
+                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                    Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+                col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+                percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
+                _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
+                with col_altre_entrate_1:
+                    st.markdown(f"""
+                    <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                        <div class="kpi-label">Totale Altre Entrate</div>
+                        <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+                with col_altre_entrate_2:
+                    df_altre_entrate = pd.DataFrame({
+                        'Voce': list(ALTRE_ENTRATE.keys()),
+                        'Value': list(ALTRE_ENTRATE.values())
+                    })
+                    df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+                    totale_entrate = df_altre_entrate["Value"].sum()
+                    df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+
+                    if not df_altre_entrate.empty:
+                        palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+                        chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                            innerRadius=40, outerRadius=70
+                        ).encode(
+                            theta=alt.Theta(field="Value", type="quantitative"),
+                            color=alt.Color(
+                                field="Voce", type="nominal",
+                                scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                legend=alt.Legend(
+                                    title=None,
+                                    orient='right',
+                                    direction='vertical',
+                                    labelColor='rgba(255,255,255,0.65)',
+                                    labelFontSize=11,
+                                    symbolSize=40,
+                                    padding=2,
+                                    offset=5
+                                )
                             ),
-                            legend=alt.Legend(
-                                title=None,
-                                orient='right',
-                                direction='vertical',
-                                labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=11,
-                                symbolSize=40,
-                                padding=2,
-                                offset=5
-                            )
-                        ),
-                        tooltip=[
-                            alt.Tooltip('Voce:N', title='Voce'),
-                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                        ]
-                    ).properties(
-                        title="➕ Distribuzione Altre Entrate",
-                        width=200,
-                        height=220
-                    ).configure_title(
-                        anchor='middle'
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
-                    )
-            
-                    st.altair_chart(chart_altre_entrate, use_container_width=True)
-    
+                            tooltip=[
+                                alt.Tooltip('Voce:N', title='Voce'),
+                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                            ]
+                        ).properties(
+                            title="➕ Distribuzione Altre Entrate",
+                            width=200,
+                            height=220
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
+                        )
+                        st.altair_chart(chart_altre_entrate, use_container_width=True)
+
         # Visualizzazione grafici
         col_center_pill = st.columns([1, 2, 1])[1]
         with col_center_pill:
