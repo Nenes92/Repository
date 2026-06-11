@@ -452,10 +452,69 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
-SPESE_FISSE_HEADERS = ["Voce", "Importo"]
+SPESE_FISSE_HEADERS = ["Voce", "Importo", "Categoria", "Carta"]
 SPESE_FISSE_WORKSHEET = "SpeseFisse"
 ALTRE_ENTRATE_HEADERS = ["Voce", "Importo"]
 ALTRE_ENTRATE_WORKSHEET = "AltreEntrate"
+
+SPESA_FISSA_CATEGORIE = ["Casa", "Investimenti", "Macchina", "Salute", "Donazioni", "Abbonamenti"]
+SPESA_FISSA_CATEGORIA_COLORI = {
+    "Casa": "#F08080",
+    "Investimenti": "#89CFF0",
+    "Macchina": "#E6C48C",
+    "Salute": "#80E6E6",
+    "Donazioni": "#D8BFD8",
+    "Abbonamenti": "#CC7722",
+}
+SPESA_FISSA_CARTE = ["Revolut", "ING", "BNL"]
+SPESA_FISSA_CARTA_COLORI = {
+    "Revolut": "#89CFF0",
+    "ING": "#D2691E",
+    "BNL": "green",
+}
+SPESE_VARIABILI_CARTE = {
+    "Revolut": ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "ING": [],
+    "BNL": [],
+}
+
+
+def _infer_spesa_fissa_categoria(voce):
+    if voce in ["World Food Programme", "Beneficienza"]:
+        return "Donazioni"
+    if voce in ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa"]:
+        return "Investimenti"
+    if voce in ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]:
+        return "Abbonamenti"
+    if voce in ["Sport", "Psicologo", "Cane"]:
+        return "Salute"
+    if voce in ["Trasporti", "Macchina"]:
+        return "Macchina"
+    return "Casa"
+
+
+def _infer_spesa_fissa_carta(voce):
+    for carta in SPESA_FISSA_CARTE:
+        if voce in SPESE.get(carta, []):
+            return carta
+    return "Revolut"
+
+
+def _triangle_for_card(carta):
+    colore = SPESA_FISSA_CARTA_COLORI.get(carta, "#89CFF0")
+    return (
+        '<span style="display:inline-block;width:0;height:0;'
+        'border-top:5px solid transparent;border-bottom:5px solid transparent;'
+        f'border-right:5px solid {colore};margin-left:10px;"></span>'
+    )
+
+
+def _apply_spese_fisse_settings(settings, metadata):
+    SPESE["Fisse"].clear()
+    SPESE["Fisse"].update({voce: float(importo) for voce, importo in settings.items()})
+    for carta in SPESA_FISSA_CARTE:
+        fisse_carta = [voce for voce in settings if metadata.get(voce, {}).get("Carta") == carta]
+        SPESE[carta] = fisse_carta + SPESE_VARIABILI_CARTE.get(carta, [])
 
 
 def _normalize_spese_fisse_df(df):
@@ -467,6 +526,14 @@ def _normalize_spese_fisse_df(df):
     df = df[SPESE_FISSE_HEADERS].copy()
     df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Cane"})
     df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
+    df["Categoria"] = df.apply(
+        lambda row: row["Categoria"] if row["Categoria"] in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(row["Voce"]),
+        axis=1
+    )
+    df["Carta"] = df.apply(
+        lambda row: row["Carta"] if row["Carta"] in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(row["Voce"]),
+        axis=1
+    )
     return df
 
 
@@ -474,20 +541,52 @@ def load_spese_fisse_settings():
     if "spese_fisse_settings" not in st.session_state:
         df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
         settings = SPESE["Fisse"].copy()
+        metadata = {
+            voce: {
+                "Categoria": _infer_spesa_fissa_categoria(voce),
+                "Carta": _infer_spesa_fissa_carta(voce),
+            }
+            for voce in settings
+        }
         for _, row in df.iterrows():
             voce = row["Voce"]
-            if voce in settings:
+            if voce:
                 settings[voce] = float(row["Importo"])
+                metadata[voce] = {"Categoria": row["Categoria"], "Carta": row["Carta"]}
         st.session_state.spese_fisse_settings = settings
-    SPESE["Fisse"].update(st.session_state.spese_fisse_settings)
+        st.session_state.spese_fisse_metadata = metadata
+    if "spese_fisse_metadata" not in st.session_state:
+        st.session_state.spese_fisse_metadata = {
+            voce: {
+                "Categoria": _infer_spesa_fissa_categoria(voce),
+                "Carta": _infer_spesa_fissa_carta(voce),
+            }
+            for voce in st.session_state.spese_fisse_settings
+        }
+    _apply_spese_fisse_settings(st.session_state.spese_fisse_settings, st.session_state.spese_fisse_metadata)
 
 
-def save_spese_fisse_settings(settings):
-    df = pd.DataFrame([{"Voce": voce, "Importo": importo} for voce, importo in settings.items()])
+def save_spese_fisse_settings(settings, metadata=None):
+    metadata = metadata or st.session_state.get("spese_fisse_metadata", {})
+    rows = []
+    cleaned_settings = {}
+    cleaned_metadata = {}
+    for voce, importo in settings.items():
+        voce = str(voce).strip()
+        if not voce:
+            continue
+        cleaned_settings[voce] = float(importo)
+        row_meta = metadata.get(voce, {})
+        categoria = row_meta.get("Categoria") if row_meta.get("Categoria") in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(voce)
+        carta = row_meta.get("Carta") if row_meta.get("Carta") in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(voce)
+        cleaned_metadata[voce] = {"Categoria": categoria, "Carta": carta}
+        rows.append({"Voce": voce, "Importo": float(importo), "Categoria": categoria, "Carta": carta})
+    df = pd.DataFrame(rows)
     ok = save_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, df)
     if ok:
-        st.session_state.spese_fisse_settings = settings.copy()
-        SPESE["Fisse"].update(settings)
+        st.session_state.spese_fisse_settings = cleaned_settings.copy()
+        st.session_state.spese_fisse_metadata = cleaned_metadata.copy()
+        _apply_spese_fisse_settings(cleaned_settings, cleaned_metadata)
     return ok
 
 
@@ -529,14 +628,10 @@ def save_altre_entrate_settings(settings):
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
-    df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
-    df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Cane"), "Categoria"] = "Salute"
-    df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
-    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
-    df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
+    df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Voce"})
+    spese_meta = st.session_state.get("spese_fisse_metadata", {})
+    df_fisse["Categoria"] = df_fisse["Voce"].apply(lambda voce: spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce)))
+    df_fisse = df_fisse.groupby("Categoria", as_index=False)["Importo"].sum()
 
     df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
@@ -1740,7 +1835,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-        with col_stip_inserimento4:
+    with col_stip_inserimento4:
             # ───────── STILE POST-IT ─────────
             st.markdown("""
             <style>
@@ -1805,7 +1900,9 @@ def main():
                 nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=96, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
                 nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=96, label_visibility="collapsed", key="nota4_text")
-            salva = st.button("💾 Salva promemoria", use_container_width=True)
+            salva_spacer, salva_col = st.columns([3, 1])
+            with salva_col:
+                salva = st.button("💾 Salva", use_container_width=True, key="save_promemoria")
             # ───────── SALVATAGGIO ─────────
             if salva:
                 df_note = pd.DataFrame([{
@@ -1938,66 +2035,91 @@ def main():
 
         with tab_decisioni_fisse:
             settings = SPESE["Fisse"].copy()
+            metadata = st.session_state.get("spese_fisse_metadata", {})
             editor_cols = st.columns(2)
             editable_settings = {}
+            editable_metadata = {}
             for idx, (voce, importo) in enumerate(settings.items()):
                 with editor_cols[idx % 2]:
+                    st.markdown(f"**{voce}**")
                     editable_settings[voce] = st.number_input(
-                        voce,
+                        "Importo",
                         min_value=0.0,
                         value=float(importo),
                         step=5.0,
-                        key=f"spesa_fissa_{voce}"
+                        key=f"spesa_fissa_importo_{voce}"
                     )
-            if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
-                if save_spese_fisse_settings(editable_settings):
-                    st.success("Spese fisse salvate")
-                    st.rerun()
-                else:
-                    st.error("Errore salvataggio spese fisse")
+                    current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                    current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                    editable_metadata[voce] = {
+                        "Categoria": st.selectbox(
+                            "Colore / gruppo",
+                            SPESA_FISSA_CATEGORIE,
+                            index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
+                            key=f"spesa_fissa_categoria_{voce}"
+                        ),
+                        "Carta": st.selectbox(
+                            "Carta",
+                            SPESA_FISSA_CARTE,
+                            index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
+                            key=f"spesa_fissa_carta_{voce}"
+                        ),
+                    }
+                    st.markdown("---")
+
+            st.markdown("#### Aggiungi spesa")
+            add_nome_col, add_importo_col = st.columns([1.4, 0.8])
+            with add_nome_col:
+                nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
+            with add_importo_col:
+                nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
+            add_meta_col1, add_meta_col2 = st.columns(2)
+            with add_meta_col1:
+                nuova_spesa_categoria = st.selectbox("Colore / gruppo nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+            with add_meta_col2:
+                nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
+
+            st.markdown("#### Elimina spesa")
+            elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
+
+            save_col, delete_col = st.columns(2)
+            with save_col:
+                if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
+                    nome_nuova = nuova_spesa_nome.strip()
+                    if nome_nuova:
+                        editable_settings[nome_nuova] = float(nuova_spesa_importo)
+                        editable_metadata[nome_nuova] = {"Categoria": nuova_spesa_categoria, "Carta": nuova_spesa_carta}
+                    if save_spese_fisse_settings(editable_settings, editable_metadata):
+                        st.success("Spese fisse salvate")
+                        st.rerun()
+                    else:
+                        st.error("Errore salvataggio spese fisse")
+            with delete_col:
+                if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
+                    editable_settings.pop(elimina_spesa, None)
+                    editable_metadata.pop(elimina_spesa, None)
+                    if save_spese_fisse_settings(editable_settings, editable_metadata):
+                        st.success("Spesa eliminata")
+                        st.rerun()
+                    else:
+                        st.error("Errore eliminazione spesa")
 
         with tab_spese_fisse:
             st.subheader("Spese Fisse:")
 
             col_left, col_right = st.columns(2)
 
-            with col_left:
-                for voce, importo in SPESE["Fisse"].items():
-                    if voce in ["Mutuo"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Bollette"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Pulizia Casa"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                        st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
-                    elif voce in ["Condominio"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Beneficienza"]:
-                        st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["World Food Programme"]:
-                        st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Sport", "Psicologo", "Cane"]:
-                        st.markdown(f'<span style="color: #80E6E6;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Altro"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Cucina"]:
-                        st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Trasporti"]:
-                        st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-
-            with col_right:
-                for voce, importo in SPESE["Fisse"].items():
-                    if voce in ["Disney+", "Netflix", "Spotify"]:
-                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["BNL C.C."]:
-                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["ING C.C."]:
-                        st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
-                        st.markdown(f'<span style="color: #89CFF0;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    elif voce in ["Macchina"]:
-                        st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                        st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+            spese_meta = st.session_state.get("spese_fisse_metadata", {})
+            for idx, (voce, importo) in enumerate(SPESE["Fisse"].items()):
+                target_col = col_left if idx % 2 == 0 else col_right
+                categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                colore = SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#ffffff")
+                with target_col:
+                    st.markdown(
+                        f'<span style="color:{colore};">- {voce}: €{importo:.2f}</span>{_triangle_for_card(carta)}',
+                        unsafe_allow_html=True
+                    )
 
         st.markdown("---")
         _sf = f"€{spese_fisse_totali:.2f}"
@@ -2303,12 +2425,24 @@ def main():
                     nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
                 if nuova_voce.strip():
                     edited_altre[nuova_voce.strip()] = float(nuovo_importo)
-                if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
-                    if save_altre_entrate_settings(edited_altre):
-                        st.success("Altre entrate salvate")
-                        st.rerun()
-                    else:
-                        st.error("Errore salvataggio altre entrate")
+
+                elimina_entrata = st.selectbox("Entrata da eliminare", [""] + list(altre_settings.keys()), key="elimina_altra_entrata")
+                save_altre_col, delete_altre_col = st.columns(2)
+                with save_altre_col:
+                    if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
+                        if save_altre_entrate_settings(edited_altre):
+                            st.success("Altre entrate salvate")
+                            st.rerun()
+                        else:
+                            st.error("Errore salvataggio altre entrate")
+                with delete_altre_col:
+                    if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
+                        edited_altre.pop(elimina_entrata, None)
+                        if save_altre_entrate_settings(edited_altre):
+                            st.success("Entrata eliminata")
+                            st.rerun()
+                        else:
+                            st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
                 col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
