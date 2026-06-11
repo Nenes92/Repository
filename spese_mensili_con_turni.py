@@ -476,8 +476,7 @@ SPESA_FISSA_GRUPPI_VISIVI = [
     ("Casa", ["Mutuo", "Bollette", "Condominio", "Altro", "Cucina", "Pulizia Casa"]),
     ("Piani e personali", ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa", "Macchina", "Psicologo"]),
     ("Abbonamenti", ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]),
-    ("World Food Programme", ["World Food Programme"]),
-    ("Vita e cura", ["Beneficienza", "Trasporti", "Sport", "Cane"]),
+    ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Cane"]),
 ]
 SPESE_VARIABILI_CARTE = {
     "Revolut": ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
@@ -521,6 +520,17 @@ def _spesa_fissa_row_html(voce, importo, categoria, carta):
     return (
         '<div style="font-size:14px;line-height:1.55;margin:1px 0;">'
         f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{_triangle_for_card(carta)}'
+        '</div>'
+    )
+
+
+def _spesa_variabile_row_html(voce, importo, colore, didascalia):
+    return (
+        '<div style="margin:3px 0 7px;line-height:1.25;">'
+        '<div style="font-size:14px;font-weight:500;">'
+        f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{triangolino_blu_Revolut}'
+        '</div>'
+        f'<div style="font-size:11px;color:rgba(255,255,255,.42);margin-left:10px;margin-top:1px;">{didascalia}</div>'
         '</div>'
     )
 
@@ -2296,34 +2306,52 @@ def main():
             risparmio_stipendi = stipendio_originale - stipendio_scelto
             risparmio_da_spendere = 0
             risparmio_spese_quotidiane = 0
-    
+
+            spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
+            risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
             for voce, importo in SPESE["Variabili"].items():
                 if voce in ["Emergenze/Compleanni"]:
                     percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#4ADE80") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_emergenze:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                    st.markdown(
+                        _spesa_variabile_row_html(voce, importo, "#4ADE80", f"{percentuale_emergenze:.2f}% dei risparmiabili"),
+                        unsafe_allow_html=True
+                    )
                 elif voce in ["Viaggi"]:
                     percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#166534") + f'<span style="margin-right: 20px; color:#808080;">- {percentuale_viaggi:.2f}% dei Risparmiabili</span>', unsafe_allow_html=True)
+                    st.markdown(
+                        _spesa_variabile_row_html(voce, importo, "#166534", f"{percentuale_viaggi:.2f}% dei risparmiabili"),
+                        unsafe_allow_html=True
+                    )
                 elif voce in ["Spese quotidiane"]:
-                    percentuale_da_spendere = (SPESE["Variabili"]["Da spendere"] / risparmiabili * 100) if risparmiabili != 0 else 0
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FB923C") + f'<span style="margin-right: 20px; color:#808080;">- il rimanente &nbsp;&nbsp;(con un limite a {max_spese_quotidiane})</span>', unsafe_allow_html=True)
+                    st.markdown(
+                        _spesa_variabile_row_html(voce, importo, "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}"),
+                        unsafe_allow_html=True
+                    )
                 elif voce in ["Da spendere"]:
-                    spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
-                    risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f}<span style=\"display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;\"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "#FACC15") + f'<span style="margin-right: 20px; color:#808080;">- {(da_spendere_senza_limite*100/risparmiabili_dopo_emergenze_viaggi if risparmiabili_dopo_emergenze_viaggi != 0 else 0):.2f}% &nbsp;&nbsp; del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f} &nbsp;&nbsp; (con un limite a {limite_da_spendere}€)</span>', unsafe_allow_html=True)
+                    pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
+                    st.markdown(
+                        _spesa_variabile_row_html(voce, importo, "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"),
+                        unsafe_allow_html=True
+                    )
                 else:
                     st.write(f"- {voce}: €{importo:.2f}")
                 if voce == "Da spendere":
                     da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
                     risparmio_da_spendere = da_spendere_senza_limite - da_spendere
-                    st.markdown(color_text(f'<small>- {voce} (reali): €{da_spendere_senza_limite:.2f} -> Risparmiati: €{risparmio_da_spendere:.2f}</small>', "#808080"), unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div style="font-size:10.5px;color:rgba(255,255,255,.34);margin:-4px 0 6px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
+                        unsafe_allow_html=True
+                    )
                 if voce == "Spese quotidiane":
                     spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
                     risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
-                    st.markdown(color_text(f'<small>- {voce} (reali): €{spese_quotidiane_senza_limite:.2f} -> Risparmiati: €{risparmio_spese_quotidiane:.2f}</small>', "#808080"), unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div style="font-size:10.5px;color:rgba(255,255,255,.34);margin:-4px 0 6px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
+                        unsafe_allow_html=True
+                    )
     
     
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2])
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
