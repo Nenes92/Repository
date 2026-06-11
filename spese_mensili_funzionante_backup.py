@@ -1,12 +1,19 @@
 import altair as alt
 import streamlit as st
+import streamlit.components.v1 as components
 import mysql.connector
 import pandas as pd
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import calendar
 import time
 import io
+import urllib.request
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 
 # Google Sheets imports
 try:
@@ -59,26 +66,80 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
         st.error(f"Errore connessione Google Sheets: {e}")
         return None
 
-def load_data_gsheets(worksheet_name, headers):
+GSHEETS_CACHE_TTL_SECONDS = 300
+
+
+def _gsheets_cache_key(worksheet_name):
+    return f"gsheets_cache::{worksheet_name}"
+
+
+def _copy_df(df):
+    return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+
+def _format_gsheet_value(header, value):
+    if pd.isna(value):
+        return ""
+    if header == "Mese" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    if header == "Data" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, (bool, int, float)):
+        return value
+    return str(value)
+
+
+def _set_gsheets_cache(worksheet_name, df):
+    st.session_state[_gsheets_cache_key(worksheet_name)] = {
+        "time": time.time(),
+        "data": _copy_df(df),
+    }
+
+
+def _get_gsheets_cache(worksheet_name, allow_stale=False):
+    cached = st.session_state.get(_gsheets_cache_key(worksheet_name))
+    if not cached:
+        return None
+    is_fresh = (time.time() - cached.get("time", 0)) < GSHEETS_CACHE_TTL_SECONDS
+    if is_fresh or allow_stale:
+        return _copy_df(cached.get("data"))
+    return None
+
+
+def load_data_gsheets(worksheet_name, headers, force_reload=False):
+    if not force_reload:
+        cached = _get_gsheets_cache(worksheet_name)
+        if cached is not None:
+            return cached
+
     client = get_gsheet_client()
     if not client:
-        return pd.DataFrame()
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        return cached if cached is not None else pd.DataFrame(columns=headers)
     try:
         worksheet = get_or_create_worksheet(client, SHEET_URL, worksheet_name, headers)
         if not worksheet:
-            return pd.DataFrame()
+            cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+            return cached if cached is not None else pd.DataFrame(columns=headers)
         records = worksheet.get_all_records()
         if not records:
-            return pd.DataFrame(columns=headers)
+            df = pd.DataFrame(columns=headers)
+            _set_gsheets_cache(worksheet_name, df)
+            return df
         df = pd.DataFrame(records)
         if "Mese" in df.columns:
             df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
             df = df.dropna(subset=["Mese"])
             df = df.sort_values(by="Mese").reset_index(drop=True)
+        _set_gsheets_cache(worksheet_name, df)
         return df
     except Exception as e:
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        if cached is not None:
+            st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
+            return cached
         st.error(f"Errore caricamento dati: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
     client = get_gsheet_client()
@@ -88,19 +149,22 @@ def save_data_gsheets(worksheet_name, headers, data):
         worksheet = get_or_create_worksheet(client, SHEET_URL, worksheet_name, headers)
         if not worksheet:
             return False
-        worksheet.clear()
-        worksheet.append_row(headers)
+        if data is None or data.empty:
+            data = pd.DataFrame(columns=headers)
+        data = data.copy()
+        for h in headers:
+            if h not in data.columns:
+                data[h] = ""
+        data = data[headers]
+        rows = [headers]
         for _, row in data.iterrows():
-            row_data = []
-            for h in headers:
-                val = row.get(h, "")
-                if pd.isna(val):
-                    row_data.append("")
-                elif h == "Mese" and hasattr(val, 'strftime'):
-                    row_data.append(val.strftime("%Y-%m-%d"))
-                else:
-                    row_data.append(float(val) if isinstance(val, (int, float)) else str(val))
-            worksheet.append_row(row_data)
+            rows.append([_format_gsheet_value(h, row.get(h, "")) for h in headers])
+        worksheet.clear()
+        try:
+            worksheet.update(values=rows, range_name="A1")
+        except TypeError:
+            worksheet.update("A1", rows)
+        _set_gsheets_cache(worksheet_name, data)
         return True
     except Exception as e:
         st.error(f"Errore salvataggio: {e}")
@@ -333,6 +397,7 @@ def set_page_config():
 input_stipendio_originale=2350
 input_risparmi_mese_precedente=0
 input_stipendio_scelto=2350
+totale_entrate_target_oltre_lo_stipendio= 0.9
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -353,7 +418,7 @@ SPESE = {
         "Bollette": decisione_budget_bollette_mensili,
         "Condominio": 45,
         "Altro": 0,
-        "Cucina": 315,
+        "Cucina": 0, #315,
         "Pulizia Casa": 40,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
@@ -361,7 +426,7 @@ SPESE = {
         "Trasporti": 165,
         "Sport": 70,
         "Psicologo": 100,
-        "Altro/C": 135,
+        "Cane": 135,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
@@ -376,28 +441,197 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0
     },
-    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Altro/C", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Cane", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
 
 ALTRE_ENTRATE = {
     "Macchina (Mamma)": 100,
-    "Seconda Entrata": 0,
+    "2° Entr. dal mese prec.": 0,
     "Altro": 0
 }
+
+SPESE_FISSE_HEADERS = ["Voce", "Importo", "Categoria", "Carta"]
+SPESE_FISSE_WORKSHEET = "SpeseFisse"
+ALTRE_ENTRATE_HEADERS = ["Voce", "Importo"]
+ALTRE_ENTRATE_WORKSHEET = "AltreEntrate"
+
+SPESA_FISSA_CATEGORIE = ["Casa", "Investimenti", "Macchina", "Salute", "Donazioni", "Abbonamenti"]
+SPESA_FISSA_CATEGORIA_COLORI = {
+    "Casa": "#F08080",
+    "Investimenti": "#89CFF0",
+    "Macchina": "#E6C48C",
+    "Salute": "#80E6E6",
+    "Donazioni": "#D8BFD8",
+    "Abbonamenti": "#CC7722",
+}
+SPESA_FISSA_CARTE = ["Revolut", "ING", "BNL"]
+SPESA_FISSA_CARTA_COLORI = {
+    "Revolut": "#89CFF0",
+    "ING": "#D2691E",
+    "BNL": "green",
+}
+SPESE_VARIABILI_CARTE = {
+    "Revolut": ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "ING": [],
+    "BNL": [],
+}
+
+
+def _infer_spesa_fissa_categoria(voce):
+    if voce in ["World Food Programme", "Beneficienza"]:
+        return "Donazioni"
+    if voce in ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa"]:
+        return "Investimenti"
+    if voce in ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]:
+        return "Abbonamenti"
+    if voce in ["Sport", "Psicologo", "Cane"]:
+        return "Salute"
+    if voce in ["Trasporti", "Macchina"]:
+        return "Macchina"
+    return "Casa"
+
+
+def _infer_spesa_fissa_carta(voce):
+    for carta in SPESA_FISSA_CARTE:
+        if voce in SPESE.get(carta, []):
+            return carta
+    return "Revolut"
+
+
+def _triangle_for_card(carta):
+    colore = SPESA_FISSA_CARTA_COLORI.get(carta, "#89CFF0")
+    return (
+        '<span style="display:inline-block;width:0;height:0;'
+        'border-top:5px solid transparent;border-bottom:5px solid transparent;'
+        f'border-right:5px solid {colore};margin-left:10px;"></span>'
+    )
+
+
+def _apply_spese_fisse_settings(settings, metadata):
+    SPESE["Fisse"].clear()
+    SPESE["Fisse"].update({voce: float(importo) for voce, importo in settings.items()})
+    for carta in SPESA_FISSA_CARTE:
+        fisse_carta = [voce for voce in settings if metadata.get(voce, {}).get("Carta") == carta]
+        SPESE[carta] = fisse_carta + SPESE_VARIABILI_CARTE.get(carta, [])
+
+
+def _normalize_spese_fisse_df(df):
+    if df.empty:
+        return pd.DataFrame(columns=SPESE_FISSE_HEADERS)
+    for col in SPESE_FISSE_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[SPESE_FISSE_HEADERS].copy()
+    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Cane"})
+    df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
+    df["Categoria"] = df.apply(
+        lambda row: row["Categoria"] if row["Categoria"] in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(row["Voce"]),
+        axis=1
+    )
+    df["Carta"] = df.apply(
+        lambda row: row["Carta"] if row["Carta"] in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(row["Voce"]),
+        axis=1
+    )
+    return df
+
+
+def load_spese_fisse_settings():
+    if "spese_fisse_settings" not in st.session_state:
+        df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
+        settings = SPESE["Fisse"].copy()
+        metadata = {
+            voce: {
+                "Categoria": _infer_spesa_fissa_categoria(voce),
+                "Carta": _infer_spesa_fissa_carta(voce),
+            }
+            for voce in settings
+        }
+        for _, row in df.iterrows():
+            voce = row["Voce"]
+            if voce:
+                settings[voce] = float(row["Importo"])
+                metadata[voce] = {"Categoria": row["Categoria"], "Carta": row["Carta"]}
+        st.session_state.spese_fisse_settings = settings
+        st.session_state.spese_fisse_metadata = metadata
+    if "spese_fisse_metadata" not in st.session_state:
+        st.session_state.spese_fisse_metadata = {
+            voce: {
+                "Categoria": _infer_spesa_fissa_categoria(voce),
+                "Carta": _infer_spesa_fissa_carta(voce),
+            }
+            for voce in st.session_state.spese_fisse_settings
+        }
+    _apply_spese_fisse_settings(st.session_state.spese_fisse_settings, st.session_state.spese_fisse_metadata)
+
+
+def save_spese_fisse_settings(settings, metadata=None):
+    metadata = metadata or st.session_state.get("spese_fisse_metadata", {})
+    rows = []
+    cleaned_settings = {}
+    cleaned_metadata = {}
+    for voce, importo in settings.items():
+        voce = str(voce).strip()
+        if not voce:
+            continue
+        cleaned_settings[voce] = float(importo)
+        row_meta = metadata.get(voce, {})
+        categoria = row_meta.get("Categoria") if row_meta.get("Categoria") in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(voce)
+        carta = row_meta.get("Carta") if row_meta.get("Carta") in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(voce)
+        cleaned_metadata[voce] = {"Categoria": categoria, "Carta": carta}
+        rows.append({"Voce": voce, "Importo": float(importo), "Categoria": categoria, "Carta": carta})
+    df = pd.DataFrame(rows)
+    ok = save_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, df)
+    if ok:
+        st.session_state.spese_fisse_settings = cleaned_settings.copy()
+        st.session_state.spese_fisse_metadata = cleaned_metadata.copy()
+        _apply_spese_fisse_settings(cleaned_settings, cleaned_metadata)
+    return ok
+
+
+def _normalize_voce_importo_df(df, headers):
+    if df.empty:
+        return pd.DataFrame(columns=headers)
+    for col in headers:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[headers].copy()
+    df["Voce"] = df["Voce"].astype(str)
+    df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
+    return df
+
+
+def load_altre_entrate_settings():
+    if "altre_entrate_settings" not in st.session_state:
+        df = _normalize_voce_importo_df(load_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS), ALTRE_ENTRATE_HEADERS)
+        settings = ALTRE_ENTRATE.copy()
+        for _, row in df.iterrows():
+            voce = row["Voce"]
+            if voce:
+                settings[voce] = float(row["Importo"])
+        st.session_state.altre_entrate_settings = settings
+    ALTRE_ENTRATE.clear()
+    ALTRE_ENTRATE.update(st.session_state.altre_entrate_settings)
+
+
+def save_altre_entrate_settings(settings):
+    cleaned = {str(voce).strip(): float(importo) for voce, importo in settings.items() if str(voce).strip()}
+    df = pd.DataFrame([{"Voce": voce, "Importo": importo} for voce, importo in cleaned.items()])
+    ok = save_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS, df)
+    if ok:
+        st.session_state.altre_entrate_settings = cleaned.copy()
+        ALTRE_ENTRATE.clear()
+        ALTRE_ENTRATE.update(cleaned)
+    return ok
 
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
-    df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
-    df_fisse.loc[(df_fisse["Categoria"] == "World Food Programme") | (df_fisse["Categoria"] == "Beneficienza"), "Categoria"] = "Donazioni"
-    df_fisse.loc[(df_fisse["Categoria"] == "MoneyFarm - PAC 5") | (df_fisse["Categoria"] == "Alleanza - PAC"), "Categoria"] = "Investimenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Netflix") | (df_fisse["Categoria"] == "Disney+") | (df_fisse["Categoria"] == "Spotify") | (df_fisse["Categoria"] == "BNL C.C.") | (df_fisse["Categoria"] == "ING C.C."), "Categoria"] = "Abbonamenti"
-    df_fisse.loc[(df_fisse["Categoria"] == "Sport") | (df_fisse["Categoria"] == "Psicologo") | (df_fisse["Categoria"] == "Altro/C"), "Categoria"] = "Salute"
-    df_fisse.loc[(df_fisse["Categoria"] == "Trasporti") | (df_fisse["Categoria"] == "Macchina"), "Categoria"] = "Macchina"
-    df_fisse.loc[(df_fisse["Categoria"] == "Bollette") | (df_fisse["Categoria"] == "Mutuo") | (df_fisse["Categoria"] == "Condominio") | (df_fisse["Categoria"] == "Altro") | (df_fisse["Categoria"] == "Cucina") | (df_fisse["Categoria"] == "Pulizia Casa"), "Categoria"] = "Casa"
-    df_fisse = df_fisse.groupby("Categoria").sum().reset_index()
+    df_fisse = pd.DataFrame.from_dict(SPESE["Fisse"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Voce"})
+    spese_meta = st.session_state.get("spese_fisse_metadata", {})
+    df_fisse["Categoria"] = df_fisse["Voce"].apply(lambda voce: spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce)))
+    df_fisse = df_fisse.groupby("Categoria", as_index=False)["Importo"].sum()
 
     df_variabili = pd.DataFrame.from_dict(SPESE["Variabili"], orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
@@ -420,7 +654,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
-        "Altro/C": "#40E0D0",
+        "Cane": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
@@ -433,7 +667,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Da spendere": "#FACC15", 
         "Spese quotidiane": "#FB923C",
         "Macchina (Mamma)": "#D2B48C",
-        "Seconda Entrata": "#D8BFD8",
+        "2° Entr. dal mese prec.": "#D8BFD8",
         "Stipendio Originale": "#5792E8",
         "Stipendio Utilizzato": "#6CBCD0",
         "Altre Entrate": "#77DD77",
@@ -524,7 +758,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     ae_cats = df_altre_entrate_chart["Categoria"].tolist()
     ae_colors_map = {
         "Macchina (Mamma)": "#D2B48C",
-        "Seconda Entrata": "#D8BFD8",
+        "2° Entr. dal mese prec.": "#D8BFD8",
         "Altro": "#89CFF0",
     }
     ae_domains = ae_cats
@@ -559,7 +793,995 @@ def color_text(text, color):
     return f'<span style="color:{color}">{text}</span>'
 
 
+
+
+
+
+st.markdown("""
+<style>
+.turni-grid-scroll {
+    max-height: 365px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+.turni-compact-row [data-testid="stDateInput"] label,
+.turni-compact-row [data-testid="stRadio"] label,
+.turni-compact-row [data-testid="stCheckbox"] label {
+    font-size: 11px !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button {
+    min-height: 36px !important;
+    padding: 6px 6px !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button p {
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+}
+.turni-card-small {
+    background: rgba(255,255,255,0.045);
+    border: 0.5px solid rgba(255,255,255,0.10);
+    border-left: 5px solid rgba(255,255,255,0.25);
+    border-radius: 12px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+}
+.turni-card-small .date {
+    font-size: 12px;
+    color: rgba(255,255,255,0.58);
+}
+.turni-card-small .title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+}
+.turni-card-small .meta {
+    font-size: 11px;
+    color: rgba(255,255,255,0.42);
+    margin-top: 3px;
+}
+.turni-mattina { border-left-color:#60a5fa; }
+.turni-pomeriggio { border-left-color:#fb923c; }
+.turni-notte { border-left-color:#64748b; }
+.turni-ferie { border-left-color:#34d399; }
+.turni-riposo { border-left-color:#cbd5e1; }
+</style>
+""", unsafe_allow_html=True)
+# ─── MODULO CONTATORE GUADAGNI TURNI ─────────────────────────────────────────
+TURNI_HEADERS = ["Data", "Turno", "Festivo"]
+TURNI_WORKSHEET = "TurniGuadagni"
+CALENDAR_ICAL_URL = ""
+CALENDAR_ICAL_URLS = {
+    "Mattina": "https://calendar.google.com/calendar/ical/4581152ea8ed2d32562d91d4e737ef9e0b71ebda1b7984291d81a339c40eaf55%40group.calendar.google.com/private-9299d392e110b4681e0e42d13b4df12e/basic.ics",
+    "Pomeriggio": "https://calendar.google.com/calendar/ical/5583372b5741bf9b7015849d7b23349d7151cd2d0763c83144a65071404b7e04%40group.calendar.google.com/private-18967b67ddc0bedbe98b08c2ccd3af9c/basic.ics",
+    "Notte": "https://calendar.google.com/calendar/ical/bbe8a74b626dddc4b57dd69d6ab1e0f0760b971d95eb029ef7d525525c113250%40group.calendar.google.com/private-15677dcf429c1ce645b8e78d3687768a/basic.ics",
+    "Ferie": "https://calendar.google.com/calendar/ical/c3406a4e631b5c206ccd07c267a9346b089f22a9fd7f4dc0cc7ff24140be54c0%40group.calendar.google.com/private-a8aaf23582ab3d900f656dc389edf856/basic.ics",
+}
+
+TURNI_ORARI = {
+    "Mattina": ("06:00", "14:00"),
+    "Pomeriggio": ("14:00", "22:00"),
+    "Notte": ("22:00", "06:00"),
+    "Ferie": ("06:00", "14:00"),
+    "Riposo": ("00:00", "00:00"),
+}
+
+DEFAULT_TURNI_RULES = {
+    "paga_oraria": 12.60,
+    "quota_fissa_mensile": 0.0,
+    "m_p_feriale_pct": 20.0,
+    "m_p_festivo_giorno_pct": 50.0,
+    "notte_feriale_pct": 50.0,
+    "festivo_sera_notte_pct": 60.0,
+    "ind_m_p_feriale": 6.0,
+    "ind_notte_feriale": 15.0,
+    "ind_m_p_festivo": 15.0,
+    "ind_notte_festiva": 25.0,
+}
+
+
+def _money_turni(value):
+    try:
+        return f"€{float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "€0,00"
+
+
+def _now_italy():
+    if ZoneInfo is None:
+        return datetime.now()
+    return datetime.now(ZoneInfo("Europe/Rome")).replace(tzinfo=None)
+
+
+def _parse_bool_turni(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ["true", "1", "sì", "si", "yes", "festivo"]
+
+
+def _normalize_turni_df(df):
+    if df.empty:
+        return pd.DataFrame(columns=TURNI_HEADERS)
+    for col in TURNI_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[TURNI_HEADERS].copy()
+    df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
+    df = df.dropna(subset=["Data"])
+    df["Data"] = df["Data"].dt.strftime("%Y-%m-%d")
+    df["Turno"] = df["Turno"].astype(str)
+    df["Festivo"] = df["Festivo"].apply(_parse_bool_turni)
+    return df.sort_values("Data").reset_index(drop=True)
+
+
+def load_turni_data(force_reload=False):
+    """Carica i turni una sola volta in sessione.
+    Così cliccare più giorni nel calendario non fa una read Google Sheets ogni volta.
+    """
+    if force_reload or "turni_df_draft" not in st.session_state:
+        df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, force_reload=force_reload)
+        st.session_state.turni_df_draft = _normalize_turni_df(df)
+        st.session_state.turni_dirty = False
+    return st.session_state.turni_df_draft.copy()
+
+
+def set_turni_draft(df):
+    st.session_state.turni_df_draft = _normalize_turni_df(df)
+    st.session_state.turni_dirty = True
+
+
+def color_turni_google_sheet(df):
+    """Colora le righe del foglio TurniGuadagni in base al turno.
+    Non è indispensabile per il calcolo: se Google limita la formattazione, il salvataggio resta valido.
+    """
+    client = get_gsheet_client()
+    if not client:
+        return
+    try:
+        worksheet = get_or_create_worksheet(client, SHEET_URL, TURNI_WORKSHEET, TURNI_HEADERS)
+        if not worksheet:
+            return
+        formats = [{
+            "range": "A1:C1",
+            "format": {
+            "backgroundColor": {"red": 0.05, "green": 0.10, "blue": 0.16},
+            "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True}
+            },
+        }]
+        colors = {
+            "Mattina": {"red": 0.18, "green": 0.46, "blue": 0.75},
+            "Pomeriggio": {"red": 0.95, "green": 0.52, "blue": 0.22},
+            "Notte": {"red": 0.25, "green": 0.28, "blue": 0.34},
+            "Ferie": {"red": 0.20, "green": 0.62, "blue": 0.35},
+        }
+        df_norm = _normalize_turni_df(df)
+        for i, row in df_norm.reset_index(drop=True).iterrows():
+            turno = str(row.get("Turno", ""))
+            color = colors.get(turno, {"red": 1, "green": 1, "blue": 1})
+            text_color = {"red": 1, "green": 1, "blue": 1} if turno in ["Notte"] else {"red": 0, "green": 0, "blue": 0}
+            formats.append({
+                "range": f"A{i+2}:C{i+2}",
+                "format": {
+                    "backgroundColor": color,
+                    "textFormat": {"foregroundColor": text_color}
+                },
+            })
+        if hasattr(worksheet, "batch_format"):
+            worksheet.batch_format(formats)
+    except Exception:
+        # Evita di bloccare l'app se la quota formattazione viene superata.
+        pass
+
+
+def save_turni_data(df):
+    if df.empty:
+        df_save = pd.DataFrame(columns=TURNI_HEADERS)
+    else:
+        df_save = _normalize_turni_df(df)
+    ok = save_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, df_save)
+    if ok:
+        color_turni_google_sheet(df_save)
+        st.session_state.turni_df_draft = df_save.copy()
+        st.session_state.turni_dirty = False
+    return ok
+
+
+def get_turni_rules():
+    if "turni_rules" not in st.session_state:
+        st.session_state.turni_rules = DEFAULT_TURNI_RULES.copy()
+    return st.session_state.turni_rules
+
+
+def _dt_for_turno(data_str, time_str):
+    return pd.to_datetime(f"{data_str} {time_str}").to_pydatetime()
+
+
+def _shift_bounds(data_str, turno):
+    start_s, end_s = TURNI_ORARI.get(turno, ("00:00", "00:00"))
+    start = _dt_for_turno(data_str, start_s)
+    end = _dt_for_turno(data_str, end_s)
+    if end <= start:
+        end += timedelta(days=1)
+    return start, end
+
+
+def _easter_date(year):
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return datetime(year, month, day).date()
+
+
+def _italian_public_holidays(year):
+    fixed = {
+        (1, 1),    # Capodanno
+        (1, 6),    # Epifania
+        (4, 25),   # Liberazione
+        (5, 1),    # Festa del lavoro
+        (6, 2),    # Festa della Repubblica
+        (8, 15),   # Ferragosto
+        (11, 1),   # Tutti i Santi
+        (12, 8),   # Immacolata
+        (12, 25),  # Natale
+        (12, 26),  # Santo Stefano
+    }
+    dates = {datetime(year, month, day).date() for month, day in fixed}
+    dates.add(_easter_date(year) + timedelta(days=1))  # Pasquetta
+    return dates
+
+
+def _is_italian_public_holiday(dt_obj):
+    return dt_obj.date() in _italian_public_holidays(dt_obj.year)
+
+
+def _is_festive_at(dt_obj, forced_festivo=False):
+    return bool(forced_festivo) or dt_obj.weekday() == 6 or _is_italian_public_holiday(dt_obj)
+
+
+def _pct_for_turno(turno, dt_obj, forced_festivo, rules):
+    festive = _is_festive_at(dt_obj, forced_festivo)
+    minutes = dt_obj.hour * 60 + dt_obj.minute
+    if turno == "Mattina":
+        return rules["m_p_festivo_giorno_pct"] if festive else rules["m_p_feriale_pct"]
+    if turno == "Pomeriggio":
+        if minutes >= 18 * 60:
+            return rules["festivo_sera_notte_pct"] if festive else rules["m_p_feriale_pct"]
+        return rules["m_p_festivo_giorno_pct"] if festive else rules["m_p_feriale_pct"]
+    if turno == "Notte":
+        return rules["festivo_sera_notte_pct"] if festive else rules["notte_feriale_pct"]
+    return 0.0
+
+
+def _allowance_for_turno(data_str, turno, forced_festivo, rules):
+    if turno in ["Ferie", "Riposo"]:
+        return 0.0
+    start, _ = _shift_bounds(data_str, turno)
+    festive_at_start = _is_festive_at(start, forced_festivo)
+    if turno == "Notte":
+        return rules["ind_notte_festiva"] if festive_at_start else rules["ind_notte_feriale"]
+    return rules["ind_m_p_festivo"] if festive_at_start else rules["ind_m_p_feriale"]
+
+
+def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None):
+    now = _now_italy() if until is None else until
+    paga = float(rules["paga_oraria"])
+
+    if turno == "Riposo":
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+
+    if turno == "Ferie":
+        start = _dt_for_turno(data_str, "06:00")
+        if only_day is not None and data_str != only_day:
+            return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+        if now < start:
+            return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+        base = paga * 8
+        return {"total": base, "base": base, "extra": 0.0, "hours": 8.0, "rate_min": 0.0}
+
+    start, end = _shift_bounds(data_str, turno)
+    effective_end = min(end, now)
+
+    if only_day is not None:
+        day_start = _dt_for_turno(only_day, "00:00")
+        day_end = day_start + timedelta(days=1)
+        start = max(start, day_start)
+        effective_end = min(effective_end, day_end)
+
+    if effective_end <= start:
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+
+    base = 0.0
+    extra = 0.0
+    hours = 0.0
+    t = start
+    while t < effective_end:
+        nxt = min(t + timedelta(minutes=1), effective_end)
+        h = (nxt - t).total_seconds() / 3600
+        pct = _pct_for_turno(turno, t, forced_festivo, rules)
+        base += paga * h
+        extra += paga * pct / 100 * h
+        hours += h
+        t = nxt
+
+    allowance = _allowance_for_turno(data_str, turno, forced_festivo, rules)
+    if only_day is not None and data_str != only_day:
+        allowance = 0.0
+    extra += allowance
+
+    rate_min = 0.0
+    current_now = _now_italy()
+    if start <= current_now <= end:
+        rate_min = paga * (1 + _pct_for_turno(turno, current_now, forced_festivo, rules) / 100) / 60
+
+    return {"total": base + extra, "base": base, "extra": extra, "hours": hours, "rate_min": rate_min}
+
+
+def _turni_current_prev_months():
+    now = _now_italy()
+    current = now.strftime("%Y-%m")
+    prev = (pd.Timestamp(now.replace(day=1)) - pd.DateOffset(months=1)).strftime("%Y-%m")
+    return current, prev
+
+
+def compute_turni_dashboard(df_turni, rules):
+    now = _now_italy()
+    today = now.strftime("%Y-%m-%d")
+    current_m, prev_m = _turni_current_prev_months()
+
+    live_month = 0.0
+    current_base_full = 0.0
+    prev_extras = 0.0
+    live_today = 0.0
+    expected_today = 0.0
+    hours_live = 0.0
+    rate_min = 0.0
+    current_shift = "—"
+    current_turno = ""
+    current_shift_date = ""
+    current_shift_end = None
+
+    for _, row in df_turni.iterrows():
+        data = row["Data"]
+        turno = row["Turno"]
+        festivo = bool(row["Festivo"])
+        has_turno = turno in TURNI_ORARI and turno != ""
+
+        if has_turno and data[:7] == current_m:
+            calc_live = compute_turno(data, turno, festivo, rules, until=now)
+            live_month += calc_live["total"]
+            hours_live += calc_live["hours"]
+            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
+            current_base_full += calc_full["base"]
+            start, end = _shift_bounds(data, turno)
+            if turno not in ["Ferie", "Riposo"] and start <= now <= end:
+                rate_min = calc_live["rate_min"]
+                current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_turno = turno
+                current_shift_date = _turni_short_date_label(start)
+                current_shift_end = end
+                live_today = calc_live["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+
+        if has_turno and data[:7] == prev_m:
+            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
+            prev_extras += calc_prev["extra"]
+
+        if not has_turno:
+            continue
+        start, end = _shift_bounds(data, turno)
+        if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
+            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
+            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
+
+    live_month += rules["quota_fissa_mensile"]
+    payslip_estimate = rules["quota_fissa_mensile"] + current_base_full + prev_extras
+
+    return {
+        "live_month": live_month,
+        "payslip_estimate": payslip_estimate,
+        "live_today": live_today,
+        "expected_today": expected_today,
+        "current_base_full": current_base_full,
+        "prev_extras": prev_extras,
+        "hours_live": hours_live,
+        "rate_min": rate_min,
+        "current_shift": current_shift,
+        "current_turno": current_turno,
+        "current_shift_date": current_shift_date,
+        "is_on_shift": bool(current_shift_end),
+        "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+    }
+
+
+
+
+def _turno_color_info(turno):
+    mapping = {
+        "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa"},
+        "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c"},
+        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b"},
+        "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399"},
+        "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1"},
+    }
+    return mapping.get(str(turno), {"emoji": "—", "short": "—", "class": "", "color": "rgba(255,255,255,0.45)"})
+
+
+def _segmenti_turno(data_str, turno, forced_festivo):
+    if turno == "Ferie":
+        return "8h base"
+    if turno == "Riposo":
+        return "riposo"
+    try:
+        start, end = _shift_bounds(data_str, turno)
+    except Exception:
+        return "—"
+    feriali = 0.0
+    festivi = 0.0
+    t = start
+    while t < end:
+        nxt = min(t + timedelta(minutes=1), end)
+        h = (nxt - t).total_seconds() / 3600
+        if _is_festive_at(t, forced_festivo):
+            festivi += h
+        else:
+            feriali += h
+        t = nxt
+    parts = []
+    if feriali > 0:
+        parts.append(f"{feriali:.0f}h fer.")
+    if festivi > 0:
+        parts.append(f"{festivi:.0f}h fest.")
+    return " / ".join(parts) if parts else "—"
+
+
+def _add_months_turni(date_value, months):
+    month_index = date_value.month - 1 + months
+    year = date_value.year + month_index // 12
+    month = month_index % 12 + 1
+    return datetime(year, month, 1).date()
+
+
+def _turni_month_label(date_value):
+    mesi = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
+    return f"{mesi[date_value.month - 1]} {date_value.year}"
+
+
+def _turni_short_date_label(dt_obj):
+    giorni = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+    mesi = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"]
+    return f"{giorni[dt_obj.weekday()]} {dt_obj.day} {mesi[dt_obj.month - 1]}"
+
+
+def _unfold_ics_lines(text):
+    lines = []
+    for raw_line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if raw_line.startswith((" ", "\t")) and lines:
+            lines[-1] += raw_line[1:]
+        else:
+            lines.append(raw_line)
+    return lines
+
+
+def _parse_ics_datetime(value):
+    value = value.strip()
+    if len(value) == 8 and value.isdigit():
+        return datetime.strptime(value, "%Y%m%d")
+    is_utc = value.endswith("Z")
+    value = value.rstrip("Z")
+    for fmt in ("%Y%m%dT%H%M%S", "%Y%m%dT%H%M"):
+        try:
+            parsed = datetime.strptime(value, fmt)
+            if is_utc and ZoneInfo is not None:
+                parsed = parsed.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Rome")).replace(tzinfo=None)
+            return parsed
+        except ValueError:
+            pass
+    return None
+
+
+def _calendar_turno_from_summary(summary):
+    summary_l = summary.strip().lower()
+    mapping = [
+        ("mattina", "Mattina"),
+        ("pomeriggio", "Pomeriggio"),
+        ("notte", "Notte"),
+        ("ferie", "Ferie"),
+    ]
+    for token, turno in mapping:
+        if token in summary_l:
+            return turno
+    if summary_l in ["m", "m.", "morning"]:
+        return "Mattina"
+    if summary_l in ["p", "p.", "evening"]:
+        return "Pomeriggio"
+    if summary_l in ["n", "n.", "night"]:
+        return "Notte"
+    return ""
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_google_calendar_ics(ical_url):
+    with urllib.request.urlopen(ical_url, timeout=15) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def import_turni_from_calendar_ics(ical_url, selected_month, fixed_turno=""):
+    ical_text = load_google_calendar_ics(ical_url)
+    events = []
+    current = None
+    for line in _unfold_ics_lines(ical_text):
+        if line == "BEGIN:VEVENT":
+            current = {}
+            continue
+        if line == "END:VEVENT":
+            if current:
+                events.append(current)
+            current = None
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.split(";", 1)[0].upper()
+        if key in ["SUMMARY", "DTSTART"]:
+            current[key] = value
+
+    rows = []
+    month_key = selected_month.strftime("%Y-%m")
+    seen_dates = set()
+    for event in events:
+        summary = event.get("SUMMARY", "")
+        turno = fixed_turno or _calendar_turno_from_summary(summary)
+        start = _parse_ics_datetime(event.get("DTSTART", ""))
+        if not turno or not start:
+            continue
+        data_str = start.strftime("%Y-%m-%d")
+        if not data_str.startswith(month_key) or data_str in seen_dates:
+            continue
+        seen_dates.add(data_str)
+        rows.append({
+            "Data": data_str,
+            "Turno": turno,
+            "Festivo": "festivo" in summary.lower(),
+        })
+    return _normalize_turni_df(pd.DataFrame(rows, columns=TURNI_HEADERS))
+
+
+def import_turni_from_calendar_sources(calendar_sources, selected_month):
+    frames = []
+    errors = []
+    for turno, ical_url in calendar_sources.items():
+        if not ical_url:
+            continue
+        fixed_turno = turno if turno in TURNI_ORARI else ""
+        try:
+            imported = import_turni_from_calendar_ics(ical_url, selected_month, fixed_turno=fixed_turno)
+        except Exception as e:
+            errors.append(f"{turno}: {e}")
+            continue
+        if not imported.empty:
+            frames.append(imported)
+    if not frames:
+        return pd.DataFrame(columns=TURNI_HEADERS), errors
+    df = pd.concat(frames, ignore_index=True)
+    df["turno_priority"] = df["Turno"].map({"Mattina": 1, "Pomeriggio": 2, "Notte": 3, "Ferie": 4}).fillna(9)
+    df = df.sort_values(["Data", "turno_priority"]).drop_duplicates(subset=["Data"], keep="first")
+    return _normalize_turni_df(df.drop(columns=["turno_priority"])), errors
+
+
+def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
+    imported, errors = import_turni_from_calendar_sources(calendar_sources, selected_month)
+    if imported.empty:
+        return df_turni.copy(), 0, errors
+    month_key = selected_month.strftime("%Y-%m")
+    other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
+    manual_festivi = df_turni[
+        df_turni["Data"].str.startswith(month_key)
+        & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
+        & (df_turni["Festivo"] == True)
+    ].copy()
+    synced = pd.concat([other_months, manual_festivi, imported], ignore_index=True)
+    return _normalize_turni_df(synced), len(imported), errors
+
+
+def _default_calendar_ical_url():
+    try:
+        secret_url = st.secrets.get("GOOGLE_CALENDAR_ICAL_URL", "")
+    except Exception:
+        secret_url = ""
+    return CALENDAR_ICAL_URL or secret_url
+
+
+def _default_calendar_ical_urls():
+    urls = {turno: url for turno, url in CALENDAR_ICAL_URLS.items() if url}
+    try:
+        secret_urls = st.secrets.get("GOOGLE_CALENDAR_ICAL_URLS", {})
+        if hasattr(secret_urls, "items"):
+            for turno, url in secret_urls.items():
+                if turno in TURNI_ORARI and url:
+                    urls[turno] = url
+    except Exception:
+        pass
+    single_url = _default_calendar_ical_url()
+    if single_url:
+        urls["Auto"] = single_url
+    return urls
+
+
+def render_live_turni_kpis(stats):
+    live_month = float(stats["live_month"])
+    live_today = float(stats["live_today"])
+    rate_min = float(stats["rate_min"])
+    rate_sec = rate_min / 60
+    payslip_estimate = _money_turni(stats["payslip_estimate"])
+    expected_today = _money_turni(stats["expected_today"])
+    current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    is_on_shift = bool(stats.get("is_on_shift", False))
+    status_color = "#22c55e" if is_on_shift else "#64748b"
+    status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
+    status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
+    current_shift_end = stats.get("current_shift_end", "")
+    components.html(f"""
+    <div class="turni-live-grid">
+      <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+        <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
+        <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
+      </div>
+      <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
+        <div class="kpi-label">Turno — live / totale turno</div>
+        <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+      </div>
+      <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
+        <div class="kpi-label">Stato turno</div>
+        <div class="turni-status-row">
+          <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
+          <span id="turni-status-text">{status_text}</span>
+        </div>
+        <div id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
+        <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+      </div>
+    </div>
+    <style>
+      body {{
+        margin: 0;
+        background: transparent;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      .turni-live-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }}
+      .kpi-card {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-height: 72px;
+        box-sizing: border-box;
+      }}
+      .kpi-label {{
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+      }}
+      .kpi-value {{
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 600;
+      }}
+      .turni-status-row {{
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: rgba(255,255,255,0.82);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }}
+      .turni-status-dot {{
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }}
+    </style>
+    <script>
+      const start = Date.now();
+      const startMonth = {live_month:.8f};
+      const startToday = {live_today:.8f};
+      const rateSec = {rate_sec:.10f};
+      const shiftEnd = {json.dumps(current_shift_end)};
+      const monthEl = document.getElementById("turni-live-month");
+      const todayEl = document.getElementById("turni-live-today");
+      const dotEl = document.getElementById("turni-status-dot");
+      const statusEl = document.getElementById("turni-status-text");
+      const rateEl = document.getElementById("turni-rate-min");
+      const shiftEl = document.getElementById("turni-shift-label");
+
+      function money(value) {{
+        return new Intl.NumberFormat("it-IT", {{
+          style: "currency",
+          currency: "EUR",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }}).format(value);
+      }}
+
+      function elapsedSeconds() {{
+        if (!rateSec || !shiftEnd) return 0;
+        const now = Date.now();
+        const end = Date.parse(shiftEnd);
+        return Math.max(0, Math.min(now, end) - start) / 1000;
+      }}
+
+      function tick() {{
+        const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
+        const extra = elapsedSeconds() * rateSec;
+        monthEl.textContent = money(startMonth + extra);
+        todayEl.textContent = money(startToday + extra);
+        if (ended) {{
+          dotEl.style.background = "#64748b";
+          dotEl.style.boxShadow = "none";
+          statusEl.textContent = "Fuori turno";
+          rateEl.textContent = "0.000 €/min";
+          shiftEl.textContent = "—";
+        }}
+      }}
+
+      tick();
+      setInterval(tick, 1000);
+    </script>
+    """, height=126)
+
+
+def render_turni_guadagni_section():
+    st.markdown('<div class="section-pill">⏱️ Guadagni Turni</div>', unsafe_allow_html=True)
+    rules = get_turni_rules()
+    if "turni_calendar_month" not in st.session_state:
+        today_month = _now_italy().date()
+        st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
+    selected_month = st.session_state.turni_calendar_month
+    month_key = selected_month.strftime("%Y-%m")
+
+    df_turni = load_turni_data()
+    auto_calendar_sources = _default_calendar_ical_urls()
+    auto_sync_key = f"turni_calendar_autosync::{month_key}"
+    if auto_calendar_sources and not st.session_state.get(auto_sync_key, False):
+        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(df_turni, auto_calendar_sources, selected_month)
+        st.session_state[auto_sync_key] = True
+        if imported_count > 0:
+            st.session_state.turni_df_draft = synced_df.copy()
+            st.session_state.turni_dirty = False
+            df_turni = synced_df.copy()
+        if calendar_errors:
+            st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
+
+    stats = compute_turni_dashboard(df_turni, rules)
+
+    render_live_turni_kpis(stats)
+
+    tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
+
+    with tab_cal:
+        st.markdown('<div class="turni-compact-row">', unsafe_allow_html=True)
+        festivo_manual = st.checkbox("Modifica festivo manuale", key="turni_festivo_manual")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        year, month = selected_month.year, selected_month.month
+
+        cal_col, summary_col = st.columns([1.55, 0.55], gap="medium")
+
+        with cal_col:
+            st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
+            prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
+            with prev_col:
+                if st.button("←", key="turni_prev_month", use_container_width=True):
+                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
+                    st.rerun()
+            with title_col:
+                st.markdown(f"#### 📅 Calendario · {_turni_month_label(selected_month)}")
+            with next_col:
+                if st.button("→", key="turni_next_month", use_container_width=True):
+                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
+                    st.rerun()
+            weekdays = ["L", "M", "M", "G", "V", "S", "D"]
+            cols = st.columns(7)
+            for c, wd in zip(cols, weekdays):
+                c.markdown(f"<div style='text-align:center;color:rgba(255,255,255,0.45);font-size:12px;'>{wd}</div>", unsafe_allow_html=True)
+
+            cal = calendar.Calendar(firstweekday=0)
+            for week in cal.monthdatescalendar(year, month):
+                cols = st.columns(7)
+                for c, day in zip(cols, week):
+                    if day.month != month:
+                        c.markdown("<div style='height:34px;opacity:.2;'> </div>", unsafe_allow_html=True)
+                        continue
+                    day_str = day.strftime("%Y-%m-%d")
+                    row = df_turni[df_turni["Data"] == day_str]
+                    if row.empty:
+                        current_label = ""
+                    else:
+                        turno_corrente = row.iloc[0]["Turno"]
+                        info = _turno_color_info(turno_corrente)
+                        current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                    day_is_festive = (
+                        day.weekday() == 6
+                        or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                        or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                    )
+                    day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                    if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
+                        if festivo_manual:
+                            df_new = df_turni[df_turni["Data"] != day_str].copy()
+                            turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                            nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
+                            df_new = pd.concat([df_new, pd.DataFrame([{
+                                "Data": day_str,
+                                "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
+                                "Festivo": nuovo_festivo
+                            }])], ignore_index=True)
+                            set_turni_draft(df_new)
+                            st.rerun()
+
+            st.markdown("""
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
+              <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span style="color:#ef4444;">Numero rosso = festivo</span>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with summary_col:
+            st.markdown("#### 🗓️ Riepilogo turni del mese")
+            month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+            month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+            if month_df.empty:
+                st.info("Nessun turno inserito per il mese selezionato.")
+            else:
+                month_df = month_df.sort_values("Data")
+                today_key = _now_italy().strftime("%Y-%m-%d")
+                focus_candidates = month_df[month_df["Data"] >= today_key]
+                focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
+                cards = ['<div class="turni-grid-scroll">']
+                for _, r in month_df.iterrows():
+                    turno = r["Turno"]
+                    info = _turno_color_info(turno)
+                    calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
+                    seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
+                    data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
+                    festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
+                    focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
+                    cards.append(
+                        f'<div{focus_attr} class="turni-card-small {info["class"]}">'
+                        f'<div class="date">{r["Data"]}{festivo_txt}</div>'
+                        f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
+                        f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
+                        f'<div class="meta">Base {_money_turni(calc["base"])} · Extra {_money_turni(calc["extra"])}</div>'
+                        f'</div>'
+                    )
+                cards.append("</div>")
+                components.html(f"""
+                <style>
+                  body {{
+                    margin: 0;
+                    background: transparent;
+                    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  }}
+                  .turni-grid-scroll {{
+                    max-height: 365px;
+                    overflow-y: auto;
+                    padding-right: 8px;
+                  }}
+                  .turni-card-small {{
+                    background: rgba(255,255,255,0.045);
+                    border: 0.5px solid rgba(255,255,255,0.10);
+                    border-left: 5px solid rgba(255,255,255,0.25);
+                    border-radius: 12px;
+                    padding: 7px 9px;
+                    margin-bottom: 6px;
+                  }}
+                  .turni-card-small .date {{
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.58);
+                  }}
+                  .turni-card-small .title {{
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-top: 2px;
+                  }}
+                  .turni-card-small .meta {{
+                    font-size: 11px;
+                    color: rgba(255,255,255,0.42);
+                    margin-top: 3px;
+                  }}
+                  .turni-mattina {{ border-left-color:#60a5fa; }}
+                  .turni-pomeriggio {{ border-left-color:#fb923c; }}
+                  .turni-notte {{ border-left-color:#64748b; }}
+                  .turni-ferie {{ border-left-color:#34d399; }}
+                  #turni-focus-card {{
+                    outline: 1px solid rgba(96,165,250,0.45);
+                    outline-offset: -1px;
+                  }}
+                </style>
+                {"".join(cards)}
+                <script>
+                  const focusCard = document.getElementById("turni-focus-card");
+                  const scroller = document.querySelector(".turni-grid-scroll");
+                  if (focusCard && scroller) {{
+                    scroller.scrollTop = Math.max(0, focusCard.offsetTop - 6);
+                  }}
+                </script>
+                """, height=370)
+
+        st.markdown("---")
+        if st.session_state.get("turni_dirty", False):
+            st.warning("Modifiche manuali ai turni/festivi non ancora salvate su Google Sheets.")
+        save_col, reload_col = st.columns(2)
+        with save_col:
+            if st.button("💾 Salva modifiche turni su Google Sheets", use_container_width=True, key="turni_save_all"):
+                if save_turni_data(st.session_state.turni_df_draft):
+                    st.success("Turni salvati su Google Sheets")
+                    st.rerun()
+                else:
+                    st.error("Errore nel salvataggio turni")
+        with reload_col:
+            if st.button("🔄 Ricarica turni da Google Sheets", use_container_width=True, key="turni_reload_sheet"):
+                load_turni_data(force_reload=True)
+                st.rerun()
+
+    with tab_rules:
+        c1, c2 = st.columns(2)
+        with c1:
+            rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga")
+            rules["quota_fissa_mensile"] = st.number_input("Quota fissa mensile opzionale", value=float(rules["quota_fissa_mensile"]), step=10.0, key="turni_quota")
+            rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
+            rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
+            rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
+            rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
+        with c2:
+            rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
+            rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
+            rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
+            rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
+            st.markdown("""
+            <div class="kpi-card">
+                <div class="kpi-label">Regole applicate</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.5;">
+                M 06-14: 20% / 50% + 6€/15€<br>
+                P 14-18: 20% / 50% + 6€/15€<br>
+                P 18-22: 20% / 60%, senza seconda indennità<br>
+                N 22-06: 50% / 60% + 15€/25€<br>
+                Ferie: 8 ore base
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.session_state.turni_rules = rules
+        st.caption("Le regole sono salvate nella sessione Streamlit. I turni restano in bozza mentre clicchi i giorni e vengono scritti su Google Sheets solo quando premi 'Salva modifiche turni'.")
+# ─────────────────────────────────────────────────────────────────────────────
+
 def main():
+    load_spese_fisse_settings()
+    load_altre_entrate_settings()
 
     col_left, col_center, col_right = st.columns([1, 2, 1])
     with col_left:
@@ -594,7 +1816,7 @@ def main():
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Stipendio Totale</div>
-                <div class="kpi-value" style="color:#34d399;">{_ts}</div>
+                <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">
                     Originale + Altre Entrate
                 </div>
@@ -613,7 +1835,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-        with col_stip_inserimento4:
+    with col_stip_inserimento4:
             # ───────── STILE POST-IT ─────────
             st.markdown("""
             <style>
@@ -631,22 +1853,25 @@ def main():
             # ───────── CONFIG ─────────
             NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
             worksheet_name = "Note"
-        
-            df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
-            # ───────── MIGRAZIONE AUTOMATICA ─────────
-            colonne_attese = ["id", "nota1", "nota2", "nota3", "nota4"]
-            
-            # Se le colonne nuove non esistono, le creiamo
-            for col in colonne_attese:
-                if col not in df_note.columns:
-                    df_note[col] = ""
-            
-            # Se esiste ancora "testo", lo mettiamo in nota1 (migrazione dati)
-            if "testo" in df_note.columns:
-                df_note["nota1"] = df_note["testo"]
-                df_note = df_note.drop(columns=["testo"])
-            
-            # Se vuoto → inizializza
+
+            if "note_df_draft" not in st.session_state:
+                df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+                if "testo" in df_note.columns and "nota1" not in df_note.columns:
+                    df_note["nota1"] = df_note["testo"]
+                for col in NOTE_HEADERS:
+                    if col not in df_note.columns:
+                        df_note[col] = ""
+                if df_note.empty:
+                    df_note = pd.DataFrame([{
+                        "id": 1,
+                        "nota1": "",
+                        "nota2": "",
+                        "nota3": "",
+                        "nota4": ""
+                    }])
+                st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
+
+            df_note = st.session_state.note_df_draft.copy()
             if df_note.empty:
                 df_note = pd.DataFrame([{
                     "id": 1,
@@ -655,22 +1880,11 @@ def main():
                     "nota3": "",
                     "nota4": ""
                 }])
-            
-            # Salviamo struttura aggiornata
-            save_data_gsheets(worksheet_name, colonne_attese, df_note)
-        
-            # ───────── INIT (UNA SOLA RIGA) ─────────
-            if df_note.empty:
-                df_note = pd.DataFrame([{
-                    "id": 1,
-                    "nota1": "",
-                    "nota2": "",
-                    "nota3": "",
-                    "nota4": ""
-                }])
-                save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note)
-        
             nota_corrente = df_note.iloc[0]
+
+            def _nota_value(key):
+                value = nota_corrente.get(key, "")
+                return "" if pd.isna(value) else str(value)
         
             # ───────── UI ─────────
             st.markdown(
@@ -679,24 +1893,27 @@ def main():
             )
             col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4)
             with col1_postit:
-                nota1 = st.text_area("Nota 1", value=nota_corrente["nota1"], height=150, label_visibility="collapsed")       
+                nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=96, label_visibility="collapsed", key="nota1_text")
             with col2_postit:
-                nota2 = st.text_area("Nota 2", value=nota_corrente["nota2"], height=150, label_visibility="collapsed")            
+                nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=96, label_visibility="collapsed", key="nota2_text")
             with col3_postit:
-                nota3 = st.text_area("Nota 3", value=nota_corrente["nota3"], height=150, label_visibility="collapsed")         
+                nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=96, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
-                nota4 = st.text_area("Nota 4", value=nota_corrente["nota4"], height=150, label_visibility="collapsed")                    
-            # ───────── BOTTONE A DESTRA (SOTTO) ─────────
-            col_spazio, col_btn = st.columns([6, 1])
-            with col_btn:
-                salva = st.button("💾 Salva", use_container_width=True)
+                nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=96, label_visibility="collapsed", key="nota4_text")
+            salva_spacer, salva_col = st.columns([3, 1])
+            with salva_col:
+                salva = st.button("💾 Salva", use_container_width=True, key="save_promemoria")
             # ───────── SALVATAGGIO ─────────
             if salva:
-                df_note.loc[0, "nota1"] = nota1
-                df_note.loc[0, "nota2"] = nota2
-                df_note.loc[0, "nota3"] = nota3
-                df_note.loc[0, "nota4"] = nota4
+                df_note = pd.DataFrame([{
+                    "id": 1,
+                    "nota1": nota1,
+                    "nota2": nota2,
+                    "nota3": nota3,
+                    "nota4": nota4
+                }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.session_state.note_df_draft = df_note.copy()
                     st.success("Note salvate")
                 else:
                     st.error("Errore salvataggio")
@@ -814,47 +2031,95 @@ def main():
     with col1:
         st.markdown("---")
         st.markdown('<div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
-        st.subheader("Spese Fisse:")
+        tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
-        col_left, col_right = st.columns(2)
+        with tab_decisioni_fisse:
+            settings = SPESE["Fisse"].copy()
+            metadata = st.session_state.get("spese_fisse_metadata", {})
+            editor_cols = st.columns(2)
+            editable_settings = {}
+            editable_metadata = {}
+            for idx, (voce, importo) in enumerate(settings.items()):
+                with editor_cols[idx % 2]:
+                    st.markdown(f"**{voce}**")
+                    editable_settings[voce] = st.number_input(
+                        "Importo",
+                        min_value=0.0,
+                        value=float(importo),
+                        step=5.0,
+                        key=f"spesa_fissa_importo_{voce}"
+                    )
+                    current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                    current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                    editable_metadata[voce] = {
+                        "Categoria": st.selectbox(
+                            "Colore / gruppo",
+                            SPESA_FISSA_CATEGORIE,
+                            index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
+                            key=f"spesa_fissa_categoria_{voce}"
+                        ),
+                        "Carta": st.selectbox(
+                            "Carta",
+                            SPESA_FISSA_CARTE,
+                            index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
+                            key=f"spesa_fissa_carta_{voce}"
+                        ),
+                    }
+                    st.markdown("---")
 
-        with col_left:
-            for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Mutuo"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Bollette"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Pulizia Casa"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
-                elif voce in ["Condominio"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Beneficienza"]:
-                    st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["World Food Programme"]:
-                    st.markdown(f'<span style="color: #D8BFD8;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Sport", "Psicologo", "Altro/C"]:
-                    st.markdown(f'<span style="color: #80E6E6;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Altro"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Cucina"]:
-                    st.markdown(f'<span style="color: #F08080;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Trasporti"]:
-                    st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
+            st.markdown("#### Aggiungi spesa")
+            add_nome_col, add_importo_col = st.columns([1.4, 0.8])
+            with add_nome_col:
+                nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
+            with add_importo_col:
+                nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
+            add_meta_col1, add_meta_col2 = st.columns(2)
+            with add_meta_col1:
+                nuova_spesa_categoria = st.selectbox("Colore / gruppo nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+            with add_meta_col2:
+                nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
 
-        with col_right:
-            for voce, importo in SPESE["Fisse"].items():
-                if voce in ["Disney+", "Netflix", "Spotify"]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #89CFF0; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["BNL C.C."]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid green; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["ING C.C."]:
-                    st.markdown(f'<span style="color: #CC7722;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["MoneyFarm - PAC 5","Cometa", "Alleanza - PAC"]:
-                    st.markdown(f'<span style="color: #89CFF0;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                elif voce in ["Macchina"]:
-                    st.markdown(f'<span style="color: #E6C48C;">- {voce}: €{importo:.2f}</span><span style="display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 5px solid #D2691E; margin-left: 10px;"></span>', unsafe_allow_html=True)
-                    st.markdown('<hr style="width:50%; margin-left:0;">', unsafe_allow_html=True)
+            st.markdown("#### Elimina spesa")
+            elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
+
+            save_col, delete_col = st.columns(2)
+            with save_col:
+                if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
+                    nome_nuova = nuova_spesa_nome.strip()
+                    if nome_nuova:
+                        editable_settings[nome_nuova] = float(nuova_spesa_importo)
+                        editable_metadata[nome_nuova] = {"Categoria": nuova_spesa_categoria, "Carta": nuova_spesa_carta}
+                    if save_spese_fisse_settings(editable_settings, editable_metadata):
+                        st.success("Spese fisse salvate")
+                        st.rerun()
+                    else:
+                        st.error("Errore salvataggio spese fisse")
+            with delete_col:
+                if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
+                    editable_settings.pop(elimina_spesa, None)
+                    editable_metadata.pop(elimina_spesa, None)
+                    if save_spese_fisse_settings(editable_settings, editable_metadata):
+                        st.success("Spesa eliminata")
+                        st.rerun()
+                    else:
+                        st.error("Errore eliminazione spesa")
+
+        with tab_spese_fisse:
+            st.subheader("Spese Fisse:")
+
+            col_left, col_right = st.columns(2)
+
+            spese_meta = st.session_state.get("spese_fisse_metadata", {})
+            for idx, (voce, importo) in enumerate(SPESE["Fisse"].items()):
+                target_col = col_left if idx % 2 == 0 else col_right
+                categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                colore = SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#ffffff")
+                with target_col:
+                    st.markdown(
+                        f'<span style="color:{colore};">- {voce}: €{importo:.2f}</span>{_triangle_for_card(carta)}',
+                        unsafe_allow_html=True
+                    )
 
         st.markdown("---")
         _sf = f"€{spese_fisse_totali:.2f}"
@@ -873,7 +2138,7 @@ def main():
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
-                <div class="kpi-value" style="color:#a3e635;">{_ri}</div>
+                <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
                 <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ripo}% dello stipendio totale</div>
             </div>
@@ -923,7 +2188,7 @@ def main():
                 field="Component", type="nominal",
                 scale=alt.Scale(
                     domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
-                    range=['#FF6464', '#B8C070', '#888888']
+                    range=['#FF6464', '#fef3c7', '#888888']
                 ),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
@@ -951,7 +2216,7 @@ def main():
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#B8C070']),
+                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#fef3c7']),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
                     labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
@@ -1024,15 +2289,33 @@ def main():
     
     
             st.markdown("---")
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1, 2])
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2])
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
+                _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
+                _sv_st_util = f"€{spese_variabili_totali/stipendio_utilizzare*100:.1f}"
+                _sv_st_tot = f"€{spese_variabili_totali/stipendio_totale*100:.2f}"
                 st.markdown(f"""
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_util}% dello Stipendio da Utilizzare</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+                progresso_altre_entrate = spese_variabili_totali / risparmiabili if risparmiabili > 0 else 0
+                progresso_altre_entrate = min(progresso_altre_entrate, 1.0)
+                st.progress(progresso_altre_entrate)
+                st.markdown(f"""
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
     
             with col_spese_variabili_2:
@@ -1120,86 +2403,160 @@ def main():
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown("---")
-            st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-            st.subheader("Altre Entrate:")
-            for voce, importo in ALTRE_ENTRATE.items():
-                if voce in ["Macchina (Mamma)"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
-                elif voce in ["Altro"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
-                elif voce in ["Seconda Entrata"]:
-                    st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
-                else:
-                    st.write(f"- {voce}: €{importo:.2f}")
-        
-            totale_altre = sum(ALTRE_ENTRATE.values())
-            _ae = f"€{totale_altre:.2f}"            
-            st.markdown("---")
-            col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
-            with col_altre_entrate_1:
-                st.markdown(f"""
-                <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-                    <div class="kpi-label">Totale Altre Entrate</div>
-                    <div class="kpi-value" style="color:#34d399;">{_ae}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-            
-            with col_altre_entrate_2:
-                # --- Grafico ---
-                # Creo il DataFrame per il grafico delle altre entrate
-                df_altre_entrate = pd.DataFrame({
-                    'Voce': list(ALTRE_ENTRATE.keys()),
-                    'Value': list(ALTRE_ENTRATE.values())
-                })
-            
-                # Solo voci con importo > 0
-                df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-            
-                # Calcolo le percentuali relative alle altre entrate
-                totale_entrate = df_altre_entrate["Value"].sum()
-                df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-            
-                if not df_altre_entrate.empty:
-                    chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                        innerRadius=40, outerRadius=70
-                    ).encode(
-                        theta=alt.Theta(field="Value", type="quantitative"),
-                        color=alt.Color(
-                            field="Voce", type="nominal",
-                            scale=alt.Scale(
-                                domain=list(ALTRE_ENTRATE.keys()),
-                                range=['#E6C48C', '#89CFF0', '#D8BFD8', '#A78BFA'][:len(ALTRE_ENTRATE)]  # colori personalizzabili
+            tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
+
+            with tab_altre_decisioni:
+                altre_settings = ALTRE_ENTRATE.copy()
+                editor_cols = st.columns(2)
+                edited_altre = {}
+                for idx, (voce, importo) in enumerate(altre_settings.items()):
+                    with editor_cols[idx % 2]:
+                        edited_altre[voce] = st.number_input(
+                            voce,
+                            min_value=0.0,
+                            value=float(importo),
+                            step=10.0,
+                            key=f"altra_entrata_{voce}"
+                        )
+                new_col1, new_col2 = st.columns([1.4, 0.8])
+                with new_col1:
+                    nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
+                with new_col2:
+                    nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
+                if nuova_voce.strip():
+                    edited_altre[nuova_voce.strip()] = float(nuovo_importo)
+
+                elimina_entrata = st.selectbox("Entrata da eliminare", [""] + list(altre_settings.keys()), key="elimina_altra_entrata")
+                save_altre_col, delete_altre_col = st.columns(2)
+                with save_altre_col:
+                    if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
+                        if save_altre_entrate_settings(edited_altre):
+                            st.success("Altre entrate salvate")
+                            st.rerun()
+                        else:
+                            st.error("Errore salvataggio altre entrate")
+                with delete_altre_col:
+                    if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
+                        edited_altre.pop(elimina_entrata, None)
+                        if save_altre_entrate_settings(edited_altre):
+                            st.success("Entrata eliminata")
+                            st.rerun()
+                        else:
+                            st.error("Errore eliminazione entrata")
+
+            with tab_altre_view:
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1])
+                totale_altre = sum(ALTRE_ENTRATE.values())
+                _ae = f"€{totale_altre:.2f}"
+
+                with col_altre_entrate_sx:
+                    st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+                    st.subheader("Altre Entrate:")
+                    for voce, importo in ALTRE_ENTRATE.items():
+                        if voce in ["Macchina (Mamma)"]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#E6C48C"), unsafe_allow_html=True)
+                        elif voce in ["Altro"]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#89CFF0"), unsafe_allow_html=True)
+                        elif voce in ["2° Entr. dal mese prec."]:
+                            st.markdown(color_text(f"- {voce}: €{importo:.2f} {triangolino_verde_BNL}", "#D8BFD8"), unsafe_allow_html=True)
+                        else:
+                            st.write(f"- {voce}: €{importo:.2f}")
+
+                with col_altre_entrate_dx:
+                    totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
+                    altre_entrate_target = totale_entrate_target - stipendio_originale
+                    progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
+                    progresso = min(progresso, 1.0)
+
+                    st.markdown("### 🎯 Obiettivo Entrate")
+                    percentuale_stip = stipendio_originale / totale_entrate_target * 100
+                    st.markdown(f"""
+                    <div style="font-size:13px; color:rgba(255,255,255,0.6);">
+                    Entrate totali desiderate<br>
+                    <b style="color:white; font-size:18px;">
+                    €{totale_entrate_target:,.2f}
+                    <span style="font-size:11px; color:rgba(255,255,255,0.4);">
+                    &nbsp;&nbsp;Stipendio = {percentuale_stip:.0f}% delle entrate totali
+                    </span>
+                    </b>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown(f"""
+                    <div style="font-size:13px; color:rgba(255,255,255,0.6); margin-top:10px;">
+                    Altre entrate target<br>
+                    <b style="color:#8fe28f; font-size:18px;">€{altre_entrate_target:,.2f}</b>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
+                    st.progress(progresso)
+                    st.markdown(f"""
+                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:5px;">
+                    Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+                col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+                percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
+                _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
+                with col_altre_entrate_1:
+                    st.markdown(f"""
+                    <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                        <div class="kpi-label">Totale Altre Entrate</div>
+                        <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+                with col_altre_entrate_2:
+                    df_altre_entrate = pd.DataFrame({
+                        'Voce': list(ALTRE_ENTRATE.keys()),
+                        'Value': list(ALTRE_ENTRATE.values())
+                    })
+                    df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+                    totale_entrate = df_altre_entrate["Value"].sum()
+                    df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+
+                    if not df_altre_entrate.empty:
+                        palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+                        chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                            innerRadius=40, outerRadius=70
+                        ).encode(
+                            theta=alt.Theta(field="Value", type="quantitative"),
+                            color=alt.Color(
+                                field="Voce", type="nominal",
+                                scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                legend=alt.Legend(
+                                    title=None,
+                                    orient='right',
+                                    direction='vertical',
+                                    labelColor='rgba(255,255,255,0.65)',
+                                    labelFontSize=11,
+                                    symbolSize=40,
+                                    padding=2,
+                                    offset=5
+                                )
                             ),
-                            legend=alt.Legend(
-                                title=None,
-                                orient='right',
-                                direction='vertical',
-                                labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=11,
-                                symbolSize=40,
-                                padding=2,
-                                offset=5
-                            )
-                        ),
-                        tooltip=[
-                            alt.Tooltip('Voce:N', title='Voce'),
-                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                        ]
-                    ).properties(
-                        title="➕ Distribuzione Altre Entrate",
-                        width=200,
-                        height=220
-                    ).configure_title(
-                        anchor='middle'
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
-                    )
-            
-                    st.altair_chart(chart_altre_entrate, use_container_width=True)
-    
+                            tooltip=[
+                                alt.Tooltip('Voce:N', title='Voce'),
+                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                            ]
+                        ).properties(
+                            title="➕ Distribuzione Altre Entrate",
+                            width=200,
+                            height=220
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
+                        )
+                        st.altair_chart(chart_altre_entrate, use_container_width=True)
+
         # Visualizzazione grafici
         col_center_pill = st.columns([1, 2, 1])[1]
         with col_center_pill:
@@ -1210,6 +2567,40 @@ def main():
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
+
+
+#####################################################################################################################################################################################################################################################################################
+            # 📊 Costruzione barra segmentata per CATEGORIE (come il donut)
+
+            totale = df_fisse["Importo"].sum()
+            
+            barra_html = '<div style="display:flex;width:100%;height:22px;border-radius:999px;overflow:hidden;margin-top:10px;background:#222;padding:2px;">'
+            
+            for _, row in df_fisse.iterrows():
+                categoria = row["Categoria"].strip()
+                valore = row["Importo"]
+                perc = (valore / totale) * 100 if totale > 0 else 0
+                colore = color_map.get(categoria, "#999999")
+            
+                barra_html += f'<div title="{categoria}: €{valore:.2f}" style="width:{perc}%;background:{colore};"></div>'
+            
+            barra_html += '</div>'
+            
+            st.markdown(barra_html, unsafe_allow_html=True)
+
+            for _, row in df_fisse.iterrows():
+                categoria = row["Categoria"].strip()
+                valore = row["Importo"]
+                perc = (valore / totale) * 100 if totale > 0 else 0
+                colore = color_map.get(categoria, "#999999")
+            
+                barra_html += (
+                    f'<div title="{categoria}: €{valore:.2f}" '
+                    f'style="width:{perc}%;background:{colore};"></div>'
+                )
+#####################################################################################################################################################################################################################################################################################
+
+
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
             df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
@@ -1221,7 +2612,6 @@ def main():
                 .set_properties(**{'text-align': 'center'})
             )
             st.dataframe(styled_df_fisse, use_container_width=True)
-            st.markdown('<small style="color:#808080;">Percentuali sullo Stipendio da Utilizzare</small>', unsafe_allow_html=True)
     
                 
 
@@ -1233,7 +2623,8 @@ def main():
             st.subheader("Risparmiati del mese:")
         
             kpi_val = f"€{risparmi_mensili_calc:.2f}"
-            kpi_pct = f"{(risparmi_mensili_calc)/(stipendio_originale+sum(ALTRE_ENTRATE.values()))*100:.1f}"
+            kpi_pct = f"{risparmi_mensili_calc/stipendio_utilizzare*100:.1f}"
+            kpi_pctot = f"{risparmi_mensili_calc/stipendio_totale*100:.1f}"
         
             # valori già calcolati
             v1 = risparmio_stipendi_calc
@@ -1267,9 +2658,11 @@ def main():
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio Totale</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
                 </div>
                 """, unsafe_allow_html=True)
+
         
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                 st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
@@ -1345,7 +2738,7 @@ def main():
                         totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
                         colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Altro/C"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                         spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                         somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
                         st.markdown(f'Totale da &nbsp; **<em style="color: #A0A0A0;">{testo}</em> &nbsp; su <span style="color:{colore}; text-decoration: underline;">{carta}</span>:** <span style="color:{colore}">€{totale_carta:.2f}</span> <span style="font-size: 11px; color: gray;"> <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;( + <span style="color:{colore}; font-size: 11px;">{risparmi_mese_precedente:.2f}</span> dai Risparmi - (<span style="color:{colore}; font-size: 11px;">€{somma_spese_programmate_immediate:.2f} - {spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}</span>) -> Vedrai: <span style="color:{colore}; font-size: 11px;">€{somma_valori:.2f}</span> )</span>', unsafe_allow_html=True)
@@ -1415,6 +2808,7 @@ def main():
                 st.altair_chart(chart_carte, use_container_width=True)
             st.markdown("---")  
         st.markdown("---")
+        render_turni_guadagni_section()
 
 if __name__ == "__main__":
     main()
@@ -1945,7 +3339,7 @@ st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear
 #############################
 
 st.markdown('<div class="section-pill">🧾 Storico Bollette</div>', unsafe_allow_html=True)
-st.markdown('<h1 style="font-size:2rem;font-weight:600;background:linear-gradient(90deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Storico Bollette</h1>', unsafe_allow_html=True)
+st.title("Storico Bollette")
 
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
