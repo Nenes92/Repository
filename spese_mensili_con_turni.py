@@ -472,6 +472,13 @@ SPESA_FISSA_CARTA_COLORI = {
     "ING": "#D2691E",
     "BNL": "green",
 }
+SPESA_FISSA_GRUPPI_VISIVI = [
+    ("Casa", ["Mutuo", "Bollette", "Condominio", "Altro", "Cucina", "Pulizia Casa"]),
+    ("Piani e personali", ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa", "Macchina", "Psicologo"]),
+    ("Abbonamenti", ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]),
+    ("World Food Programme", ["World Food Programme"]),
+    ("Vita e cura", ["Beneficienza", "Trasporti", "Sport", "Cane"]),
+]
 SPESE_VARIABILI_CARTE = {
     "Revolut": ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": [],
@@ -506,6 +513,15 @@ def _triangle_for_card(carta):
         '<span style="display:inline-block;width:0;height:0;'
         'border-top:5px solid transparent;border-bottom:5px solid transparent;'
         f'border-right:5px solid {colore};margin-left:10px;"></span>'
+    )
+
+
+def _spesa_fissa_row_html(voce, importo, categoria, carta):
+    colore = SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#ffffff")
+    return (
+        '<div style="font-size:14px;line-height:1.55;margin:1px 0;">'
+        f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{_triangle_for_card(carta)}'
+        '</div>'
     )
 
 
@@ -2029,7 +2045,6 @@ def main():
     
     # --- COLONNA 1: SPESE FISSE ---
     with col1:
-        st.markdown("---")
         st.markdown('<div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
         tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
@@ -2108,20 +2123,40 @@ def main():
             st.subheader("Spese Fisse:")
 
             col_left, col_right = st.columns(2)
-
             spese_meta = st.session_state.get("spese_fisse_metadata", {})
-            for idx, (voce, importo) in enumerate(SPESE["Fisse"].items()):
-                target_col = col_left if idx % 2 == 0 else col_right
-                categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                colore = SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#ffffff")
-                with target_col:
+            rendered_voci = set()
+            group_columns = [col_left, col_right]
+            for group_index, (group_name, group_voci) in enumerate(SPESA_FISSA_GRUPPI_VISIVI):
+                group_items = [(voce, SPESE["Fisse"][voce]) for voce in group_voci if voce in SPESE["Fisse"]]
+                if not group_items:
+                    continue
+                with group_columns[group_index % 2]:
+                    if group_index > 1:
+                        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
                     st.markdown(
-                        f'<span style="color:{colore};">- {voce}: €{importo:.2f}</span>{_triangle_for_card(carta)}',
+                        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.42);margin:8px 0 3px;">{group_name}</div>',
                         unsafe_allow_html=True
                     )
+                    for voce, importo in group_items:
+                        categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                        carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                        st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                        rendered_voci.add(voce)
 
-        st.markdown("---")
+            altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+            if altre_voci:
+                with col_right:
+                    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.42);margin:8px 0 3px;">Altre</div>',
+                        unsafe_allow_html=True
+                    )
+                    for voce, importo in altre_voci:
+                        categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                        carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                        st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
         _sf = f"€{spese_fisse_totali:.2f}"
         _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
         _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
@@ -2250,7 +2285,7 @@ def main():
     with col2:
         col2_left, col2_right = st.columns([1, 1])
         with col2_left:
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
             st.subheader("Spese Variabili:")
     
@@ -2378,7 +2413,7 @@ def main():
                 
                     st.altair_chart(chart_spese_variabili, use_container_width=True)
         # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
-        st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     
         # Recalculate risparmi variables for this section
         risparmi_mensili_calc = stipendio_originale - stipendio_scelto
@@ -2402,7 +2437,7 @@ def main():
 
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
-            st.markdown("---")
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
 
             with tab_altre_decisioni:
