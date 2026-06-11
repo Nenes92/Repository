@@ -959,6 +959,8 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_turno = turno
                 current_shift_end = end
+                live_today = calc_live["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
 
         if has_turno and data[:7] == prev_m:
             calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
@@ -967,7 +969,7 @@ def compute_turni_dashboard(df_turni, rules):
         if not has_turno:
             continue
         start, end = _shift_bounds(data, turno)
-        if start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
+        if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
 
@@ -1222,7 +1224,7 @@ def render_live_turni_kpis(stats):
         <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-        <div class="kpi-label">Oggi — live / totale giornata</div>
+        <div class="kpi-label">Turno — live / totale turno</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
