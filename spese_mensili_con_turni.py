@@ -836,8 +836,48 @@ def _shift_bounds(data_str, turno):
     return start, end
 
 
+def _easter_date(year):
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return datetime(year, month, day).date()
+
+
+def _italian_public_holidays(year):
+    fixed = {
+        (1, 1),    # Capodanno
+        (1, 6),    # Epifania
+        (4, 25),   # Liberazione
+        (5, 1),    # Festa del lavoro
+        (6, 2),    # Festa della Repubblica
+        (8, 15),   # Ferragosto
+        (11, 1),   # Tutti i Santi
+        (12, 8),   # Immacolata
+        (12, 25),  # Natale
+        (12, 26),  # Santo Stefano
+    }
+    dates = {datetime(year, month, day).date() for month, day in fixed}
+    dates.add(_easter_date(year) + timedelta(days=1))  # Pasquetta
+    return dates
+
+
+def _is_italian_public_holiday(dt_obj):
+    return dt_obj.date() in _italian_public_holidays(dt_obj.year)
+
+
 def _is_festive_at(dt_obj, forced_festivo=False):
-    return bool(forced_festivo) or dt_obj.weekday() == 6
+    return bool(forced_festivo) or dt_obj.weekday() == 6 or _is_italian_public_holiday(dt_obj)
 
 
 def _pct_for_turno(turno, dt_obj, forced_festivo, rules):
@@ -1362,7 +1402,7 @@ def render_turni_guadagni_section():
         st.session_state[auto_sync_key] = True
         if imported_count > 0:
             st.session_state.turni_df_draft = synced_df.copy()
-            st.session_state.turni_dirty = True
+            st.session_state.turni_dirty = False
             df_turni = synced_df.copy()
         if calendar_errors:
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
@@ -1379,42 +1419,6 @@ def render_turni_guadagni_section():
         st.markdown('</div>', unsafe_allow_html=True)
 
         year, month = selected_month.year, selected_month.month
-
-        default_calendar_sources = _default_calendar_ical_urls()
-        with st.expander("📆 Sincronizza da Google Calendar", expanded=False):
-            st.caption("Puoi usare un calendario separato per ogni turno. Se i link sono nel file o nei secrets, il mese corrente viene sincronizzato automaticamente all'avvio.")
-            calendar_sources = {}
-            source_cols = st.columns(2)
-            for idx, turno_nome in enumerate(["Mattina", "Pomeriggio", "Notte", "Ferie"]):
-                with source_cols[idx % 2]:
-                    calendar_sources[turno_nome] = st.text_input(
-                        f"iCal {turno_nome}",
-                        value=st.session_state.get(f"turni_calendar_ical_url_{turno_nome}", default_calendar_sources.get(turno_nome, "")),
-                        type="password",
-                        key=f"turni_calendar_ical_url_{turno_nome}"
-                    )
-            single_calendar_url = st.text_input(
-                "iCal unico opzionale",
-                value=st.session_state.get("turni_calendar_ical_url_auto", default_calendar_sources.get("Auto", "")),
-                type="password",
-                key="turni_calendar_ical_url_auto"
-            )
-            if single_calendar_url:
-                calendar_sources["Auto"] = single_calendar_url
-            calendar_sources = {turno: url for turno, url in calendar_sources.items() if url}
-            if st.button("Importa turni del mese da Calendar", use_container_width=True, key="turni_import_calendar"):
-                if not calendar_sources:
-                    st.warning("Incolla almeno un link iCal privato di Google Calendar.")
-                else:
-                    synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month)
-                    if calendar_errors:
-                        st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
-                    if imported_count == 0:
-                        st.warning("Non ho trovato eventi riconoscibili per questo mese.")
-                    else:
-                        set_turni_draft(synced_df)
-                        st.success(f"Importati {imported_count} turni da Google Calendar. Controlla e poi salva su Google Sheets.")
-                        st.rerun()
 
         cal_col, summary_col = st.columns([1.55, 0.55], gap="medium")
 
@@ -1451,7 +1455,11 @@ def render_turni_guadagni_section():
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
                         current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
-                    day_is_festive = day.weekday() == 6 or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                    day_is_festive = (
+                        day.weekday() == 6
+                        or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                        or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                    )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
                     if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
                         if festivo_manual:
@@ -1487,7 +1495,8 @@ def render_turni_guadagni_section():
                     info = _turno_color_info(turno)
                     calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
                     seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
-                    festivo_txt = " · festivo manuale" if bool(r["Festivo"]) else ""
+                    data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
+                    festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
                     cards.append(
                         f'<div class="turni-card-small {info["class"]}">'
                         f'<div class="date">{r["Data"]}{festivo_txt}</div>'
@@ -1501,7 +1510,7 @@ def render_turni_guadagni_section():
 
         st.markdown("---")
         if st.session_state.get("turni_dirty", False):
-            st.warning("Modifiche turni non ancora salvate su Google Sheets.")
+            st.warning("Modifiche manuali ai turni/festivi non ancora salvate su Google Sheets.")
         save_col, reload_col = st.columns(2)
         with save_col:
             if st.button("💾 Salva modifiche turni su Google Sheets", use_container_width=True, key="turni_save_all"):
