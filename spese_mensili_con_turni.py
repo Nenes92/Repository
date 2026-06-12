@@ -2069,7 +2069,7 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([0.78, 0.78, 1.3, 2.15], gap="large")
-    col1, col2, col3 = st.columns([0.92, 2.12, 2.12], gap="large")
+    col1, col2, col3 = st.columns([0.9, 2.25, 2.25], gap="large")
 
     with col_stip_inserimento1:
         st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -2619,7 +2619,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1.08, 0.92], gap="large")
+        col2_left, col2_right = st.columns([1.12, 0.88], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -3044,7 +3044,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1.1, 0.9], gap="large")
+        col3_left, col3_right = st.columns([0.88, 1.12], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -3068,7 +3068,7 @@ textarea {
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns([1.1, 1.9], gap="medium")
+            col_risparmi_1, col_risparmi_2 = st.columns([1.25, 1.25], gap="medium")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -3097,7 +3097,7 @@ textarea {
                 
             with col_risparmi_2:
                 if not df_savings.empty:
-                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=32, outerRadius=56).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
                             field="Component", type="nominal",
@@ -3123,8 +3123,8 @@ textarea {
                         ]
                     ).properties(
                         title="💰 Distribuzione Risparmi",
-                        width=200,
-                        height=220
+                        width=150,
+                        height=170
                     ).configure_title(
                         anchor='middle'
                     ).configure_view(
@@ -3142,7 +3142,7 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.18, 0.82], gap="medium")
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.28, 1.0], gap="medium")
             with col_Distribuzione_Carte_1:
                 st.subheader("Trasferimenti sulle Carte:")
         
@@ -3211,7 +3211,7 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=38, outerRadius=68).encode(
                 theta=alt.Theta(field="Totale", type="quantitative"),
                 color=alt.Color(
                     field="Carta", type="nominal",
@@ -3238,7 +3238,7 @@ textarea {
                 ]
                 ).properties(
                     title="💳 Distribuzione Carte",
-                    width=200,
+                    width=210,
                     height=220,
                 ).configure_title(
                     anchor='middle'
