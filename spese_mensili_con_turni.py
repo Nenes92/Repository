@@ -439,6 +439,32 @@ hr {
     font-weight: 500;
 }
 
+.salary-input-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.54);
+    margin: 0 0 6px;
+}
+
+[data-testid="stNumberInput"] input {
+    background: linear-gradient(135deg, rgba(30,64,105,.72), rgba(24,31,48,.92)) !important;
+    border: 1px solid rgba(96,165,250,.28) !important;
+    border-radius: 12px !important;
+    color: rgba(255,255,255,.94) !important;
+    font-family: 'DM Mono', monospace !important;
+    font-weight: 700 !important;
+    min-height: 40px !important;
+}
+
+[data-testid="stNumberInput"] button {
+    background: rgba(15,23,42,.84) !important;
+    border-color: rgba(96,165,250,.22) !important;
+    color: #bfdbfe !important;
+    min-height: 40px !important;
+}
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
@@ -666,7 +692,7 @@ def _history_table_html(df, columns, colors):
         )
 
     return (
-        '<div style="max-height:430px;overflow-y:auto;padding-right:4px;'
+        '<div style="max-height:360px;overflow-y:auto;padding-right:4px;'
         'scrollbar-color:rgba(148,163,184,.55) transparent;">'
         + "".join(table_rows) +
         '</div>'
@@ -1993,14 +2019,17 @@ def main():
 
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
-    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 1.05, 1.25, 2.1], gap="large")
+    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([0.78, 0.78, 1.3, 2.15], gap="large")
     col1, col2, col3 = st.columns([1.08, 2, 2], gap="large")
 
     with col_stip_inserimento1:
-        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
-        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50)
+        st.markdown('<div class="salary-input-label">Stipendio mensile</div>', unsafe_allow_html=True)
+        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50, label_visibility="collapsed")
+        st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
+        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
-        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50)
+        st.markdown('<div class="salary-input-label">Stipendio da usare</div>', unsafe_allow_html=True)
+        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50, label_visibility="collapsed")
     with col_stip_inserimento3:
         tot_stipendio = stipendio_originale + sum(ALTRE_ENTRATE.values())
         tot_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
@@ -3508,6 +3537,10 @@ with col_table:
     
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+    st.markdown(
+        '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+        unsafe_allow_html=True
+    )
     
     col_somme1, col_somme2, col_somme3 = st.columns([1.3, 1, 1])
     _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
@@ -3795,6 +3828,10 @@ with col_bol_table:
     )
     
     stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+    st.markdown(
+        '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+        unsafe_allow_html=True
+    )
     
     col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
     with col_bol_somme1:
