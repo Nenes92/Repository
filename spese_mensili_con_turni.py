@@ -1349,12 +1349,16 @@ def compute_turni_dashboard(df_turni, rules):
     current_shift_end = None
     work_days_done = 0
     work_days_total = 0
+    ferie_days_total = 0
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
         has_turno = turno in TURNI_ORARI and turno != ""
+
+        if has_turno and turno == "Ferie" and data[:7] == current_m:
+            ferie_days_total += 1
 
         if has_turno and turno not in ["Ferie", "Riposo"] and data[:7] == current_m:
             work_days_total += 1
@@ -1408,6 +1412,7 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
+        "ferie_days_total": ferie_days_total,
     }
 
 
@@ -1645,12 +1650,15 @@ def render_live_turni_kpis(stats):
     current_shift_end = stats.get("current_shift_end", "")
     work_days_done = int(stats.get("work_days_done", 0))
     work_days_total = int(stats.get("work_days_total", 0))
+    ferie_days_total = int(stats.get("ferie_days_total", 0))
+    month_days_total = work_days_total + ferie_days_total
+    ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
     components.html(f"""
     <div class="turni-live-grid">
       <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
         <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
         <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
-        <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}</div>
+        <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
         <div class="kpi-label">Turno — live / totale turno</div>
