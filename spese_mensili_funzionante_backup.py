@@ -1347,6 +1347,8 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    next_shift_start = None
+    next_shift_label = "—"
     work_days_done = 0
     work_days_total = 0
     ferie_days_total = 0
@@ -1389,6 +1391,9 @@ def compute_turni_dashboard(df_turni, rules):
         if not has_turno:
             continue
         start, end = _shift_bounds(data, turno)
+        if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
+            next_shift_start = start
+            next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
         if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
@@ -1410,6 +1415,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_date": current_shift_date,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
+        "next_shift_label": next_shift_label,
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
         "ferie_days_total": ferie_days_total,
@@ -1648,6 +1655,8 @@ def render_live_turni_kpis(stats):
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    next_shift_start = stats.get("next_shift_start", "")
+    next_shift_label = str(stats.get("next_shift_label", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     work_days_done = int(stats.get("work_days_done", 0))
     work_days_total = int(stats.get("work_days_total", 0))
     ferie_days_total = int(stats.get("ferie_days_total", 0))
@@ -1735,6 +1744,9 @@ def render_live_turni_kpis(stats):
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
       const shiftEnd = {json.dumps(current_shift_end)};
+      const nextShiftStart = {json.dumps(next_shift_start)};
+      const nextShiftLabel = {json.dumps(next_shift_label)};
+      const isInitiallyOnShift = {json.dumps(is_on_shift)};
       const monthEl = document.getElementById("turni-live-month");
       const todayEl = document.getElementById("turni-live-today");
       const dotEl = document.getElementById("turni-status-dot");
@@ -1760,27 +1772,53 @@ def render_live_turni_kpis(stats):
       }}
 
       function remainingLabel() {{
-        if (!shiftEnd) return "Ore mancanti: —";
-        const remainingMs = Math.max(0, Date.parse(shiftEnd) - Date.now());
+        const target = shiftEnd || nextShiftStart;
+        if (!target) return isInitiallyOnShift ? "Ore mancanti: —" : "Prossimo turno: —";
+        const remainingMs = Math.max(0, Date.parse(target) - Date.now());
         const totalMinutes = Math.ceil(remainingMs / 60000);
-        const hours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalMinutes / 1440);
+        const clockHours = Math.floor((totalMinutes % 1440) / 60);
         const minutes = totalMinutes % 60;
-        return `Ore mancanti: ${{hours}}h ${{String(minutes).padStart(2, "0")}}m`;
+        if (!isInitiallyOnShift) {{
+          const dayPart = days ? `${{days}}g ` : "";
+          return `Prossimo turno tra: ${{dayPart}}${{clockHours}}h ${{String(minutes).padStart(2, "0")}}m`;
+        }}
+        const totalHours = Math.floor(totalMinutes / 60);
+        return `Ore mancanti: ${{totalHours}}h ${{String(minutes).padStart(2, "0")}}m`;
+      }}
+
+      function refreshParentSoon() {{
+        setTimeout(() => {{
+          try {{
+            window.parent.location.reload();
+          }} catch (e) {{
+            window.location.reload();
+          }}
+        }}, 1200);
       }}
 
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
+        const shouldStart = !isInitiallyOnShift && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
         hoursLeftEl.textContent = remainingLabel();
+        if (!isInitiallyOnShift && nextShiftLabel && nextShiftLabel !== "—") {{
+          shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
+        }}
+        if (shouldStart) {{
+          refreshParentSoon();
+          return;
+        }}
         if (ended) {{
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
           rateEl.textContent = "0.000 €/min";
           shiftEl.textContent = "—";
-          hoursLeftEl.textContent = "Ore mancanti: —";
+          hoursLeftEl.textContent = "Aggiorno stato turno...";
+          refreshParentSoon();
         }}
       }}
 
@@ -1866,7 +1904,8 @@ def render_turni_guadagni_section():
                         or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
-                    if c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True):
+                    clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
+                    if clicked_day:
                         if festivo_manual:
                             df_new = df_turni[df_turni["Data"] != day_str].copy()
                             turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
@@ -3295,14 +3334,22 @@ def crea_grafico_stipendi(data):
     base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#4CAF50", opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
 
     # FIX 1: Risparmi overlaid ON TOP of Messi da parte (same x position, smaller/different color)
     base_bar_risparmi = alt.Chart(df_risparmi).mark_bar(size=40, color="rgba(255,165,0,0.6)", opacity=0.9).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi),
         y=alt.Y("Valore:Q"),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
 
     # Labels for Messi da parte Totali
@@ -3352,29 +3399,31 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
             domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
             range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
             legend=alt.Legend(title="Bollette")),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
-    )
-    
-    labels = base_stack.transform_filter("datum.Valore > 0").transform_calculate(
-        mid="(datum.lower + datum.upper) / 2"
-    ).mark_text(color="black", align="center", baseline="middle", fontSize=9).encode(
-        x=alt.X("Mese_str:N", sort=order),
-        y=alt.Y("mid:Q"),
-        text=alt.Text("Valore:Q", format=".2f")
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
     
     df_saldo = data_completa[data_completa["Categoria"] == "Saldo"]
     linea_saldo_unica = alt.Chart(df_saldo).mark_line(strokeWidth=2, strokeDash=[5,5], color="#F0F0F0", opacity=0.25).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
-        tooltip=["Mese_str:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Valore:Q", title="Saldo", format=",.2f"),
+        ]
     )
 
     punti_saldo_color = alt.Chart(df_saldo).mark_point(shape="diamond", size=80, filled=True).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
         color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
-        tooltip=["Mese_str:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Valore:Q", title="Saldo", format=",.2f"),
+        ]
     )
 
     df_totali = data_completa[data_completa["Categoria"].isin(["Elettricità", "Gas", "Acqua", "Internet", "Tari"])].groupby(
@@ -3390,7 +3439,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )
     
     linea_saldo = linea_saldo_unica + punti_saldo_color
-    grafico_finale = alt.layer(barre, labels, linea_saldo, testo_totale)
+    grafico_finale = alt.layer(barre, linea_saldo, testo_totale)
     return grafico_finale
     
 def crea_confronto_anno_su_anno_stipendi(data):
@@ -3604,81 +3653,106 @@ with col_chart:
             current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
             chart_start = current_month_start - pd.DateOffset(years=3)
             chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
+            chart_data["Extra messi da parte"] = (
+                pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
+                - pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+            ).clip(lower=0)
+            chart_data["Risparmi tooltip"] = pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
             chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
             ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
 
-            # Bar: Messi da parte (badi - background)
-            bars_messi = alt.Chart(chart_data).mark_bar(
-                color="#1D9E75", opacity=0.6, size=18
-            ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese",
-                        axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
-                y=alt.Y("Messi da parte Totali:Q", title="Valore (€)"),
-                tooltip=["Mese_str:N", "Messi da parte Totali:Q"]
+            x_axis = alt.X(
+                "Mese_str:N",
+                sort=ordine_mesi,
+                title="Mese",
+                axis=alt.Axis(labelAngle=-45, labelFontSize=10)
             )
 
-            # Bar: Risparmi (sovrapposta - overlay)
-            bars_risparmi = alt.Chart(chart_data).mark_bar(
-                color="#EF9F27", opacity=0.85, size=18
-            ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
-                y=alt.Y("Risparmi:Q"),
-                tooltip=["Mese_str:N", "Risparmi:Q"]
-            )
-
-            # Line: Stipendi
             line_stipendi = alt.Chart(chart_data).mark_line(
                 color="#5792E8", strokeWidth=2, point=True
             ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
-                y=alt.Y("Stipendio:Q"),
-                tooltip=["Mese_str:N", "Stipendio:Q"]
+                x=x_axis,
+                y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", format=",.2f")]
             )
 
-            # Line: Media Stipendi
             line_media_stip = alt.Chart(chart_data).mark_line(
                 color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True, opacity=0.4
             ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                x=x_axis,
                 y=alt.Y("Media Stipendio:Q"),
-                tooltip=["Mese_str:N", "Media Stipendio:Q"]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendio", format=",.2f")]
             )
 
-            # Line: Media NO 13/PDR
             line_media_no13 = alt.Chart(chart_data).mark_line(
                 color="#fb923c", strokeWidth=2, strokeDash=[3,3], point=True
             ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                x=x_axis,
                 y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=["Mese_str:N", "Media Stipendio NO 13°/PDR:Q"]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media senza 13/PDR", format=",.2f")]
             )
 
-            # Line: Media Risparmi
-            line_media_risp = alt.Chart(chart_data).mark_line(
-                color="#FFA040", strokeWidth=2, strokeDash=[4,4], point=True
+            risparmi_stack = chart_data.melt(
+                id_vars=["Mese_str", "Risparmi tooltip", "Messi da parte Totali"],
+                value_vars=["Risparmi", "Extra messi da parte"],
+                var_name="Componente risparmio",
+                value_name="Valore"
+            )
+            risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
+                "Risparmi": "Risparmi",
+                "Extra messi da parte": "Messi da parte"
+            })
+
+            bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
+                opacity=0.38, size=17
             ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
-                y=alt.Y("Media Risparmi:Q"),
-                tooltip=["Mese_str:N", "Media Risparmi:Q"]
+                x=x_axis,
+                y=alt.Y(
+                    "Valore:Q",
+                    title="Risparmi / messi da parte (€)",
+                    axis=alt.Axis(orient="right"),
+                    stack="zero"
+                ),
+                color=alt.Color(
+                    "Voce:N",
+                    scale=alt.Scale(
+                        domain=["Risparmi", "Messi da parte"],
+                        range=["#EF9F27", "#1D9E75"]
+                    ),
+                    legend=None
+                ),
+                order=alt.Order("Componente risparmio:N", sort="descending"),
+                tooltip=[
+                    alt.Tooltip("Mese_str:N", title="Mese"),
+                    alt.Tooltip("Voce:N", title="Voce"),
+                    alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+                    alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
+                ]
             )
 
-            # Line: Media Messi da parte
+            line_media_risp = alt.Chart(chart_data).mark_line(
+                color="#FFA040", strokeWidth=2, strokeDash=[4,4], point=True, opacity=0.9
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Risparmi:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi", format=",.2f")]
+            )
+
             line_media_messi = alt.Chart(chart_data).mark_line(
                 color="#90EE90", strokeWidth=2, strokeDash=[5,5], point=True
             ).encode(
-                x=alt.X("Mese_str:N", sort=ordine_mesi),
+                x=x_axis,
                 y=alt.Y("Media Messi da parte Totali:Q"),
-                tooltip=["Mese_str:N", "Media Messi da parte Totali:Q"]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
             )
 
-            grafico_finale = alt.layer(
-                bars_messi, bars_risparmi,
-                line_stipendi, line_media_stip, line_media_no13,
-                line_media_risp, line_media_messi
-            ).properties(
+            stipendi_chart = alt.layer(line_stipendi, line_media_stip, line_media_no13)
+            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, line_media_messi)
+
+            grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
                 title="Storico Stipendi e Risparmi",
-                height=400
-            ).resolve_scale(y="shared")
+                height=430
+            ).resolve_scale(y="independent")
 
             st.altair_chart(grafico_finale, use_container_width=True)
 
