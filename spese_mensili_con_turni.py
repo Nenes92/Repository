@@ -3604,6 +3604,11 @@ with col_chart:
             current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
             chart_start = current_month_start - pd.DateOffset(years=3)
             chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
+            chart_data["Extra messi da parte"] = (
+                pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
+                - pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+            ).clip(lower=0)
+            chart_data["Risparmi tooltip"] = pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
             chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
             ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
 
@@ -3638,17 +3643,39 @@ with col_chart:
                 tooltip=["Mese_str:N", alt.Tooltip("Media Stipendio NO 13°/PDR:Q", format=".2f")]
             )
 
-            y_risparmi_axis = alt.Y(
-                "Risparmi:Q",
-                title="Risparmi / messi da parte (€)",
-                axis=alt.Axis(orient="right")
+            risparmi_stack = chart_data.melt(
+                id_vars=["Mese_str", "Risparmi tooltip", "Messi da parte Totali"],
+                value_vars=["Risparmi", "Extra messi da parte"],
+                var_name="Componente risparmio",
+                value_name="Valore"
             )
-            bars_risparmi = alt.Chart(chart_data).mark_bar(
-                color="#EF9F27", opacity=0.82, size=16
+
+            bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
+                opacity=0.38, size=17
             ).encode(
                 x=x_axis,
-                y=y_risparmi_axis,
-                tooltip=["Mese_str:N", alt.Tooltip("Risparmi:Q", format=".2f")]
+                y=alt.Y(
+                    "Valore:Q",
+                    title="Risparmi / messi da parte (€)",
+                    axis=alt.Axis(orient="right"),
+                    stack="zero"
+                ),
+                color=alt.Color(
+                    "Componente risparmio:N",
+                    scale=alt.Scale(
+                        domain=["Risparmi", "Extra messi da parte"],
+                        range=["#EF9F27", "#1D9E75"]
+                    ),
+                    legend=None
+                ),
+                order=alt.Order("Componente risparmio:N", sort="descending"),
+                tooltip=[
+                    "Mese_str:N",
+                    "Componente risparmio:N",
+                    alt.Tooltip("Valore:Q", title="Valore componente", format=".2f"),
+                    alt.Tooltip("Risparmi tooltip:Q", title="Risparmi", format=".2f"),
+                    alt.Tooltip("Messi da parte Totali:Q", title="Messi da parte totali", format=".2f"),
+                ]
             )
 
             line_media_risp = alt.Chart(chart_data).mark_line(
@@ -3657,14 +3684,6 @@ with col_chart:
                 x=x_axis,
                 y=alt.Y("Media Risparmi:Q"),
                 tooltip=["Mese_str:N", alt.Tooltip("Media Risparmi:Q", format=".2f")]
-            )
-
-            line_messi = alt.Chart(chart_data).mark_line(
-                color="#1D9E75", strokeWidth=2, point=True
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Messi da parte Totali:Q"),
-                tooltip=["Mese_str:N", alt.Tooltip("Messi da parte Totali:Q", format=".2f")]
             )
 
             line_media_messi = alt.Chart(chart_data).mark_line(
@@ -3676,9 +3695,9 @@ with col_chart:
             )
 
             stipendi_chart = alt.layer(line_stipendi, line_media_stip, line_media_no13)
-            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, line_messi, line_media_messi)
+            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, line_media_messi)
 
-            grafico_finale = alt.layer(stipendi_chart, risparmi_chart).properties(
+            grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
                 title="Storico Stipendi e Risparmi",
                 height=430
             ).resolve_scale(y="independent")
