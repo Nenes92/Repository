@@ -3344,8 +3344,8 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
         as_=['lower', 'upper']
     )
     
-    barre = base_stack.mark_bar(opacity=0.8).encode(
-        x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45)),
+    barre = base_stack.mark_bar(opacity=0.8, size=18).encode(
+        x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
         y=alt.Y("lower:Q", title="Valore (€)"),
         y2="upper:Q",
         color=alt.Color("Categoria:N", scale=alt.Scale(
@@ -3357,7 +3357,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     
     labels = base_stack.transform_filter("datum.Valore > 0").transform_calculate(
         mid="(datum.lower + datum.upper) / 2"
-    ).mark_text(color="black", align="center", baseline="middle").encode(
+    ).mark_text(color="black", align="center", baseline="middle", fontSize=9).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("mid:Q"),
         text=alt.Text("Valore:Q", format=".2f")
@@ -3382,7 +3382,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )["Valore"].sum()
     
     testo_totale = alt.Chart(df_totali).mark_text(
-        align="center", baseline="bottom", dy=-5, fontSize=12, color="white"
+        align="center", baseline="bottom", dy=-5, fontSize=10, color="white"
     ).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
@@ -3609,17 +3609,17 @@ with col_chart:
 
             # Bar: Messi da parte (badi - background)
             bars_messi = alt.Chart(chart_data).mark_bar(
-                color="#1D9E75", opacity=0.6, size=30
+                color="#1D9E75", opacity=0.6, size=18
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese",
-                        axis=alt.Axis(labelAngle=-45)),
+                        axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
                 y=alt.Y("Messi da parte Totali:Q", title="Valore (€)"),
                 tooltip=["Mese_str:N", "Messi da parte Totali:Q"]
             )
 
             # Bar: Risparmi (sovrapposta - overlay)
             bars_risparmi = alt.Chart(chart_data).mark_bar(
-                color="#EF9F27", opacity=0.85, size=30
+                color="#EF9F27", opacity=0.85, size=18
             ).encode(
                 x=alt.X("Mese_str:N", sort=ordine_mesi),
                 y=alt.Y("Risparmi:Q"),
@@ -3894,6 +3894,12 @@ with col_bol_table:
     data_saldo.drop(columns=["Saldo"], inplace=True)
     data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
     data_completa_bollette["Mese"] = pd.to_datetime(data_completa_bollette["Mese"], errors="coerce")
+    current_month_start_bol = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_start_bol = current_month_start_bol - pd.DateOffset(years=3)
+    data_completa_bollette = data_completa_bollette[
+        (data_completa_bollette["Mese"] >= chart_start_bol)
+        & (data_completa_bollette["Mese"] <= current_month_start_bol)
+    ].copy()
     data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
     ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
     
