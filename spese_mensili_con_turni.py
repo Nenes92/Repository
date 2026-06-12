@@ -3360,15 +3360,11 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
             domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
             range=["#84B6F4", "#FF6961", "#96DED1", "#FFF5A1", "#C19A6B"]),
             legend=alt.Legend(title="Bollette")),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
-    )
-    
-    labels = base_stack.transform_filter("datum.Valore > 0").transform_calculate(
-        mid="(datum.lower + datum.upper) / 2"
-    ).mark_text(color="black", align="center", baseline="middle", fontSize=9).encode(
-        x=alt.X("Mese_str:N", sort=order),
-        y=alt.Y("mid:Q"),
-        text=alt.Text("Valore:Q", format=".2f")
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
     
     df_saldo = data_completa[data_completa["Categoria"] == "Saldo"]
@@ -3404,7 +3400,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )
     
     linea_saldo = linea_saldo_unica + punti_saldo_color
-    grafico_finale = alt.layer(barre, labels, linea_saldo, testo_totale)
+    grafico_finale = alt.layer(barre, linea_saldo, testo_totale)
     return grafico_finale
     
 def crea_confronto_anno_su_anno_stipendi(data):
