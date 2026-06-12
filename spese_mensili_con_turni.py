@@ -2801,7 +2801,7 @@ textarea {
             st.subheader("Dettaglio Spese Fisse:")
             dettaglio_df = df_fisse.copy()
             dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
-            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_scelto * 100) if stipendio_scelto else 0)
+            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
             dettaglio_rows = []
             for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
                 categoria = str(row["Categoria"])
@@ -3294,29 +3294,37 @@ st.title("Storico Stipendi e Risparmi")
 
 STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
 data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
+if data_stipendi.empty:
+    data_stipendi = pd.DataFrame(columns=STIPENDI_HEADERS)
+else:
+    data_stipendi["Mese"] = pd.to_datetime(data_stipendi["Mese"], errors="coerce")
+    data_stipendi = data_stipendi.dropna(subset=["Mese"])
+    data_stipendi["Mese"] = data_stipendi["Mese"].dt.to_period("M").dt.to_timestamp()
+    for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
+        data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
 
 col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns([1, 1, 2])
 with col_sx_stip:
-    st.subheader("Inserisci Dati")
+    st.subheader("Gestisci mese")
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-    selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, key="mese_stipendi")
-    mese_dt = datetime.strptime(selected_mese, "%B %Y")
-
-    if data_stipendi.empty:
-        data_stipendi = pd.DataFrame(columns=["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"])
+    current_month_label = _now_italy().strftime("%B %Y")
+    mese_default_index = list(mesi_anni).index(current_month_label) if current_month_label in list(mesi_anni) else 0
+    selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, index=mese_default_index, key="mese_stipendi")
+    mese_dt = pd.Timestamp(datetime.strptime(selected_mese, "%B %Y")).to_period("M").to_timestamp()
 
     record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
     stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
     risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
     messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
+    st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
 
     col_input1, col_input2 = st.columns(2)
     with col_input1:
-        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key="stipendio_input")
+        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
         aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
     with col_input2:
-        risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key="risparmi_input")
-        messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key="messi_da_parte_input")
+        risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+        messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
         elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
     if aggiungi_button:
@@ -3443,6 +3451,9 @@ with col_chart:
             chart_data = data_stipendi.copy()
             chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
             chart_data = chart_data.dropna(subset=["Mese"])
+            current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+            chart_start = current_month_start - pd.DateOffset(years=3)
+            chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
             chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
             ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
 
@@ -3565,18 +3576,25 @@ st.title("Storico Bollette")
 
 BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
 data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
+if data_bollette.empty:
+    data_bollette = pd.DataFrame(columns=BOLLETTE_HEADERS)
+else:
+    data_bollette["Mese"] = pd.to_datetime(data_bollette["Mese"], errors="coerce")
+    data_bollette = data_bollette.dropna(subset=["Mese"])
+    data_bollette["Mese"] = data_bollette["Mese"].dt.to_period("M").dt.to_timestamp()
+    for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
+        data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
 
 col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns([1, 1, 2])
 
 with col_sx_bol:
     with st.container():
-        st.subheader("Inserisci Bollette")
+        st.subheader("Gestisci bollette")
         mesi_anni_bol = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-        selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, key="mese_bollette")
-        mese_dt_bol = datetime.strptime(selected_mese_bol, "%B %Y")
-        
-        if data_bollette.empty:
-            data_bollette = pd.DataFrame(columns=["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+        current_month_label_bol = _now_italy().strftime("%B %Y")
+        mese_bol_default_index = list(mesi_anni_bol).index(current_month_label_bol) if current_month_label_bol in list(mesi_anni_bol) else 0
+        selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, index=mese_bol_default_index, key="mese_bollette")
+        mese_dt_bol = pd.Timestamp(datetime.strptime(selected_mese_bol, "%B %Y")).to_period("M").to_timestamp()
         
         record_bol = data_bollette[data_bollette["Mese"] == mese_dt_bol] if not data_bollette.empty else pd.DataFrame()
         elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
@@ -3584,16 +3602,17 @@ with col_sx_bol:
         acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
         internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
         tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
+        st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
         
         col_bol_input1, col_bol_input2 = st.columns(2)
         with col_bol_input1:
-            elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key="elettricita_input")
-            gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key="gas_input")
+            elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
+            gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
             aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
         with col_bol_input2:
-            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key="acqua_input")
-            internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key="internet_input")
-            tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key="tari_input")
+            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
+            internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
+            tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
             elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
 
         if aggiungi_bollette:
