@@ -2547,7 +2547,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1, 1], gap="large")
+        col2_left, col2_right = st.columns([1.08, 0.92], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2630,7 +2630,7 @@ textarea {
     
     
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.2, 2], gap="large")
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns([0.72, 2.48], gap="medium")
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
                 _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
@@ -2843,7 +2843,7 @@ textarea {
                     """, unsafe_allow_html=True)
 
                 st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-                col_altre_entrate_1, col_altre_entrate_2 = st.columns([1, 2])
+                col_altre_entrate_1, col_altre_entrate_2 = st.columns([0.72, 2.28], gap="medium")
                 percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
                 _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
                 with col_altre_entrate_1:
@@ -2972,7 +2972,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1, 1], gap="large")
+        col3_left, col3_right = st.columns([1.08, 0.92], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -2996,7 +2996,7 @@ textarea {
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns([1, 2])
+            col_risparmi_1, col_risparmi_2 = st.columns([0.72, 2.28], gap="medium")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -3070,7 +3070,7 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.18, 0.82], gap="medium")
             with col_Distribuzione_Carte_1:
                 st.subheader("Trasferimenti sulle Carte:")
         
