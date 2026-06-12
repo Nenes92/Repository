@@ -674,14 +674,15 @@ def donut_chart_with_labels(df, label_col, value_col, colors, title, width=220, 
             scale=alt.Scale(domain=domain, range=ranges),
             legend=alt.Legend(
                 title=None,
-                orient="bottom",
-                direction="horizontal",
-                columns=2,
+                orient="right",
+                direction="vertical",
+                columns=1,
                 labelColor="rgba(255,255,255,0.72)",
                 labelFontSize=10,
-                labelLimit=120,
-                symbolSize=55,
-                padding=4
+                labelLimit=130,
+                symbolSize=50,
+                padding=2,
+                offset=4
             )
         ),
         tooltip=[
@@ -1824,7 +1825,7 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 1.05, 1.25, 2.1], gap="large")
-    col1, col_gap_12, col2, col_gap_23, col3 = st.columns([1.08, 0.10, 2.25, 0.10, 1.85], gap="large")
+    col1, col_gap_12, col2, col_gap_23, col3 = st.columns([1.0, 0.04, 2.45, 0.04, 2.05], gap="large")
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -2303,7 +2304,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_mid_gap, col2_right = st.columns([0.95, 0.08, 1.16], gap="large")
+        col2_left, col2_mid_gap, col2_right = st.columns([1.15, 0.04, 1.0], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2676,7 +2677,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_mid_gap, col3_right = st.columns([0.76, 0.06, 1.18], gap="large")
+        col3_left, col3_mid_gap, col3_right = st.columns([1.02, 0.04, 1.0], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
