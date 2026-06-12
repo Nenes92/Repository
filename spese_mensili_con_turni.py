@@ -1243,12 +1243,20 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    work_days_done = 0
+    work_days_total = 0
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
         has_turno = turno in TURNI_ORARI and turno != ""
+
+        if has_turno and turno not in ["Ferie", "Riposo"] and data[:7] == current_m:
+            work_days_total += 1
+            start_day, _ = _shift_bounds(data, turno)
+            if start_day <= now:
+                work_days_done += 1
 
         if has_turno and data[:7] == current_m:
             calc_live = compute_turno(data, turno, festivo, rules, until=now)
@@ -1294,6 +1302,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_date": current_shift_date,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "work_days_done": work_days_done,
+        "work_days_total": work_days_total,
     }
 
 
@@ -1529,15 +1539,19 @@ def render_live_turni_kpis(stats):
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    work_days_done = int(stats.get("work_days_done", 0))
+    work_days_total = int(stats.get("work_days_total", 0))
     components.html(f"""
     <div class="turni-live-grid">
       <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
         <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
         <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
+        <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
         <div class="kpi-label">Turno — live / totale turno</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+        <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
         <div class="kpi-label">Stato turno</div>
@@ -1597,6 +1611,11 @@ def render_live_turni_kpis(stats):
         height: 10px;
         border-radius: 999px;
       }}
+      .turni-subline {{
+        font-size: 12px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 5px;
+      }}
     </style>
     <script>
       const start = Date.now();
@@ -1610,6 +1629,7 @@ def render_live_turni_kpis(stats):
       const statusEl = document.getElementById("turni-status-text");
       const rateEl = document.getElementById("turni-rate-min");
       const shiftEl = document.getElementById("turni-shift-label");
+      const hoursLeftEl = document.getElementById("turni-hours-left");
 
       function money(value) {{
         return new Intl.NumberFormat("it-IT", {{
@@ -1627,17 +1647,28 @@ def render_live_turni_kpis(stats):
         return Math.max(0, Math.min(now, end) - start) / 1000;
       }}
 
+      function remainingLabel() {{
+        if (!shiftEnd) return "Ore mancanti: —";
+        const remainingMs = Math.max(0, Date.parse(shiftEnd) - Date.now());
+        const totalMinutes = Math.ceil(remainingMs / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `Ore mancanti: ${{hours}}h ${{String(minutes).padStart(2, "0")}}m`;
+      }}
+
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
+        hoursLeftEl.textContent = remainingLabel();
         if (ended) {{
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
           rateEl.textContent = "0.000 €/min";
           shiftEl.textContent = "—";
+          hoursLeftEl.textContent = "Ore mancanti: —";
         }}
       }}
 
@@ -2768,15 +2799,26 @@ textarea {
 
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
-            df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
-            df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-            styled_df_fisse = (
-                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
-                .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
-                .set_properties(**{'text-align': 'center'})
-            )
-            st.dataframe(styled_df_fisse, use_container_width=True)
+            dettaglio_df = df_fisse.copy()
+            dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_scelto * 100) if stipendio_scelto else 0)
+            dettaglio_rows = []
+            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                categoria = str(row["Categoria"])
+                valore = float(row["Importo"])
+                colore = color_map.get(categoria, "#999999")
+                dettaglio_rows.append(f"""
+                <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                            padding:7px 9px;margin:5px 0;border-radius:8px;
+                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                    <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% tot.</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% scelto</div>
+                </div>
+                """)
+            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
                 
 
