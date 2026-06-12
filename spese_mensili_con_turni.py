@@ -56,6 +56,7 @@ def get_gsheet_client():
 
 GSHEETS_CACHE_TTL_SECONDS = 1800
 GSHEETS_BACKOFF_SECONDS = 90
+GSHEETS_BACKOFF_LABEL = "circa 90 secondi"
 
 
 def _worksheet_cache_key(worksheet_name):
@@ -104,7 +105,7 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
     except Exception as e:
         if _is_quota_error(e):
             _set_gsheets_backoff()
-            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso i dati in cache e riprovo piu tardi.")
+            _show_gsheets_warning_once(f"Google Sheets ha raggiunto il limite temporaneo di letture. Uso i dati in cache e riprovo tra {GSHEETS_BACKOFF_LABEL}.")
         else:
             st.error(f"Errore connessione Google Sheets: {e}")
         return None
@@ -183,20 +184,20 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
         if cached is not None:
             if _is_quota_error(e):
                 _set_gsheets_backoff()
-                _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso l'ultima copia caricata in memoria.")
+                _show_gsheets_warning_once(f"Google Sheets ha raggiunto il limite temporaneo di letture. Uso l'ultima copia caricata in memoria e riprovo tra {GSHEETS_BACKOFF_LABEL}.")
             else:
                 st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
             return cached
         if _is_quota_error(e):
             _set_gsheets_backoff()
-            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Alcuni dati saranno vuoti finche la quota si sblocca.")
+            _show_gsheets_warning_once(f"Google Sheets ha raggiunto il limite temporaneo di letture. Alcuni dati saranno vuoti finche la quota si sblocca: attendi {GSHEETS_BACKOFF_LABEL}.")
         else:
             st.error(f"Errore caricamento dati: {e}")
         return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
     if _is_gsheets_in_backoff():
-        _show_gsheets_warning_once("Google Sheets e in pausa temporanea per quota letture. Riprova il salvataggio tra poco.")
+        _show_gsheets_warning_once(f"Google Sheets e in pausa temporanea per quota letture. Riprova il salvataggio tra {GSHEETS_BACKOFF_LABEL}.")
         return False
     client = get_gsheet_client()
     if not client:
@@ -225,7 +226,7 @@ def save_data_gsheets(worksheet_name, headers, data):
     except Exception as e:
         if _is_quota_error(e):
             _set_gsheets_backoff()
-            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo. Salvataggio non eseguito, riprova tra poco.")
+            _show_gsheets_warning_once(f"Google Sheets ha raggiunto il limite temporaneo. Salvataggio non eseguito, riprova tra {GSHEETS_BACKOFF_LABEL}.")
         else:
             st.error(f"Errore salvataggio: {e}")
         return False
@@ -619,9 +620,19 @@ def _spesa_variabile_row_html(voce, importo, colore, didascalia):
 
 
 def _money_row_html(voce, importo, colore, marker="", didascalia=""):
+    valore = pd.to_numeric(importo, errors="coerce")
+    importo_float = 0.0 if pd.isna(valore) else float(valore)
     didascalia_html = (
         f'<div style="font-size:12px;color:rgba(255,255,255,.44);margin-left:10px;margin-top:1px;">{didascalia}</div>'
         if didascalia else ""
+    )
+    return (
+        '<div style="margin:4px 0 8px;line-height:1.28;">'
+        '<div style="font-size:15px;font-weight:500;">'
+        f'<span style="color:{colore};">- {voce}: €{importo_float:.2f}</span>{marker}'
+        '</div>'
+        f'{didascalia_html}'
+        '</div>'
     )
 
 
@@ -658,14 +669,6 @@ def _history_table_html(df, columns, colors):
         '<div style="max-height:430px;overflow-y:auto;padding-right:4px;'
         'scrollbar-color:rgba(148,163,184,.55) transparent;">'
         + "".join(table_rows) +
-        '</div>'
-    )
-    return (
-        '<div style="margin:4px 0 8px;line-height:1.28;">'
-        '<div style="font-size:15px;font-weight:500;">'
-        f'<span style="color:{colore};">- {voce}: €{float(importo):.2f}</span>{marker}'
-        '</div>'
-        f'{didascalia_html}'
         '</div>'
     )
 
