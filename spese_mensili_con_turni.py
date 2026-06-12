@@ -1347,6 +1347,8 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    next_shift_start = None
+    next_shift_label = "—"
     work_days_done = 0
     work_days_total = 0
     ferie_days_total = 0
@@ -1389,6 +1391,9 @@ def compute_turni_dashboard(df_turni, rules):
         if not has_turno:
             continue
         start, end = _shift_bounds(data, turno)
+        if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
+            next_shift_start = start
+            next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
         if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
@@ -1410,6 +1415,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_date": current_shift_date,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
+        "next_shift_label": next_shift_label,
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
         "ferie_days_total": ferie_days_total,
@@ -1648,6 +1655,8 @@ def render_live_turni_kpis(stats):
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    next_shift_start = stats.get("next_shift_start", "")
+    next_shift_label = str(stats.get("next_shift_label", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     work_days_done = int(stats.get("work_days_done", 0))
     work_days_total = int(stats.get("work_days_total", 0))
     ferie_days_total = int(stats.get("ferie_days_total", 0))
@@ -1735,6 +1744,9 @@ def render_live_turni_kpis(stats):
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
       const shiftEnd = {json.dumps(current_shift_end)};
+      const nextShiftStart = {json.dumps(next_shift_start)};
+      const nextShiftLabel = {json.dumps(next_shift_label)};
+      const isInitiallyOnShift = {json.dumps(is_on_shift)};
       const monthEl = document.getElementById("turni-live-month");
       const todayEl = document.getElementById("turni-live-today");
       const dotEl = document.getElementById("turni-status-dot");
@@ -1760,27 +1772,53 @@ def render_live_turni_kpis(stats):
       }}
 
       function remainingLabel() {{
-        if (!shiftEnd) return "Ore mancanti: —";
-        const remainingMs = Math.max(0, Date.parse(shiftEnd) - Date.now());
+        const target = shiftEnd || nextShiftStart;
+        if (!target) return isInitiallyOnShift ? "Ore mancanti: —" : "Prossimo turno: —";
+        const remainingMs = Math.max(0, Date.parse(target) - Date.now());
         const totalMinutes = Math.ceil(remainingMs / 60000);
-        const hours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalMinutes / 1440);
+        const clockHours = Math.floor((totalMinutes % 1440) / 60);
         const minutes = totalMinutes % 60;
-        return `Ore mancanti: ${{hours}}h ${{String(minutes).padStart(2, "0")}}m`;
+        if (!isInitiallyOnShift) {{
+          const dayPart = days ? `${{days}}g ` : "";
+          return `Prossimo turno tra: ${{dayPart}}${{clockHours}}h ${{String(minutes).padStart(2, "0")}}m`;
+        }}
+        const totalHours = Math.floor(totalMinutes / 60);
+        return `Ore mancanti: ${{totalHours}}h ${{String(minutes).padStart(2, "0")}}m`;
+      }}
+
+      function refreshParentSoon() {{
+        setTimeout(() => {{
+          try {{
+            window.parent.location.reload();
+          }} catch (e) {{
+            window.location.reload();
+          }}
+        }}, 1200);
       }}
 
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
+        const shouldStart = !isInitiallyOnShift && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
         hoursLeftEl.textContent = remainingLabel();
+        if (!isInitiallyOnShift && nextShiftLabel && nextShiftLabel !== "—") {{
+          shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
+        }}
+        if (shouldStart) {{
+          refreshParentSoon();
+          return;
+        }}
         if (ended) {{
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
           rateEl.textContent = "0.000 €/min";
           shiftEl.textContent = "—";
-          hoursLeftEl.textContent = "Ore mancanti: —";
+          hoursLeftEl.textContent = "Aggiorno stato turno...";
+          refreshParentSoon();
         }}
       }}
 
