@@ -2863,7 +2863,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1.18, 0.92], gap="large")
+                col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1.06, 1.04], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2940,7 +2940,7 @@ textarea {
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
                         chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                            innerRadius=40, outerRadius=70
+                            innerRadius=32, outerRadius=56
                         ).encode(
                             theta=alt.Theta(field="Value", type="quantitative"),
                             color=alt.Color(
@@ -2964,8 +2964,8 @@ textarea {
                             ]
                         ).properties(
                             title="➕ Distribuzione Altre Entrate",
-                            width=200,
-                            height=220
+                            width=150,
+                            height=170
                         ).configure_title(
                             anchor='middle'
                         ).configure_view(
@@ -3044,7 +3044,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([0.88, 1.12], gap="large")
+        col3_left, col3_right = st.columns([0.82, 1.18], gap="medium")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -3068,7 +3068,7 @@ textarea {
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns([1.25, 1.25], gap="medium")
+            col_risparmi_1, col_risparmi_2 = st.columns([1.18, 1.12], gap="small")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -3142,7 +3142,7 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.28, 1.0], gap="medium")
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.35, 1.0], gap="small")
             with col_Distribuzione_Carte_1:
                 st.subheader("Trasferimenti sulle Carte:")
         
@@ -3211,7 +3211,7 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=38, outerRadius=68).encode(
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=32, outerRadius=56).encode(
                 theta=alt.Theta(field="Totale", type="quantitative"),
                 color=alt.Color(
                     field="Carta", type="nominal",
@@ -3238,8 +3238,8 @@ textarea {
                 ]
                 ).properties(
                     title="💳 Distribuzione Carte",
-                    width=210,
-                    height=220,
+                    width=150,
+                    height=170,
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
