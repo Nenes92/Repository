@@ -53,7 +53,44 @@ def get_gsheet_client():
     except Exception as e:
         return None
 
+GSHEETS_CACHE_TTL_SECONDS = 1800
+GSHEETS_BACKOFF_SECONDS = 90
+
+
+def _worksheet_cache_key(worksheet_name):
+    return f"gsheets_worksheet::{worksheet_name}"
+
+
+def _gsheets_backoff_until_key():
+    return "gsheets_backoff_until"
+
+
+def _is_quota_error(error):
+    text = str(error)
+    return "429" in text or "Quota exceeded" in text or "Read requests per minute" in text
+
+
+def _set_gsheets_backoff():
+    st.session_state[_gsheets_backoff_until_key()] = time.time() + GSHEETS_BACKOFF_SECONDS
+
+
+def _is_gsheets_in_backoff():
+    return time.time() < st.session_state.get(_gsheets_backoff_until_key(), 0)
+
+
+def _show_gsheets_warning_once(message):
+    key = f"gsheets_warning::{message}"
+    if not st.session_state.get(key):
+        st.warning(message)
+        st.session_state[key] = True
+
+
 def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
+    if _is_gsheets_in_backoff():
+        return st.session_state.get(_worksheet_cache_key(worksheet_name))
+    cached_worksheet = st.session_state.get(_worksheet_cache_key(worksheet_name))
+    if cached_worksheet is not None:
+        return cached_worksheet
     try:
         spreadsheet = client.open_by_url(sheet_url)
         try:
@@ -61,12 +98,15 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
         except gspread.WorksheetNotFound:
             worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows=1000, cols=20)
             worksheet.append_row(headers)
+        st.session_state[_worksheet_cache_key(worksheet_name)] = worksheet
         return worksheet
     except Exception as e:
-        st.error(f"Errore connessione Google Sheets: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso i dati in cache e riprovo piu tardi.")
+        else:
+            st.error(f"Errore connessione Google Sheets: {e}")
         return None
-
-GSHEETS_CACHE_TTL_SECONDS = 300
 
 
 def _gsheets_cache_key(worksheet_name):
@@ -107,6 +147,10 @@ def _get_gsheets_cache(worksheet_name, allow_stale=False):
 
 
 def load_data_gsheets(worksheet_name, headers, force_reload=False):
+    if _is_gsheets_in_backoff():
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        return cached if cached is not None else pd.DataFrame(columns=headers)
+
     if not force_reload:
         cached = _get_gsheets_cache(worksheet_name)
         if cached is not None:
@@ -136,12 +180,23 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
     except Exception as e:
         cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
         if cached is not None:
-            st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
+            if _is_quota_error(e):
+                _set_gsheets_backoff()
+                _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso l'ultima copia caricata in memoria.")
+            else:
+                st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
             return cached
-        st.error(f"Errore caricamento dati: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Alcuni dati saranno vuoti finche la quota si sblocca.")
+        else:
+            st.error(f"Errore caricamento dati: {e}")
         return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
+    if _is_gsheets_in_backoff():
+        _show_gsheets_warning_once("Google Sheets e in pausa temporanea per quota letture. Riprova il salvataggio tra poco.")
+        return False
     client = get_gsheet_client()
     if not client:
         return False
@@ -167,7 +222,11 @@ def save_data_gsheets(worksheet_name, headers, data):
         _set_gsheets_cache(worksheet_name, data)
         return True
     except Exception as e:
-        st.error(f"Errore salvataggio: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo. Salvataggio non eseguito, riprova tra poco.")
+        else:
+            st.error(f"Errore salvataggio: {e}")
         return False
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1184,12 +1243,20 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    work_days_done = 0
+    work_days_total = 0
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
         has_turno = turno in TURNI_ORARI and turno != ""
+
+        if has_turno and turno not in ["Ferie", "Riposo"] and data[:7] == current_m:
+            work_days_total += 1
+            start_day, _ = _shift_bounds(data, turno)
+            if start_day <= now:
+                work_days_done += 1
 
         if has_turno and data[:7] == current_m:
             calc_live = compute_turno(data, turno, festivo, rules, until=now)
@@ -1235,6 +1302,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_date": current_shift_date,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "work_days_done": work_days_done,
+        "work_days_total": work_days_total,
     }
 
 
@@ -1470,15 +1539,19 @@ def render_live_turni_kpis(stats):
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    work_days_done = int(stats.get("work_days_done", 0))
+    work_days_total = int(stats.get("work_days_total", 0))
     components.html(f"""
     <div class="turni-live-grid">
       <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
         <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
         <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
+        <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
         <div class="kpi-label">Turno — live / totale turno</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+        <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
         <div class="kpi-label">Stato turno</div>
@@ -1538,6 +1611,11 @@ def render_live_turni_kpis(stats):
         height: 10px;
         border-radius: 999px;
       }}
+      .turni-subline {{
+        font-size: 12px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 5px;
+      }}
     </style>
     <script>
       const start = Date.now();
@@ -1551,6 +1629,7 @@ def render_live_turni_kpis(stats):
       const statusEl = document.getElementById("turni-status-text");
       const rateEl = document.getElementById("turni-rate-min");
       const shiftEl = document.getElementById("turni-shift-label");
+      const hoursLeftEl = document.getElementById("turni-hours-left");
 
       function money(value) {{
         return new Intl.NumberFormat("it-IT", {{
@@ -1568,17 +1647,28 @@ def render_live_turni_kpis(stats):
         return Math.max(0, Math.min(now, end) - start) / 1000;
       }}
 
+      function remainingLabel() {{
+        if (!shiftEnd) return "Ore mancanti: —";
+        const remainingMs = Math.max(0, Date.parse(shiftEnd) - Date.now());
+        const totalMinutes = Math.ceil(remainingMs / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `Ore mancanti: ${{hours}}h ${{String(minutes).padStart(2, "0")}}m`;
+      }}
+
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
+        hoursLeftEl.textContent = remainingLabel();
         if (ended) {{
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
           rateEl.textContent = "0.000 €/min";
           shiftEl.textContent = "—";
+          hoursLeftEl.textContent = "Ore mancanti: —";
         }}
       }}
 
@@ -2709,15 +2799,26 @@ textarea {
 
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
-            df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
-            df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
-            styled_df_fisse = (
-                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
-                .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
-                .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
-                .set_properties(**{'text-align': 'center'})
-            )
-            st.dataframe(styled_df_fisse, use_container_width=True)
+            dettaglio_df = df_fisse.copy()
+            dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_scelto * 100) if stipendio_scelto else 0)
+            dettaglio_rows = []
+            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                categoria = str(row["Categoria"])
+                valore = float(row["Importo"])
+                colore = color_map.get(categoria, "#999999")
+                dettaglio_rows.append(f"""
+                <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                            padding:7px 9px;margin:5px 0;border-radius:8px;
+                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                    <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% tot.</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% scelto</div>
+                </div>
+                """)
+            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
                 
 
