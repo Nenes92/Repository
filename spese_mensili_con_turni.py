@@ -2249,14 +2249,33 @@ textarea {
         with tab_decisioni_fisse:
             settings = SPESE["Fisse"].copy()
             metadata = st.session_state.get("spese_fisse_metadata", {})
+            gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
+
+            st.markdown("#### Aggiungi spesa")
+            add_nome_col, add_importo_col = st.columns([1.4, 0.8])
+            with add_nome_col:
+                nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
+            with add_importo_col:
+                nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
+
             nuovo_gruppo = st.text_input(
                 "Nuovo gruppo visivo da aggiungere",
                 key="nuovo_gruppo_spese_fisse",
                 placeholder="Es. Animali, Viaggi, Donazioni..."
             ).strip()
-            gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
             if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
                 gruppi_disponibili.append(nuovo_gruppo)
+            add_meta_col1, add_meta_col2 = st.columns(2)
+            with add_meta_col1:
+                nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+            with add_meta_col2:
+                nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
+            nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
+
+            st.markdown("#### Elimina spesa")
+            elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
+            st.markdown("#### Modifica spese esistenti")
+
             editor_cols = st.columns(2)
             editable_settings = {}
             editable_metadata = {}
@@ -2296,22 +2315,6 @@ textarea {
                         ),
                     }
                     st.markdown("---")
-
-            st.markdown("#### Aggiungi spesa")
-            add_nome_col, add_importo_col = st.columns([1.4, 0.8])
-            with add_nome_col:
-                nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
-            with add_importo_col:
-                nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
-            add_meta_col1, add_meta_col2 = st.columns(2)
-            with add_meta_col1:
-                nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
-            with add_meta_col2:
-                nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
-            nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
-
-            st.markdown("#### Elimina spesa")
-            elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
 
             save_col, delete_col = st.columns(2)
             with save_col:
@@ -2712,12 +2715,17 @@ textarea {
                 edited_altre = {}
                 for idx, (voce, importo) in enumerate(altre_settings.items()):
                     with editor_cols[idx % 2]:
+                        st.markdown(
+                            f'<div style="font-size:15px;font-weight:800;color:rgba(255,255,255,.92);margin:0 0 6px;">{html.escape(str(voce))}</div>',
+                            unsafe_allow_html=True
+                        )
                         edited_altre[voce] = st.number_input(
                             voce,
                             min_value=0.0,
                             value=float(importo),
                             step=10.0,
-                            key=f"altra_entrata_{voce}"
+                            key=f"altra_entrata_{voce}",
+                            label_visibility="collapsed"
                         )
                 new_col1, new_col2 = st.columns([1.4, 0.8])
                 with new_col1:
