@@ -659,49 +659,6 @@ def save_altre_entrate_settings(settings):
         ALTRE_ENTRATE.update(cleaned)
     return ok
 
-
-def donut_chart_with_labels(df, label_col, value_col, colors, title, width=220, height=220, inner_radius=40, outer_radius=70):
-    chart_df = df[df[value_col] > 0].copy()
-    if chart_df.empty:
-        chart_df = df.copy()
-    domain = chart_df[label_col].tolist()
-    ranges = [colors.get(label, "#999999") for label in domain]
-    base = alt.Chart(chart_df).encode(
-        theta=alt.Theta(field=value_col, type="quantitative"),
-        color=alt.Color(
-            field=label_col,
-            type="nominal",
-            scale=alt.Scale(domain=domain, range=ranges),
-            legend=alt.Legend(
-                title=None,
-                orient="right",
-                direction="vertical",
-                columns=1,
-                labelColor="rgba(255,255,255,0.72)",
-                labelFontSize=10,
-                labelLimit=130,
-                symbolSize=50,
-                padding=2,
-                offset=4
-            )
-        ),
-        tooltip=[
-            alt.Tooltip(f"{label_col}:N", title=label_col),
-            alt.Tooltip(f"{value_col}:Q", title="Importo (€)", format=".2f")
-        ]
-    )
-    arc = base.mark_arc(innerRadius=inner_radius, outerRadius=outer_radius)
-    return arc.properties(
-        title=title,
-        width=width,
-        height=height
-    ).configure_title(
-        anchor="middle"
-    ).configure_view(
-        strokeWidth=0,
-        fill="transparent"
-    )
-
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
@@ -762,14 +719,45 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
     df_fisse['Percentuale'] = (df_fisse['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
-    chart_fisse = donut_chart_with_labels(
-        df_fisse,
-        "Categoria",
-        "Importo",
-        color_map,
-        "Spese fisse",
-        width=230,
+    # FIX 3: Donut labels outside with connector lines for Spese Fisse
+    categorie_presenti = df_fisse["Categoria"].unique()    
+    chart_fisse = alt.Chart(df_fisse).mark_arc(
+        innerRadius=40, outerRadius=70
+    ).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(
+            field="Categoria",
+            type="nominal",
+            scale=alt.Scale(
+                domain=categorie_presenti,
+                range=[color_map.get(c, "#999999") for c in categorie_presenti]
+            ),
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                columns=1,
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=11,
+                symbolSize=40,
+                padding=2,
+                offset=5
+            )
+        ),
+        tooltip=[
+            "Categoria",
+            "Importo",
+            alt.Tooltip(field="Percentuale", title="Percentuale")
+        ]
+    ).properties(
+        title="🏠 Distribuzione Spese Fisse",
+        width=200,
         height=220
+    ).configure_title(
+        anchor='middle'
+    ).configure_view(
+        strokeWidth=0,
+        fill='transparent'
     )
 
     # FIX 3: Donut labels outside with connector lines for Spese Variabili
@@ -777,20 +765,23 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
         range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
     )
-    chart_variabili = donut_chart_with_labels(
-        df_variabili,
-        "Categoria",
-        "Importo",
-        {
-            "Emergenze/Compleanni": "#4ADE80",
-            "Viaggi": "#166534",
-            "Da spendere": "#FACC15",
-            "Spese quotidiane": "#FB923C",
-        },
-        "Spese variabili",
-        width=220,
-        height=200
-    ).interactive()
+    chart_variabili_arc = alt.Chart(df_variabili, title='Distribuzione Spese Variabili').mark_arc(
+        outerRadius=100, innerRadius=40
+    ).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(field="Categoria", type="nominal", scale=variabili_color_scale, legend=alt.Legend(
+            title=None,
+            orient='right',
+            direction='vertical',
+            labelColor='rgba(255,255,255,0.85)',
+            labelFontSize=12,
+            symbolType='circle',
+            symbolSize=100,
+            padding=6
+        )),
+        tooltip=["Categoria", "Importo", alt.Tooltip(field="Percentuale", title="Percentuale")]
+    )
+    chart_variabili = chart_variabili_arc.properties(title='💸 Distribuzione Spese Variabili', width=160, height=160).interactive()
     df_altre_entrate['Percentuale'] = (df_altre_entrate['Importo'] / stipendio_scelto).map('{:.2%}'.format)
 
     # Altre Entrate donut — no legend, tooltip only
@@ -807,16 +798,26 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     ae_domains = ae_cats
     ae_ranges = [ae_colors_map.get(c, "#888888") for c in ae_cats]
 
-    chart_altre_entrate = donut_chart_with_labels(
-        df_altre_entrate_chart,
-        "Categoria",
-        "Importo",
-        ae_colors_map,
-        "Altre entrate",
-        width=220,
-        height=200,
-        inner_radius=35,
-        outer_radius=65
+    ae_arc = alt.Chart(df_altre_entrate_chart).mark_arc(outerRadius=80, innerRadius=30).encode(
+        theta=alt.Theta(field="Importo", type="quantitative"),
+        color=alt.Color(
+            field="Categoria", type="nominal",
+            scale=alt.Scale(domain=ae_domains, range=ae_ranges),
+            legend=alt.Legend(
+                title=None,
+                orient='right',
+                direction='vertical',
+                labelColor='rgba(255,255,255,0.85)',
+                labelFontSize=12,
+                symbolType='circle',
+                symbolSize=100,
+                padding=6
+            )
+        ),
+        tooltip=["Categoria", "Importo", "Percentuale"]
+    )
+    chart_altre_entrate = ae_arc.properties(
+        title='➕ Distribuzione Altre Entrate'
     ).interactive()
 
     return chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map
@@ -1825,7 +1826,7 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 1.05, 1.25, 2.1], gap="large")
-    col1, col_gap_12, col2, col_gap_23, col3 = st.columns([1.0, 0.04, 2.45, 0.04, 2.05], gap="large")
+    col1, col2, col3 = st.columns([1.08, 2, 2], gap="large")
 
     with col_stip_inserimento1:
         stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50)
@@ -2254,7 +2255,11 @@ textarea {
                     domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
                     range=['#FF6464', '#fef3c7', '#888888']
                 ),
-                legend=None
+                legend=alt.Legend(
+                    title=None, orient='bottom', direction='vertical',
+                    labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                    symbolSize=60, padding=4
+                )
             ),
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
@@ -2277,7 +2282,11 @@ textarea {
             color=alt.Color(
                 field="Component", type="nominal",
                 scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#fef3c7']),
-                legend=None
+                legend=alt.Legend(
+                    title=None, orient='bottom', direction='vertical',
+                    labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                    symbolSize=60, padding=4
+                )
             ),
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
@@ -2304,7 +2313,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_mid_gap, col2_right = st.columns([1.15, 0.04, 1.0], gap="large")
+        col2_left, col2_right = st.columns([1, 1], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2437,19 +2446,41 @@ textarea {
                 
                 # Creazione del grafico
                 if not df_spese_variabili.empty:
-                    chart_spese_variabili = donut_chart_with_labels(
-                        df_spese_variabili,
-                        "Voce",
-                        "Value",
-                        {
-                            "Emergenze/Compleanni": "#4ADE80",
-                            "Viaggi": "#166534",
-                            "Da spendere": "#FACC15",
-                            "Spese quotidiane": "#FB923C",
-                        },
-                        "Spese variabili",
-                        width=230,
+                    chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
+                        innerRadius=40, outerRadius=70
+                    ).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Voce", type="nominal",
+                            scale=alt.Scale(
+                                domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                                range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Voce:N', title='Voce'),
+                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                        ]
+                    ).properties(
+                        title="💸 Distribuzione Spese Variabili",
+                        width=200,
                         height=220
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
                     )
                 
                     st.altair_chart(chart_spese_variabili, use_container_width=True)
@@ -2521,7 +2552,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1.05, 0.9, 0.05], gap="large")
+                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1], gap="large")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2597,24 +2628,48 @@ textarea {
 
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
-                        chart_altre_entrate = donut_chart_with_labels(
-                            df_altre_entrate,
-                            "Voce",
-                            "Value",
-                            {voce: palette[idx % len(palette)] for idx, voce in enumerate(df_altre_entrate["Voce"].tolist())},
-                            "Altre entrate",
-                            width=230,
+                        chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                            innerRadius=40, outerRadius=70
+                        ).encode(
+                            theta=alt.Theta(field="Value", type="quantitative"),
+                            color=alt.Color(
+                                field="Voce", type="nominal",
+                                scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                legend=alt.Legend(
+                                    title=None,
+                                    orient='right',
+                                    direction='vertical',
+                                    labelColor='rgba(255,255,255,0.65)',
+                                    labelFontSize=11,
+                                    symbolSize=40,
+                                    padding=2,
+                                    offset=5
+                                )
+                            ),
+                            tooltip=[
+                                alt.Tooltip('Voce:N', title='Voce'),
+                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                            ]
+                        ).properties(
+                            title="➕ Distribuzione Altre Entrate",
+                            width=200,
                             height=220
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
                         )
                         st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
-        col_center_pill = st.columns([1, 2, 1], gap="large")[1]
+        col_center_pill = st.columns([1, 2, 1])[1]
         with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.06, 0.46, 1.15, 0.08], gap="large")
+        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
@@ -2654,30 +2709,20 @@ textarea {
 
         with col1_2:
             st.subheader("Dettaglio Spese Fisse:")
-            dettaglio_rows = []
-            dettaglio_df = df_fisse_percentuali.copy()
-            if "Valore €" in dettaglio_df.columns and "Importo" not in dettaglio_df.columns:
-                dettaglio_df["Importo"] = dettaglio_df["Valore €"]
-            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
-                categoria = str(row["Categoria"])
-                valore = float(row["Importo"])
-                colore = color_map.get(categoria, "#999999")
-                dettaglio_rows.append(f"""
-                <div style="display:grid;grid-template-columns:5px 1.15fr .75fr .55fr;gap:7px;align-items:center;
-                            padding:6px 8px;margin:4px 0;border-radius:8px;
-                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
-                    <div style="height:100%;min-height:22px;border-radius:999px;background:{colore};"></div>
-                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
-                    <div style="font-size:12px;color:rgba(255,255,255,.82);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.46);text-align:right;">{row["Percentuale"]}</div>
-                </div>
-                """)
-            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
+            df_fisse_percentuali = df_fisse_percentuali.rename(columns={'Importo': 'Valore €'})
+            df_fisse_percentuali["Valore €"] = df_fisse_percentuali["Valore €"].apply(lambda x: f"€ {x:.2f}")
+            styled_df_fisse = (
+                df_fisse_percentuali[["Categoria", "Valore €", "Percentuale"]].style
+                .apply(lambda x: [f"background-color: {color_map.get(x.name, '')}" for i in x], axis=1)
+                .map(lambda x: f"color: {color_map.get(x, '')}" if x in df_fisse_percentuali["Categoria"].unique() else "", subset=["Categoria"])
+                .set_properties(**{'text-align': 'center'})
+            )
+            st.dataframe(styled_df_fisse, use_container_width=True)
     
                 
 
     with col3:
-        col3_left, col3_mid_gap, col3_right = st.columns([1.02, 0.04, 1.0], gap="large")
+        col3_left, col3_right = st.columns([1, 1], gap="large")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -2730,20 +2775,43 @@ textarea {
                 
             with col_risparmi_2:
                 if not df_savings.empty:
-                    chart_donut_Distribuzione_Risparmi = donut_chart_with_labels(
-                        df_savings,
-                        "Component",
-                        "Value",
-                        {
-                            "Da Stipendi": "#9ca3af",
-                            "Da Mese Prec.": "#60a5fa",
-                            "Da Spendere": "#fde047",
-                            "Quotidiane": "#FB923C",
-                        },
-                        "Risparmi",
-                        width=230,
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
+                        theta=alt.Theta(field="Value", type="quantitative"),
+                        color=alt.Color(
+                            field="Component", type="nominal",
+                            scale=alt.Scale(
+                                domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                                range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5  # 👈 distanza dal grafico (chiave!)
+                            )
+                        ),
+                        tooltip=[
+                            alt.Tooltip('Component:N', title='Risparmi'),
+                            alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        ]
+                    ).properties(
+                        title="💰 Distribuzione Risparmi",
+                        width=200,
                         height=220
-                    ).resolve_scale(color='independent')
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent'
+                    )
+                
+                    # mantiene colori indipendenti se hai più chart simili
+                    chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
                     st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
     
 
@@ -2752,7 +2820,7 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.12, 0.95], gap="large")
+            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1, 0.8])
             with col_Distribuzione_Carte_1:
                 st.subheader("Trasferimenti sulle Carte:")
         
@@ -2821,20 +2889,43 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                chart_carte = donut_chart_with_labels(
-                    df_carte,
-                    "Carta",
-                    "Totale",
-                    {
-                        "ING": "#D2691E",
-                        "Revolut": "#89CFF0",
-                        "BNL": "#2E7D32",
-                        "Risparmiato BNL": "#66BB6A",
-                    },
-                    "Carte",
-                    width=230,
-                    height=220
-                ).resolve_scale(color='independent')
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
+                theta=alt.Theta(field="Totale", type="quantitative"),
+                color=alt.Color(
+                    field="Carta", type="nominal",
+                    scale=alt.Scale(
+                        domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                        range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                    ),
+                    legend=alt.Legend(
+                        title=None,
+                        orient='right',
+                        direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)',
+                        labelFontSize=11,
+                        symbolSize=40,
+                        padding=2,
+                        offset=5  # 👈 distanza dal grafico (chiave!)
+                    )
+        
+                ),
+                tooltip=[
+                    alt.Tooltip("Carta:N", title="Carta"),
+                    alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+                    alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                ]
+                ).properties(
+                    title="💳 Distribuzione Carte",
+                    width=200,
+                    height=220,
+                ).configure_title(
+                    anchor='middle'
+                ).configure_view(
+                    strokeWidth=0,
+                    fill='transparent',
+                )    
+        
+                chart_carte = carte_arc.resolve_scale(color='independent')
                 st.altair_chart(chart_carte, use_container_width=True)
             st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
         st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
