@@ -2154,6 +2154,7 @@ textarea {
 
             if "note_df_draft" not in st.session_state:
                 df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+                note_loaded_from_sheet = not df_note.empty
                 if "testo" in df_note.columns and "nota1" not in df_note.columns:
                     df_note["nota1"] = df_note["testo"]
                 for col in NOTE_HEADERS:
@@ -2168,6 +2169,10 @@ textarea {
                         "nota4": ""
                     }])
                 st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
+                st.session_state.note_loaded_from_sheet = note_loaded_from_sheet
+
+            if "note_loaded_from_sheet" not in st.session_state:
+                st.session_state.note_loaded_from_sheet = True
 
             df_note = st.session_state.note_df_draft.copy()
             if df_note.empty:
@@ -2202,11 +2207,30 @@ textarea {
             with col4_postit:
                 with st.popover("Nota 4", use_container_width=True):
                     nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
+            if not st.session_state.get("note_loaded_from_sheet", True):
+                st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             salva_spacer, salva_col = st.columns([3, 1])
             with salva_col:
-                salva = st.button("💾 Salva", use_container_width=True, key="save_promemoria")
+                salva = st.button(
+                    "💾 Salva",
+                    use_container_width=True,
+                    key="save_promemoria",
+                    disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                )
             # ───────── SALVATAGGIO ─────────
             if salva:
+                note_values = [nota1, nota2, nota3, nota4]
+                all_notes_empty = all(not str(value).strip() for value in note_values)
+                previous_values = [
+                    _nota_value("nota1"),
+                    _nota_value("nota2"),
+                    _nota_value("nota3"),
+                    _nota_value("nota4"),
+                ]
+                previous_had_content = any(value.strip() for value in previous_values)
+                if all_notes_empty and previous_had_content:
+                    st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
+                    st.stop()
                 df_note = pd.DataFrame([{
                     "id": 1,
                     "nota1": nota1,
@@ -2216,6 +2240,7 @@ textarea {
                 }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                     st.session_state.note_df_draft = df_note.copy()
+                    st.session_state.note_loaded_from_sheet = True
                     st.success("Note salvate")
                 else:
                     st.error("Errore salvataggio")
@@ -3010,8 +3035,8 @@ textarea {
                     <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
                     <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
                     <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% tot.</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% scelto</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
                 </div>
                 """)
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
