@@ -2069,7 +2069,7 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([0.78, 0.78, 1.3, 2.15], gap="large")
-    col1, col2, col3 = st.columns([0.9, 2.45, 2.05], gap="large")
+    col1, col2, col3 = st.columns([0.92, 2.7, 1.78], gap="large")
 
     with col_stip_inserimento1:
         st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -3044,7 +3044,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([0.82, 1.18], gap="medium")
+        col3_left, col3_right = st.columns([1.0, 1.0], gap="medium")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
