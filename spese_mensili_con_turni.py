@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import calendar
 import time
 import io
+import html
 import urllib.request
 try:
     from zoneinfo import ZoneInfo
@@ -511,7 +512,7 @@ ALTRE_ENTRATE = {
     "Altro": 0
 }
 
-SPESE_FISSE_HEADERS = ["Voce", "Importo", "Categoria", "Carta"]
+SPESE_FISSE_HEADERS = ["Voce", "Importo", "Categoria", "Carta", "Gruppo"]
 SPESE_FISSE_WORKSHEET = "SpeseFisse"
 ALTRE_ENTRATE_HEADERS = ["Voce", "Importo"]
 ALTRE_ENTRATE_WORKSHEET = "AltreEntrate"
@@ -537,6 +538,7 @@ SPESA_FISSA_GRUPPI_VISIVI = [
     ("Abbonamenti", ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]),
     ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Cane"]),
 ]
+SPESA_FISSA_GRUPPI_BASE = [nome for nome, _ in SPESA_FISSA_GRUPPI_VISIVI]
 SPESE_VARIABILI_CARTE = {
     "Revolut": ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": [],
@@ -565,6 +567,35 @@ def _infer_spesa_fissa_carta(voce):
     return "Revolut"
 
 
+def _infer_spesa_fissa_gruppo(voce):
+    for gruppo, voci in SPESA_FISSA_GRUPPI_VISIVI:
+        if voce in voci:
+            return gruppo
+    return "Casa"
+
+
+def _spesa_fissa_gruppi_disponibili(metadata=None):
+    metadata = metadata or {}
+    gruppi = list(SPESA_FISSA_GRUPPI_BASE)
+    for meta in metadata.values():
+        gruppo = str(meta.get("Gruppo", "")).strip()
+        if gruppo and gruppo not in gruppi:
+            gruppi.append(gruppo)
+    return gruppi
+
+
+def _ordered_spesa_fissa_groups(settings, metadata):
+    gruppi = []
+    for gruppo in SPESA_FISSA_GRUPPI_BASE:
+        if any(metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == gruppo for voce in settings):
+            gruppi.append(gruppo)
+    for voce in settings:
+        gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
+        if gruppo and gruppo not in gruppi:
+            gruppi.append(gruppo)
+    return gruppi
+
+
 def _triangle_for_card(carta):
     colore = SPESA_FISSA_CARTA_COLORI.get(carta, "#89CFF0")
     return (
@@ -591,6 +622,43 @@ def _money_row_html(voce, importo, colore, marker="", didascalia=""):
     didascalia_html = (
         f'<div style="font-size:12px;color:rgba(255,255,255,.44);margin-left:10px;margin-top:1px;">{didascalia}</div>'
         if didascalia else ""
+    )
+
+
+def _history_table_html(df, columns, colors):
+    if df.empty:
+        return '<div class="kpi-card" style="color:rgba(255,255,255,.62);">Nessun dato storico disponibile.</div>'
+
+    table_rows = []
+    for _, row in df.sort_values("Mese", ascending=False).iterrows():
+        mese_raw = pd.to_datetime(row.get("Mese"), errors="coerce")
+        mese = mese_raw.strftime("%B %Y") if not pd.isna(mese_raw) else str(row.get("Mese", ""))
+        values_html = ""
+        for col in columns:
+            value = pd.to_numeric(row.get(col, 0), errors="coerce")
+            value = 0.0 if pd.isna(value) else float(value)
+            color = colors.get(col, "#9ca3af")
+            values_html += (
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;'
+                'padding:5px 0;border-top:1px solid rgba(255,255,255,.055);">'
+                f'<span style="display:flex;align-items:center;gap:7px;color:rgba(255,255,255,.66);">'
+                f'<span style="width:7px;height:7px;border-radius:999px;background:{color};display:inline-block;"></span>'
+                f'{html.escape(col)}</span>'
+                f'<span style="font-family:DM Mono, monospace;color:{color};font-weight:700;">€{value:,.2f}</span>'
+                '</div>'
+            )
+        table_rows.append(
+            '<div style="padding:10px 12px;margin-bottom:8px;border-radius:10px;'
+            'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.075);">'
+            f'<div style="font-weight:800;color:rgba(255,255,255,.88);margin-bottom:6px;">{html.escape(mese)}</div>'
+            f'{values_html}</div>'
+        )
+
+    return (
+        '<div style="max-height:430px;overflow-y:auto;padding-right:4px;'
+        'scrollbar-color:rgba(148,163,184,.55) transparent;">'
+        + "".join(table_rows) +
+        '</div>'
     )
     return (
         '<div style="margin:4px 0 8px;line-height:1.28;">'
@@ -627,6 +695,10 @@ def _normalize_spese_fisse_df(df):
         lambda row: row["Carta"] if row["Carta"] in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(row["Voce"]),
         axis=1
     )
+    df["Gruppo"] = df.apply(
+        lambda row: str(row["Gruppo"]).strip() if str(row["Gruppo"]).strip() else _infer_spesa_fissa_gruppo(row["Voce"]),
+        axis=1
+    )
     return df
 
 
@@ -638,6 +710,7 @@ def load_spese_fisse_settings():
             voce: {
                 "Categoria": _infer_spesa_fissa_categoria(voce),
                 "Carta": _infer_spesa_fissa_carta(voce),
+                "Gruppo": _infer_spesa_fissa_gruppo(voce),
             }
             for voce in settings
         }
@@ -645,7 +718,7 @@ def load_spese_fisse_settings():
             voce = row["Voce"]
             if voce:
                 settings[voce] = float(row["Importo"])
-                metadata[voce] = {"Categoria": row["Categoria"], "Carta": row["Carta"]}
+                metadata[voce] = {"Categoria": row["Categoria"], "Carta": row["Carta"], "Gruppo": row["Gruppo"]}
         st.session_state.spese_fisse_settings = settings
         st.session_state.spese_fisse_metadata = metadata
     if "spese_fisse_metadata" not in st.session_state:
@@ -653,6 +726,7 @@ def load_spese_fisse_settings():
             voce: {
                 "Categoria": _infer_spesa_fissa_categoria(voce),
                 "Carta": _infer_spesa_fissa_carta(voce),
+                "Gruppo": _infer_spesa_fissa_gruppo(voce),
             }
             for voce in st.session_state.spese_fisse_settings
         }
@@ -672,8 +746,9 @@ def save_spese_fisse_settings(settings, metadata=None):
         row_meta = metadata.get(voce, {})
         categoria = row_meta.get("Categoria") if row_meta.get("Categoria") in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(voce)
         carta = row_meta.get("Carta") if row_meta.get("Carta") in SPESA_FISSA_CARTE else _infer_spesa_fissa_carta(voce)
-        cleaned_metadata[voce] = {"Categoria": categoria, "Carta": carta}
-        rows.append({"Voce": voce, "Importo": float(importo), "Categoria": categoria, "Carta": carta})
+        gruppo = str(row_meta.get("Gruppo", "")).strip() or _infer_spesa_fissa_gruppo(voce)
+        cleaned_metadata[voce] = {"Categoria": categoria, "Carta": carta, "Gruppo": gruppo}
+        rows.append({"Voce": voce, "Importo": float(importo), "Categoria": categoria, "Carta": carta, "Gruppo": gruppo})
     df = pd.DataFrame(rows)
     ok = save_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, df)
     if ok:
@@ -2171,6 +2246,14 @@ textarea {
         with tab_decisioni_fisse:
             settings = SPESE["Fisse"].copy()
             metadata = st.session_state.get("spese_fisse_metadata", {})
+            nuovo_gruppo = st.text_input(
+                "Nuovo gruppo visivo da aggiungere",
+                key="nuovo_gruppo_spese_fisse",
+                placeholder="Es. Animali, Viaggi, Donazioni..."
+            ).strip()
+            gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
+            if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
+                gruppi_disponibili.append(nuovo_gruppo)
             editor_cols = st.columns(2)
             editable_settings = {}
             editable_metadata = {}
@@ -2186,9 +2269,12 @@ textarea {
                     )
                     current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                     current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                    current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
+                    if current_gruppo not in gruppi_disponibili:
+                        gruppi_disponibili.append(current_gruppo)
                     editable_metadata[voce] = {
                         "Categoria": st.selectbox(
-                            "Colore / gruppo",
+                            "Colore categoria",
                             SPESA_FISSA_CATEGORIE,
                             index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
                             key=f"spesa_fissa_categoria_{voce}"
@@ -2198,6 +2284,12 @@ textarea {
                             SPESA_FISSA_CARTE,
                             index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
                             key=f"spesa_fissa_carta_{voce}"
+                        ),
+                        "Gruppo": st.selectbox(
+                            "Gruppo visivo",
+                            gruppi_disponibili,
+                            index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
+                            key=f"spesa_fissa_gruppo_{voce}"
                         ),
                     }
                     st.markdown("---")
@@ -2210,9 +2302,10 @@ textarea {
                 nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
             add_meta_col1, add_meta_col2 = st.columns(2)
             with add_meta_col1:
-                nuova_spesa_categoria = st.selectbox("Colore / gruppo nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+                nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
             with add_meta_col2:
                 nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
+            nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
 
             st.markdown("#### Elimina spesa")
             elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
@@ -2223,7 +2316,11 @@ textarea {
                     nome_nuova = nuova_spesa_nome.strip()
                     if nome_nuova:
                         editable_settings[nome_nuova] = float(nuova_spesa_importo)
-                        editable_metadata[nome_nuova] = {"Categoria": nuova_spesa_categoria, "Carta": nuova_spesa_carta}
+                        editable_metadata[nome_nuova] = {
+                            "Categoria": nuova_spesa_categoria,
+                            "Carta": nuova_spesa_carta,
+                            "Gruppo": nuova_spesa_gruppo,
+                        }
                     if save_spese_fisse_settings(editable_settings, editable_metadata):
                         st.success("Spese fisse salvate")
                         st.rerun()
@@ -2246,8 +2343,12 @@ textarea {
             spese_meta = st.session_state.get("spese_fisse_metadata", {})
             rendered_voci = set()
             group_columns = [col_left, col_right]
-            for group_index, (group_name, group_voci) in enumerate(SPESA_FISSA_GRUPPI_VISIVI):
-                group_items = [(voce, SPESE["Fisse"][voce]) for voce in group_voci if voce in SPESE["Fisse"]]
+            for group_index, group_name in enumerate(_ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)):
+                group_items = [
+                    (voce, importo)
+                    for voce, importo in SPESE["Fisse"].items()
+                    if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                ]
                 if not group_items:
                     continue
                 with group_columns[group_index % 2]:
@@ -3381,20 +3482,17 @@ st.subheader("Dati Storici Stipendi/Risparmi")
 col_table, col_chart = st.columns([1.3, 3])
 with col_table:
     df_stip = data_stipendi.copy()
-    if not df_stip.empty:
-        df_stip["Mese"] = df_stip["Mese"].dt.strftime("%B %Y")
-    st.dataframe(
-        df_stip,
-        use_container_width=True,
-        column_config={
-            "Messi da parte Totali": st.column_config.NumberColumn(
-                "Messi da parte",
-                width="medium"
-            ),
-            "Mese": st.column_config.TextColumn("Mese", width="medium"),
-            "Stipendio": st.column_config.NumberColumn("Stipendio", width="small"),
-            "Risparmi": st.column_config.NumberColumn("Risparmi", width="small"),
-        }
+    st.markdown(
+        _history_table_html(
+            df_stip,
+            ["Stipendio", "Risparmi", "Messi da parte Totali"],
+            {
+                "Stipendio": "#5792E8",
+                "Risparmi": "#EF9F27",
+                "Messi da parte Totali": "#1D9E75",
+            },
+        ),
+        unsafe_allow_html=True,
     )
     
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
@@ -3670,10 +3768,20 @@ st.subheader("Dati Storici Bollette")
 col_bol_table, col_bol_chart = st.columns([1, 3])
 with col_bol_table:
     df_bol = data_bollette.copy()
-    if not df_bol.empty:
-        df_bol["Mese"] = pd.to_datetime(df_bol["Mese"], errors="coerce")
-        df_bol["Mese"] = df_bol["Mese"].dt.strftime("%B %Y")
-    st.dataframe(df_bol, use_container_width=True)
+    st.markdown(
+        _history_table_html(
+            df_bol,
+            ["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+            {
+                "Elettricità": "#84B6F4",
+                "Gas": "#FF6961",
+                "Acqua": "#96DED1",
+                "Internet": "#FFF5A1",
+                "Tari": "#C19A6B",
+            },
+        ),
+        unsafe_allow_html=True,
+    )
     
     stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     
