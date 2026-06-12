@@ -1015,25 +1015,6 @@ st.markdown("""
     font-size: 13px !important;
     line-height: 1 !important;
 }
-.turni-calendar-wrap .turni-cell-mattina [data-testid="stButton"] button {
-    background: rgba(96,165,250,0.18) !important;
-    border-color: rgba(96,165,250,0.36) !important;
-}
-.turni-calendar-wrap .turni-cell-pomeriggio [data-testid="stButton"] button {
-    background: rgba(251,146,60,0.18) !important;
-    border-color: rgba(251,146,60,0.34) !important;
-}
-.turni-calendar-wrap .turni-cell-notte [data-testid="stButton"] button {
-    background: rgba(100,116,139,0.20) !important;
-    border-color: rgba(148,163,184,0.30) !important;
-}
-.turni-calendar-wrap .turni-cell-ferie [data-testid="stButton"] button {
-    background: rgba(52,211,153,0.18) !important;
-    border-color: rgba(52,211,153,0.36) !important;
-}
-.turni-calendar-wrap .turni-cell-riposo [data-testid="stButton"] button {
-    background: rgba(203,213,225,0.10) !important;
-}
 .turni-card-small {
     background: rgba(255,255,255,0.045);
     border: 0.5px solid rgba(255,255,255,0.10);
@@ -1911,25 +1892,19 @@ def render_turni_guadagni_section():
                         continue
                     day_str = day.strftime("%Y-%m-%d")
                     row = df_turni[df_turni["Data"] == day_str]
-                    cell_class = ""
                     if row.empty:
                         current_label = ""
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
-                        cell_class = f"turni-cell-{str(turno_corrente).lower()}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = (
                         day.weekday() == 6
                         or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
                         or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
-                    if cell_class:
-                        c.markdown(f'<div class="{cell_class}">', unsafe_allow_html=True)
                     clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
-                    if cell_class:
-                        c.markdown('</div>', unsafe_allow_html=True)
                     if clicked_day:
                         if festivo_manual:
                             df_new = df_turni[df_turni["Data"] != day_str].copy()
