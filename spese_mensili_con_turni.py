@@ -3624,7 +3624,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
-                tooltip=["Mese_str:N", alt.Tooltip("Stipendio:Q", format=".2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", format=",.2f")]
             )
 
             line_media_stip = alt.Chart(chart_data).mark_line(
@@ -3632,7 +3632,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio:Q"),
-                tooltip=["Mese_str:N", alt.Tooltip("Media Stipendio:Q", format=".2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendio", format=",.2f")]
             )
 
             line_media_no13 = alt.Chart(chart_data).mark_line(
@@ -3640,7 +3640,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=["Mese_str:N", alt.Tooltip("Media Stipendio NO 13°/PDR:Q", format=".2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media senza 13/PDR", format=",.2f")]
             )
 
             risparmi_stack = chart_data.melt(
@@ -3649,6 +3649,10 @@ with col_chart:
                 var_name="Componente risparmio",
                 value_name="Valore"
             )
+            risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
+                "Risparmi": "Risparmi",
+                "Extra messi da parte": "Messo da parte extra"
+            })
 
             bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
                 opacity=0.38, size=17
@@ -3661,20 +3665,19 @@ with col_chart:
                     stack="zero"
                 ),
                 color=alt.Color(
-                    "Componente risparmio:N",
+                    "Voce:N",
                     scale=alt.Scale(
-                        domain=["Risparmi", "Extra messi da parte"],
+                        domain=["Risparmi", "Messo da parte extra"],
                         range=["#EF9F27", "#1D9E75"]
                     ),
                     legend=None
                 ),
                 order=alt.Order("Componente risparmio:N", sort="descending"),
                 tooltip=[
-                    "Mese_str:N",
-                    "Componente risparmio:N",
-                    alt.Tooltip("Valore:Q", title="Valore componente", format=".2f"),
-                    alt.Tooltip("Risparmi tooltip:Q", title="Risparmi", format=".2f"),
-                    alt.Tooltip("Messi da parte Totali:Q", title="Messi da parte totali", format=".2f"),
+                    alt.Tooltip("Mese_str:N", title="Mese"),
+                    alt.Tooltip("Voce:N", title="Voce"),
+                    alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+                    alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
                 ]
             )
 
@@ -3683,7 +3686,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Risparmi:Q"),
-                tooltip=["Mese_str:N", alt.Tooltip("Media Risparmi:Q", format=".2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi", format=",.2f")]
             )
 
             line_media_messi = alt.Chart(chart_data).mark_line(
@@ -3691,7 +3694,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Messi da parte Totali:Q"),
-                tooltip=["Mese_str:N", alt.Tooltip("Media Messi da parte Totali:Q", format=".2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
             )
 
             stipendi_chart = alt.layer(line_stipendi, line_media_stip, line_media_no13)
