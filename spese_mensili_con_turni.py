@@ -3295,14 +3295,22 @@ def crea_grafico_stipendi(data):
     base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#4CAF50", opacity=0.8).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi, title="Mese", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("Valore:Q", title="Valore (€)"),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
 
     # FIX 1: Risparmi overlaid ON TOP of Messi da parte (same x position, smaller/different color)
     base_bar_risparmi = alt.Chart(df_risparmi).mark_bar(size=40, color="rgba(255,165,0,0.6)", opacity=0.9).encode(
         x=alt.X("Mese_str:N", sort=ordine_mesi),
         y=alt.Y("Valore:Q"),
-        tooltip=["Mese_str:N", "Categoria:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Categoria:N", title="Voce"),
+            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+        ]
     )
 
     # Labels for Messi da parte Totali
@@ -3367,14 +3375,20 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     linea_saldo_unica = alt.Chart(df_saldo).mark_line(strokeWidth=2, strokeDash=[5,5], color="#F0F0F0", opacity=0.25).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
-        tooltip=["Mese_str:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Valore:Q", title="Saldo", format=",.2f"),
+        ]
     )
 
     punti_saldo_color = alt.Chart(df_saldo).mark_point(shape="diamond", size=80, filled=True).encode(
         x=alt.X("Mese_str:N", sort=order),
         y=alt.Y("Valore:Q"),
         color=alt.condition("datum.Valore < 0", alt.value("#FF6961"), alt.value("#77DD77")),
-        tooltip=["Mese_str:N", "Valore:Q"]
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Valore:Q", title="Saldo", format=",.2f"),
+        ]
     )
 
     df_totali = data_completa[data_completa["Categoria"].isin(["Elettricità", "Gas", "Acqua", "Internet", "Tari"])].groupby(
@@ -3651,7 +3665,7 @@ with col_chart:
             )
             risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
                 "Risparmi": "Risparmi",
-                "Extra messi da parte": "Messo da parte extra"
+                "Extra messi da parte": "Messi da parte"
             })
 
             bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
@@ -3667,7 +3681,7 @@ with col_chart:
                 color=alt.Color(
                     "Voce:N",
                     scale=alt.Scale(
-                        domain=["Risparmi", "Messo da parte extra"],
+                        domain=["Risparmi", "Messi da parte"],
                         range=["#EF9F27", "#1D9E75"]
                     ),
                     legend=None
