@@ -2511,7 +2511,7 @@ textarea {
                 <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
+                <div class="kpi-label">Budget dopo spese fisse</div>
                 <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
@@ -2520,11 +2520,11 @@ textarea {
         """, unsafe_allow_html=True)
 
         df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
+            'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
             'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
         })
         df_utilizzare = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili'],
+            'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
             'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
@@ -2537,7 +2537,7 @@ textarea {
             color=alt.Color(
                 field="Component", type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'], 
+                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'], 
                     range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
                 ),
                 legend=None
@@ -2558,7 +2558,7 @@ textarea {
             color=alt.Color(
                 field="Component", type="nominal",
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
+                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
                     range=['#FF6464', '#fef3c7', '#888888']
                 ),
                 legend=alt.Legend(
@@ -2587,7 +2587,7 @@ textarea {
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#fef3c7']),
+                scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
                     labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
@@ -2648,7 +2648,7 @@ textarea {
                         "Emergenze/Compleanni",
                         SPESE["Variabili"]["Emergenze/Compleanni"],
                         "#4ADE80",
-                        f"{percentuale_emergenze:.2f}% dei risparmiabili"
+                        f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
                     ),
                     unsafe_allow_html=True
                 )
@@ -2658,7 +2658,7 @@ textarea {
                         "Viaggi",
                         SPESE["Variabili"]["Viaggi"],
                         "#166534",
-                        f"{percentuale_viaggi:.2f}% dei risparmiabili"
+                        f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
                     ),
                     unsafe_allow_html=True
                 )
@@ -2712,7 +2712,7 @@ textarea {
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% del budget dopo spese fisse</div>
                     <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% del budget mensile disponibile</div>
                     <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% delle entrate mensili totali</div>
                 </div>
@@ -2725,7 +2725,7 @@ textarea {
                 st.progress(progresso_altre_entrate)
                 st.markdown(f"""
                 <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
-                Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
+                Spese variabili rispetto al budget dopo spese fisse: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -3142,64 +3142,63 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.35, 1.0], gap="small")
-            with col_Distribuzione_Carte_1:
-                st.subheader("Trasferimenti sulle Carte:")
+            st.subheader("Trasferimenti sulle Carte:")
         
-                for carta in ["ING", "Revolut", "BNL"]:
-                    spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
-                                   for voce in SPESE[carta]}
-                    spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-                    if carta == "Revolut":
-                        totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-                        colore = "#89CFF0"  # Azzurro
+            for carta in ["ING", "Revolut", "BNL"]:
+                spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                               for voce in SPESE[carta]}
+                spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+                if carta == "Revolut":
+                    totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                    colore = "#89CFF0"  # Azzurro
+                    testo = "trasferire"
+                    somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                    spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                    somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                    st.markdown(
+                        _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                else:
+                    totale_carta = sum(spese_carta.values())
+                    if carta == "ING":
+                        colore = "#D2691E"
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                        spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                        somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                        st.markdown(
-                            _money_row_html(
-                                f"Da {testo} su {carta}",
-                                totale_carta,
-                                colore,
-                                _triangle_for_card(carta),
-                                f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
-                            ),
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        totale_carta = sum(spese_carta.values())
-                        if carta == "ING":
-                            colore = "#D2691E"
-                            testo = "trasferire"
-                        elif carta == "BNL":
-                            colore = "green"
-                            colore2 = "#77DD77"
-                            testo = "mantenere"
-                            testo2 = "risparmiato"
-                        st.markdown(
-                            _money_row_html(
-                                f"Da {testo} su {carta}",
-                                totale_carta,
-                                colore,
-                                _triangle_for_card(carta),
-                                "totale delle spese previste su questa carta"
-                            ),
-                            unsafe_allow_html=True
-                        )
-                st.markdown(
-                    _money_row_html(
-                        f"Totale {testo2} su {carta}",
-                        risparmi_mensili,
-                        colore2,
-                        _triangle_for_card(carta),
-                        "quota da lasciare come risparmio"
-                    ),
-                    unsafe_allow_html=True
-                )
+                    elif carta == "BNL":
+                        colore = "green"
+                        colore2 = "#77DD77"
+                        testo = "mantenere"
+                        testo2 = "risparmiato"
+                    st.markdown(
+                        _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            "totale delle spese previste su questa carta"
+                        ),
+                        unsafe_allow_html=True
+                    )
+            st.markdown(
+                _money_row_html(
+                    f"Totale {testo2} su {carta}",
+                    risparmi_mensili,
+                    colore2,
+                    _triangle_for_card(carta),
+                    "quota da lasciare come risparmio"
+                ),
+                unsafe_allow_html=True
+            )
     
             # FIX 4: NEW "Carte" donut chart
-            with col_Distribuzione_Carte_2:  
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            with st.container():  
                 # Calculate totals per card
                 ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
                 revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
