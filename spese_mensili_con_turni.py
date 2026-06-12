@@ -53,7 +53,44 @@ def get_gsheet_client():
     except Exception as e:
         return None
 
+GSHEETS_CACHE_TTL_SECONDS = 1800
+GSHEETS_BACKOFF_SECONDS = 90
+
+
+def _worksheet_cache_key(worksheet_name):
+    return f"gsheets_worksheet::{worksheet_name}"
+
+
+def _gsheets_backoff_until_key():
+    return "gsheets_backoff_until"
+
+
+def _is_quota_error(error):
+    text = str(error)
+    return "429" in text or "Quota exceeded" in text or "Read requests per minute" in text
+
+
+def _set_gsheets_backoff():
+    st.session_state[_gsheets_backoff_until_key()] = time.time() + GSHEETS_BACKOFF_SECONDS
+
+
+def _is_gsheets_in_backoff():
+    return time.time() < st.session_state.get(_gsheets_backoff_until_key(), 0)
+
+
+def _show_gsheets_warning_once(message):
+    key = f"gsheets_warning::{message}"
+    if not st.session_state.get(key):
+        st.warning(message)
+        st.session_state[key] = True
+
+
 def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
+    if _is_gsheets_in_backoff():
+        return st.session_state.get(_worksheet_cache_key(worksheet_name))
+    cached_worksheet = st.session_state.get(_worksheet_cache_key(worksheet_name))
+    if cached_worksheet is not None:
+        return cached_worksheet
     try:
         spreadsheet = client.open_by_url(sheet_url)
         try:
@@ -61,12 +98,15 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
         except gspread.WorksheetNotFound:
             worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows=1000, cols=20)
             worksheet.append_row(headers)
+        st.session_state[_worksheet_cache_key(worksheet_name)] = worksheet
         return worksheet
     except Exception as e:
-        st.error(f"Errore connessione Google Sheets: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso i dati in cache e riprovo piu tardi.")
+        else:
+            st.error(f"Errore connessione Google Sheets: {e}")
         return None
-
-GSHEETS_CACHE_TTL_SECONDS = 300
 
 
 def _gsheets_cache_key(worksheet_name):
@@ -107,6 +147,10 @@ def _get_gsheets_cache(worksheet_name, allow_stale=False):
 
 
 def load_data_gsheets(worksheet_name, headers, force_reload=False):
+    if _is_gsheets_in_backoff():
+        cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
+        return cached if cached is not None else pd.DataFrame(columns=headers)
+
     if not force_reload:
         cached = _get_gsheets_cache(worksheet_name)
         if cached is not None:
@@ -136,12 +180,23 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
     except Exception as e:
         cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
         if cached is not None:
-            st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
+            if _is_quota_error(e):
+                _set_gsheets_backoff()
+                _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Uso l'ultima copia caricata in memoria.")
+            else:
+                st.warning(f"Google Sheets non risponde ora ({worksheet_name}). Uso l'ultima copia caricata in memoria.")
             return cached
-        st.error(f"Errore caricamento dati: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo di letture. Alcuni dati saranno vuoti finche la quota si sblocca.")
+        else:
+            st.error(f"Errore caricamento dati: {e}")
         return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
+    if _is_gsheets_in_backoff():
+        _show_gsheets_warning_once("Google Sheets e in pausa temporanea per quota letture. Riprova il salvataggio tra poco.")
+        return False
     client = get_gsheet_client()
     if not client:
         return False
@@ -167,7 +222,11 @@ def save_data_gsheets(worksheet_name, headers, data):
         _set_gsheets_cache(worksheet_name, data)
         return True
     except Exception as e:
-        st.error(f"Errore salvataggio: {e}")
+        if _is_quota_error(e):
+            _set_gsheets_backoff()
+            _show_gsheets_warning_once("Google Sheets ha raggiunto il limite temporaneo. Salvataggio non eseguito, riprova tra poco.")
+        else:
+            st.error(f"Errore salvataggio: {e}")
         return False
 # ─────────────────────────────────────────────────────────────────────────────
 
