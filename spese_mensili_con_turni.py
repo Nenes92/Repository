@@ -533,7 +533,8 @@ input_stipendio_scelto=2350
 input_stipendio_percepito = input_stipendio_originale
 input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
-budget_mensile_disponibile_ideale = 2515
+budget_mensile_disponibile_ideale = 2615
+budget_mensile_disponibile_ideale_precedente = 2515
 risparmio_mensile_desiderato = 200
 
 percentuale_limite_da_spendere=0.15
@@ -2281,6 +2282,8 @@ textarea {
                 unsafe_allow_html=True
             )
             budget_ideale_corrente = _nota_number("budget_ideale", budget_mensile_disponibile_ideale)
+            if abs(budget_ideale_corrente - budget_mensile_disponibile_ideale_precedente) < 0.01:
+                budget_ideale_corrente = float(budget_mensile_disponibile_ideale)
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
             entrate_ideali_correnti = budget_ideale_corrente + risparmio_desiderato_corrente
 
@@ -2304,11 +2307,11 @@ textarea {
             with promemoria_col:
                 with st.popover("⚙️ Obiettivi", use_container_width=True):
                     budget_ideale_corrente = st.number_input(
-                        "Budget mensile disponibile ideale",
+                        "Budget mensile disponibile target",
                         min_value=0.0,
                         value=float(budget_ideale_corrente),
                         step=25.0,
-                        help="Soldi che vuoi avere disponibili per coprire spese fisse e variabili del mese.",
+                        help="Totale che vuoi avere nel budget del mese dopo aver sommato budget da stipendio e altre entrate. Esempio: 2515 da stipendio + 100 altre entrate = 2615.",
                         key="budget_ideale_promemoria"
                     )
                     risparmio_desiderato_corrente = st.number_input(
@@ -2324,13 +2327,14 @@ textarea {
                 gap_entrate_ideali = max(0, entrate_ideali_correnti - entrate_mensili_totali)
                 altre_per_budget_ideale = max(0, budget_ideale_corrente - budget_da_stipendio)
                 altre_per_entrate_ideali = max(0, entrate_ideali_correnti - stipendio_percepito)
+                budget_da_stipendio_target = max(0, budget_ideale_corrente - altre_entrate_totali)
                 budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
                 entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                 st.markdown(f"""
                 <div class="budget-memory-card">
                     <div class="budget-memory-title">Promemoria budget</div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget mese<br><span style="color:rgba(255,255,255,.42);">per coprire spese fisse + variabili</span></div>
+                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target €{budget_ideale_corrente:,.0f} per coprire tutto</span></div>
                         <div class="budget-memory-value">{budget_status}</div>
                     </div>
                     <div class="budget-memory-row">
@@ -2338,7 +2342,7 @@ textarea {
                         <div class="budget-memory-value">{entrate_status}</div>
                     </div>
                     <div class="budget-memory-note">
-                        Altre entrate attuali: €{altre_entrate_totali:,.2f}. Per il budget servirebbero €{altre_per_budget_ideale:,.2f}; per budget + risparmio €{altre_per_entrate_ideali:,.2f}.
+                        Con €{altre_entrate_totali:,.2f} di altre entrate, il budget da stipendio target e €{budget_da_stipendio_target:,.2f}. Altre entrate necessarie: budget €{altre_per_budget_ideale:,.2f}; budget + risparmio €{altre_per_entrate_ideali:,.2f}.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
