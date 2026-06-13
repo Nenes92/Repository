@@ -496,6 +496,33 @@ decisione_budget_bollette_mensili=180
 emergenze_compleanni=0.15
 viaggi=0.07
 
+# ─── MISURE COLONNE DASHBOARD ───────────────────────────────────────────────
+# Modifica questi numeri per decidere quanto spazio dare alle varie sezioni.
+# Funziona a proporzioni: [1, 2, 1] significa centro largo il doppio dei lati.
+LAYOUT_COLONNE = {
+    "titolo_dashboard": [1, 2, 1],
+    "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
+    "dashboard_principale": [0.92, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "turni_calendario_riepilogo": [1.55, 0.55],
+    "turni_frecce_titolo": [0.16, 0.68, 0.16],
+    "centrale_variabili_altre": [1.05, 0.95],
+    "spese_fisse_lista": [1, 1],
+    "variabili_quote_budget": [1, 1],
+    "variabili_kpi_grafico": [1.15, 2.05],
+    "altre_entrate_obiettivo": [1.06, 1.04],
+    "altre_entrate_kpi_grafico": [1.10, 1.90],
+    "destra_risparmi_carte": [1.00, 1.00],
+    "risparmi_kpi_grafico": [1.18, 1.12],
+    "dettaglio_spese_fisse": [0.07, 0.50, 1.00, 0.10],
+    "storico_form_chart": [1, 1, 2],
+    "storico_tabella_grafico": [1.3, 3],
+    "storico_kpi": [1.3, 1, 1],
+    "bollette_form_chart": [1, 1, 2],
+    "bollette_tabella_grafico": [1, 3],
+    "form_nome_importo": [1.4, 0.8],
+    "bottone_salva_note": [3, 1],
+}
+
 triangolino_verde_BNL = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid green; margin-left:10px;"></span>'
 triangolino_arancione_ING = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #D2691E; margin-left:10px;"></span>'
 triangolino_blu_Revolut = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #89CFF0; margin-left:10px;"></span>'
@@ -1865,11 +1892,11 @@ def render_turni_guadagni_section():
 
         year, month = selected_month.year, selected_month.month
 
-        cal_col, summary_col = st.columns([1.55, 0.55], gap="medium")
+        cal_col, summary_col = st.columns(LAYOUT_COLONNE["turni_calendario_riepilogo"], gap="medium")
 
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
-            prev_col, title_col, next_col = st.columns([0.16, 0.68, 0.16], gap="small")
+            prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
             with prev_col:
                 if st.button("←", key="turni_prev_month", use_container_width=True):
                     st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
@@ -2060,7 +2087,7 @@ def main():
     load_spese_fisse_settings()
     load_altre_entrate_settings()
 
-    col_left, col_center, col_right = st.columns([1, 2, 1], gap="large")
+    col_left, col_center, col_right = st.columns(LAYOUT_COLONNE["titolo_dashboard"], gap="large")
     with col_left:
         st.markdown('<div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     with col_center:
@@ -2068,8 +2095,8 @@ def main():
 
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
-    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([0.78, 0.78, 1.3, 2.15], gap="large")
-    col1, col2, col3 = st.columns([0.92, 2.7, 1.78], gap="large")
+    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
+    col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
 
     with col_stip_inserimento1:
         st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -2209,7 +2236,7 @@ textarea {
                     nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
-            salva_spacer, salva_col = st.columns([3, 1])
+            salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
             with salva_col:
                 salva = st.button(
                     "💾 Salva",
@@ -2364,7 +2391,7 @@ textarea {
             gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
 
             st.markdown("#### Aggiungi spesa")
-            add_nome_col, add_importo_col = st.columns([1.4, 0.8])
+            add_nome_col, add_importo_col = st.columns(LAYOUT_COLONNE["form_nome_importo"])
             with add_nome_col:
                 nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
             with add_importo_col:
@@ -2457,7 +2484,7 @@ textarea {
         with tab_spese_fisse:
             st.subheader("Spese Fisse:")
 
-            col_left, col_right = st.columns(2, gap="large")
+            col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
             spese_meta = st.session_state.get("spese_fisse_metadata", {})
             rendered_voci = set()
             group_columns = [col_left, col_right]
@@ -2619,7 +2646,7 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1.05, 0.95], gap="large")
+        col2_left, col2_right = st.columns(LAYOUT_COLONNE["centrale_variabili_altre"], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2636,7 +2663,7 @@ textarea {
             spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
             risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
 
-            variabili_quote_col, variabili_budget_col = st.columns([1, 1], gap="large")
+            variabili_quote_col, variabili_budget_col = st.columns(LAYOUT_COLONNE["variabili_quote_budget"], gap="large")
             with variabili_quote_col:
                 st.markdown(
                     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
@@ -2702,7 +2729,7 @@ textarea {
     
     
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns([1.15, 2.05], gap="medium")
+            col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
                 _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
@@ -2836,7 +2863,7 @@ textarea {
                             key=f"altra_entrata_{voce}",
                             label_visibility="collapsed"
                         )
-                new_col1, new_col2 = st.columns([1.4, 0.8])
+                new_col1, new_col2 = st.columns(LAYOUT_COLONNE["form_nome_importo"])
                 with new_col1:
                     nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
                 with new_col2:
@@ -2863,7 +2890,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1.06, 1.04], gap="medium")
+                col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2915,7 +2942,7 @@ textarea {
                     """, unsafe_allow_html=True)
 
                 st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-                col_altre_entrate_1, col_altre_entrate_2 = st.columns([1.1, 1.9], gap="medium")
+                col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
                 percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
                 _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
                 with col_altre_entrate_1:
@@ -2975,12 +3002,12 @@ textarea {
                         st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
-        col_center_pill = st.columns([1, 2, 1])[1]
+        col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
         with col_center_pill:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns([0.07, 0.5, 1, 0.1])
+        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns(LAYOUT_COLONNE["dettaglio_spese_fisse"])
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
@@ -3044,7 +3071,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1.0, 1.0], gap="medium")
+        col3_left, col3_right = st.columns(LAYOUT_COLONNE["destra_risparmi_carte"], gap="medium")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -3068,7 +3095,7 @@ textarea {
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns([1.18, 1.12], gap="small")
+            col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
@@ -3533,7 +3560,7 @@ else:
     for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
         data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
 
-col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns([1, 1, 2])
+col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns(LAYOUT_COLONNE["storico_form_chart"])
 with col_sx_stip:
     st.subheader("Gestisci mese")
     mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
@@ -3608,7 +3635,7 @@ with col_dx_stip_chart:
 st.markdown("---")
 st.subheader("Dati Storici Stipendi/Risparmi")
 
-col_table, col_chart = st.columns([1.3, 3])
+col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
 with col_table:
     df_stip = data_stipendi.copy()
     st.markdown(
@@ -3631,7 +3658,7 @@ with col_table:
         unsafe_allow_html=True
     )
     
-    col_somme1, col_somme2, col_somme3 = st.columns([1.3, 1, 1])
+    col_somme1, col_somme2, col_somme3 = st.columns(LAYOUT_COLONNE["storico_kpi"])
     _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
     _s2 = f"{stats_stip['Stipendio']['media']:,.2f} €"
     _r1 = f"{stats_stip['Risparmi']['somma']:,.2f} €"
@@ -3841,7 +3868,7 @@ else:
     for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
         data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
 
-col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns([1, 1, 2])
+col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
 
 with col_sx_bol:
     with st.container():
@@ -3923,7 +3950,7 @@ with col_dx_bol_chart:
 
 st.markdown("---")
 st.subheader("Dati Storici Bollette")
-col_bol_table, col_bol_chart = st.columns([1, 3])
+col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
 with col_bol_table:
     df_bol = data_bollette.copy()
     st.markdown(
