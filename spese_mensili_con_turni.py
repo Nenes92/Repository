@@ -452,8 +452,9 @@ hr {
     background: linear-gradient(135deg, rgba(20,184,166,.12), rgba(96,165,250,.08));
     border: 1px solid rgba(45,212,191,.20);
     border-radius: 14px;
-    padding: 12px 14px;
-    margin-top: 10px;
+    padding: 12px 14px 10px;
+    margin-top: 0;
+    min-height: 132px;
 }
 .budget-memory-title {
     font-size: 12px;
@@ -461,14 +462,14 @@ hr {
     letter-spacing: .9px;
     text-transform: uppercase;
     color: #99f6e4;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 .budget-memory-row {
     display: flex;
     justify-content: space-between;
     gap: 14px;
     align-items: baseline;
-    padding: 7px 0;
+    padding: 6px 0;
     border-top: 1px solid rgba(255,255,255,.08);
 }
 .budget-memory-row:first-of-type {
@@ -476,19 +477,19 @@ hr {
 }
 .budget-memory-label {
     color: rgba(255,255,255,.72);
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.25;
 }
 .budget-memory-value {
     color: #fef3c7;
     font-family: 'DM Mono', monospace;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
     white-space: nowrap;
 }
 .budget-memory-note {
     color: rgba(255,255,255,.45);
-    font-size: 11px;
+    font-size: 10.5px;
     line-height: 1.35;
     margin-top: 7px;
 }
@@ -533,7 +534,7 @@ input_stipendio_percepito = input_stipendio_originale
 input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
 budget_mensile_disponibile_ideale = 2515
-entrate_mensili_totali_ideali = 2650
+risparmio_mensile_desiderato = 200
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -2156,10 +2157,6 @@ def main():
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
-    gap_budget_ideale = max(0, budget_mensile_disponibile_ideale - budget_mensile_disponibile)
-    gap_entrate_ideali = max(0, entrate_mensili_totali_ideali - entrate_mensili_totali)
-    altre_per_budget_ideale = max(0, budget_mensile_disponibile_ideale - budget_da_stipendio)
-    altre_per_entrate_ideali = max(0, entrate_mensili_totali_ideali - stipendio_percepito)
 
     # Alias temporanei per mantenere compatibile il codice esistente mentre la nomenclatura viene ripulita.
     stipendio_originale = stipendio_percepito
@@ -2227,7 +2224,7 @@ textarea {
             """, unsafe_allow_html=True)
         
             # ───────── CONFIG ─────────
-            NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
+            NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4", "budget_ideale", "risparmio_desiderato"]
             worksheet_name = "Note"
 
             if "note_df_draft" not in st.session_state:
@@ -2244,7 +2241,9 @@ textarea {
                         "nota1": "",
                         "nota2": "",
                         "nota3": "",
-                        "nota4": ""
+                        "nota4": "",
+                        "budget_ideale": budget_mensile_disponibile_ideale,
+                        "risparmio_desiderato": risparmio_mensile_desiderato
                     }])
                 st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
                 st.session_state.note_loaded_from_sheet = note_loaded_from_sheet
@@ -2259,58 +2258,96 @@ textarea {
                     "nota1": "",
                     "nota2": "",
                     "nota3": "",
-                    "nota4": ""
+                    "nota4": "",
+                    "budget_ideale": budget_mensile_disponibile_ideale,
+                    "risparmio_desiderato": risparmio_mensile_desiderato
                 }])
             nota_corrente = df_note.iloc[0]
 
             def _nota_value(key):
                 value = nota_corrente.get(key, "")
                 return "" if pd.isna(value) else str(value)
+
+            def _nota_number(key, default):
+                value = nota_corrente.get(key, default)
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return float(default)
         
             # ───────── UI ─────────
             st.markdown(
                 '<div class="section-pill">📝 Promemoria</div>',
                 unsafe_allow_html=True
             )
-            col1_postit, col2_postit = st.columns(2, gap="small")
-            with col1_postit:
-                with st.popover("Nota 1", use_container_width=True):
-                    nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=220, label_visibility="collapsed", key="nota1_text")
-            with col2_postit:
-                with st.popover("Nota 2", use_container_width=True):
-                    nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=220, label_visibility="collapsed", key="nota2_text")
-            col3_postit, col4_postit = st.columns(2, gap="small")
-            with col3_postit:
-                with st.popover("Nota 3", use_container_width=True):
-                    nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=220, label_visibility="collapsed", key="nota3_text")
-            with col4_postit:
-                with st.popover("Nota 4", use_container_width=True):
-                    nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
+            budget_ideale_corrente = _nota_number("budget_ideale", budget_mensile_disponibile_ideale)
+            risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
+            entrate_ideali_correnti = budget_ideale_corrente + risparmio_desiderato_corrente
 
-            budget_status = "coperto" if gap_budget_ideale <= 0 else f"mancano €{gap_budget_ideale:,.2f}"
-            entrate_status = "coperto" if gap_entrate_ideali <= 0 else f"mancano €{gap_entrate_ideali:,.2f}"
-            st.markdown(f"""
-            <div class="budget-memory-card">
-                <div class="budget-memory-title">Promemoria budget</div>
-                <div class="budget-memory-row">
-                    <div class="budget-memory-label">Budget mensile disponibile ideale<br><span style="color:rgba(255,255,255,.42);">Obiettivo €{budget_mensile_disponibile_ideale:,.0f}</span></div>
-                    <div class="budget-memory-value">{budget_status}</div>
+            promemoria_col, note_col = st.columns([1.28, 1.00], gap="small")
+            with note_col:
+                n1, n2 = st.columns(2, gap="small")
+                with n1:
+                    with st.popover("Nota 1", use_container_width=True):
+                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=180, label_visibility="collapsed", key="nota1_text")
+                with n2:
+                    with st.popover("Nota 2", use_container_width=True):
+                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=180, label_visibility="collapsed", key="nota2_text")
+                n3, n4 = st.columns(2, gap="small")
+                with n3:
+                    with st.popover("Nota 3", use_container_width=True):
+                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=180, label_visibility="collapsed", key="nota3_text")
+                with n4:
+                    with st.popover("Nota 4", use_container_width=True):
+                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=180, label_visibility="collapsed", key="nota4_text")
+
+            with promemoria_col:
+                with st.popover("⚙️ Obiettivi", use_container_width=True):
+                    budget_ideale_corrente = st.number_input(
+                        "Budget mensile disponibile ideale",
+                        min_value=0.0,
+                        value=float(budget_ideale_corrente),
+                        step=25.0,
+                        help="Soldi che vuoi avere disponibili per coprire spese fisse e variabili del mese.",
+                        key="budget_ideale_promemoria"
+                    )
+                    risparmio_desiderato_corrente = st.number_input(
+                        "Risparmio desiderato",
+                        min_value=0.0,
+                        value=float(risparmio_desiderato_corrente),
+                        step=25.0,
+                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
+                        key="risparmio_desiderato_promemoria"
+                    )
+                entrate_ideali_correnti = budget_ideale_corrente + risparmio_desiderato_corrente
+                gap_budget_ideale = max(0, budget_ideale_corrente - budget_mensile_disponibile)
+                gap_entrate_ideali = max(0, entrate_ideali_correnti - entrate_mensili_totali)
+                altre_per_budget_ideale = max(0, budget_ideale_corrente - budget_da_stipendio)
+                altre_per_entrate_ideali = max(0, entrate_ideali_correnti - stipendio_percepito)
+                budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
+                entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
+                st.markdown(f"""
+                <div class="budget-memory-card">
+                    <div class="budget-memory-title">Promemoria budget</div>
+                    <div class="budget-memory-row">
+                        <div class="budget-memory-label">Budget mese<br><span style="color:rgba(255,255,255,.42);">per coprire spese fisse + variabili</span></div>
+                        <div class="budget-memory-value">{budget_status}</div>
+                    </div>
+                    <div class="budget-memory-row">
+                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">budget €{budget_ideale_corrente:,.0f} + risparmio €{risparmio_desiderato_corrente:,.0f}</span></div>
+                        <div class="budget-memory-value">{entrate_status}</div>
+                    </div>
+                    <div class="budget-memory-note">
+                        Altre entrate attuali: €{altre_entrate_totali:,.2f}. Per il budget servirebbero €{altre_per_budget_ideale:,.2f}; per budget + risparmio €{altre_per_entrate_ideali:,.2f}.
+                    </div>
                 </div>
-                <div class="budget-memory-row">
-                    <div class="budget-memory-label">Entrate mensili totali ideali<br><span style="color:rgba(255,255,255,.42);">Obiettivo €{entrate_mensili_totali_ideali:,.0f}</span></div>
-                    <div class="budget-memory-value">{entrate_status}</div>
-                </div>
-                <div class="budget-memory-note">
-                    Altre entrate attuali: €{altre_entrate_totali:,.2f}. Per il budget servirebbero €{altre_per_budget_ideale:,.2f}; per l'obiettivo risparmio €{altre_per_entrate_ideali:,.2f}.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
             with salva_col:
                 salva = st.button(
-                    "💾 Salva",
+                    "💾 Salva note e obiettivi",
                     use_container_width=True,
                     key="save_promemoria",
                     disabled=not st.session_state.get("note_loaded_from_sheet", True)
@@ -2334,12 +2371,14 @@ textarea {
                     "nota1": nota1,
                     "nota2": nota2,
                     "nota3": nota3,
-                    "nota4": nota4
+                    "nota4": nota4,
+                    "budget_ideale": budget_ideale_corrente,
+                    "risparmio_desiderato": risparmio_desiderato_corrente
                 }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                     st.session_state.note_df_draft = df_note.copy()
                     st.session_state.note_loaded_from_sheet = True
-                    st.success("Note salvate")
+                    st.success("Note e obiettivi salvati")
                 else:
                     st.error("Errore salvataggio")
             #FINE CREAZIONE NOTA
