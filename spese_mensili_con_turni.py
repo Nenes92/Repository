@@ -900,6 +900,32 @@ def save_altre_entrate_settings(settings):
         ALTRE_ENTRATE.update(cleaned)
     return ok
 
+
+def calcola_target_budget_dinamico(spese_fisse_totali):
+    quota_fissa_variabili = emergenze_compleanni + viaggi
+    base_dopo_quote = max(0, 1 - quota_fissa_variabili)
+    coeff_da_spendere = percentuale_limite_da_spendere * base_dopo_quote
+    coeff_spese_quotidiane = base_dopo_quote * (1 - percentuale_limite_da_spendere)
+
+    soglie = []
+    if coeff_da_spendere > 0:
+        soglie.append(limite_da_spendere / coeff_da_spendere)
+    if coeff_spese_quotidiane > 0:
+        soglie.append(max_spese_quotidiane / coeff_spese_quotidiane)
+
+    budget_dopo_spese_fisse_target = max(soglie) if soglie else 0
+    da_spendere_reale = coeff_da_spendere * budget_dopo_spese_fisse_target
+    spese_quotidiane_reali = coeff_spese_quotidiane * budget_dopo_spese_fisse_target
+    risparmio_auto_variabili = max(0, da_spendere_reale - limite_da_spendere) + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+
+    return {
+        "budget_disponibile_target": spese_fisse_totali + budget_dopo_spese_fisse_target,
+        "budget_dopo_spese_fisse_target": budget_dopo_spese_fisse_target,
+        "risparmio_auto_variabili": risparmio_auto_variabili,
+        "da_spendere_reale": da_spendere_reale,
+        "spese_quotidiane_reali": spese_quotidiane_reali,
+    }
+
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
 
@@ -2281,11 +2307,10 @@ textarea {
                 '<div class="section-pill">📝 Promemoria</div>',
                 unsafe_allow_html=True
             )
-            budget_ideale_corrente = _nota_number("budget_ideale", budget_mensile_disponibile_ideale)
-            if abs(budget_ideale_corrente - budget_mensile_disponibile_ideale_precedente) < 0.01:
-                budget_ideale_corrente = float(budget_mensile_disponibile_ideale)
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
-            entrate_ideali_correnti = budget_ideale_corrente + risparmio_desiderato_corrente
+            target_budget = calcola_target_budget_dinamico(sum(SPESE["Fisse"].values()))
+            budget_disponibile_target = target_budget["budget_disponibile_target"]
+            risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
             promemoria_col, note_col = st.columns([1.28, 1.00], gap="small")
             with note_col:
@@ -2306,14 +2331,6 @@ textarea {
 
             with promemoria_col:
                 with st.popover("⚙️ Obiettivi", use_container_width=True):
-                    budget_ideale_corrente = st.number_input(
-                        "Budget mensile disponibile target",
-                        min_value=0.0,
-                        value=float(budget_ideale_corrente),
-                        step=25.0,
-                        help="Totale che vuoi avere nel budget del mese dopo aver sommato budget da stipendio e altre entrate. Esempio: 2515 da stipendio + 100 altre entrate = 2615.",
-                        key="budget_ideale_promemoria"
-                    )
                     risparmio_desiderato_corrente = st.number_input(
                         "Risparmio desiderato",
                         min_value=0.0,
@@ -2322,27 +2339,28 @@ textarea {
                         help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
                         key="risparmio_desiderato_promemoria"
                     )
-                entrate_ideali_correnti = budget_ideale_corrente + risparmio_desiderato_corrente
-                gap_budget_ideale = max(0, budget_ideale_corrente - budget_mensile_disponibile)
-                gap_entrate_ideali = max(0, entrate_ideali_correnti - entrate_mensili_totali)
-                altre_per_budget_ideale = max(0, budget_ideale_corrente - budget_da_stipendio)
-                altre_per_entrate_ideali = max(0, entrate_ideali_correnti - stipendio_percepito)
-                budget_da_stipendio_target = max(0, budget_ideale_corrente - altre_entrate_totali)
+                entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
+                gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
+                gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
+                altre_per_budget_ideale = max(0, budget_disponibile_target - budget_da_stipendio)
+                altre_per_entrate_ideali = max(0, entrate_totali_target - stipendio_percepito)
+                budget_da_stipendio_target = max(0, budget_disponibile_target - altre_entrate_totali)
+                stipendio_percepito_target = max(0, entrate_totali_target - altre_entrate_totali)
                 budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
                 entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                 st.markdown(f"""
                 <div class="budget-memory-card">
                     <div class="budget-memory-title">Promemoria budget</div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target €{budget_ideale_corrente:,.0f} per coprire tutto</span></div>
+                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target dinamico €{budget_disponibile_target:,.0f}</span></div>
                         <div class="budget-memory-value">{budget_status}</div>
                     </div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">budget €{budget_ideale_corrente:,.0f} + risparmio €{risparmio_desiderato_corrente:,.0f}</span></div>
+                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">target stipendio percepito €{stipendio_percepito_target:,.0f}</span></div>
                         <div class="budget-memory-value">{entrate_status}</div>
                     </div>
                     <div class="budget-memory-note">
-                        Con €{altre_entrate_totali:,.2f} di altre entrate, il budget da stipendio target e €{budget_da_stipendio_target:,.2f}. Altre entrate necessarie: budget €{altre_per_budget_ideale:,.2f}; budget + risparmio €{altre_per_entrate_ideali:,.2f}.
+                        Copre Da spendere €{limite_da_spendere:,.0f} e Spese quotidiane €{max_spese_quotidiane:,.0f}. Con €{altre_entrate_totali:,.2f} di altre entrate: budget da stipendio target €{budget_da_stipendio_target:,.2f}. Il risparmio desiderato e €{risparmio_desiderato_corrente:,.2f}; le variabili ne generano gia circa €{risparmio_auto_variabili_target:,.2f}.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -2376,7 +2394,7 @@ textarea {
                     "nota2": nota2,
                     "nota3": nota3,
                     "nota4": nota4,
-                    "budget_ideale": budget_ideale_corrente,
+                    "budget_ideale": budget_disponibile_target,
                     "risparmio_desiderato": risparmio_desiderato_corrente
                 }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
