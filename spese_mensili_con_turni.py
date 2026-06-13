@@ -448,6 +448,51 @@ hr {
     margin: 0 0 6px;
 }
 
+.budget-memory-card {
+    background: linear-gradient(135deg, rgba(20,184,166,.12), rgba(96,165,250,.08));
+    border: 1px solid rgba(45,212,191,.20);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-top: 10px;
+}
+.budget-memory-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .9px;
+    text-transform: uppercase;
+    color: #99f6e4;
+    margin-bottom: 8px;
+}
+.budget-memory-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: baseline;
+    padding: 7px 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+}
+.budget-memory-row:first-of-type {
+    border-top: 0;
+}
+.budget-memory-label {
+    color: rgba(255,255,255,.72);
+    font-size: 12px;
+    line-height: 1.25;
+}
+.budget-memory-value {
+    color: #fef3c7;
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.budget-memory-note {
+    color: rgba(255,255,255,.45);
+    font-size: 11px;
+    line-height: 1.35;
+    margin-top: 7px;
+}
+
 [data-testid="stNumberInput"] input {
     background: linear-gradient(135deg, rgba(30,64,105,.72), rgba(24,31,48,.92)) !important;
     border: 1px solid rgba(96,165,250,.28) !important;
@@ -487,6 +532,8 @@ input_stipendio_scelto=2350
 input_stipendio_percepito = input_stipendio_originale
 input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
+budget_mensile_disponibile_ideale = 2515
+entrate_mensili_totali_ideali = 2650
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -502,23 +549,23 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [1.2, 2.70, 2.2],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "dashboard_principale": [0.92, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
     "turni_calendario_riepilogo": [1.55, 0.55],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
     "spese_fisse_lista": [1, 1],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
-    "altre_entrate_obiettivo": [1.06, 1.1],
+    "altre_entrate_obiettivo": [1.06, 1.04],
     "altre_entrate_kpi_grafico": [1.10, 1.90],
-    "destra_risparmi_carte": [1.2, 1.00],
+    "destra_risparmi_carte": [1.00, 1.00],
     "risparmi_kpi_grafico": [1.18, 1.12],
     "dettaglio_spese_fisse": [0.07, 0.50, 1.00, 0.10],
     "storico_form_chart": [1, 1, 2],
-    "storico_tabella_grafico": [1, 3],
+    "storico_tabella_grafico": [1.3, 3],
     "storico_kpi": [1.3, 1, 1],
     "bollette_form_chart": [1, 1, 2],
-    "bollette_tabella_grafico": [0.8, 3],
+    "bollette_tabella_grafico": [1, 3],
     "form_nome_importo": [1.4, 0.8],
     "bottone_salva_note": [3, 1],
 }
@@ -2109,6 +2156,10 @@ def main():
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
+    gap_budget_ideale = max(0, budget_mensile_disponibile_ideale - budget_mensile_disponibile)
+    gap_entrate_ideali = max(0, entrate_mensili_totali_ideali - entrate_mensili_totali)
+    altre_per_budget_ideale = max(0, budget_mensile_disponibile_ideale - budget_da_stipendio)
+    altre_per_entrate_ideali = max(0, entrate_mensili_totali_ideali - stipendio_percepito)
 
     # Alias temporanei per mantenere compatibile il codice esistente mentre la nomenclatura viene ripulita.
     stipendio_originale = stipendio_percepito
@@ -2221,19 +2272,39 @@ textarea {
                 '<div class="section-pill">📝 Promemoria</div>',
                 unsafe_allow_html=True
             )
-            col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4, gap="small")
+            col1_postit, col2_postit = st.columns(2, gap="small")
             with col1_postit:
                 with st.popover("Nota 1", use_container_width=True):
                     nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=220, label_visibility="collapsed", key="nota1_text")
             with col2_postit:
                 with st.popover("Nota 2", use_container_width=True):
                     nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=220, label_visibility="collapsed", key="nota2_text")
+            col3_postit, col4_postit = st.columns(2, gap="small")
             with col3_postit:
                 with st.popover("Nota 3", use_container_width=True):
                     nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=220, label_visibility="collapsed", key="nota3_text")
             with col4_postit:
                 with st.popover("Nota 4", use_container_width=True):
                     nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
+
+            budget_status = "coperto" if gap_budget_ideale <= 0 else f"mancano €{gap_budget_ideale:,.2f}"
+            entrate_status = "coperto" if gap_entrate_ideali <= 0 else f"mancano €{gap_entrate_ideali:,.2f}"
+            st.markdown(f"""
+            <div class="budget-memory-card">
+                <div class="budget-memory-title">Promemoria budget</div>
+                <div class="budget-memory-row">
+                    <div class="budget-memory-label">Budget mensile disponibile ideale<br><span style="color:rgba(255,255,255,.42);">Obiettivo €{budget_mensile_disponibile_ideale:,.0f}</span></div>
+                    <div class="budget-memory-value">{budget_status}</div>
+                </div>
+                <div class="budget-memory-row">
+                    <div class="budget-memory-label">Entrate mensili totali ideali<br><span style="color:rgba(255,255,255,.42);">Obiettivo €{entrate_mensili_totali_ideali:,.0f}</span></div>
+                    <div class="budget-memory-value">{entrate_status}</div>
+                </div>
+                <div class="budget-memory-note">
+                    Altre entrate attuali: €{altre_entrate_totali:,.2f}. Per il budget servirebbero €{altre_per_budget_ideale:,.2f}; per l'obiettivo risparmio €{altre_per_entrate_ideali:,.2f}.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
