@@ -484,6 +484,8 @@ def set_page_config():
 input_stipendio_originale=2350
 input_risparmi_mese_precedente=0
 input_stipendio_scelto=2350
+input_stipendio_percepito = input_stipendio_originale
+input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
 
 percentuale_limite_da_spendere=0.15
@@ -835,7 +837,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
     df_variabili['Percentuale'] = (df_variabili['Importo'] / risparmiabili).map('{:.2%}'.format)
 
     totali = [df_fisse["Importo"].sum(), df_variabili["Importo"].sum(), df_altre_entrate["Importo"].sum(), stipendio_scelto]
-    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Stipendio Scelto"]
+    categorie = ["Spese Fisse", "Spese Variabili", "Altre Entrate", "Budget da Stipendio"]
     df_totali = pd.DataFrame({"Totale": totali, "Categoria": categorie})
 
     color_map = {
@@ -865,8 +867,8 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Spese quotidiane": "#FB923C",
         "Macchina (Mamma)": "#D2B48C",
         "2° Entr. dal mese prec.": "#D8BFD8",
-        "Stipendio Originale": "#5792E8",
-        "Stipendio Utilizzato": "#6CBCD0",
+        "Stipendio Percepito": "#5792E8",
+        "Budget Mensile": "#6CBCD0",
         "Altre Entrate": "#77DD77",
         "Spese Fisse": "#FF6961",
         "Spese Variabili": "#FFFF99",
@@ -2067,22 +2069,32 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns([0.78, 0.78, 1.3, 2.15], gap="large")
-    col1, col2, col3 = st.columns([0.92, 2.12, 2.12], gap="large")
+    col1, col2, col3 = st.columns([0.92, 2.7, 1.78], gap="large")
 
     with col_stip_inserimento1:
-        st.markdown('<div class="salary-input-label">Stipendio mensile</div>', unsafe_allow_html=True)
-        stipendio_originale = st.number_input("Inserisci il tuo stipendio mensile:", min_value=input_stipendio_originale, step=50, label_visibility="collapsed")
+        st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
+        stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
         st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
-        st.markdown('<div class="salary-input-label">Stipendio da usare</div>', unsafe_allow_html=True)
-        stipendio_scelto = st.number_input("Inserisci il tuo stipendio mensile che scegli di usare:", min_value=input_stipendio_scelto, step=50, label_visibility="collapsed")
+        st.markdown('<div class="salary-input-label">Budget da stipendio</div>', unsafe_allow_html=True)
+        budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
+    altre_entrate_totali = sum(ALTRE_ENTRATE.values())
+    entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
+    budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
+
+    # Alias temporanei per mantenere compatibile il codice esistente mentre la nomenclatura viene ripulita.
+    stipendio_originale = stipendio_percepito
+    stipendio_scelto = budget_da_stipendio
+    tot_stipendio = entrate_mensili_totali
+    tot_utilizzare = budget_mensile_disponibile
+    stipendio = budget_mensile_disponibile
+    stipendio_totale = entrate_mensili_totali
+    stipendio_utilizzare = budget_mensile_disponibile
+
     with col_stip_inserimento3:
-        tot_stipendio = stipendio_originale + sum(ALTRE_ENTRATE.values())
-        tot_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
-    
-        _ts = f"€{tot_stipendio:,.2f}"
-        _tu = f"€{tot_utilizzare:,.2f}"
+        _ts = f"€{entrate_mensili_totali:,.2f}"
+        _tu = f"€{budget_mensile_disponibile:,.2f}"
     
         # ───────── Divisione in 2 colonne ─────────
         col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2, gap="medium")
@@ -2091,10 +2103,10 @@ def main():
         with col_stip_inserimento3_1:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-label">Stipendio Totale</div>
+                <div class="kpi-label">Entrate mensili totali</div>
                 <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
                 <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Originale + Altre Entrate
+                    Stipendio percepito + altre entrate
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2103,10 +2115,10 @@ def main():
         with col_stip_inserimento3_2:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-label">Stipendio da Utilizzare</div>
+                <div class="kpi-label">Budget mensile disponibile</div>
                 <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
                 <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Scelto + Altre Entrate
+                    Budget da stipendio + altre entrate
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2142,6 +2154,7 @@ textarea {
 
             if "note_df_draft" not in st.session_state:
                 df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
+                note_loaded_from_sheet = not df_note.empty
                 if "testo" in df_note.columns and "nota1" not in df_note.columns:
                     df_note["nota1"] = df_note["testo"]
                 for col in NOTE_HEADERS:
@@ -2156,6 +2169,10 @@ textarea {
                         "nota4": ""
                     }])
                 st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
+                st.session_state.note_loaded_from_sheet = note_loaded_from_sheet
+
+            if "note_loaded_from_sheet" not in st.session_state:
+                st.session_state.note_loaded_from_sheet = True
 
             df_note = st.session_state.note_df_draft.copy()
             if df_note.empty:
@@ -2190,11 +2207,30 @@ textarea {
             with col4_postit:
                 with st.popover("Nota 4", use_container_width=True):
                     nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
+            if not st.session_state.get("note_loaded_from_sheet", True):
+                st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             salva_spacer, salva_col = st.columns([3, 1])
             with salva_col:
-                salva = st.button("💾 Salva", use_container_width=True, key="save_promemoria")
+                salva = st.button(
+                    "💾 Salva",
+                    use_container_width=True,
+                    key="save_promemoria",
+                    disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                )
             # ───────── SALVATAGGIO ─────────
             if salva:
+                note_values = [nota1, nota2, nota3, nota4]
+                all_notes_empty = all(not str(value).strip() for value in note_values)
+                previous_values = [
+                    _nota_value("nota1"),
+                    _nota_value("nota2"),
+                    _nota_value("nota3"),
+                    _nota_value("nota4"),
+                ]
+                previous_had_content = any(value.strip() for value in previous_values)
+                if all_notes_empty and previous_had_content:
+                    st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
+                    st.stop()
                 df_note = pd.DataFrame([{
                     "id": 1,
                     "nota1": nota1,
@@ -2204,12 +2240,12 @@ textarea {
                 }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                     st.session_state.note_df_draft = df_note.copy()
+                    st.session_state.note_loaded_from_sheet = True
                     st.success("Note salvate")
                 else:
                     st.error("Errore salvataggio")
             #FINE CREAZIONE NOTA
 
-    stipendio = stipendio_scelto + sum(ALTRE_ENTRATE.values())
     spese_fisse_totali = sum(SPESE["Fisse"].values())
     risparmiabili = stipendio - spese_fisse_totali
     if risparmiabili < 0:
@@ -2253,10 +2289,10 @@ textarea {
         chart_fisse, chart_variabili, chart_altre_entrate, df_fisse, df_variabili, df_altre_entrate, color_map = create_charts(stipendio, risparmiabili, df_altre_entrate)
 
         df_totali_impilati = pd.DataFrame({
-            "Categoria": ["Spese Fisse", "Spese Variabili", "Stipendio Totale", "Stipendio Totale", 
-                        "Risparmi", "Stipendio Utilizzato", "Stipendio Utilizzato"],
-            "Tipo": ["Spese Fisse", "Spese Variabili", "Stipendio Originale", "Altre Entrate", 
-                    "Risparmi", "Stipendio Scelto", "Altre Entrate"],
+            "Categoria": ["Spese Fisse", "Spese Variabili", "Entrate Mensili Totali", "Entrate Mensili Totali", 
+                        "Risparmi", "Budget Mensile", "Budget Mensile"],
+            "Tipo": ["Spese Fisse", "Spese Variabili", "Stipendio Percepito", "Altre Entrate", 
+                    "Risparmi", "Budget da Stipendio", "Altre Entrate"],
             "Totale": [
                 df_fisse["Importo"].sum(),
                 df_variabili["Importo"].sum(),
@@ -2268,7 +2304,7 @@ textarea {
             ]
         })
 
-        ordine_categorie = ["Stipendio Totale", "Stipendio Utilizzato", "Spese Fisse", "Spese Variabili", "Risparmi"]
+        ordine_categorie = ["Entrate Mensili Totali", "Budget Mensile", "Spese Fisse", "Spese Variabili", "Risparmi"]
         # Fix: use absolute values for scale to avoid negative display issues
         valore_massimo = df_totali_impilati['Totale'].abs().max()
         margine = valore_massimo * 0.3
@@ -2289,13 +2325,13 @@ textarea {
             y2='upper:Q',
             color=alt.Color('Tipo:N',
                             scale=alt.Scale(domain=[
-                                "Stipendio Originale", "Altre Entrate", "Stipendio Scelto", 
+                                "Stipendio Percepito", "Altre Entrate", "Budget da Stipendio", 
                                 "Spese Fisse", "Spese Variabili", "Risparmi"
                             ],
                             range=[
-                                color_map["Stipendio Originale"], 
+                                color_map["Stipendio Percepito"], 
                                 color_map["Altre Entrate"], 
-                                color_map["Stipendio Utilizzato"], 
+                                color_map["Budget Mensile"], 
                                 color_map["Spese Fisse"], 
                                 color_map["Spese Variabili"], 
                                 color_map["Risparmi"]
@@ -2471,40 +2507,37 @@ textarea {
             <div class="kpi-card">
                 <div class="kpi-label">Totale Spese Fisse</div>
                 <div class="kpi-value" style="color:#f87171;">{_sf}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% dello stipendio da utilizzare</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% dello stipendio totale</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% del budget mensile disponibile</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Risparmiabili ≥ Spese Variabili</div>
+                <div class="kpi-label">Budget dopo spese fisse</div>
                 <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% dello stipendio da utilizzare</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% dello stipendio totale</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        stipendio_totale = stipendio_originale + sum(ALTRE_ENTRATE.values())
-        stipendio_utilizzare = stipendio_scelto + sum(ALTRE_ENTRATE.values())
-
         df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
+            'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
             'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
         })
         df_utilizzare = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Risparmiabili'],
+            'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
             'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
         })
 
         df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
         df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
 
-        # FIX 3: Stipendio Totale donut - labels outside
+        # FIX 3: Entrate mensili totali donut - labels outside
         chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=60).encode(
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal", 
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'], 
+                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'], 
                     range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
                 ),
                 legend=None
@@ -2514,7 +2547,7 @@ textarea {
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
                 alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
             ]
-        ).properties(title="Stipendio Totale", width=150, height=150)
+        ).properties(title="Entrate mensili totali", width=150, height=150)
 
         # Filter zero/negative values to avoid broken donuts
         df_totale_clean = df_totale[df_totale["Value"] > 0].copy()
@@ -2525,7 +2558,7 @@ textarea {
             color=alt.Color(
                 field="Component", type="nominal",
                 scale=alt.Scale(
-                    domain=['Spese Fisse', 'Risparmiabili', 'Risparmio Stipendi'],
+                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
                     range=['#FF6464', '#fef3c7', '#888888']
                 ),
                 legend=alt.Legend(
@@ -2537,11 +2570,11 @@ textarea {
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="% sul Totale", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% sulle entrate", format=".1f")
             ]
         ).properties(
             title=alt.TitleParams(
-                "Stipendio Totale",
+                "Entrate mensili totali",
                 anchor='middle',   # <-- centra il titolo
                 color='rgba(255,255,255,0.7)',
                 fontSize=12
@@ -2554,7 +2587,7 @@ textarea {
             theta=alt.Theta(field="Value", type="quantitative"),
             color=alt.Color(
                 field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Risparmiabili'], range=['#FF6961', '#fef3c7']),
+                scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
                 legend=alt.Legend(
                     title=None, orient='bottom', direction='vertical',
                     labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
@@ -2564,11 +2597,11 @@ textarea {
             tooltip=[
                 alt.Tooltip("Component:N", title="Categoria"),
                 alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="% su Scelto", format=".1f")
+                alt.Tooltip("Percentuale:Q", title="% sul budget", format=".1f")
             ]
         ).properties(
             title=alt.TitleParams(
-                "Stipendio da Utilizzare",
+                "Budget mensile disponibile",
                 anchor='middle',   # <-- centra il titolo
                 color='rgba(255,255,255,0.7)',
                 fontSize=12
@@ -2581,12 +2614,12 @@ textarea {
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        st.markdown("**💶 Distribuzione Stipendi:**")
+        st.markdown("**💶 Distribuzione entrate e budget:**")
         st.altair_chart(chart_donut, use_container_width=True)
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns([1.08, 0.92], gap="large")
+        col2_left, col2_right = st.columns([1.05, 0.95], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -2615,7 +2648,7 @@ textarea {
                         "Emergenze/Compleanni",
                         SPESE["Variabili"]["Emergenze/Compleanni"],
                         "#4ADE80",
-                        f"{percentuale_emergenze:.2f}% dei risparmiabili"
+                        f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
                     ),
                     unsafe_allow_html=True
                 )
@@ -2625,7 +2658,7 @@ textarea {
                         "Viaggi",
                         SPESE["Variabili"]["Viaggi"],
                         "#166534",
-                        f"{percentuale_viaggi:.2f}% dei risparmiabili"
+                        f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
                     ),
                     unsafe_allow_html=True
                 )
@@ -2679,9 +2712,9 @@ textarea {
                 <div class="kpi-card">
                     <div class="kpi-label">Totale Spese Variabili</div>
                     <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% dei Risparmiabili</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% dello Stipendio da Utilizzare</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% dello Stipendio Totale</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% del budget dopo spese fisse</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% del budget mensile disponibile</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% delle entrate mensili totali</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2692,7 +2725,7 @@ textarea {
                 st.progress(progresso_altre_entrate)
                 st.markdown(f"""
                 <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
-                Spese Variabili rispetto ai Risparmiabili: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
+                Spese variabili rispetto al budget dopo spese fisse: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2830,7 +2863,7 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx, col_altre_entrate_vuoto = st.columns([1, 1, 0.1], gap="large")
+                col_altre_entrate_sx, col_altre_entrate_dx = st.columns([1.06, 1.04], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
 
@@ -2907,7 +2940,7 @@ textarea {
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
                         chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                            innerRadius=40, outerRadius=70
+                            innerRadius=32, outerRadius=56
                         ).encode(
                             theta=alt.Theta(field="Value", type="quantitative"),
                             color=alt.Color(
@@ -2931,8 +2964,8 @@ textarea {
                             ]
                         ).properties(
                             title="➕ Distribuzione Altre Entrate",
-                            width=200,
-                            height=220
+                            width=150,
+                            height=170
                         ).configure_title(
                             anchor='middle'
                         ).configure_view(
@@ -3002,8 +3035,8 @@ textarea {
                     <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
                     <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
                     <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% tot.</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% scelto</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
                 </div>
                 """)
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
@@ -3011,7 +3044,7 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns([1.1, 0.9], gap="large")
+        col3_left, col3_right = st.columns([1.0, 1.0], gap="medium")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -3028,21 +3061,21 @@ textarea {
             v4 = risparmio_spese_quotidiane_calc
             
             html_risparmi = ""
-            html_risparmi += _money_row_html("Dallo Stipendio Originale", v1, "#9ca3af", triangolino_verde_BNL, "quota lasciata da parte rispetto allo stipendio pieno")
+            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e budget da stipendio")
             html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
             html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
             html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
             st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns([1.1, 1.9], gap="medium")
+            col_risparmi_1, col_risparmi_2 = st.columns([1.18, 1.12], gap="small")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% dello Stipendio da Utilizzare</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% dello Stipendio Totale</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% del budget mensile disponibile</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% delle entrate mensili totali</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -3064,7 +3097,7 @@ textarea {
                 
             with col_risparmi_2:
                 if not df_savings.empty:
-                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=40, outerRadius=70).encode(
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=32, outerRadius=56).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
                             field="Component", type="nominal",
@@ -3090,8 +3123,8 @@ textarea {
                         ]
                     ).properties(
                         title="💰 Distribuzione Risparmi",
-                        width=200,
-                        height=220
+                        width=150,
+                        height=170
                     ).configure_title(
                         anchor='middle'
                     ).configure_view(
@@ -3109,64 +3142,63 @@ textarea {
         with col3_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            col_Distribuzione_Carte_1, col_Distribuzione_Carte_2 = st.columns([1.18, 0.82], gap="medium")
-            with col_Distribuzione_Carte_1:
-                st.subheader("Trasferimenti sulle Carte:")
+            st.subheader("Trasferimenti sulle Carte:")
         
-                for carta in ["ING", "Revolut", "BNL"]:
-                    spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
-                                   for voce in SPESE[carta]}
-                    spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-                    if carta == "Revolut":
-                        totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-                        colore = "#89CFF0"  # Azzurro
+            for carta in ["ING", "Revolut", "BNL"]:
+                spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                               for voce in SPESE[carta]}
+                spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+                if carta == "Revolut":
+                    totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                    colore = "#89CFF0"  # Azzurro
+                    testo = "trasferire"
+                    somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                    spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                    somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                    st.markdown(
+                        _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                else:
+                    totale_carta = sum(spese_carta.values())
+                    if carta == "ING":
+                        colore = "#D2691E"
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                        spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                        somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                        st.markdown(
-                            _money_row_html(
-                                f"Da {testo} su {carta}",
-                                totale_carta,
-                                colore,
-                                _triangle_for_card(carta),
-                                f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
-                            ),
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        totale_carta = sum(spese_carta.values())
-                        if carta == "ING":
-                            colore = "#D2691E"
-                            testo = "trasferire"
-                        elif carta == "BNL":
-                            colore = "green"
-                            colore2 = "#77DD77"
-                            testo = "mantenere"
-                            testo2 = "risparmiato"
-                        st.markdown(
-                            _money_row_html(
-                                f"Da {testo} su {carta}",
-                                totale_carta,
-                                colore,
-                                _triangle_for_card(carta),
-                                "totale delle spese previste su questa carta"
-                            ),
-                            unsafe_allow_html=True
-                        )
-                st.markdown(
-                    _money_row_html(
-                        f"Totale {testo2} su {carta}",
-                        risparmi_mensili,
-                        colore2,
-                        _triangle_for_card(carta),
-                        "quota da lasciare come risparmio"
-                    ),
-                    unsafe_allow_html=True
-                )
+                    elif carta == "BNL":
+                        colore = "green"
+                        colore2 = "#77DD77"
+                        testo = "mantenere"
+                        testo2 = "risparmiato"
+                    st.markdown(
+                        _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            "totale delle spese previste su questa carta"
+                        ),
+                        unsafe_allow_html=True
+                    )
+            st.markdown(
+                _money_row_html(
+                    f"Totale {testo2} su {carta}",
+                    risparmi_mensili,
+                    colore2,
+                    _triangle_for_card(carta),
+                    "quota da lasciare come risparmio"
+                ),
+                unsafe_allow_html=True
+            )
     
             # FIX 4: NEW "Carte" donut chart
-            with col_Distribuzione_Carte_2:  
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            with st.container():  
                 # Calculate totals per card
                 ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
                 revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
@@ -3178,7 +3210,7 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=40, outerRadius=70).encode(
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=32, outerRadius=56).encode(
                 theta=alt.Theta(field="Totale", type="quantitative"),
                 color=alt.Color(
                     field="Carta", type="nominal",
@@ -3205,8 +3237,8 @@ textarea {
                 ]
                 ).properties(
                     title="💳 Distribuzione Carte",
-                    width=200,
-                    height=220,
+                    width=150,
+                    height=170,
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
