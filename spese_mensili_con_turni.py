@@ -1122,10 +1122,15 @@ st.markdown("""
     width: 100%;
 }
 .turni-calendar-wrap [data-testid="stButton"] button p strong {
-    font-size: 19px !important;
-    font-weight: 950 !important;
+    font-size: 21px !important;
+    font-weight: 1000 !important;
     letter-spacing: 0 !important;
-    text-shadow: 0 0 8px rgba(255,255,255,0.24), 0 1px 1px rgba(0,0,0,0.45);
+    filter: saturate(1.8) brightness(1.35);
+    text-shadow:
+        0 0 1px currentColor,
+        0 0 8px currentColor,
+        0 0 14px rgba(255,255,255,0.30),
+        0 1px 1px rgba(0,0,0,0.75);
 }
 .turni-card-small {
     background: rgba(255,255,255,0.045);
@@ -2071,8 +2076,14 @@ def render_turni_guadagni_section():
                                 "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
                                 "Festivo": nuovo_festivo
                             }])], ignore_index=True)
-                            set_turni_draft(df_new)
-                            st.rerun()
+                            df_new = _normalize_turni_df(df_new)
+                            st.session_state.turni_df_draft = df_new.copy()
+                            if save_turni_data(df_new):
+                                st.session_state.turni_dirty = False
+                                st.rerun()
+                            else:
+                                st.session_state.turni_dirty = True
+                                st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
 
             st.markdown("""
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
@@ -2167,21 +2178,8 @@ def render_turni_guadagni_section():
                 </script>
                 """, height=370)
 
-        st.markdown("---")
         if st.session_state.get("turni_dirty", False):
-            st.warning("Modifiche manuali ai turni/festivi non ancora salvate su Google Sheets.")
-        save_col, reload_col = st.columns(2)
-        with save_col:
-            if st.button("💾 Salva modifiche turni su Google Sheets", use_container_width=True, key="turni_save_all"):
-                if save_turni_data(st.session_state.turni_df_draft):
-                    st.success("Turni salvati su Google Sheets")
-                    st.rerun()
-                else:
-                    st.error("Errore nel salvataggio turni")
-        with reload_col:
-            if st.button("🔄 Ricarica turni da Google Sheets", use_container_width=True, key="turni_reload_sheet"):
-                load_turni_data(force_reload=True)
-                st.rerun()
+            st.warning("Festivo manuale modificato in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
         c1, c2 = st.columns(2)
@@ -2211,7 +2209,7 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
 
         st.session_state.turni_rules = rules
-        st.caption("Le regole sono salvate nella sessione Streamlit. I turni restano in bozza mentre clicchi i giorni e vengono scritti su Google Sheets solo quando premi 'Salva modifiche turni'.")
+        st.caption("Le regole sono salvate nella sessione Streamlit. I turni arrivano da Google Calendar; il festivo manuale viene salvato subito su Google Sheets quando lo modifichi.")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
