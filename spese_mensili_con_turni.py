@@ -2311,8 +2311,19 @@ textarea {
     border: 0.5px solid rgba(255, 241, 118, 0.35) !important;
     color: #fde68a !important;
     border-radius: 10px !important;
-    min-height: 34px;
+    min-height: 46px;
     width: 100%;
+}
+
+[data-testid="stExpander"] details {
+    background: rgba(148,163,184,.10) !important;
+    border: 0.5px solid rgba(148,163,184,.28) !important;
+    border-radius: 10px !important;
+}
+
+[data-testid="stExpander"] summary {
+    color: #cbd5e1 !important;
+    font-weight: 800 !important;
 }
             </style>
             """, unsafe_allow_html=True)
@@ -2368,6 +2379,17 @@ textarea {
                     return float(value)
                 except (TypeError, ValueError):
                     return float(default)
+
+            def _build_note_df(nota1_value, nota2_value, nota3_value, nota4_value, risparmio_value):
+                return pd.DataFrame([{
+                    "id": 1,
+                    "nota1": nota1_value,
+                    "nota2": nota2_value,
+                    "nota3": nota3_value,
+                    "nota4": nota4_value,
+                    "budget_ideale": budget_disponibile_target,
+                    "risparmio_desiderato": risparmio_value
+                }])
         
             # ───────── UI BUDGET ─────────
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
@@ -2375,17 +2397,7 @@ textarea {
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.00, 0.38, 1.25], gap="small")
-            with obiettivi_col:
-                with st.popover("⚙️ Obiettivi", use_container_width=True):
-                    risparmio_desiderato_corrente = st.number_input(
-                        "Risparmio desiderato",
-                        min_value=0.0,
-                        value=float(risparmio_desiderato_corrente),
-                        step=25.0,
-                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
-                        key="risparmio_desiderato_promemoria"
-                    )
+            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.54, 1.10], gap="small")
             with budget_card_col:
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
@@ -2405,6 +2417,36 @@ textarea {
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+            with obiettivi_col:
+                with st.expander("Obiettivo risparmi", expanded=False):
+                    risparmio_desiderato_corrente = st.number_input(
+                        "Risparmio desiderato",
+                        min_value=0.0,
+                        value=float(risparmio_desiderato_corrente),
+                        step=25.0,
+                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
+                        key="risparmio_desiderato_promemoria"
+                    )
+                    salva_obiettivo = st.button(
+                        "💾 Salva obiettivo",
+                        use_container_width=True,
+                        key="save_obiettivo_risparmi",
+                        disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                    )
+                    if salva_obiettivo:
+                        df_note = _build_note_df(
+                            _nota_value("nota1"),
+                            _nota_value("nota2"),
+                            _nota_value("nota3"),
+                            _nota_value("nota4"),
+                            risparmio_desiderato_corrente
+                        )
+                        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                            st.session_state.note_df_draft = df_note.copy()
+                            st.session_state.note_loaded_from_sheet = True
+                            st.success("Obiettivo salvato")
+                        else:
+                            st.error("Errore salvataggio obiettivo")
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             # Le note vengono mostrate piu sotto, accanto al dettaglio spese fisse.
@@ -3205,28 +3247,28 @@ textarea {
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
         with col_vuoto_b:
-            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.16, 0.68, 0.16], gap="small")
+            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.08, 0.84, 0.08], gap="small")
             with note_wrap:
                 st.markdown('<div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
                 n1, n2 = st.columns(2, gap="small")
                 with n1:
                     with st.popover("Nota 1", use_container_width=True):
-                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=150, label_visibility="collapsed", key="nota1_text")
+                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=320, label_visibility="collapsed", key="nota1_text")
                 with n2:
                     with st.popover("Nota 2", use_container_width=True):
-                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=150, label_visibility="collapsed", key="nota2_text")
+                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=320, label_visibility="collapsed", key="nota2_text")
                 n3, n4 = st.columns(2, gap="small")
                 with n3:
                     with st.popover("Nota 3", use_container_width=True):
-                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=150, label_visibility="collapsed", key="nota3_text")
+                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=320, label_visibility="collapsed", key="nota3_text")
                 with n4:
                     with st.popover("Nota 4", use_container_width=True):
-                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=150, label_visibility="collapsed", key="nota4_text")
+                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=320, label_visibility="collapsed", key="nota4_text")
 
                 salva = st.button(
-                    "💾 Salva note e obiettivi",
+                    "💾 Salva note",
                     use_container_width=True,
-                    key="save_promemoria",
+                    key="save_note_promemoria",
                     disabled=not st.session_state.get("note_loaded_from_sheet", True)
                 )
                 if salva:
@@ -3242,19 +3284,11 @@ textarea {
                     if all_notes_empty and previous_had_content:
                         st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
                         st.stop()
-                    df_note = pd.DataFrame([{
-                        "id": 1,
-                        "nota1": nota1,
-                        "nota2": nota2,
-                        "nota3": nota3,
-                        "nota4": nota4,
-                        "budget_ideale": budget_disponibile_target,
-                        "risparmio_desiderato": risparmio_desiderato_corrente
-                    }])
+                    df_note = _build_note_df(nota1, nota2, nota3, nota4, risparmio_desiderato_corrente)
                     if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                         st.session_state.note_df_draft = df_note.copy()
                         st.session_state.note_loaded_from_sheet = True
-                        st.success("Note e obiettivi salvati")
+                        st.success("Note salvate")
                     else:
                         st.error("Errore salvataggio")
                 
