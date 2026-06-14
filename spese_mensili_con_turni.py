@@ -1136,6 +1136,23 @@ st.markdown("""
         0 0 14px rgba(255,255,255,0.30),
         0 1px 1px rgba(0,0,0,0.75);
 }
+.turni-calendar-wrap [data-testid="stButton"] button:has(code) {
+    border-color: rgba(251,191,36,0.92) !important;
+    background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(30,64,105,0.72)) !important;
+    box-shadow:
+        0 0 0 1px rgba(251,191,36,0.30),
+        0 0 18px rgba(251,191,36,0.34),
+        inset 0 0 16px rgba(251,191,36,0.08) !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button p code {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    color: #fbbf24 !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    box-shadow: none !important;
+}
 .turni-card-small {
     background: rgba(255,255,255,0.045);
     border: 0.5px solid rgba(255,255,255,0.10);
@@ -2074,7 +2091,7 @@ def render_turni_guadagni_section():
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
                     if day_str == current_work_day:
-                        day_label = f":orange[•] {day_label}"
+                        day_label = f"`•` {day_label}"
                     clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                     if clicked_day:
                         if festivo_manual:
