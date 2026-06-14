@@ -448,6 +448,52 @@ hr {
     margin: 0 0 6px;
 }
 
+.budget-memory-card {
+    background: linear-gradient(135deg, rgba(20,184,166,.12), rgba(96,165,250,.08));
+    border: 1px solid rgba(45,212,191,.20);
+    border-radius: 14px;
+    padding: 12px 14px 10px;
+    margin-top: 0;
+    min-height: 132px;
+}
+.budget-memory-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .9px;
+    text-transform: uppercase;
+    color: #99f6e4;
+    margin-bottom: 5px;
+}
+.budget-memory-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+}
+.budget-memory-row:first-of-type {
+    border-top: 0;
+}
+.budget-memory-label {
+    color: rgba(255,255,255,.72);
+    font-size: 11px;
+    line-height: 1.25;
+}
+.budget-memory-value {
+    color: #fef3c7;
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.budget-memory-note {
+    color: rgba(255,255,255,.45);
+    font-size: 10.5px;
+    line-height: 1.35;
+    margin-top: 7px;
+}
+
 [data-testid="stNumberInput"] input {
     background: linear-gradient(135deg, rgba(30,64,105,.72), rgba(24,31,48,.92)) !important;
     border: 1px solid rgba(96,165,250,.28) !important;
@@ -487,6 +533,9 @@ input_stipendio_scelto=2350
 input_stipendio_percepito = input_stipendio_originale
 input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
+budget_mensile_disponibile_ideale = 2615
+budget_mensile_disponibile_ideale_precedente = 2515
+risparmio_mensile_desiderato = 200
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
@@ -502,23 +551,23 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [1.2, 2.70, 2.2],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "dashboard_principale": [0.92, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
     "turni_calendario_riepilogo": [1.55, 0.55],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
     "spese_fisse_lista": [1, 1],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
-    "altre_entrate_obiettivo": [1.06, 1.1],
+    "altre_entrate_obiettivo": [1.06, 1.04],
     "altre_entrate_kpi_grafico": [1.10, 1.90],
-    "destra_risparmi_carte": [1.2, 1.00],
+    "destra_risparmi_carte": [1.00, 1.00],
     "risparmi_kpi_grafico": [1.18, 1.12],
     "dettaglio_spese_fisse": [0.07, 0.50, 1.00, 0.10],
     "storico_form_chart": [1, 1, 2],
-    "storico_tabella_grafico": [1, 3],
+    "storico_tabella_grafico": [1.3, 3],
     "storico_kpi": [1.3, 1, 1],
     "bollette_form_chart": [1, 1, 2],
-    "bollette_tabella_grafico": [0.8, 3],
+    "bollette_tabella_grafico": [1, 3],
     "form_nome_importo": [1.4, 0.8],
     "bottone_salva_note": [3, 1],
 }
@@ -850,6 +899,32 @@ def save_altre_entrate_settings(settings):
         ALTRE_ENTRATE.clear()
         ALTRE_ENTRATE.update(cleaned)
     return ok
+
+
+def calcola_target_budget_dinamico(spese_fisse_totali):
+    quota_fissa_variabili = emergenze_compleanni + viaggi
+    base_dopo_quote = max(0, 1 - quota_fissa_variabili)
+    coeff_da_spendere = percentuale_limite_da_spendere * base_dopo_quote
+    coeff_spese_quotidiane = base_dopo_quote * (1 - percentuale_limite_da_spendere)
+
+    soglie = []
+    if coeff_da_spendere > 0:
+        soglie.append(limite_da_spendere / coeff_da_spendere)
+    if coeff_spese_quotidiane > 0:
+        soglie.append(max_spese_quotidiane / coeff_spese_quotidiane)
+
+    budget_dopo_spese_fisse_target = max(soglie) if soglie else 0
+    da_spendere_reale = coeff_da_spendere * budget_dopo_spese_fisse_target
+    spese_quotidiane_reali = coeff_spese_quotidiane * budget_dopo_spese_fisse_target
+    risparmio_auto_variabili = max(0, da_spendere_reale - limite_da_spendere) + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+
+    return {
+        "budget_disponibile_target": spese_fisse_totali + budget_dopo_spese_fisse_target,
+        "budget_dopo_spese_fisse_target": budget_dopo_spese_fisse_target,
+        "risparmio_auto_variabili": risparmio_auto_variabili,
+        "da_spendere_reale": da_spendere_reale,
+        "spese_quotidiane_reali": spese_quotidiane_reali,
+    }
 
 @st.cache_data
 def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
@@ -1299,6 +1374,18 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
     return rules["ind_m_p_festivo"] if festive_at_start else rules["ind_m_p_feriale"]
 
 
+def _next_rate_checkpoint(now, end):
+    checkpoints = []
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day <= end:
+        for hour in (0, 6, 18, 22):
+            checkpoint = day + timedelta(hours=hour)
+            if now < checkpoint < end:
+                checkpoints.append(checkpoint)
+        day += timedelta(days=1)
+    return min(checkpoints) if checkpoints else None
+
+
 def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None):
     now = _now_italy() if until is None else until
     paga = float(rules["paga_oraria"])
@@ -1376,8 +1463,14 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    current_rate_change_at = None
     next_shift_start = None
     next_shift_label = "—"
+    next_shift_total = 0.0
+    last_shift_end = None
+    last_shift_label = "—"
+    last_shift_total = 0.0
+    turno_kpi_label = "Turno — live / totale turno"
     work_days_done = 0
     work_days_total = 0
     ferie_days_total = 0
@@ -1404,12 +1497,13 @@ def compute_turni_dashboard(df_turni, rules):
             calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
-            if turno not in ["Ferie", "Riposo"] and start <= now <= end:
+            if turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
                 current_shift_end = end
+                current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
                 expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
 
@@ -1423,9 +1517,19 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
+            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+        if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
+            last_shift_end = end
+            last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
+            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
         if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
+
+    if current_shift_end is None:
+        live_today = last_shift_total
+        expected_today = next_shift_total
+        turno_kpi_label = "Ultimo / prossimo turno"
 
     live_month += rules["quota_fissa_mensile"]
     payslip_estimate = rules["quota_fissa_mensile"] + current_base_full + prev_extras
@@ -1442,8 +1546,11 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift": current_shift,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
+        "turno_kpi_label": turno_kpi_label,
+        "last_shift_label": last_shift_label,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
         "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
         "next_shift_label": next_shift_label,
         "work_days_done": work_days_done,
@@ -1679,11 +1786,13 @@ def render_live_turni_kpis(stats):
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     is_on_shift = bool(stats.get("is_on_shift", False))
     status_color = "#22c55e" if is_on_shift else "#64748b"
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    current_rate_change_at = stats.get("current_rate_change_at", "")
     next_shift_start = stats.get("next_shift_start", "")
     next_shift_label = str(stats.get("next_shift_label", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     work_days_done = int(stats.get("work_days_done", 0))
@@ -1699,7 +1808,7 @@ def render_live_turni_kpis(stats):
         <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-        <div class="kpi-label">Turno — live / totale turno</div>
+        <div class="kpi-label">{turno_kpi_label}</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
         <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
       </div>
@@ -1773,6 +1882,7 @@ def render_live_turni_kpis(stats):
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
       const shiftEnd = {json.dumps(current_shift_end)};
+      const rateChangeAt = {json.dumps(current_rate_change_at)};
       const nextShiftStart = {json.dumps(next_shift_start)};
       const nextShiftLabel = {json.dumps(next_shift_label)};
       const isInitiallyOnShift = {json.dumps(is_on_shift)};
@@ -1783,6 +1893,7 @@ def render_live_turni_kpis(stats):
       const rateEl = document.getElementById("turni-rate-min");
       const shiftEl = document.getElementById("turni-shift-label");
       const hoursLeftEl = document.getElementById("turni-hours-left");
+      let refreshQueued = false;
 
       function money(value) {{
         return new Intl.NumberFormat("it-IT", {{
@@ -1817,6 +1928,8 @@ def render_live_turni_kpis(stats):
       }}
 
       function refreshParentSoon() {{
+        if (refreshQueued) return;
+        refreshQueued = true;
         setTimeout(() => {{
           try {{
             window.parent.location.reload();
@@ -1828,6 +1941,7 @@ def render_live_turni_kpis(stats):
 
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
+        const rateChanged = rateChangeAt && Date.now() >= Date.parse(rateChangeAt);
         const shouldStart = !isInitiallyOnShift && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
@@ -1837,6 +1951,11 @@ def render_live_turni_kpis(stats):
           shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
         }}
         if (shouldStart) {{
+          refreshParentSoon();
+          return;
+        }}
+        if (rateChanged) {{
+          hoursLeftEl.textContent = "Aggiorno fascia turno...";
           refreshParentSoon();
           return;
         }}
@@ -2176,7 +2295,7 @@ textarea {
             """, unsafe_allow_html=True)
         
             # ───────── CONFIG ─────────
-            NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4"]
+            NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4", "budget_ideale", "risparmio_desiderato"]
             worksheet_name = "Note"
 
             if "note_df_draft" not in st.session_state:
@@ -2193,7 +2312,9 @@ textarea {
                         "nota1": "",
                         "nota2": "",
                         "nota3": "",
-                        "nota4": ""
+                        "nota4": "",
+                        "budget_ideale": budget_mensile_disponibile_ideale,
+                        "risparmio_desiderato": risparmio_mensile_desiderato
                     }])
                 st.session_state.note_df_draft = df_note[NOTE_HEADERS].copy()
                 st.session_state.note_loaded_from_sheet = note_loaded_from_sheet
@@ -2208,38 +2329,91 @@ textarea {
                     "nota1": "",
                     "nota2": "",
                     "nota3": "",
-                    "nota4": ""
+                    "nota4": "",
+                    "budget_ideale": budget_mensile_disponibile_ideale,
+                    "risparmio_desiderato": risparmio_mensile_desiderato
                 }])
             nota_corrente = df_note.iloc[0]
 
             def _nota_value(key):
                 value = nota_corrente.get(key, "")
                 return "" if pd.isna(value) else str(value)
+
+            def _nota_number(key, default):
+                value = nota_corrente.get(key, default)
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return float(default)
         
             # ───────── UI ─────────
             st.markdown(
                 '<div class="section-pill">📝 Promemoria</div>',
                 unsafe_allow_html=True
             )
-            col1_postit, col2_postit, col3_postit, col4_postit = st.columns(4, gap="small")
-            with col1_postit:
-                with st.popover("Nota 1", use_container_width=True):
-                    nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=220, label_visibility="collapsed", key="nota1_text")
-            with col2_postit:
-                with st.popover("Nota 2", use_container_width=True):
-                    nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=220, label_visibility="collapsed", key="nota2_text")
-            with col3_postit:
-                with st.popover("Nota 3", use_container_width=True):
-                    nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=220, label_visibility="collapsed", key="nota3_text")
-            with col4_postit:
-                with st.popover("Nota 4", use_container_width=True):
-                    nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=220, label_visibility="collapsed", key="nota4_text")
+            risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
+            target_budget = calcola_target_budget_dinamico(sum(SPESE["Fisse"].values()))
+            budget_disponibile_target = target_budget["budget_disponibile_target"]
+            risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
+
+            promemoria_col, note_col = st.columns([1.28, 1.00], gap="small")
+            with note_col:
+                n1, n2 = st.columns(2, gap="small")
+                with n1:
+                    with st.popover("Nota 1", use_container_width=True):
+                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=180, label_visibility="collapsed", key="nota1_text")
+                with n2:
+                    with st.popover("Nota 2", use_container_width=True):
+                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=180, label_visibility="collapsed", key="nota2_text")
+                n3, n4 = st.columns(2, gap="small")
+                with n3:
+                    with st.popover("Nota 3", use_container_width=True):
+                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=180, label_visibility="collapsed", key="nota3_text")
+                with n4:
+                    with st.popover("Nota 4", use_container_width=True):
+                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=180, label_visibility="collapsed", key="nota4_text")
+
+            with promemoria_col:
+                with st.popover("⚙️ Obiettivi", use_container_width=True):
+                    risparmio_desiderato_corrente = st.number_input(
+                        "Risparmio desiderato",
+                        min_value=0.0,
+                        value=float(risparmio_desiderato_corrente),
+                        step=25.0,
+                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
+                        key="risparmio_desiderato_promemoria"
+                    )
+                entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
+                gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
+                gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
+                altre_per_budget_ideale = max(0, budget_disponibile_target - budget_da_stipendio)
+                altre_per_entrate_ideali = max(0, entrate_totali_target - stipendio_percepito)
+                budget_da_stipendio_target = max(0, budget_disponibile_target - altre_entrate_totali)
+                stipendio_percepito_target = max(0, entrate_totali_target - altre_entrate_totali)
+                budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
+                entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
+                st.markdown(f"""
+                <div class="budget-memory-card">
+                    <div class="budget-memory-title">Promemoria budget</div>
+                    <div class="budget-memory-row">
+                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target dinamico €{budget_disponibile_target:,.0f}</span></div>
+                        <div class="budget-memory-value">{budget_status}</div>
+                    </div>
+                    <div class="budget-memory-row">
+                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">target stipendio percepito €{stipendio_percepito_target:,.0f}</span></div>
+                        <div class="budget-memory-value">{entrate_status}</div>
+                    </div>
+                    <div class="budget-memory-note">
+                        Copre Da spendere €{limite_da_spendere:,.0f} e Spese quotidiane €{max_spese_quotidiane:,.0f}. Con €{altre_entrate_totali:,.2f} di altre entrate: budget da stipendio target €{budget_da_stipendio_target:,.2f}. Il risparmio desiderato e €{risparmio_desiderato_corrente:,.2f}; le variabili ne generano gia circa €{risparmio_auto_variabili_target:,.2f}.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
             with salva_col:
                 salva = st.button(
-                    "💾 Salva",
+                    "💾 Salva note e obiettivi",
                     use_container_width=True,
                     key="save_promemoria",
                     disabled=not st.session_state.get("note_loaded_from_sheet", True)
@@ -2263,12 +2437,14 @@ textarea {
                     "nota1": nota1,
                     "nota2": nota2,
                     "nota3": nota3,
-                    "nota4": nota4
+                    "nota4": nota4,
+                    "budget_ideale": budget_disponibile_target,
+                    "risparmio_desiderato": risparmio_desiderato_corrente
                 }])
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                     st.session_state.note_df_draft = df_note.copy()
                     st.session_state.note_loaded_from_sheet = True
-                    st.success("Note salvate")
+                    st.success("Note e obiettivi salvati")
                 else:
                     st.error("Errore salvataggio")
             #FINE CREAZIONE NOTA
