@@ -1374,6 +1374,18 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
     return rules["ind_m_p_festivo"] if festive_at_start else rules["ind_m_p_feriale"]
 
 
+def _next_rate_checkpoint(now, end):
+    checkpoints = []
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day <= end:
+        for hour in (0, 6, 18, 22):
+            checkpoint = day + timedelta(hours=hour)
+            if now < checkpoint < end:
+                checkpoints.append(checkpoint)
+        day += timedelta(days=1)
+    return min(checkpoints) if checkpoints else None
+
+
 def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None):
     now = _now_italy() if until is None else until
     paga = float(rules["paga_oraria"])
@@ -1451,6 +1463,7 @@ def compute_turni_dashboard(df_turni, rules):
     current_turno = ""
     current_shift_date = ""
     current_shift_end = None
+    current_rate_change_at = None
     next_shift_start = None
     next_shift_label = "—"
     work_days_done = 0
@@ -1485,6 +1498,7 @@ def compute_turni_dashboard(df_turni, rules):
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
                 current_shift_end = end
+                current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
                 expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
 
@@ -1519,6 +1533,7 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_date": current_shift_date,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
+        "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
         "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
         "next_shift_label": next_shift_label,
         "work_days_done": work_days_done,
@@ -1759,6 +1774,7 @@ def render_live_turni_kpis(stats):
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
     status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
+    current_rate_change_at = stats.get("current_rate_change_at", "")
     next_shift_start = stats.get("next_shift_start", "")
     next_shift_label = str(stats.get("next_shift_label", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     work_days_done = int(stats.get("work_days_done", 0))
@@ -1848,6 +1864,7 @@ def render_live_turni_kpis(stats):
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
       const shiftEnd = {json.dumps(current_shift_end)};
+      const rateChangeAt = {json.dumps(current_rate_change_at)};
       const nextShiftStart = {json.dumps(next_shift_start)};
       const nextShiftLabel = {json.dumps(next_shift_label)};
       const isInitiallyOnShift = {json.dumps(is_on_shift)};
@@ -1858,6 +1875,7 @@ def render_live_turni_kpis(stats):
       const rateEl = document.getElementById("turni-rate-min");
       const shiftEl = document.getElementById("turni-shift-label");
       const hoursLeftEl = document.getElementById("turni-hours-left");
+      let refreshQueued = false;
 
       function money(value) {{
         return new Intl.NumberFormat("it-IT", {{
@@ -1892,6 +1910,8 @@ def render_live_turni_kpis(stats):
       }}
 
       function refreshParentSoon() {{
+        if (refreshQueued) return;
+        refreshQueued = true;
         setTimeout(() => {{
           try {{
             window.parent.location.reload();
@@ -1903,6 +1923,7 @@ def render_live_turni_kpis(stats):
 
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
+        const rateChanged = rateChangeAt && Date.now() >= Date.parse(rateChangeAt);
         const shouldStart = !isInitiallyOnShift && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
@@ -1912,6 +1933,11 @@ def render_live_turni_kpis(stats):
           shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
         }}
         if (shouldStart) {{
+          refreshParentSoon();
+          return;
+        }}
+        if (rateChanged) {{
+          hoursLeftEl.textContent = "Aggiorno fascia turno...";
           refreshParentSoon();
           return;
         }}
