@@ -1466,6 +1466,11 @@ def compute_turni_dashboard(df_turni, rules):
     current_rate_change_at = None
     next_shift_start = None
     next_shift_label = "—"
+    next_shift_total = 0.0
+    last_shift_end = None
+    last_shift_label = "—"
+    last_shift_total = 0.0
+    turno_kpi_label = "Turno — live / totale turno"
     work_days_done = 0
     work_days_total = 0
     ferie_days_total = 0
@@ -1492,7 +1497,7 @@ def compute_turni_dashboard(df_turni, rules):
             calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
-            if turno not in ["Ferie", "Riposo"] and start <= now <= end:
+            if turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_turno = turno
@@ -1512,9 +1517,19 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
+            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+        if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
+            last_shift_end = end
+            last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
+            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
         if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
+
+    if current_shift_end is None:
+        live_today = last_shift_total
+        expected_today = next_shift_total
+        turno_kpi_label = "Ultimo / prossimo turno"
 
     live_month += rules["quota_fissa_mensile"]
     payslip_estimate = rules["quota_fissa_mensile"] + current_base_full + prev_extras
@@ -1531,6 +1546,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift": current_shift,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
+        "turno_kpi_label": turno_kpi_label,
+        "last_shift_label": last_shift_label,
         "is_on_shift": bool(current_shift_end),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
         "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
@@ -1769,6 +1786,7 @@ def render_live_turni_kpis(stats):
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     is_on_shift = bool(stats.get("is_on_shift", False))
     status_color = "#22c55e" if is_on_shift else "#64748b"
     status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
@@ -1790,7 +1808,7 @@ def render_live_turni_kpis(stats):
         <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-        <div class="kpi-label">Turno — live / totale turno</div>
+        <div class="kpi-label">{turno_kpi_label}</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
         <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
       </div>
