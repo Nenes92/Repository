@@ -454,7 +454,7 @@ hr {
     border-radius: 14px;
     padding: 12px 14px 10px;
     margin-top: 0;
-    min-height: 132px;
+    min-height: 106px;
 }
 .budget-memory-title {
     font-size: 12px;
@@ -812,15 +812,19 @@ def _normalize_spese_fisse_df(df):
 def load_spese_fisse_settings():
     if "spese_fisse_settings" not in st.session_state:
         df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
-        settings = SPESE["Fisse"].copy()
-        metadata = {
-            voce: {
-                "Categoria": _infer_spesa_fissa_categoria(voce),
-                "Carta": _infer_spesa_fissa_carta(voce),
-                "Gruppo": _infer_spesa_fissa_gruppo(voce),
+        if df.empty:
+            settings = SPESE["Fisse"].copy()
+            metadata = {
+                voce: {
+                    "Categoria": _infer_spesa_fissa_categoria(voce),
+                    "Carta": _infer_spesa_fissa_carta(voce),
+                    "Gruppo": _infer_spesa_fissa_gruppo(voce),
+                }
+                for voce in settings
             }
-            for voce in settings
-        }
+        else:
+            settings = {}
+            metadata = {}
         for _, row in df.iterrows():
             voce = row["Voce"]
             if voce:
@@ -880,7 +884,7 @@ def _normalize_voce_importo_df(df, headers):
 def load_altre_entrate_settings():
     if "altre_entrate_settings" not in st.session_state:
         df = _normalize_voce_importo_df(load_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS), ALTRE_ENTRATE_HEADERS)
-        settings = ALTRE_ENTRATE.copy()
+        settings = ALTRE_ENTRATE.copy() if df.empty else {}
         for _, row in df.iterrows():
             voce = row["Voce"]
             if voce:
@@ -1116,8 +1120,23 @@ st.markdown("""
 }
 .turni-calendar-wrap [data-testid="stButton"] button p {
     white-space: nowrap !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     line-height: 1 !important;
+    text-align: center !important;
+    width: 100%;
+    color: #d8dee9 !important;
+    font-weight: 650 !important;
+}
+.turni-calendar-wrap [data-testid="stButton"] button p strong {
+    font-size: 21px !important;
+    font-weight: 1000 !important;
+    letter-spacing: 0 !important;
+    filter: saturate(1.8) brightness(1.35);
+    text-shadow:
+        0 0 1px currentColor,
+        0 0 8px currentColor,
+        0 0 14px rgba(255,255,255,0.30),
+        0 1px 1px rgba(0,0,0,0.75);
 }
 .turni-card-small {
     background: rgba(255,255,255,0.045);
@@ -1462,6 +1481,7 @@ def compute_turni_dashboard(df_turni, rules):
     current_shift = "—"
     current_turno = ""
     current_shift_date = ""
+    current_shift_start_date = ""
     current_shift_end = None
     current_rate_change_at = None
     next_shift_start = None
@@ -1502,6 +1522,7 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
+                current_shift_start_date = data
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
@@ -1546,6 +1567,7 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift": current_shift,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
+        "current_shift_start_date": current_shift_start_date,
         "turno_kpi_label": turno_kpi_label,
         "last_shift_label": last_shift_label,
         "is_on_shift": bool(current_shift_end),
@@ -1563,13 +1585,13 @@ def compute_turni_dashboard(df_turni, rules):
 
 def _turno_color_info(turno):
     mapping = {
-        "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa"},
-        "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c"},
-        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b"},
-        "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399"},
-        "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1"},
+        "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa", "md_color": "blue"},
+        "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c", "md_color": "orange"},
+        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b", "md_color": "grey"},
+        "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399", "md_color": "green"},
+        "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1", "md_color": "gray"},
     }
-    return mapping.get(str(turno), {"emoji": "—", "short": "—", "class": "", "color": "rgba(255,255,255,0.45)"})
+    return mapping.get(str(turno), {"emoji": "—", "short": "—", "class": "", "color": "rgba(255,255,255,0.45)", "md_color": "gray"})
 
 
 def _segmenti_turno(data_str, turno, forced_festivo):
@@ -1999,6 +2021,7 @@ def render_turni_guadagni_section():
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     stats = compute_turni_dashboard(df_turni, rules)
+    current_work_day = stats.get("current_shift_start_date", "") if stats.get("is_on_shift", False) else ""
 
     render_live_turni_kpis(stats)
 
@@ -2045,13 +2068,15 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = (
                         day.weekday() == 6
                         or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
                         or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                    if day_str == current_work_day:
+                        day_label = f":orange[•] {day_label}"
                     clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                     if clicked_day:
                         if festivo_manual:
@@ -2063,12 +2088,22 @@ def render_turni_guadagni_section():
                                 "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
                                 "Festivo": nuovo_festivo
                             }])], ignore_index=True)
-                            set_turni_draft(df_new)
-                            st.rerun()
+                            df_new = _normalize_turni_df(df_new)
+                            st.session_state.turni_df_draft = df_new.copy()
+                            if save_turni_data(df_new):
+                                st.session_state.turni_dirty = False
+                                st.rerun()
+                            else:
+                                st.session_state.turni_dirty = True
+                                st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
 
             st.markdown("""
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
-              <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span style="color:#ef4444;">Numero rosso = festivo</span>
+              <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
+              <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
+              <span style="border-bottom:4px solid #64748b;">Notte</span>
+              <span style="border-bottom:4px solid #34d399;">Ferie</span>
+              <span style="color:#ef4444;">Numero rosso = festivo</span>
             </div>
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
@@ -2155,21 +2190,8 @@ def render_turni_guadagni_section():
                 </script>
                 """, height=370)
 
-        st.markdown("---")
         if st.session_state.get("turni_dirty", False):
-            st.warning("Modifiche manuali ai turni/festivi non ancora salvate su Google Sheets.")
-        save_col, reload_col = st.columns(2)
-        with save_col:
-            if st.button("💾 Salva modifiche turni su Google Sheets", use_container_width=True, key="turni_save_all"):
-                if save_turni_data(st.session_state.turni_df_draft):
-                    st.success("Turni salvati su Google Sheets")
-                    st.rerun()
-                else:
-                    st.error("Errore nel salvataggio turni")
-        with reload_col:
-            if st.button("🔄 Ricarica turni da Google Sheets", use_container_width=True, key="turni_reload_sheet"):
-                load_turni_data(force_reload=True)
-                st.rerun()
+            st.warning("Festivo manuale modificato in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
         c1, c2 = st.columns(2)
@@ -2199,7 +2221,7 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
 
         st.session_state.turni_rules = rules
-        st.caption("Le regole sono salvate nella sessione Streamlit. I turni restano in bozza mentre clicchi i giorni e vengono scritti su Google Sheets solo quando premi 'Salva modifiche turni'.")
+        st.caption("Le regole sono salvate nella sessione Streamlit. I turni arrivano da Google Calendar; il festivo manuale viene salvato subito su Google Sheets quando lo modifichi.")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -2223,8 +2245,9 @@ def main():
         st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
-        st.markdown('<div class="salary-input-label">Budget da stipendio</div>', unsafe_allow_html=True)
+        st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
         budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
+        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto va nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -2264,7 +2287,7 @@ def main():
                 <div class="kpi-label">Budget mensile disponibile</div>
                 <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
                 <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Budget da stipendio + altre entrate
+                    Quota stipendio scelta + altre entrate
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2386,25 +2409,18 @@ textarea {
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
                 gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
-                altre_per_budget_ideale = max(0, budget_disponibile_target - budget_da_stipendio)
-                altre_per_entrate_ideali = max(0, entrate_totali_target - stipendio_percepito)
-                budget_da_stipendio_target = max(0, budget_disponibile_target - altre_entrate_totali)
-                stipendio_percepito_target = max(0, entrate_totali_target - altre_entrate_totali)
                 budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
                 entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                 st.markdown(f"""
                 <div class="budget-memory-card">
                     <div class="budget-memory-title">Promemoria budget</div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target dinamico €{budget_disponibile_target:,.0f}</span></div>
+                        <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
                         <div class="budget-memory-value">{budget_status}</div>
                     </div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">target stipendio percepito €{stipendio_percepito_target:,.0f}</span></div>
+                        <div class="budget-memory-label">Entrate mensili totali desiderate<br><span style="color:rgba(255,255,255,.42);">target €{entrate_totali_target:,.0f} · per risparmiare €{risparmio_desiderato_corrente:,.0f}</span></div>
                         <div class="budget-memory-value">{entrate_status}</div>
-                    </div>
-                    <div class="budget-memory-note">
-                        Copre Da spendere €{limite_da_spendere:,.0f} e Spese quotidiane €{max_spese_quotidiane:,.0f}. Con €{altre_entrate_totali:,.2f} di altre entrate: budget da stipendio target €{budget_da_stipendio_target:,.2f}. Il risparmio desiderato e €{risparmio_desiderato_corrente:,.2f}; le variabili ne generano gia circa €{risparmio_auto_variabili_target:,.2f}.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -3264,7 +3280,7 @@ textarea {
             v4 = risparmio_spese_quotidiane_calc
             
             html_risparmi = ""
-            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e budget da stipendio")
+            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
             html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
             html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
             html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
