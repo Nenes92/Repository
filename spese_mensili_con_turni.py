@@ -2047,7 +2047,7 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" {info['short']}\n:{info['md_color']}[━━━━]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f" {info['short']}\n:{info['md_color']}[▬▬▬]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = (
                         day.weekday() == 6
                         or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
