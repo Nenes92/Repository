@@ -2325,16 +2325,56 @@ textarea {
     color: #cbd5e1 !important;
     font-weight: 800 !important;
 }
+
+.memo-card {
+    min-height: 118px;
+    border-radius: 12px;
+    padding: 12px 13px;
+    margin: 0 0 8px;
+    background:
+        linear-gradient(135deg, rgba(255,241,118,.20), rgba(255,241,118,.10)),
+        rgba(255,255,255,.035);
+    border: 0.5px solid rgba(255,241,118,.28);
+    box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+
+.memo-card-title {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #fde68a;
+    margin-bottom: 7px;
+}
+
+.memo-card-preview {
+    min-height: 62px;
+    color: rgba(255,255,255,.78);
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+}
+
+.memo-card-empty {
+    color: rgba(255,255,255,.38);
+    font-style: italic;
+}
             </style>
             """, unsafe_allow_html=True)
         
             # ───────── CONFIG ─────────
             NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4", "budget_ideale", "risparmio_desiderato"]
-            worksheet_name = "Note"
+            worksheet_name = "Note e Obiettivo"
+            legacy_worksheet_name = "Note"
 
             if "note_df_draft" not in st.session_state:
                 df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
                 note_loaded_from_sheet = not df_note.empty
+                if df_note.empty:
+                    legacy_df_note = load_data_gsheets(legacy_worksheet_name, NOTE_HEADERS)
+                    if not legacy_df_note.empty:
+                        df_note = legacy_df_note.copy()
+                        note_loaded_from_sheet = True
                 if "testo" in df_note.columns and "nota1" not in df_note.columns:
                     df_note["nota1"] = df_note["testo"]
                 for col in NOTE_HEADERS:
@@ -3247,23 +3287,42 @@ textarea {
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
         with col_vuoto_b:
-            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.08, 0.84, 0.08], gap="small")
+            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
             with note_wrap:
                 st.markdown('<div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
+
+                def _memo_card(label, value):
+                    raw_text = str(value or "").strip()
+                    if raw_text:
+                        preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
+                        preview_html = html.escape(preview)
+                    else:
+                        preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
+                    return f"""
+                    <div class="memo-card">
+                        <div class="memo-card-title">{html.escape(label)}</div>
+                        <div class="memo-card-preview">{preview_html}</div>
+                    </div>
+                    """
+
                 n1, n2 = st.columns(2, gap="small")
                 with n1:
-                    with st.popover("Nota 1", use_container_width=True):
-                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=320, label_visibility="collapsed", key="nota1_text")
+                    st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 1", use_container_width=True):
+                        nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
                 with n2:
-                    with st.popover("Nota 2", use_container_width=True):
-                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=320, label_visibility="collapsed", key="nota2_text")
+                    st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 2", use_container_width=True):
+                        nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
                 n3, n4 = st.columns(2, gap="small")
                 with n3:
-                    with st.popover("Nota 3", use_container_width=True):
-                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=320, label_visibility="collapsed", key="nota3_text")
+                    st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 3", use_container_width=True):
+                        nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
                 with n4:
-                    with st.popover("Nota 4", use_container_width=True):
-                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=320, label_visibility="collapsed", key="nota4_text")
+                    st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 4", use_container_width=True):
+                        nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
 
                 salva = st.button(
                     "💾 Salva note",
