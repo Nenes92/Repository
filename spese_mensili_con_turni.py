@@ -1121,6 +1121,12 @@ st.markdown("""
     text-align: center !important;
     width: 100%;
 }
+.turni-calendar-wrap [data-testid="stButton"] button p strong {
+    font-size: 19px !important;
+    font-weight: 950 !important;
+    letter-spacing: 0 !important;
+    text-shadow: 0 0 8px rgba(255,255,255,0.24), 0 1px 1px rgba(0,0,0,0.45);
+}
 .turni-card-small {
     background: rgba(255,255,255,0.045);
     border: 0.5px solid rgba(255,255,255,0.10);
