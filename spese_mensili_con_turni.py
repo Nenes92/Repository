@@ -2247,7 +2247,7 @@ def main():
     with col_stip_inserimento2:
         st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
         budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
-        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto va nei risparmi.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -2364,17 +2364,11 @@ textarea {
         
             # ───────── CONFIG ─────────
             NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4", "budget_ideale", "risparmio_desiderato"]
-            worksheet_name = "Note e Obiettivo"
-            legacy_worksheet_name = "Note"
+            worksheet_name = "Note e Obiettivo risparmio mensile"
 
             if "note_df_draft" not in st.session_state:
                 df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
                 note_loaded_from_sheet = not df_note.empty
-                if df_note.empty:
-                    legacy_df_note = load_data_gsheets(legacy_worksheet_name, NOTE_HEADERS)
-                    if not legacy_df_note.empty:
-                        df_note = legacy_df_note.copy()
-                        note_loaded_from_sheet = True
                 if "testo" in df_note.columns and "nota1" not in df_note.columns:
                     df_note["nota1"] = df_note["testo"]
                 for col in NOTE_HEADERS:
@@ -2437,7 +2431,7 @@ textarea {
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.54, 1.10], gap="small")
+            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.36, 1.28], gap="small")
             with budget_card_col:
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
