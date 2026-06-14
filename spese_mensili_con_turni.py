@@ -562,7 +562,7 @@ LAYOUT_COLONNE = {
     "altre_entrate_kpi_grafico": [1.10, 1.90],
     "destra_risparmi_carte": [1.00, 1.00],
     "risparmi_kpi_grafico": [1.18, 1.12],
-    "dettaglio_spese_fisse": [0.07, 0.50, 1.00, 0.10],
+    "dettaglio_spese_fisse": [0.07, 0.42, 0.62, 0.90],
     "storico_form_chart": [1, 1, 2],
     "storico_tabella_grafico": [1.3, 3],
     "storico_kpi": [1.3, 1, 1],
@@ -2311,7 +2311,7 @@ textarea {
     border: 0.5px solid rgba(255, 241, 118, 0.35) !important;
     color: #fde68a !important;
     border-radius: 10px !important;
-    min-height: 42px;
+    min-height: 34px;
     width: 100%;
 }
             </style>
@@ -2379,22 +2379,22 @@ textarea {
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            promemoria_col, note_col = st.columns([1.28, 1.00], gap="small")
+            promemoria_col, note_col, promemoria_spacer = st.columns([0.82, 0.62, 0.95], gap="small")
             with note_col:
                 n1, n2 = st.columns(2, gap="small")
                 with n1:
                     with st.popover("Nota 1", use_container_width=True):
-                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=180, label_visibility="collapsed", key="nota1_text")
+                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=140, label_visibility="collapsed", key="nota1_text")
                 with n2:
                     with st.popover("Nota 2", use_container_width=True):
-                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=180, label_visibility="collapsed", key="nota2_text")
+                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=140, label_visibility="collapsed", key="nota2_text")
                 n3, n4 = st.columns(2, gap="small")
                 with n3:
                     with st.popover("Nota 3", use_container_width=True):
-                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=180, label_visibility="collapsed", key="nota3_text")
+                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=140, label_visibility="collapsed", key="nota3_text")
                 with n4:
                     with st.popover("Nota 4", use_container_width=True):
-                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=180, label_visibility="collapsed", key="nota4_text")
+                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=140, label_visibility="collapsed", key="nota4_text")
 
             with promemoria_col:
                 with st.popover("⚙️ Obiettivi", use_container_width=True):
@@ -2426,8 +2426,8 @@ textarea {
                 """, unsafe_allow_html=True)
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
-            salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
-            with salva_col:
+            salva_area, salva_spacer = st.columns([0.58, 1.00], gap="small")
+            with salva_area:
                 salva = st.button(
                     "💾 Salva note e obiettivi",
                     use_container_width=True,
