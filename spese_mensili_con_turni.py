@@ -1111,13 +1111,15 @@ st.markdown("""
     font-size: 11px !important;
 }
 .turni-calendar-wrap [data-testid="stButton"] button {
-    min-height: 36px !important;
-    padding: 6px 6px !important;
+    min-height: 42px !important;
+    padding: 5px 6px !important;
 }
 .turni-calendar-wrap [data-testid="stButton"] button p {
-    white-space: nowrap !important;
+    white-space: pre-line !important;
     font-size: 13px !important;
-    line-height: 1 !important;
+    line-height: 1.12 !important;
+    text-align: center !important;
+    width: 100%;
 }
 .turni-card-small {
     background: rgba(255,255,255,0.045);
@@ -1563,13 +1565,13 @@ def compute_turni_dashboard(df_turni, rules):
 
 def _turno_color_info(turno):
     mapping = {
-        "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa"},
-        "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c"},
-        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b"},
-        "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399"},
-        "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1"},
+        "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa", "md_color": "blue"},
+        "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c", "md_color": "orange"},
+        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b", "md_color": "gray"},
+        "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399", "md_color": "green"},
+        "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1", "md_color": "gray"},
     }
-    return mapping.get(str(turno), {"emoji": "—", "short": "—", "class": "", "color": "rgba(255,255,255,0.45)"})
+    return mapping.get(str(turno), {"emoji": "—", "short": "—", "class": "", "color": "rgba(255,255,255,0.45)", "md_color": "gray"})
 
 
 def _segmenti_turno(data_str, turno, forced_festivo):
@@ -2045,7 +2047,7 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f"  {info['emoji']} {info['short']}" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f" {info['short']}\n:{info['md_color']}[━━━━]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = (
                         day.weekday() == 6
                         or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
@@ -2068,7 +2070,11 @@ def render_turni_guadagni_section():
 
             st.markdown("""
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
-              <span>🔵 Mattina</span><span>🟠 Pomeriggio</span><span>⚫ Notte</span><span>🟢 Ferie</span><span style="color:#ef4444;">Numero rosso = festivo</span>
+              <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
+              <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
+              <span style="border-bottom:4px solid #64748b;">Notte</span>
+              <span style="border-bottom:4px solid #34d399;">Ferie</span>
+              <span style="color:#ef4444;">Numero rosso = festivo</span>
             </div>
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
