@@ -2243,8 +2243,9 @@ def main():
         st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
-        st.markdown('<div class="salary-input-label">Budget da stipendio</div>', unsafe_allow_html=True)
+        st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
         budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
+        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto va nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -2284,7 +2285,7 @@ def main():
                 <div class="kpi-label">Budget mensile disponibile</div>
                 <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
                 <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Budget da stipendio + altre entrate
+                    Quota stipendio scelta + altre entrate
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2412,7 +2413,7 @@ textarea {
                 <div class="budget-memory-card">
                     <div class="budget-memory-title">Promemoria budget</div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget mensile disponibile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
+                        <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
                         <div class="budget-memory-value">{budget_status}</div>
                     </div>
                     <div class="budget-memory-row">
@@ -3277,7 +3278,7 @@ textarea {
             v4 = risparmio_spese_quotidiane_calc
             
             html_risparmi = ""
-            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e budget da stipendio")
+            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
             html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
             html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
             html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
