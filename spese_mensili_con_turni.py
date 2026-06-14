@@ -555,7 +555,7 @@ LAYOUT_COLONNE = {
     "turni_calendario_riepilogo": [1.55, 0.55],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
-    "spese_fisse_lista": [1, 1],
+    "spese_fisse_lista": [1, 1.1],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
