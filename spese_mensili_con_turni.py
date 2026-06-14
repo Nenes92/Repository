@@ -1124,6 +1124,8 @@ st.markdown("""
     line-height: 1 !important;
     text-align: center !important;
     width: 100%;
+    color: #d8dee9 !important;
+    font-weight: 650 !important;
 }
 .turni-calendar-wrap [data-testid="stButton"] button p strong {
     font-size: 21px !important;
@@ -1585,7 +1587,7 @@ def _turno_color_info(turno):
     mapping = {
         "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa", "md_color": "blue"},
         "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c", "md_color": "orange"},
-        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b", "md_color": "gray"},
+        "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b", "md_color": "grey"},
         "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399", "md_color": "green"},
         "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1", "md_color": "gray"},
     }
