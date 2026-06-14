@@ -812,15 +812,19 @@ def _normalize_spese_fisse_df(df):
 def load_spese_fisse_settings():
     if "spese_fisse_settings" not in st.session_state:
         df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
-        settings = SPESE["Fisse"].copy()
-        metadata = {
-            voce: {
-                "Categoria": _infer_spesa_fissa_categoria(voce),
-                "Carta": _infer_spesa_fissa_carta(voce),
-                "Gruppo": _infer_spesa_fissa_gruppo(voce),
+        if df.empty:
+            settings = SPESE["Fisse"].copy()
+            metadata = {
+                voce: {
+                    "Categoria": _infer_spesa_fissa_categoria(voce),
+                    "Carta": _infer_spesa_fissa_carta(voce),
+                    "Gruppo": _infer_spesa_fissa_gruppo(voce),
+                }
+                for voce in settings
             }
-            for voce in settings
-        }
+        else:
+            settings = {}
+            metadata = {}
         for _, row in df.iterrows():
             voce = row["Voce"]
             if voce:
@@ -1475,6 +1479,7 @@ def compute_turni_dashboard(df_turni, rules):
     current_shift = "—"
     current_turno = ""
     current_shift_date = ""
+    current_shift_start_date = ""
     current_shift_end = None
     current_rate_change_at = None
     next_shift_start = None
@@ -1515,6 +1520,7 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
+                current_shift_start_date = data
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
@@ -1559,6 +1565,7 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift": current_shift,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
+        "current_shift_start_date": current_shift_start_date,
         "turno_kpi_label": turno_kpi_label,
         "last_shift_label": last_shift_label,
         "is_on_shift": bool(current_shift_end),
@@ -2012,6 +2019,7 @@ def render_turni_guadagni_section():
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     stats = compute_turni_dashboard(df_turni, rules)
+    current_work_day = stats.get("current_shift_start_date", "") if stats.get("is_on_shift", False) else ""
 
     render_live_turni_kpis(stats)
 
@@ -2065,6 +2073,8 @@ def render_turni_guadagni_section():
                         or (not row.empty and bool(row.iloc[0]["Festivo"]))
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                    if day_str == current_work_day:
+                        day_label = f":orange[★] {day_label}"
                     clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                     if clicked_day:
                         if festivo_manual:
