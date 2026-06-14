@@ -1111,13 +1111,13 @@ st.markdown("""
     font-size: 11px !important;
 }
 .turni-calendar-wrap [data-testid="stButton"] button {
-    min-height: 42px !important;
-    padding: 5px 6px !important;
+    min-height: 36px !important;
+    padding: 6px 6px !important;
 }
 .turni-calendar-wrap [data-testid="stButton"] button p {
-    white-space: pre-line !important;
-    font-size: 13px !important;
-    line-height: 1.12 !important;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
     text-align: center !important;
     width: 100%;
 }
@@ -2047,7 +2047,7 @@ def render_turni_guadagni_section():
                     else:
                         turno_corrente = row.iloc[0]["Turno"]
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" {info['short']}\n:{info['md_color']}[▬▬▬]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
                     day_is_festive = (
                         day.weekday() == 6
                         or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
