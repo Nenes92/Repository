@@ -454,7 +454,7 @@ hr {
     border-radius: 14px;
     padding: 12px 14px 10px;
     margin-top: 0;
-    min-height: 132px;
+    min-height: 106px;
 }
 .budget-memory-title {
     font-size: 12px;
@@ -884,7 +884,7 @@ def _normalize_voce_importo_df(df, headers):
 def load_altre_entrate_settings():
     if "altre_entrate_settings" not in st.session_state:
         df = _normalize_voce_importo_df(load_data_gsheets(ALTRE_ENTRATE_WORKSHEET, ALTRE_ENTRATE_HEADERS), ALTRE_ENTRATE_HEADERS)
-        settings = ALTRE_ENTRATE.copy()
+        settings = ALTRE_ENTRATE.copy() if df.empty else {}
         for _, row in df.iterrows():
             voce = row["Voce"]
             if voce:
@@ -2074,7 +2074,7 @@ def render_turni_guadagni_section():
                     )
                     day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
                     if day_str == current_work_day:
-                        day_label = f":orange[★] {day_label}"
+                        day_label = f":orange[•] {day_label}"
                     clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                     if clicked_day:
                         if festivo_manual:
@@ -2406,25 +2406,18 @@ textarea {
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
                 gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
-                altre_per_budget_ideale = max(0, budget_disponibile_target - budget_da_stipendio)
-                altre_per_entrate_ideali = max(0, entrate_totali_target - stipendio_percepito)
-                budget_da_stipendio_target = max(0, budget_disponibile_target - altre_entrate_totali)
-                stipendio_percepito_target = max(0, entrate_totali_target - altre_entrate_totali)
                 budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
                 entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                 st.markdown(f"""
                 <div class="budget-memory-card">
                     <div class="budget-memory-title">Promemoria budget</div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget disponibile<br><span style="color:rgba(255,255,255,.42);">target dinamico €{budget_disponibile_target:,.0f}</span></div>
+                        <div class="budget-memory-label">Budget mensile disponibile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
                         <div class="budget-memory-value">{budget_status}</div>
                     </div>
                     <div class="budget-memory-row">
-                        <div class="budget-memory-label">Entrate richieste<br><span style="color:rgba(255,255,255,.42);">target stipendio percepito €{stipendio_percepito_target:,.0f}</span></div>
+                        <div class="budget-memory-label">Entrate mensili totali desiderate<br><span style="color:rgba(255,255,255,.42);">target €{entrate_totali_target:,.0f} · per risparmiare €{risparmio_desiderato_corrente:,.0f}</span></div>
                         <div class="budget-memory-value">{entrate_status}</div>
-                    </div>
-                    <div class="budget-memory-note">
-                        Copre Da spendere €{limite_da_spendere:,.0f} e Spese quotidiane €{max_spese_quotidiane:,.0f}. Con €{altre_entrate_totali:,.2f} di altre entrate: budget da stipendio target €{budget_da_stipendio_target:,.2f}. Il risparmio desiderato e €{risparmio_desiderato_corrente:,.2f}; le variabili ne generano gia circa €{risparmio_auto_variabili_target:,.2f}.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
