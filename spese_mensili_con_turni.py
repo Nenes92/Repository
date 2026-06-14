@@ -1479,6 +1479,7 @@ def compute_turni_dashboard(df_turni, rules):
     hours_live = 0.0
     rate_min = 0.0
     current_shift = "—"
+    current_shift_type = "—"
     current_turno = ""
     current_shift_date = ""
     current_shift_start_date = ""
@@ -1520,6 +1521,7 @@ def compute_turni_dashboard(df_turni, rules):
             if turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_shift_type = f"{turno} {'festivo' if _is_festive_at(now, festivo) else 'feriale'}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
                 current_shift_start_date = data
@@ -1565,6 +1567,7 @@ def compute_turni_dashboard(df_turni, rules):
         "hours_live": hours_live,
         "rate_min": rate_min,
         "current_shift": current_shift,
+        "current_shift_type": current_shift_type,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
         "current_shift_start_date": current_shift_start_date,
@@ -1806,6 +1809,7 @@ def render_live_turni_kpis(stats):
     payslip_estimate = _money_turni(stats["payslip_estimate"])
     expected_today = _money_turni(stats["expected_today"])
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_shift_type = str(stats.get("current_shift_type", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1833,6 +1837,7 @@ def render_live_turni_kpis(stats):
         <div class="kpi-label">{turno_kpi_label}</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
         <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
+        <div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
         <div class="kpi-label">Stato turno</div>
@@ -2324,6 +2329,7 @@ textarea {
 [data-testid="stExpander"] summary {
     color: #cbd5e1 !important;
     font-weight: 800 !important;
+    white-space: nowrap !important;
 }
 
 .memo-card {
@@ -2431,7 +2437,7 @@ textarea {
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.36, 1.28], gap="small")
+            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
             with budget_card_col:
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
