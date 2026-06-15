@@ -3761,7 +3761,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     
     barre = base_stack.mark_bar(opacity=0.8, size=18).encode(
         x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
-        y=alt.Y("lower:Q", title="Valore (€)"),
+        y=alt.Y("lower:Q", title="Bollette (€)"),
         y2="upper:Q",
         color=alt.Color("Categoria:N", scale=alt.Scale(
             domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
@@ -3829,7 +3829,7 @@ def crea_confronto_anno_su_anno_stipendi(data):
         x=alt.X("Mese_str:N", title="Mese",
                 sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
                 axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
-        y=alt.Y("Stipendio:Q", title="Stipendio (€)", aggregate="mean"),
+        y=alt.Y("Stipendio:Q", title="Stipendi (€)", aggregate="mean"),
         color=alt.Color("Anno:N", title="Anno"),
         tooltip=[alt.Tooltip("Anno:N", title="Anno"), alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", aggregate="mean", format=".2f")]
     ).properties(title="")
