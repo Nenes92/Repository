@@ -54,6 +54,17 @@ def get_gsheet_client():
     except Exception as e:
         return None
 
+
+@st.cache_resource
+def get_gsheet_spreadsheet():
+    client = get_gsheet_client()
+    if not client:
+        return None
+    try:
+        return client.open_by_url(SHEET_URL)
+    except Exception:
+        return None
+
 GSHEETS_CACHE_TTL_SECONDS = 1800
 GSHEETS_BACKOFF_SECONDS = 90
 GSHEETS_BACKOFF_LABEL = "circa 90 secondi"
@@ -94,7 +105,9 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
     if cached_worksheet is not None:
         return cached_worksheet
     try:
-        spreadsheet = client.open_by_url(sheet_url)
+        spreadsheet = get_gsheet_spreadsheet()
+        if spreadsheet is None:
+            spreadsheet = client.open_by_url(sheet_url)
         try:
             worksheet = spreadsheet.worksheet(worksheet_name)
         except gspread.WorksheetNotFound:
@@ -551,23 +564,23 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [0.92, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "dashboard_principale": [1, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
     "turni_calendario_riepilogo": [1.55, 0.55],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
-    "spese_fisse_lista": [1, 1],
+    "spese_fisse_lista": [1, 1.1],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
     "altre_entrate_kpi_grafico": [1.10, 1.90],
-    "destra_risparmi_carte": [1.00, 1.00],
+    "destra_risparmi_carte": [1.60, 1.00],
     "risparmi_kpi_grafico": [1.18, 1.12],
-    "dettaglio_spese_fisse": [0.07, 0.50, 1.00, 0.10],
+    "dettaglio_spese_fisse": [0.07, 0.42, 0.62, 0.90],
     "storico_form_chart": [1, 1, 2],
-    "storico_tabella_grafico": [1.3, 3],
+    "storico_tabella_grafico": [1.1, 3],
     "storico_kpi": [1.3, 1, 1],
     "bollette_form_chart": [1, 1, 2],
-    "bollette_tabella_grafico": [1, 3],
+    "bollette_tabella_grafico": [1, 3.3],
     "form_nome_importo": [1.4, 0.8],
     "bottone_salva_note": [3, 1],
 }
@@ -1479,6 +1492,7 @@ def compute_turni_dashboard(df_turni, rules):
     hours_live = 0.0
     rate_min = 0.0
     current_shift = "—"
+    current_shift_type = "—"
     current_turno = ""
     current_shift_date = ""
     current_shift_start_date = ""
@@ -1520,6 +1534,7 @@ def compute_turni_dashboard(df_turni, rules):
             if turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_shift_type = f"{turno} {'festivo' if _is_festive_at(now, festivo) else 'feriale'}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
                 current_shift_start_date = data
@@ -1565,6 +1580,7 @@ def compute_turni_dashboard(df_turni, rules):
         "hours_live": hours_live,
         "rate_min": rate_min,
         "current_shift": current_shift,
+        "current_shift_type": current_shift_type,
         "current_turno": current_turno,
         "current_shift_date": current_shift_date,
         "current_shift_start_date": current_shift_start_date,
@@ -1802,10 +1818,12 @@ def render_live_turni_kpis(stats):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
+    rate_hour = rate_min * 60
     rate_sec = rate_min / 60
     payslip_estimate = _money_turni(stats["payslip_estimate"])
     expected_today = _money_turni(stats["expected_today"])
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    current_shift_type = str(stats.get("current_shift_type", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1833,6 +1851,7 @@ def render_live_turni_kpis(stats):
         <div class="kpi-label">{turno_kpi_label}</div>
         <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
         <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
+        <div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>
       </div>
       <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
         <div class="kpi-label">Stato turno</div>
@@ -1840,7 +1859,10 @@ def render_live_turni_kpis(stats):
           <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
           <span id="turni-status-text">{status_text}</span>
         </div>
-        <div id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
+        <div class="turni-rate-row">
+          <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
+          <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
+        </div>
         <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
       </div>
     </div>
@@ -1892,6 +1914,12 @@ def render_live_turni_kpis(stats):
         height: 10px;
         border-radius: 999px;
       }}
+      .turni-rate-row {{
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }}
       .turni-subline {{
         font-size: 12px;
         color: rgba(255,255,255,0.42);
@@ -1913,6 +1941,7 @@ def render_live_turni_kpis(stats):
       const dotEl = document.getElementById("turni-status-dot");
       const statusEl = document.getElementById("turni-status-text");
       const rateEl = document.getElementById("turni-rate-min");
+      const rateHourEl = document.getElementById("turni-rate-hour");
       const shiftEl = document.getElementById("turni-shift-label");
       const hoursLeftEl = document.getElementById("turni-hours-left");
       let refreshQueued = false;
@@ -1985,7 +2014,8 @@ def render_live_turni_kpis(stats):
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
-          rateEl.textContent = "0.000 €/min";
+          rateEl.textContent = "0.00 €/min";
+          rateHourEl.textContent = "0.00 €/h";
           shiftEl.textContent = "—";
           hoursLeftEl.textContent = "Aggiorno stato turno...";
           refreshParentSoon();
@@ -2246,8 +2276,16 @@ def main():
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
         st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
-        budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
-        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto va nei risparmi.</div>', unsafe_allow_html=True)
+        budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+        budget_da_stipendio = st.number_input(
+            "Inserisci la parte dello stipendio che scegli di usare:",
+            min_value=0.0,
+            max_value=float(stipendio_percepito),
+            value=budget_da_stipendio_default,
+            step=50.0,
+            label_visibility="collapsed"
+        )
+        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -2311,15 +2349,61 @@ textarea {
     border: 0.5px solid rgba(255, 241, 118, 0.35) !important;
     color: #fde68a !important;
     border-radius: 10px !important;
-    min-height: 42px;
+    min-height: 46px;
     width: 100%;
+}
+
+[data-testid="stExpander"] details {
+    background: rgba(148,163,184,.10) !important;
+    border: 0.5px solid rgba(148,163,184,.28) !important;
+    border-radius: 10px !important;
+}
+
+[data-testid="stExpander"] summary {
+    color: #cbd5e1 !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+}
+
+.memo-card {
+    min-height: 118px;
+    border-radius: 12px;
+    padding: 12px 13px;
+    margin: 0 0 8px;
+    background:
+        linear-gradient(135deg, rgba(255,241,118,.20), rgba(255,241,118,.10)),
+        rgba(255,255,255,.035);
+    border: 0.5px solid rgba(255,241,118,.28);
+    box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+
+.memo-card-title {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #fde68a;
+    margin-bottom: 7px;
+}
+
+.memo-card-preview {
+    min-height: 62px;
+    color: rgba(255,255,255,.78);
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+}
+
+.memo-card-empty {
+    color: rgba(255,255,255,.38);
+    font-style: italic;
 }
             </style>
             """, unsafe_allow_html=True)
         
             # ───────── CONFIG ─────────
             NOTE_HEADERS = ["id", "nota1", "nota2", "nota3", "nota4", "budget_ideale", "risparmio_desiderato"]
-            worksheet_name = "Note"
+            worksheet_name = "Note e Obiettivo risparmio mensile"
 
             if "note_df_draft" not in st.session_state:
                 df_note = load_data_gsheets(worksheet_name, NOTE_HEADERS)
@@ -2368,44 +2452,26 @@ textarea {
                     return float(value)
                 except (TypeError, ValueError):
                     return float(default)
+
+            def _build_note_df(nota1_value, nota2_value, nota3_value, nota4_value, risparmio_value):
+                return pd.DataFrame([{
+                    "id": 1,
+                    "nota1": nota1_value,
+                    "nota2": nota2_value,
+                    "nota3": nota3_value,
+                    "nota4": nota4_value,
+                    "budget_ideale": budget_disponibile_target,
+                    "risparmio_desiderato": risparmio_value
+                }])
         
-            # ───────── UI ─────────
-            st.markdown(
-                '<div class="section-pill">📝 Promemoria</div>',
-                unsafe_allow_html=True
-            )
+            # ───────── UI BUDGET ─────────
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
             target_budget = calcola_target_budget_dinamico(sum(SPESE["Fisse"].values()))
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            promemoria_col, note_col = st.columns([1.28, 1.00], gap="small")
-            with note_col:
-                n1, n2 = st.columns(2, gap="small")
-                with n1:
-                    with st.popover("Nota 1", use_container_width=True):
-                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=180, label_visibility="collapsed", key="nota1_text")
-                with n2:
-                    with st.popover("Nota 2", use_container_width=True):
-                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=180, label_visibility="collapsed", key="nota2_text")
-                n3, n4 = st.columns(2, gap="small")
-                with n3:
-                    with st.popover("Nota 3", use_container_width=True):
-                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=180, label_visibility="collapsed", key="nota3_text")
-                with n4:
-                    with st.popover("Nota 4", use_container_width=True):
-                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=180, label_visibility="collapsed", key="nota4_text")
-
-            with promemoria_col:
-                with st.popover("⚙️ Obiettivi", use_container_width=True):
-                    risparmio_desiderato_corrente = st.number_input(
-                        "Risparmio desiderato",
-                        min_value=0.0,
-                        value=float(risparmio_desiderato_corrente),
-                        step=25.0,
-                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
-                        key="risparmio_desiderato_promemoria"
-                    )
+            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
+            with budget_card_col:
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
                 gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
@@ -2424,46 +2490,39 @@ textarea {
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+            with obiettivi_col:
+                with st.expander("Obiettivo risparmi", expanded=False):
+                    risparmio_desiderato_corrente = st.number_input(
+                        "Risparmio desiderato",
+                        min_value=0.0,
+                        value=float(risparmio_desiderato_corrente),
+                        step=25.0,
+                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
+                        key="risparmio_desiderato_promemoria"
+                    )
+                    salva_obiettivo = st.button(
+                        "💾 Salva obiettivo",
+                        use_container_width=True,
+                        key="save_obiettivo_risparmi",
+                        disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                    )
+                    if salva_obiettivo:
+                        df_note = _build_note_df(
+                            _nota_value("nota1"),
+                            _nota_value("nota2"),
+                            _nota_value("nota3"),
+                            _nota_value("nota4"),
+                            risparmio_desiderato_corrente
+                        )
+                        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                            st.session_state.note_df_draft = df_note.copy()
+                            st.session_state.note_loaded_from_sheet = True
+                            st.success("Obiettivo salvato")
+                        else:
+                            st.error("Errore salvataggio obiettivo")
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
-            salva_spacer, salva_col = st.columns(LAYOUT_COLONNE["bottone_salva_note"])
-            with salva_col:
-                salva = st.button(
-                    "💾 Salva note e obiettivi",
-                    use_container_width=True,
-                    key="save_promemoria",
-                    disabled=not st.session_state.get("note_loaded_from_sheet", True)
-                )
-            # ───────── SALVATAGGIO ─────────
-            if salva:
-                note_values = [nota1, nota2, nota3, nota4]
-                all_notes_empty = all(not str(value).strip() for value in note_values)
-                previous_values = [
-                    _nota_value("nota1"),
-                    _nota_value("nota2"),
-                    _nota_value("nota3"),
-                    _nota_value("nota4"),
-                ]
-                previous_had_content = any(value.strip() for value in previous_values)
-                if all_notes_empty and previous_had_content:
-                    st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
-                    st.stop()
-                df_note = pd.DataFrame([{
-                    "id": 1,
-                    "nota1": nota1,
-                    "nota2": nota2,
-                    "nota3": nota3,
-                    "nota4": nota4,
-                    "budget_ideale": budget_disponibile_target,
-                    "risparmio_desiderato": risparmio_desiderato_corrente
-                }])
-                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                    st.session_state.note_df_draft = df_note.copy()
-                    st.session_state.note_loaded_from_sheet = True
-                    st.success("Note e obiettivi salvati")
-                else:
-                    st.error("Errore salvataggio")
-            #FINE CREAZIONE NOTA
+            # Le note vengono mostrate piu sotto, accanto al dettaglio spese fisse.
 
     spese_fisse_totali = sum(SPESE["Fisse"].values())
     risparmiabili = stipendio - spese_fisse_totali
@@ -3035,6 +3094,7 @@ textarea {
     # --- COLONNA 3: ALTRE ENTRATE ---
         with col2_right:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
             tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
 
             with tab_altre_decisioni:
@@ -3087,7 +3147,6 @@ textarea {
                 _ae = f"€{totale_altre:.2f}"
 
                 with col_altre_entrate_sx:
-                    st.markdown('<div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                     st.subheader("Altre Entrate:")
                     altre_entrate_colori = {
                         "Macchina (Mamma)": "#E6C48C",
@@ -3260,6 +3319,70 @@ textarea {
                 """)
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
+        with col_vuoto_b:
+            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
+            with note_wrap:
+                st.markdown('<div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
+
+                def _memo_card(label, value):
+                    raw_text = str(value or "").strip()
+                    if raw_text:
+                        preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
+                        preview_html = html.escape(preview)
+                    else:
+                        preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
+                    return f"""
+                    <div class="memo-card">
+                        <div class="memo-card-title">{html.escape(label)}</div>
+                        <div class="memo-card-preview">{preview_html}</div>
+                    </div>
+                    """
+
+                n1, n2 = st.columns(2, gap="small")
+                with n1:
+                    st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 1", use_container_width=True):
+                        nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
+                with n2:
+                    st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 2", use_container_width=True):
+                        nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
+                n3, n4 = st.columns(2, gap="small")
+                with n3:
+                    st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 3", use_container_width=True):
+                        nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
+                with n4:
+                    st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 4", use_container_width=True):
+                        nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
+
+                salva = st.button(
+                    "💾 Salva note",
+                    use_container_width=True,
+                    key="save_note_promemoria",
+                    disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                )
+                if salva:
+                    note_values = [nota1, nota2, nota3, nota4]
+                    all_notes_empty = all(not str(value).strip() for value in note_values)
+                    previous_values = [
+                        _nota_value("nota1"),
+                        _nota_value("nota2"),
+                        _nota_value("nota3"),
+                        _nota_value("nota4"),
+                    ]
+                    previous_had_content = any(value.strip() for value in previous_values)
+                    if all_notes_empty and previous_had_content:
+                        st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
+                        st.stop()
+                    df_note = _build_note_df(nota1, nota2, nota3, nota4, risparmio_desiderato_corrente)
+                    if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                        st.session_state.note_df_draft = df_note.copy()
+                        st.session_state.note_loaded_from_sheet = True
+                        st.success("Note salvate")
+                    else:
+                        st.error("Errore salvataggio")
                 
 
     with col3:
@@ -3559,15 +3682,17 @@ def crea_grafico_stipendi(data):
     data_completa["Categoria"] = data_completa["Categoria"].replace({
         "Stipendio": "Stipendi",
         "Media Stipendio": "Media Stipendi",
-        "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
+        "Media Stipendio NO 13°/PDR": "Media Stipendi Ordinari (no spikes)",
+        "Media Risparmi": "Media Risparmi Mese Precedente",
+        "Risparmi": "Risparmi Mese Precedente"
     })
 
-    bar_categories = ["Risparmi", "Messi da parte Totali"]
+    bar_categories = ["Risparmi Mese Precedente", "Messi da parte Totali"]
     # FIX 1: Risparmi bar overlapping inside Messi da parte Totali
     # Use opacity layering - Messi da parte Totali as base, Risparmi overlaid
     bar_color_range = ["rgba(255, 165, 0, 0.5)", "#4CAF50"]
 
-    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi Ordinari (no spikes)", "Media Risparmi Mese Precedente", "Media Messi da parte Totali"]
     line_color_range = ["#5792E8", "#f87171", "#fb923c", "#FFA040", "#90EE90"]
     # FIX 2: Month labels - use full month names diagonal like Bollette chart
     data_completa["Mese"] = pd.to_datetime(data_completa["Mese"], errors="coerce")
@@ -3579,7 +3704,7 @@ def crea_grafico_stipendi(data):
 
     # FIX 1: Messi da parte Totali as base bar
     df_messi = df_bar[df_bar["Categoria"] == "Messi da parte Totali"]
-    df_risparmi = df_bar[df_bar["Categoria"] == "Risparmi"]
+    df_risparmi = df_bar[df_bar["Categoria"] == "Risparmi Mese Precedente"]
 
     # FIX 2: Use Mese_str with diagonal labels like Bollette chart
     base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#4CAF50", opacity=0.8).encode(
@@ -3644,7 +3769,7 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     
     barre = base_stack.mark_bar(opacity=0.8, size=18).encode(
         x=alt.X("Mese_str:N", sort=order, title="Mese", axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
-        y=alt.Y("lower:Q", title="Valore (€)"),
+        y=alt.Y("lower:Q", title="Bollette (€)"),
         y2="upper:Q",
         color=alt.Color("Categoria:N", scale=alt.Scale(
             domain=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
@@ -3701,14 +3826,20 @@ def crea_confronto_anno_su_anno_stipendi(data):
     df = df.dropna(subset=["Mese"])
     if df.empty:
         return alt.Chart(pd.DataFrame({'Mese_str': [], 'Stipendio': [], 'Anno': []})).mark_line()
+    current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_start = current_month_start - pd.DateOffset(years=3)
+    df = df[(df["Mese"] >= chart_start) & (df["Mese"] <= current_month_start)]
+    if df.empty:
+        return alt.Chart(pd.DataFrame({'Mese_str': [], 'Stipendio': [], 'Anno': []})).mark_line()
     df["Anno"] = df["Mese"].dt.year.astype(str)
     df["Mese_str"] = df["Mese"].dt.strftime("%b")
     chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Mese_str:N", title="Mese",
-                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
-        y=alt.Y("Stipendio:Q", title="Stipendio (€)", aggregate="mean"),
+                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
+        y=alt.Y("Stipendio:Q", title="Stipendi (€)", aggregate="mean"),
         color=alt.Color("Anno:N", title="Anno"),
-        tooltip=["Anno", "Mese_str", alt.Tooltip("Stipendio:Q", aggregate="mean", format=".2f")]
+        tooltip=[alt.Tooltip("Anno:N", title="Anno"), alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", aggregate="mean", format=".2f")]
     ).properties(title="")
     return chart
 
@@ -3720,18 +3851,67 @@ def crea_confronto_anno_su_anno_bollette(data):
     df = df.dropna(subset=["Mese"])
     if df.empty:
         return alt.Chart(pd.DataFrame({'Mese_str': [], 'Totale_Bollette': [], 'Anno': []})).mark_line()
+    current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_start = current_month_start - pd.DateOffset(years=3)
+    df = df[(df["Mese"] >= chart_start) & (df["Mese"] <= current_month_start)]
+    if df.empty:
+        return alt.Chart(pd.DataFrame({'Mese_str': [], 'Totale_Bollette': [], 'Anno': []})).mark_line()
     if "Totale_Bollette" not in df.columns:
         df["Totale_Bollette"] = df["Elettricità"] + df["Gas"] + df["Acqua"] + df["Internet"] + df["Tari"]
     df["Anno"] = df["Mese"].dt.year.astype(str)
     df["Mese_str"] = df["Mese"].dt.strftime("%b")
     chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Mese_str:N", title="Mese",
-                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
+                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
         y=alt.Y("Totale_Bollette:Q", title="Spesa Totale (€)"),
         color=alt.Color("Anno:N", title="Anno"),
-        tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", format=".2f")]
+        tooltip=[alt.Tooltip("Anno:N", title="Anno"), alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Totale_Bollette:Q", title="Totale bollette", format=".2f")]
     ).properties(title="")
     return chart
+
+
+BUDGET_BOLLETTE_HEADERS = ["Mese", "Budget mensile"]
+BUDGET_BOLLETTE_WORKSHEET = "BudgetBollette"
+
+
+def normalizza_budget_bollette(data):
+    if data is None or data.empty:
+        return pd.DataFrame(columns=BUDGET_BOLLETTE_HEADERS)
+    df = data.copy()
+    for col in BUDGET_BOLLETTE_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[BUDGET_BOLLETTE_HEADERS]
+    df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce").dt.to_period("M").dt.to_timestamp()
+    df["Budget mensile"] = pd.to_numeric(df["Budget mensile"], errors="coerce")
+    df = df.dropna(subset=["Mese", "Budget mensile"])
+    return df.sort_values("Mese").drop_duplicates("Mese", keep="last").reset_index(drop=True)
+
+
+def budget_bollette_per_mese(budget_df, mese):
+    mese = pd.Timestamp(mese).to_period("M").to_timestamp()
+    if budget_df is None or budget_df.empty:
+        return float(decisione_budget_bollette_mensili)
+    validi = budget_df[budget_df["Mese"] <= mese].sort_values("Mese")
+    if validi.empty:
+        return float(decisione_budget_bollette_mensili)
+    return float(validi.iloc[-1]["Budget mensile"])
+
+
+def salva_budget_bollette_da_mese(budget_df, mese, importo):
+    mese = pd.Timestamp(mese).to_period("M").to_timestamp()
+    if budget_df is None or budget_df.empty:
+        budget_df = pd.DataFrame(columns=BUDGET_BOLLETTE_HEADERS)
+    else:
+        budget_df = normalizza_budget_bollette(budget_df)
+    budget_df = budget_df[budget_df["Mese"] != mese].copy()
+    budget_df = pd.concat([
+        budget_df,
+        pd.DataFrame([{"Mese": mese, "Budget mensile": float(importo)}])
+    ], ignore_index=True)
+    budget_df = budget_df.sort_values("Mese").reset_index(drop=True)
+    return save_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS, budget_df)
 
 
 #######################################
@@ -3871,17 +4051,17 @@ with col_table:
             _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
             st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-label">Media NO 13°/PDR</div>
+            <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
             <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme2:
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Risparmi</div>
+            <div class="kpi-label">Somma Risparmi Mese Precedente</div>
             <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-label">Media Risparmi</div>
+            <div class="kpi-label">Media Risparmi Mese Precedente</div>
             <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme3:
@@ -3920,27 +4100,45 @@ with col_chart:
             )
 
             line_stipendi = alt.Chart(chart_data).mark_line(
-                color="#5792E8", strokeWidth=2, point=True
+                color="#5792E8", strokeWidth=2
             ).encode(
                 x=x_axis,
                 y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", format=",.2f")]
+            )
+            point_stipendi = alt.Chart(chart_data).mark_point(
+                color="#5792E8", size=42, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Stipendio:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendi", format=",.2f")]
             )
 
             line_media_stip = alt.Chart(chart_data).mark_line(
-                color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True, opacity=0.4
+                color="#f87171", strokeWidth=2, strokeDash=[6,3], opacity=0.4
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendio", format=",.2f")]
+            )
+            point_media_stip = alt.Chart(chart_data).mark_point(
+                color="#f87171", size=36, filled=True, opacity=0.85
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Stipendio:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendi", format=",.2f")]
             )
 
             line_media_no13 = alt.Chart(chart_data).mark_line(
-                color="#fb923c", strokeWidth=2, strokeDash=[3,3], point=True
+                color="#fb923c", strokeWidth=2, strokeDash=[3,3]
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media senza 13/PDR", format=",.2f")]
+            )
+            point_media_no13 = alt.Chart(chart_data).mark_point(
+                color="#fb923c", size=36, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari (no spikes)", format=",.2f")]
             )
 
             risparmi_stack = chart_data.melt(
@@ -3950,7 +4148,7 @@ with col_chart:
                 value_name="Valore"
             )
             risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
-                "Risparmi": "Risparmi",
+                "Risparmi": "Risparmi mese precedente",
                 "Extra messi da parte": "Messi da parte"
             })
 
@@ -3967,7 +4165,7 @@ with col_chart:
                 color=alt.Color(
                     "Voce:N",
                     scale=alt.Scale(
-                        domain=["Risparmi", "Messi da parte"],
+                        domain=["Risparmi mese precedente", "Messi da parte"],
                         range=["#EF9F27", "#1D9E75"]
                     ),
                     legend=None
@@ -3982,23 +4180,35 @@ with col_chart:
             )
 
             line_media_risp = alt.Chart(chart_data).mark_line(
-                color="#FFA040", strokeWidth=2, strokeDash=[4,4], point=True, opacity=0.9
+                color="#FFA040", strokeWidth=2, strokeDash=[4,4], opacity=0.9
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Risparmi:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi", format=",.2f")]
+            )
+            point_media_risp = alt.Chart(chart_data).mark_point(
+                color="#FFA040", size=36, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Risparmi:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi mese precedente", format=",.2f")]
             )
 
             line_media_messi = alt.Chart(chart_data).mark_line(
-                color="#90EE90", strokeWidth=2, strokeDash=[5,5], point=True
+                color="#90EE90", strokeWidth=2, strokeDash=[5,5]
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Messi da parte Totali:Q"),
+            )
+            point_media_messi = alt.Chart(chart_data).mark_point(
+                color="#90EE90", size=36, filled=True
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Messi da parte Totali:Q"),
                 tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
             )
 
-            stipendi_chart = alt.layer(line_stipendi, line_media_stip, line_media_no13)
-            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, line_media_messi)
+            stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
 
             grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
                 title="Storico Stipendi e Risparmi",
@@ -4015,7 +4225,7 @@ with col_chart:
                     <span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi
+                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
                     <span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi
@@ -4024,10 +4234,10 @@ with col_chart:
                     <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media NO 13°/PDR
+                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media Risparmi
+                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
                     <span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte
@@ -4060,6 +4270,10 @@ else:
     for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
         data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
 
+budget_bollette_df = normalizza_budget_bollette(
+    load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
+)
+
 col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
 
 with col_sx_bol:
@@ -4089,6 +4303,24 @@ with col_sx_bol:
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
             elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
+
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+        budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
+        with st.expander("Budget mensile bollette", expanded=False):
+            nuovo_budget_bollette = st.number_input(
+                "Importo messo da parte al mese",
+                min_value=0.0,
+                value=float(budget_bollette_corrente_mese),
+                step=10.0,
+                key=f"budget_bollette_input_{selected_mese_bol}",
+                help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
+            )
+            if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}"):
+                if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
+                    st.success("Budget bollette salvato")
+                    st.rerun()
+                else:
+                    st.error("Errore salvataggio budget bollette")
 
         if aggiungi_bollette:
             if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
@@ -4194,18 +4426,23 @@ with col_bol_table:
             <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
         </div>""", unsafe_allow_html=True)
     
-    def calcola_saldo(data, decisione_budget_bollette_mensili):
+    def calcola_saldo(data, budget_df):
         saldo_iniziale = 0
         saldi = []
+        budget_mensili = []
+        data = data.sort_values("Mese").reset_index(drop=True).copy()
         for _, row in data.iterrows():
+            budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
-            saldo = saldo_iniziale + decisione_budget_bollette_mensili - totale
+            saldo = saldo_iniziale + budget_mese - totale
             saldi.append(saldo)
+            budget_mensili.append(budget_mese)
             saldo_iniziale = saldo
         data["Saldo"] = saldi
+        data["Budget bollette mensile"] = budget_mensili
         return data
     
-    data_bollette = calcola_saldo(data_bollette, decisione_budget_bollette_mensili)
+    data_bollette = calcola_saldo(data_bollette, budget_bollette_df)
     
     data_melted = data_bollette.melt(
         id_vars=["Mese"],
@@ -4235,6 +4472,17 @@ with col_bol_chart:
                     stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
     n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
     media_annua = total_bollette / n_mesi
-    st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
+    budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
+    saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
+    saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
+    st.markdown(f"""
+    <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
+        <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+        <div style="line-height:1.55;">
+            <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+            <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
