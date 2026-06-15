@@ -1818,6 +1818,7 @@ def render_live_turni_kpis(stats):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
+    rate_hour = rate_min * 60
     rate_sec = rate_min / 60
     payslip_estimate = _money_turni(stats["payslip_estimate"])
     expected_today = _money_turni(stats["expected_today"])
@@ -1858,7 +1859,10 @@ def render_live_turni_kpis(stats):
           <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
           <span id="turni-status-text">{status_text}</span>
         </div>
-        <div id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.3f} €/min</div>
+        <div class="turni-rate-row">
+          <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
+          <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
+        </div>
         <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
       </div>
     </div>
@@ -1910,6 +1914,12 @@ def render_live_turni_kpis(stats):
         height: 10px;
         border-radius: 999px;
       }}
+      .turni-rate-row {{
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }}
       .turni-subline {{
         font-size: 12px;
         color: rgba(255,255,255,0.42);
@@ -1931,6 +1941,7 @@ def render_live_turni_kpis(stats):
       const dotEl = document.getElementById("turni-status-dot");
       const statusEl = document.getElementById("turni-status-text");
       const rateEl = document.getElementById("turni-rate-min");
+      const rateHourEl = document.getElementById("turni-rate-hour");
       const shiftEl = document.getElementById("turni-shift-label");
       const hoursLeftEl = document.getElementById("turni-hours-left");
       let refreshQueued = false;
@@ -2003,7 +2014,8 @@ def render_live_turni_kpis(stats):
           dotEl.style.background = "#64748b";
           dotEl.style.boxShadow = "none";
           statusEl.textContent = "Fuori turno";
-          rateEl.textContent = "0.000 €/min";
+          rateEl.textContent = "0.00 €/min";
+          rateHourEl.textContent = "0.00 €/h";
           shiftEl.textContent = "—";
           hoursLeftEl.textContent = "Aggiorno stato turno...";
           refreshParentSoon();
@@ -3662,15 +3674,17 @@ def crea_grafico_stipendi(data):
     data_completa["Categoria"] = data_completa["Categoria"].replace({
         "Stipendio": "Stipendi",
         "Media Stipendio": "Media Stipendi",
-        "Media Stipendio NO 13°/PDR": "Media Stipendi NO 13°/PDR"
+        "Media Stipendio NO 13°/PDR": "Media Stipendi Ordinari",
+        "Media Risparmi": "Media Risparmi Mese Precedente",
+        "Risparmi": "Risparmi Mese Precedente"
     })
 
-    bar_categories = ["Risparmi", "Messi da parte Totali"]
+    bar_categories = ["Risparmi Mese Precedente", "Messi da parte Totali"]
     # FIX 1: Risparmi bar overlapping inside Messi da parte Totali
     # Use opacity layering - Messi da parte Totali as base, Risparmi overlaid
     bar_color_range = ["rgba(255, 165, 0, 0.5)", "#4CAF50"]
 
-    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi NO 13°/PDR", "Media Risparmi", "Media Messi da parte Totali"]
+    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi Ordinari", "Media Risparmi Mese Precedente", "Media Messi da parte Totali"]
     line_color_range = ["#5792E8", "#f87171", "#fb923c", "#FFA040", "#90EE90"]
     # FIX 2: Month labels - use full month names diagonal like Bollette chart
     data_completa["Mese"] = pd.to_datetime(data_completa["Mese"], errors="coerce")
@@ -3682,7 +3696,7 @@ def crea_grafico_stipendi(data):
 
     # FIX 1: Messi da parte Totali as base bar
     df_messi = df_bar[df_bar["Categoria"] == "Messi da parte Totali"]
-    df_risparmi = df_bar[df_bar["Categoria"] == "Risparmi"]
+    df_risparmi = df_bar[df_bar["Categoria"] == "Risparmi Mese Precedente"]
 
     # FIX 2: Use Mese_str with diagonal labels like Bollette chart
     base_bar_messi = alt.Chart(df_messi).mark_bar(size=40, color="#4CAF50", opacity=0.8).encode(
@@ -3974,17 +3988,17 @@ with col_table:
             _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
             st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-label">Media NO 13°/PDR</div>
+            <div class="kpi-label">Media Stipendi Ordinari</div>
             <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme2:
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Risparmi</div>
+            <div class="kpi-label">Somma Risparmi Mese Precedente</div>
             <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-label">Media Risparmi</div>
+            <div class="kpi-label">Media Risparmi Mese Precedente</div>
             <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme3:
@@ -4023,27 +4037,45 @@ with col_chart:
             )
 
             line_stipendi = alt.Chart(chart_data).mark_line(
-                color="#5792E8", strokeWidth=2, point=True
+                color="#5792E8", strokeWidth=2
             ).encode(
                 x=x_axis,
                 y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", format=",.2f")]
+            )
+            point_stipendi = alt.Chart(chart_data).mark_point(
+                color="#5792E8", size=42, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Stipendio:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendi", format=",.2f")]
             )
 
             line_media_stip = alt.Chart(chart_data).mark_line(
-                color="#f87171", strokeWidth=2, strokeDash=[6,3], point=True, opacity=0.4
+                color="#f87171", strokeWidth=2, strokeDash=[6,3], opacity=0.4
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendio", format=",.2f")]
+            )
+            point_media_stip = alt.Chart(chart_data).mark_point(
+                color="#f87171", size=36, filled=True, opacity=0.85
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Stipendio:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendi", format=",.2f")]
             )
 
             line_media_no13 = alt.Chart(chart_data).mark_line(
-                color="#fb923c", strokeWidth=2, strokeDash=[3,3], point=True
+                color="#fb923c", strokeWidth=2, strokeDash=[3,3]
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media senza 13/PDR", format=",.2f")]
+            )
+            point_media_no13 = alt.Chart(chart_data).mark_point(
+                color="#fb923c", size=36, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari", format=",.2f")]
             )
 
             risparmi_stack = chart_data.melt(
@@ -4053,7 +4085,7 @@ with col_chart:
                 value_name="Valore"
             )
             risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
-                "Risparmi": "Risparmi",
+                "Risparmi": "Risparmi mese precedente",
                 "Extra messi da parte": "Messi da parte"
             })
 
@@ -4070,7 +4102,7 @@ with col_chart:
                 color=alt.Color(
                     "Voce:N",
                     scale=alt.Scale(
-                        domain=["Risparmi", "Messi da parte"],
+                        domain=["Risparmi mese precedente", "Messi da parte"],
                         range=["#EF9F27", "#1D9E75"]
                     ),
                     legend=None
@@ -4085,23 +4117,35 @@ with col_chart:
             )
 
             line_media_risp = alt.Chart(chart_data).mark_line(
-                color="#FFA040", strokeWidth=2, strokeDash=[4,4], point=True, opacity=0.9
+                color="#FFA040", strokeWidth=2, strokeDash=[4,4], opacity=0.9
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Risparmi:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi", format=",.2f")]
+            )
+            point_media_risp = alt.Chart(chart_data).mark_point(
+                color="#FFA040", size=36, filled=True
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Risparmi:Q"),
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi mese precedente", format=",.2f")]
             )
 
             line_media_messi = alt.Chart(chart_data).mark_line(
-                color="#90EE90", strokeWidth=2, strokeDash=[5,5], point=True
+                color="#90EE90", strokeWidth=2, strokeDash=[5,5]
+            ).encode(
+                x=x_axis,
+                y=alt.Y("Media Messi da parte Totali:Q"),
+            )
+            point_media_messi = alt.Chart(chart_data).mark_point(
+                color="#90EE90", size=36, filled=True
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Messi da parte Totali:Q"),
                 tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
             )
 
-            stipendi_chart = alt.layer(line_stipendi, line_media_stip, line_media_no13)
-            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, line_media_messi)
+            stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
 
             grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
                 title="Storico Stipendi e Risparmi",
@@ -4118,7 +4162,7 @@ with col_chart:
                     <span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi
+                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
                     <span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi
@@ -4127,10 +4171,10 @@ with col_chart:
                     <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media NO 13°/PDR
+                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media Risparmi
+                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
                     <span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte
