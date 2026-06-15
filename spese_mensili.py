@@ -54,6 +54,17 @@ def get_gsheet_client():
     except Exception as e:
         return None
 
+
+@st.cache_resource
+def get_gsheet_spreadsheet():
+    client = get_gsheet_client()
+    if not client:
+        return None
+    try:
+        return client.open_by_url(SHEET_URL)
+    except Exception:
+        return None
+
 GSHEETS_CACHE_TTL_SECONDS = 1800
 GSHEETS_BACKOFF_SECONDS = 90
 GSHEETS_BACKOFF_LABEL = "circa 90 secondi"
@@ -94,7 +105,9 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
     if cached_worksheet is not None:
         return cached_worksheet
     try:
-        spreadsheet = client.open_by_url(sheet_url)
+        spreadsheet = get_gsheet_spreadsheet()
+        if spreadsheet is None:
+            spreadsheet = client.open_by_url(sheet_url)
         try:
             worksheet = spreadsheet.worksheet(worksheet_name)
         except gspread.WorksheetNotFound:
