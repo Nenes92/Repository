@@ -4468,9 +4468,9 @@ with col_bol_chart:
     saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
     saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
     st.markdown(f"""
-    <div style="display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;margin-top:8px;">
+    <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
         <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
-        <div style="text-align:right;line-height:1.55;">
+        <div style="line-height:1.55;">
             <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
             <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
         </div>
