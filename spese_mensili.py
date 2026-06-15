@@ -3863,6 +3863,49 @@ def crea_confronto_anno_su_anno_bollette(data):
     return chart
 
 
+BUDGET_BOLLETTE_HEADERS = ["Mese", "Budget mensile"]
+BUDGET_BOLLETTE_WORKSHEET = "BudgetBollette"
+
+
+def normalizza_budget_bollette(data):
+    if data is None or data.empty:
+        return pd.DataFrame(columns=BUDGET_BOLLETTE_HEADERS)
+    df = data.copy()
+    for col in BUDGET_BOLLETTE_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[BUDGET_BOLLETTE_HEADERS]
+    df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce").dt.to_period("M").dt.to_timestamp()
+    df["Budget mensile"] = pd.to_numeric(df["Budget mensile"], errors="coerce")
+    df = df.dropna(subset=["Mese", "Budget mensile"])
+    return df.sort_values("Mese").drop_duplicates("Mese", keep="last").reset_index(drop=True)
+
+
+def budget_bollette_per_mese(budget_df, mese):
+    mese = pd.Timestamp(mese).to_period("M").to_timestamp()
+    if budget_df is None or budget_df.empty:
+        return float(decisione_budget_bollette_mensili)
+    validi = budget_df[budget_df["Mese"] <= mese].sort_values("Mese")
+    if validi.empty:
+        return float(decisione_budget_bollette_mensili)
+    return float(validi.iloc[-1]["Budget mensile"])
+
+
+def salva_budget_bollette_da_mese(budget_df, mese, importo):
+    mese = pd.Timestamp(mese).to_period("M").to_timestamp()
+    if budget_df is None or budget_df.empty:
+        budget_df = pd.DataFrame(columns=BUDGET_BOLLETTE_HEADERS)
+    else:
+        budget_df = normalizza_budget_bollette(budget_df)
+    budget_df = budget_df[budget_df["Mese"] != mese].copy()
+    budget_df = pd.concat([
+        budget_df,
+        pd.DataFrame([{"Mese": mese, "Budget mensile": float(importo)}])
+    ], ignore_index=True)
+    budget_df = budget_df.sort_values("Mese").reset_index(drop=True)
+    return save_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS, budget_df)
+
+
 #######################################
 # SEZIONE: Storico Stipendi e Risparmi
 #######################################
@@ -4219,6 +4262,10 @@ else:
     for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
         data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
 
+budget_bollette_df = normalizza_budget_bollette(
+    load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
+)
+
 col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
 
 with col_sx_bol:
@@ -4248,6 +4295,24 @@ with col_sx_bol:
             internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
             tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
             elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
+
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+        budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
+        with st.expander("Budget mensile bollette", expanded=False):
+            nuovo_budget_bollette = st.number_input(
+                "Importo messo da parte al mese",
+                min_value=0.0,
+                value=float(budget_bollette_corrente_mese),
+                step=10.0,
+                key=f"budget_bollette_input_{selected_mese_bol}",
+                help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
+            )
+            if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}"):
+                if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
+                    st.success("Budget bollette salvato")
+                    st.rerun()
+                else:
+                    st.error("Errore salvataggio budget bollette")
 
         if aggiungi_bollette:
             if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
@@ -4353,18 +4418,23 @@ with col_bol_table:
             <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
         </div>""", unsafe_allow_html=True)
     
-    def calcola_saldo(data, decisione_budget_bollette_mensili):
+    def calcola_saldo(data, budget_df):
         saldo_iniziale = 0
         saldi = []
+        budget_mensili = []
+        data = data.sort_values("Mese").reset_index(drop=True).copy()
         for _, row in data.iterrows():
+            budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
             totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
-            saldo = saldo_iniziale + decisione_budget_bollette_mensili - totale
+            saldo = saldo_iniziale + budget_mese - totale
             saldi.append(saldo)
+            budget_mensili.append(budget_mese)
             saldo_iniziale = saldo
         data["Saldo"] = saldi
+        data["Budget bollette mensile"] = budget_mensili
         return data
     
-    data_bollette = calcola_saldo(data_bollette, decisione_budget_bollette_mensili)
+    data_bollette = calcola_saldo(data_bollette, budget_bollette_df)
     
     data_melted = data_bollette.melt(
         id_vars=["Mese"],
@@ -4394,6 +4464,16 @@ with col_bol_chart:
                     stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
     n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
     media_annua = total_bollette / n_mesi
+    budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
+    saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
     st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
+    st.markdown(
+        f"**Budget mensile bollette:** <span style='color:#77DD77;'>{budget_bollette_attuale:,.2f} €</span>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f"**Saldo bollette:** <span style='color:{'#77DD77' if saldo_bollette_attuale >= 0 else '#FF6961'};'>{saldo_bollette_attuale:,.2f} €</span>",
+        unsafe_allow_html=True
+    )
 
 st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
