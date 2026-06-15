@@ -543,6 +543,11 @@ with st.sidebar:
 MOBILE_VIEW = VISTA_APP == "Telefono"
 
 if MOBILE_VIEW:
+    mobile_section = st.sidebar.selectbox(
+        "Vai alla sezione",
+        ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Turni", "Storico", "Bollette"],
+        key="mobile_section_select"
+    )
     st.markdown("""
     <style>
     .block-container {
@@ -581,17 +586,46 @@ if MOBILE_VIEW:
         overflow-x: auto !important;
         flex-wrap: nowrap !important;
     }
+    .mobile-home-title {
+        font-size: 1.05rem;
+        font-weight: 900;
+        color: rgba(255,255,255,.88);
+        margin: 4px 0 10px;
+    }
+    .mobile-home-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 4px 0 18px;
+    }
+    .mobile-home-card {
+        display: block;
+        min-height: 78px;
+        padding: 13px 14px;
+        border-radius: 14px;
+        text-decoration: none !important;
+        background: rgba(255,255,255,.055);
+        border: 0.5px solid rgba(255,255,255,.13);
+        box-shadow: 0 10px 24px rgba(0,0,0,.18);
+    }
+    .mobile-home-card strong {
+        display: block;
+        color: rgba(255,255,255,.90);
+        font-size: 14px;
+        line-height: 1.2;
+        margin-bottom: 6px;
+    }
+    .mobile-home-card span {
+        color: rgba(255,255,255,.46);
+        font-size: 11px;
+        line-height: 1.25;
+    }
     .mobile-nav {
-        position: sticky;
-        top: 0;
-        z-index: 999;
         display: flex;
         gap: 7px;
         overflow-x: auto;
-        padding: 9px 0 10px;
-        margin: -2px 0 8px;
-        background: linear-gradient(180deg, rgba(13,17,23,.98), rgba(13,17,23,.88));
-        backdrop-filter: blur(8px);
+        padding: 2px 0 10px;
+        margin: 0 0 12px;
     }
     .mobile-nav a {
         flex: 0 0 auto;
@@ -606,10 +640,40 @@ if MOBILE_VIEW:
         white-space: nowrap;
     }
     .mobile-anchor {
-        scroll-margin-top: 76px;
+        scroll-margin-top: 22px;
+    }
+    .turni-calendar-wrap div[data-testid="column"] {
+        min-width: 0 !important;
+        width: auto !important;
+        flex: 1 1 0 !important;
+    }
+    .turni-calendar-wrap div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+    }
+    .turni-calendar-wrap [data-testid="stButton"] button {
+        min-width: 0 !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+    [data-testid="stVegaLiteChart"] {
+        overflow-x: auto !important;
+    }
+    [data-testid="stVegaLiteChart"] > div {
+        min-width: 620px !important;
     }
     </style>
     <div id="mobile-top" class="mobile-anchor"></div>
+    <div class="mobile-home-title">Vista telefono</div>
+    <div class="mobile-home-grid">
+        <a class="mobile-home-card" href="#mobile-spese"><strong>Spese</strong><span>Fisse, variabili e dettaglio</span></a>
+        <a class="mobile-home-card" href="#mobile-entrate"><strong>Entrate</strong><span>Altre entrate e obiettivi</span></a>
+        <a class="mobile-home-card" href="#mobile-risparmi"><strong>Risparmi</strong><span>Riepilogo mese e carte</span></a>
+        <a class="mobile-home-card" href="#mobile-turni"><strong>Turni</strong><span>Live, calendario e riepilogo</span></a>
+        <a class="mobile-home-card" href="#mobile-stipendi"><strong>Storico</strong><span>Stipendi e risparmi</span></a>
+        <a class="mobile-home-card" href="#mobile-bollette"><strong>Bollette</strong><span>Storico, saldo e budget</span></a>
+    </div>
     <div class="mobile-nav">
         <a href="#mobile-top">Panoramica</a>
         <a href="#mobile-spese">Spese</a>
@@ -622,6 +686,26 @@ if MOBILE_VIEW:
         <a href="#mobile-bollette">Bollette</a>
     </div>
     """, unsafe_allow_html=True)
+    mobile_targets = {
+        "Panoramica": "mobile-top",
+        "Spese": "mobile-spese",
+        "Variabili": "mobile-variabili",
+        "Entrate": "mobile-entrate",
+        "Risparmi": "mobile-risparmi",
+        "Carte": "mobile-carte",
+        "Turni": "mobile-turni",
+        "Storico": "mobile-stipendi",
+        "Bollette": "mobile-bollette",
+    }
+    if mobile_section != "Panoramica":
+        components.html(f"""
+        <script>
+        setTimeout(() => {{
+            const target = window.parent.document.getElementById({json.dumps(mobile_targets[mobile_section])});
+            if (target) target.scrollIntoView({{behavior: "smooth", block: "start"}});
+        }}, 500);
+        </script>
+        """, height=0)
 
 
 # Flag per controllare se la configurazione della pagina è già stata impostata
