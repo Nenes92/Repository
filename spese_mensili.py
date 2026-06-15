@@ -2276,7 +2276,15 @@ def main():
         risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
     with col_stip_inserimento2:
         st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
-        budget_da_stipendio = st.number_input("Inserisci la parte dello stipendio che scegli di usare:", min_value=input_budget_da_stipendio, step=50, label_visibility="collapsed")
+        budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+        budget_da_stipendio = st.number_input(
+            "Inserisci la parte dello stipendio che scegli di usare:",
+            min_value=0.0,
+            max_value=float(stipendio_percepito),
+            value=budget_da_stipendio_default,
+            step=50.0,
+            label_visibility="collapsed"
+        )
         st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
