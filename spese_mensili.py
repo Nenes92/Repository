@@ -573,7 +573,7 @@ LAYOUT_COLONNE = {
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
     "altre_entrate_kpi_grafico": [1.10, 1.90],
-    "destra_risparmi_carte": [1.20, 1.00],
+    "destra_risparmi_carte": [1.40, 1.00],
     "risparmi_kpi_grafico": [1.18, 1.12],
     "dettaglio_spese_fisse": [0.07, 0.42, 0.62, 0.90],
     "storico_form_chart": [1, 1, 2],
