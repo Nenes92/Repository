@@ -4466,14 +4466,13 @@ with col_bol_chart:
     media_annua = total_bollette / n_mesi
     budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
     saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
-    st.markdown(f"**Media mensile bollette:** <span style='color:#FFA500;'>{media_annua:,.2f} €</span>", unsafe_allow_html=True)
-    st.markdown(
-        f"**Budget mensile bollette:** <span style='color:#77DD77;'>{budget_bollette_attuale:,.2f} €</span>",
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        f"**Saldo bollette:** <span style='color:{'#77DD77' if saldo_bollette_attuale >= 0 else '#FF6961'};'>{saldo_bollette_attuale:,.2f} €</span>",
-        unsafe_allow_html=True
-    )
+    saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
+    st.markdown(f"""
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:center;margin-top:8px;">
+        <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+        <div style="text-align:right;"><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+        <div style="text-align:right;"><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
