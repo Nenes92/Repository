@@ -577,10 +577,10 @@ LAYOUT_COLONNE = {
     "risparmi_kpi_grafico": [1.18, 1.12],
     "dettaglio_spese_fisse": [0.07, 0.42, 0.62, 0.90],
     "storico_form_chart": [1, 1, 2],
-    "storico_tabella_grafico": [1.3, 3],
+    "storico_tabella_grafico": [1.1, 3],
     "storico_kpi": [1.3, 1, 1],
     "bollette_form_chart": [1, 1, 2],
-    "bollette_tabella_grafico": [1, 3],
+    "bollette_tabella_grafico": [1, 3.3],
     "form_nome_importo": [1.4, 0.8],
     "bottone_salva_note": [3, 1],
 }
