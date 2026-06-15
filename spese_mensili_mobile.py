@@ -554,13 +554,16 @@ if MOBILE_VIEW:
         max-width: 760px !important;
         padding: 0.75rem 0.85rem 4rem !important;
     }
-    div[data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 100% !important;
-        min-width: 100% !important;
-    }
     div[data-testid="stHorizontalBlock"] {
-        gap: 0.75rem !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.65rem !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: calc(50% - 0.35rem) !important;
+        flex: 1 1 calc(50% - 0.35rem) !important;
+        min-width: 0 !important;
     }
     h1 {
         font-size: 1.45rem !important;
@@ -574,6 +577,7 @@ if MOBILE_VIEW:
     .kpi-card {
         padding: 0.8rem 0.9rem !important;
         margin-bottom: 8px !important;
+        height: 100% !important;
     }
     .kpi-value {
         font-size: 19px !important;
@@ -642,26 +646,63 @@ if MOBILE_VIEW:
     .mobile-anchor {
         scroll-margin-top: 22px;
     }
-    .turni-calendar-wrap div[data-testid="column"] {
-        min-width: 0 !important;
-        width: auto !important;
-        flex: 1 1 0 !important;
-    }
-    .turni-calendar-wrap div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        gap: 6px !important;
-    }
-    .turni-calendar-wrap [data-testid="stButton"] button {
-        min-width: 0 !important;
-        padding-left: 4px !important;
-        padding-right: 4px !important;
-    }
     [data-testid="stVegaLiteChart"] {
         overflow-x: auto !important;
     }
     [data-testid="stVegaLiteChart"] > div {
-        min-width: 620px !important;
+        min-width: 560px !important;
+    }
+    .mobile-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 7px;
+        margin-top: 10px;
+    }
+    .mobile-calendar-head {
+        text-align: center;
+        color: rgba(255,255,255,.46);
+        font-size: 11px;
+        font-weight: 800;
+        padding-bottom: 2px;
+    }
+    .mobile-calendar-day {
+        min-height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        background: rgba(30,58,92,.70);
+        border: 0.5px solid rgba(96,165,250,.36);
+        color: #d1d5db;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .mobile-calendar-day.empty {
+        background: transparent;
+        border-color: transparent;
+    }
+    .mobile-calendar-day .holiday {
+        color: #ff626f;
+    }
+    .mobile-calendar-day .today-dot {
+        color: #fb923c;
+        margin-right: 1px;
+        font-size: 10px;
+    }
+    .mobile-calendar-day .shift {
+        font-size: 14px;
+        font-weight: 1000;
+        text-shadow: 0 0 7px currentColor;
+    }
+    .mobile-calendar-legend {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:10px;
+        font-size:12px;
+        color:rgba(255,255,255,.62);
     }
     </style>
     <div id="mobile-top" class="mobile-anchor"></div>
@@ -2253,7 +2294,7 @@ def render_turni_guadagni_section():
 
         year, month = selected_month.year, selected_month.month
 
-        cal_col, summary_col = st.columns(LAYOUT_COLONNE["turni_calendario_riepilogo"], gap="medium")
+        cal_col, summary_col = st.columns([1, 1] if MOBILE_VIEW else LAYOUT_COLONNE["turni_calendario_riepilogo"], gap="medium")
 
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
@@ -2269,55 +2310,111 @@ def render_turni_guadagni_section():
                     st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
                     st.rerun()
             weekdays = ["L", "M", "M", "G", "V", "S", "D"]
-            cols = st.columns(7)
-            for c, wd in zip(cols, weekdays):
-                c.markdown(f"<div style='text-align:center;color:rgba(255,255,255,0.45);font-size:12px;'>{wd}</div>", unsafe_allow_html=True)
-
             cal = calendar.Calendar(firstweekday=0)
-            for week in cal.monthdatescalendar(year, month):
-                cols = st.columns(7)
-                for c, day in zip(cols, week):
-                    if day.month != month:
-                        c.markdown("<div style='height:34px;opacity:.2;'> </div>", unsafe_allow_html=True)
-                        continue
-                    day_str = day.strftime("%Y-%m-%d")
-                    row = df_turni[df_turni["Data"] == day_str]
-                    if row.empty:
-                        current_label = ""
-                    else:
-                        turno_corrente = row.iloc[0]["Turno"]
+            if MOBILE_VIEW:
+                calendar_cells = ['<div class="mobile-calendar-grid">']
+                for wd in weekdays:
+                    calendar_cells.append(f'<div class="mobile-calendar-head">{wd}</div>')
+                mobile_month_days = []
+                for week in cal.monthdatescalendar(year, month):
+                    for day in week:
+                        if day.month != month:
+                            calendar_cells.append('<div class="mobile-calendar-day empty"></div>')
+                            continue
+                        day_str = day.strftime("%Y-%m-%d")
+                        mobile_month_days.append(day_str)
+                        row = df_turni[df_turni["Data"] == day_str]
+                        turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
                         info = _turno_color_info(turno_corrente)
-                        current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
-                    day_is_festive = (
-                        day.weekday() == 6
-                        or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
-                        or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                        shift_html = ""
+                        if turno_corrente in TURNI_ORARI and turno_corrente:
+                            shift_html = f'<span class="shift" style="color:{info["color"]};">{html.escape(info["short"])}</span>'
+                        day_is_festive = (
+                            day.weekday() == 6
+                            or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                            or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                        )
+                        day_class = "holiday" if day_is_festive else ""
+                        today_dot = '<span class="today-dot">●</span>' if day_str == current_work_day else ""
+                        calendar_cells.append(
+                            f'<div class="mobile-calendar-day">{today_dot}<span class="{day_class}">{day.day}</span>{shift_html}</div>'
+                        )
+                calendar_cells.append("</div>")
+                st.markdown("".join(calendar_cells), unsafe_allow_html=True)
+                if festivo_manual:
+                    st.caption("Su telefono scegli il giorno da modificare qui sotto.")
+                    mobile_festivo_day = st.selectbox(
+                        "Giorno festivo manuale",
+                        mobile_month_days,
+                        format_func=lambda value: pd.to_datetime(value).strftime("%d/%m/%Y"),
+                        key="turni_mobile_festivo_day"
                     )
-                    day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
-                    if day_str == current_work_day:
-                        day_label = f":orange[•] {day_label}"
-                    clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
-                    if clicked_day:
-                        if festivo_manual:
-                            df_new = df_turni[df_turni["Data"] != day_str].copy()
-                            turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                            nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
-                            df_new = pd.concat([df_new, pd.DataFrame([{
-                                "Data": day_str,
-                                "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
-                                "Festivo": nuovo_festivo
-                            }])], ignore_index=True)
-                            df_new = _normalize_turni_df(df_new)
-                            st.session_state.turni_df_draft = df_new.copy()
-                            if save_turni_data(df_new):
-                                st.session_state.turni_dirty = False
-                                st.rerun()
-                            else:
-                                st.session_state.turni_dirty = True
-                                st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+                    if st.button("Inverti festivo manuale", use_container_width=True, key="turni_mobile_toggle_festivo"):
+                        row = df_turni[df_turni["Data"] == mobile_festivo_day]
+                        df_new = df_turni[df_turni["Data"] != mobile_festivo_day].copy()
+                        turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                        nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
+                        df_new = pd.concat([df_new, pd.DataFrame([{
+                            "Data": mobile_festivo_day,
+                            "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
+                            "Festivo": nuovo_festivo
+                        }])], ignore_index=True)
+                        df_new = _normalize_turni_df(df_new)
+                        st.session_state.turni_df_draft = df_new.copy()
+                        if save_turni_data(df_new):
+                            st.session_state.turni_dirty = False
+                            st.rerun()
+                        st.session_state.turni_dirty = True
+                        st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+            else:
+                cols = st.columns(7)
+                for c, wd in zip(cols, weekdays):
+                    c.markdown(f"<div style='text-align:center;color:rgba(255,255,255,0.45);font-size:12px;'>{wd}</div>", unsafe_allow_html=True)
+
+                for week in cal.monthdatescalendar(year, month):
+                    cols = st.columns(7)
+                    for c, day in zip(cols, week):
+                        if day.month != month:
+                            c.markdown("<div style='height:34px;opacity:.2;'> </div>", unsafe_allow_html=True)
+                            continue
+                        day_str = day.strftime("%Y-%m-%d")
+                        row = df_turni[df_turni["Data"] == day_str]
+                        if row.empty:
+                            current_label = ""
+                        else:
+                            turno_corrente = row.iloc[0]["Turno"]
+                            info = _turno_color_info(turno_corrente)
+                            current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                        day_is_festive = (
+                            day.weekday() == 6
+                            or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                            or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                        )
+                        day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                        if day_str == current_work_day:
+                            day_label = f":orange[•] {day_label}"
+                        clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
+                        if clicked_day:
+                            if festivo_manual:
+                                df_new = df_turni[df_turni["Data"] != day_str].copy()
+                                turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                                nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
+                                df_new = pd.concat([df_new, pd.DataFrame([{
+                                    "Data": day_str,
+                                    "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
+                                    "Festivo": nuovo_festivo
+                                }])], ignore_index=True)
+                                df_new = _normalize_turni_df(df_new)
+                                st.session_state.turni_df_draft = df_new.copy()
+                                if save_turni_data(df_new):
+                                    st.session_state.turni_dirty = False
+                                    st.rerun()
+                                else:
+                                    st.session_state.turni_dirty = True
+                                    st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
 
             st.markdown("""
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:rgba(255,255,255,0.55);">
+            <div class="mobile-calendar-legend">
               <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
               <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
               <span style="border-bottom:4px solid #64748b;">Notte</span>
