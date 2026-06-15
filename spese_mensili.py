@@ -3674,7 +3674,7 @@ def crea_grafico_stipendi(data):
     data_completa["Categoria"] = data_completa["Categoria"].replace({
         "Stipendio": "Stipendi",
         "Media Stipendio": "Media Stipendi",
-        "Media Stipendio NO 13°/PDR": "Media Stipendi Ordinari",
+        "Media Stipendio NO 13°/PDR": "Media Stipendi Ordinari (no spikes)",
         "Media Risparmi": "Media Risparmi Mese Precedente",
         "Risparmi": "Risparmi Mese Precedente"
     })
@@ -3684,7 +3684,7 @@ def crea_grafico_stipendi(data):
     # Use opacity layering - Messi da parte Totali as base, Risparmi overlaid
     bar_color_range = ["rgba(255, 165, 0, 0.5)", "#4CAF50"]
 
-    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi Ordinari", "Media Risparmi Mese Precedente", "Media Messi da parte Totali"]
+    line_categories = ["Stipendi", "Media Stipendi", "Media Stipendi Ordinari (no spikes)", "Media Risparmi Mese Precedente", "Media Messi da parte Totali"]
     line_color_range = ["#5792E8", "#f87171", "#fb923c", "#FFA040", "#90EE90"]
     # FIX 2: Month labels - use full month names diagonal like Bollette chart
     data_completa["Mese"] = pd.to_datetime(data_completa["Mese"], errors="coerce")
@@ -3818,14 +3818,20 @@ def crea_confronto_anno_su_anno_stipendi(data):
     df = df.dropna(subset=["Mese"])
     if df.empty:
         return alt.Chart(pd.DataFrame({'Mese_str': [], 'Stipendio': [], 'Anno': []})).mark_line()
+    current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_start = current_month_start - pd.DateOffset(years=3)
+    df = df[(df["Mese"] >= chart_start) & (df["Mese"] <= current_month_start)]
+    if df.empty:
+        return alt.Chart(pd.DataFrame({'Mese_str': [], 'Stipendio': [], 'Anno': []})).mark_line()
     df["Anno"] = df["Mese"].dt.year.astype(str)
     df["Mese_str"] = df["Mese"].dt.strftime("%b")
     chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Mese_str:N", title="Mese",
-                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
+                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
         y=alt.Y("Stipendio:Q", title="Stipendio (€)", aggregate="mean"),
         color=alt.Color("Anno:N", title="Anno"),
-        tooltip=["Anno", "Mese_str", alt.Tooltip("Stipendio:Q", aggregate="mean", format=".2f")]
+        tooltip=[alt.Tooltip("Anno:N", title="Anno"), alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendio", aggregate="mean", format=".2f")]
     ).properties(title="")
     return chart
 
@@ -3837,16 +3843,22 @@ def crea_confronto_anno_su_anno_bollette(data):
     df = df.dropna(subset=["Mese"])
     if df.empty:
         return alt.Chart(pd.DataFrame({'Mese_str': [], 'Totale_Bollette': [], 'Anno': []})).mark_line()
+    current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_start = current_month_start - pd.DateOffset(years=3)
+    df = df[(df["Mese"] >= chart_start) & (df["Mese"] <= current_month_start)]
+    if df.empty:
+        return alt.Chart(pd.DataFrame({'Mese_str': [], 'Totale_Bollette': [], 'Anno': []})).mark_line()
     if "Totale_Bollette" not in df.columns:
         df["Totale_Bollette"] = df["Elettricità"] + df["Gas"] + df["Acqua"] + df["Internet"] + df["Tari"]
     df["Anno"] = df["Mese"].dt.year.astype(str)
     df["Mese_str"] = df["Mese"].dt.strftime("%b")
     chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Mese_str:N", title="Mese",
-                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]),
+                sort=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                axis=alt.Axis(labelAngle=-45, labelFontSize=10)),
         y=alt.Y("Totale_Bollette:Q", title="Spesa Totale (€)"),
         color=alt.Color("Anno:N", title="Anno"),
-        tooltip=["Anno", "Mese_str", alt.Tooltip("Totale_Bollette:Q", format=".2f")]
+        tooltip=[alt.Tooltip("Anno:N", title="Anno"), alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Totale_Bollette:Q", title="Totale bollette", format=".2f")]
     ).properties(title="")
     return chart
 
@@ -3988,7 +4000,7 @@ with col_table:
             _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
             st.markdown(f"""
         <div class="kpi-card">
-            <div class="kpi-label">Media Stipendi Ordinari</div>
+            <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
             <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
         </div>""", unsafe_allow_html=True)
     with col_somme2:
@@ -4075,7 +4087,7 @@ with col_chart:
             ).encode(
                 x=x_axis,
                 y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari", format=",.2f")]
+                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari (no spikes)", format=",.2f")]
             )
 
             risparmi_stack = chart_data.melt(
@@ -4171,7 +4183,7 @@ with col_chart:
                     <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari
+                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)
                 </span>
                 <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
                     <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente
