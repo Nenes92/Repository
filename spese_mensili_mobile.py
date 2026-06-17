@@ -711,8 +711,17 @@ if MOBILE_VIEW:
         background: rgba(255,255,255,.045);
         border: 0.5px solid rgba(255,255,255,.10);
     }
+    .mobile-float-donut {
+        float: right;
+        width: 46%;
+        max-width: 190px;
+        margin: 0 0 8px 10px;
+    }
+    .mobile-float-donut .mobile-donut-card {
+        margin-top: 0;
+    }
     .mobile-donut-title {
-        font-size: 12px;
+        font-size: 11px;
         line-height: 1.15;
         font-weight: 900;
         letter-spacing: .2px;
@@ -722,21 +731,22 @@ if MOBILE_VIEW:
     }
     .mobile-donut-body {
         display: grid;
-        grid-template-columns: 82px minmax(0, 1fr);
-        gap: 9px;
+        grid-template-columns: 1fr;
+        gap: 7px;
         align-items: center;
     }
     .mobile-donut-ring {
-        width: 76px;
-        height: 76px;
+        width: 68px;
+        height: 68px;
         border-radius: 999px;
         display: grid;
         place-items: center;
         box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+        margin: 0 auto;
     }
     .mobile-donut-hole {
-        width: 43px;
-        height: 43px;
+        width: 38px;
+        height: 38px;
         border-radius: 999px;
         background: #111827;
         box-shadow: 0 0 0 1px rgba(255,255,255,.04);
@@ -748,7 +758,7 @@ if MOBILE_VIEW:
     }
     .mobile-donut-legend-row {
         display: grid;
-        grid-template-columns: 8px minmax(0, 1fr) auto;
+        grid-template-columns: 8px minmax(0, 1fr);
         gap: 5px;
         align-items: center;
         min-width: 0;
@@ -761,17 +771,10 @@ if MOBILE_VIEW:
     .mobile-donut-label {
         min-width: 0;
         color: rgba(255,255,255,.66);
-        font-size: 10.5px;
+        font-size: 10px;
         line-height: 1.15;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .mobile-donut-value {
-        color: rgba(255,255,255,.82);
-        font-size: 10.5px;
-        line-height: 1.15;
-        font-family: 'DM Mono', monospace;
         white-space: nowrap;
     }
     </style>
@@ -898,7 +901,6 @@ def _mobile_donut_html(title, labels, values, colors):
             f'<div class="mobile-donut-legend-row">'
             f'<span class="mobile-donut-dot" style="background:{color};"></span>'
             f'<span class="mobile-donut-label">{html.escape(label)}</span>'
-            f'<span class="mobile-donut-value">€{value:,.2f}</span>'
             f'</div>'
         )
 
@@ -3300,6 +3302,33 @@ textarea {
             da_spendere = 0
             spese_quotidiane = 0
             spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
+            df_spese_variabili_mobile = pd.DataFrame({
+                'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                'Value': [
+                    SPESE["Variabili"]["Emergenze/Compleanni"],
+                    SPESE["Variabili"]["Viaggi"],
+                    SPESE["Variabili"]["Da spendere"],
+                    SPESE["Variabili"]["Spese quotidiane"]
+                ]
+            })
+            df_spese_variabili_mobile = df_spese_variabili_mobile[df_spese_variabili_mobile["Value"] > 0].copy()
+            if MOBILE_VIEW and not df_spese_variabili_mobile.empty:
+                st.markdown(
+                    '<div class="mobile-float-donut">'
+                    + _mobile_donut_html(
+                        "Distribuzione",
+                        df_spese_variabili_mobile["Voce"].tolist(),
+                        df_spese_variabili_mobile["Value"].tolist(),
+                        df_spese_variabili_mobile["Voce"].map({
+                            "Emergenze/Compleanni": "#4ADE80",
+                            "Viaggi": "#166534",
+                            "Da spendere": "#FACC15",
+                            "Spese quotidiane": "#FB923C",
+                        }).fillna("#94a3b8").tolist()
+                    )
+                    + '</div>',
+                    unsafe_allow_html=True
+                )
     
             risparmio_stipendi = stipendio_originale - stipendio_scelto
             risparmio_da_spendere = 0
@@ -3373,7 +3402,7 @@ textarea {
                 )
     
     
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="clear:both;height:10px;"></div>', unsafe_allow_html=True)
             col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
@@ -3425,20 +3454,7 @@ textarea {
                 # Creazione del grafico
                 if not df_spese_variabili.empty:
                     if MOBILE_VIEW:
-                        st.markdown(
-                            _mobile_donut_html(
-                                "Distribuzione spese variabili",
-                                df_spese_variabili["Voce"].tolist(),
-                                df_spese_variabili["Value"].tolist(),
-                                df_spese_variabili["Voce"].map({
-                                    "Emergenze/Compleanni": "#4ADE80",
-                                    "Viaggi": "#166534",
-                                    "Da spendere": "#FACC15",
-                                    "Spese quotidiane": "#FB923C",
-                                }).fillna("#94a3b8").tolist()
-                            ),
-                            unsafe_allow_html=True
-                        )
+                        pass
                     else:
                         donut_inner = 40
                         donut_outer = 70
