@@ -704,6 +704,76 @@ if MOBILE_VIEW:
         font-size:12px;
         color:rgba(255,255,255,.62);
     }
+    .mobile-donut-card {
+        margin: 4px 0 10px;
+        padding: 10px;
+        border-radius: 13px;
+        background: rgba(255,255,255,.045);
+        border: 0.5px solid rgba(255,255,255,.10);
+    }
+    .mobile-donut-title {
+        font-size: 12px;
+        line-height: 1.15;
+        font-weight: 900;
+        letter-spacing: .2px;
+        color: rgba(255,255,255,.86);
+        margin-bottom: 8px;
+        white-space: normal;
+    }
+    .mobile-donut-body {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr);
+        gap: 9px;
+        align-items: center;
+    }
+    .mobile-donut-ring {
+        width: 76px;
+        height: 76px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .mobile-donut-hole {
+        width: 43px;
+        height: 43px;
+        border-radius: 999px;
+        background: #111827;
+        box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .mobile-donut-legend {
+        min-width: 0;
+        display: grid;
+        gap: 5px;
+    }
+    .mobile-donut-legend-row {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr) auto;
+        gap: 5px;
+        align-items: center;
+        min-width: 0;
+    }
+    .mobile-donut-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+    }
+    .mobile-donut-label {
+        min-width: 0;
+        color: rgba(255,255,255,.66);
+        font-size: 10.5px;
+        line-height: 1.15;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .mobile-donut-value {
+        color: rgba(255,255,255,.82);
+        font-size: 10.5px;
+        line-height: 1.15;
+        font-family: 'DM Mono', monospace;
+        white-space: nowrap;
+    }
     </style>
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
@@ -806,6 +876,46 @@ triangolino_verde_BNL = '<span style="display:inline-block; width:0; height:0; b
 triangolino_arancione_ING = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #D2691E; margin-left:10px;"></span>'
 triangolino_blu_Revolut = '<span style="display:inline-block; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-right:5px solid #89CFF0; margin-left:10px;"></span>'
 # /////  
+
+def _mobile_donut_html(title, labels, values, colors):
+    clean_items = [
+        (str(label), float(value), str(color))
+        for label, value, color in zip(labels, values, colors)
+        if float(value or 0) > 0
+    ]
+    total = sum(value for _, value, _ in clean_items)
+    if total <= 0:
+        return ""
+
+    start = 0.0
+    stops = []
+    legend_rows = []
+    for label, value, color in clean_items:
+        end = start + (value / total * 360)
+        stops.append(f"{color} {start:.2f}deg {end:.2f}deg")
+        start = end
+        legend_rows.append(f"""
+            <div class="mobile-donut-legend-row">
+                <span class="mobile-donut-dot" style="background:{color};"></span>
+                <span class="mobile-donut-label">{html.escape(label)}</span>
+                <span class="mobile-donut-value">€{value:,.2f}</span>
+            </div>
+        """)
+
+    gradient = ", ".join(stops)
+    return f"""
+    <div class="mobile-donut-card">
+        <div class="mobile-donut-title">{html.escape(title)}</div>
+        <div class="mobile-donut-body">
+            <div class="mobile-donut-ring" style="background:conic-gradient({gradient});">
+                <div class="mobile-donut-hole"></div>
+            </div>
+            <div class="mobile-donut-legend">
+                {''.join(legend_rows)}
+            </div>
+        </div>
+    </div>
+    """
 
 SPESE = {
     "Fisse": {
@@ -3316,48 +3426,63 @@ textarea {
                 
                 # Creazione del grafico
                 if not df_spese_variabili.empty:
-                    donut_inner = 26 if MOBILE_VIEW else 40
-                    donut_outer = 46 if MOBILE_VIEW else 70
-                    donut_width = 126 if MOBILE_VIEW else 200
-                    donut_height = 168 if MOBILE_VIEW else 220
-                    chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
-                        innerRadius=donut_inner, outerRadius=donut_outer
-                    ).encode(
-                        theta=alt.Theta(field="Value", type="quantitative"),
-                        color=alt.Color(
-                            field="Voce", type="nominal",
-                            scale=alt.Scale(
-                                domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-                                range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+                    if MOBILE_VIEW:
+                        st.markdown(
+                            _mobile_donut_html(
+                                "Distribuzione spese variabili",
+                                df_spese_variabili["Voce"].tolist(),
+                                df_spese_variabili["Value"].tolist(),
+                                df_spese_variabili["Voce"].map({
+                                    "Emergenze/Compleanni": "#4ADE80",
+                                    "Viaggi": "#166534",
+                                    "Da spendere": "#FACC15",
+                                    "Spese quotidiane": "#FB923C",
+                                }).fillna("#94a3b8").tolist()
                             ),
-                            legend=alt.Legend(
-                                title=None,
-                                orient='bottom' if MOBILE_VIEW else 'right',
-                                direction='horizontal' if MOBILE_VIEW else 'vertical',
-                                labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=9 if MOBILE_VIEW else 11,
-                                symbolSize=24 if MOBILE_VIEW else 40,
-                                padding=1 if MOBILE_VIEW else 2,
-                                offset=2 if MOBILE_VIEW else 5
-                            )
-                        ),
-                        tooltip=[
-                            alt.Tooltip('Voce:N', title='Voce'),
-                            alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                            alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                        ]
-                    ).properties(
-                        title="💸 Distribuzione Spese Variabili",
-                        width=donut_width,
-                        height=donut_height
-                    ).configure_title(
-                        anchor='middle'
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
-                    )
-                
-                    st.altair_chart(chart_spese_variabili, use_container_width=not MOBILE_VIEW)
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        donut_inner = 40
+                        donut_outer = 70
+                        donut_width = 200
+                        donut_height = 220
+                        chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
+                            innerRadius=donut_inner, outerRadius=donut_outer
+                        ).encode(
+                            theta=alt.Theta(field="Value", type="quantitative"),
+                            color=alt.Color(
+                                field="Voce", type="nominal",
+                                scale=alt.Scale(
+                                    domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                                    range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+                                ),
+                                legend=alt.Legend(
+                                    title=None,
+                                    orient='right',
+                                    direction='vertical',
+                                    labelColor='rgba(255,255,255,0.65)',
+                                    labelFontSize=11,
+                                    symbolSize=40,
+                                    padding=2,
+                                    offset=5
+                                )
+                            ),
+                            tooltip=[
+                                alt.Tooltip('Voce:N', title='Voce'),
+                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                            ]
+                        ).properties(
+                            title="💸 Distribuzione Spese Variabili",
+                            width=donut_width,
+                            height=donut_height
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
+                        )
+                        st.altair_chart(chart_spese_variabili, use_container_width=True)
         # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
         st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     
@@ -3507,44 +3632,55 @@ textarea {
 
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
-                        donut_inner = 26 if MOBILE_VIEW else 32
-                        donut_outer = 46 if MOBILE_VIEW else 56
-                        donut_width = 126 if MOBILE_VIEW else 150
-                        donut_height = 168 if MOBILE_VIEW else 170
-                        chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                            innerRadius=donut_inner, outerRadius=donut_outer
-                        ).encode(
-                            theta=alt.Theta(field="Value", type="quantitative"),
-                            color=alt.Color(
-                                field="Voce", type="nominal",
-                                scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
-                                legend=alt.Legend(
-                                    title=None,
-                                    orient='bottom' if MOBILE_VIEW else 'right',
-                                    direction='horizontal' if MOBILE_VIEW else 'vertical',
-                                    labelColor='rgba(255,255,255,0.65)',
-                                    labelFontSize=9 if MOBILE_VIEW else 11,
-                                    symbolSize=24 if MOBILE_VIEW else 40,
-                                    padding=1 if MOBILE_VIEW else 2,
-                                    offset=2 if MOBILE_VIEW else 5
-                                )
-                            ),
-                            tooltip=[
-                                alt.Tooltip('Voce:N', title='Voce'),
-                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                            ]
-                        ).properties(
-                            title="➕ Distribuzione Altre Entrate",
-                            width=donut_width,
-                            height=donut_height
-                        ).configure_title(
-                            anchor='middle'
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill='transparent'
-                        )
-                        st.altair_chart(chart_altre_entrate, use_container_width=not MOBILE_VIEW)
+                        if MOBILE_VIEW:
+                            st.markdown(
+                                _mobile_donut_html(
+                                    "Distribuzione altre entrate",
+                                    df_altre_entrate["Voce"].tolist(),
+                                    df_altre_entrate["Value"].tolist(),
+                                    palette[:len(df_altre_entrate)]
+                                ),
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            donut_inner = 32
+                            donut_outer = 56
+                            donut_width = 150
+                            donut_height = 170
+                            chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                                innerRadius=donut_inner, outerRadius=donut_outer
+                            ).encode(
+                                theta=alt.Theta(field="Value", type="quantitative"),
+                                color=alt.Color(
+                                    field="Voce", type="nominal",
+                                    scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                    legend=alt.Legend(
+                                        title=None,
+                                        orient='right',
+                                        direction='vertical',
+                                        labelColor='rgba(255,255,255,0.65)',
+                                        labelFontSize=11,
+                                        symbolSize=40,
+                                        padding=2,
+                                        offset=5
+                                    )
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Voce:N', title='Voce'),
+                                    alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                    alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                                ]
+                            ).properties(
+                                title="➕ Distribuzione Altre Entrate",
+                                width=donut_width,
+                                height=donut_height
+                            ).configure_title(
+                                anchor='middle'
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            )
+                            st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
         col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
@@ -3733,48 +3869,62 @@ textarea {
                 
             with col_risparmi_2:
                 if not df_savings.empty:
-                    donut_inner = 26 if MOBILE_VIEW else 32
-                    donut_outer = 46 if MOBILE_VIEW else 56
-                    donut_width = 126 if MOBILE_VIEW else 150
-                    donut_height = 168 if MOBILE_VIEW else 170
-                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
-                        theta=alt.Theta(field="Value", type="quantitative"),
-                        color=alt.Color(
-                            field="Component", type="nominal",
-                            scale=alt.Scale(
-                                domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                    if MOBILE_VIEW:
+                        st.markdown(
+                            _mobile_donut_html(
+                                "Distribuzione risparmi",
+                                df_savings["Component"].tolist(),
+                                df_savings["Value"].tolist(),
+                                df_savings["Component"].map({
+                                    "Da Stipendi": "#9ca3af",
+                                    "Da Mese Prec.": "#60a5fa",
+                                    "Da Spendere": "#fde047",
+                                    "Quotidiane": "#FB923C",
+                                }).fillna("#94a3b8").tolist()
                             ),
-                            legend=alt.Legend(
-                                title=None,
-                                orient='bottom' if MOBILE_VIEW else 'right',
-                                direction='horizontal' if MOBILE_VIEW else 'vertical',
-                                labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=9 if MOBILE_VIEW else 11,
-                                symbolSize=24 if MOBILE_VIEW else 40,
-                                padding=1 if MOBILE_VIEW else 2,
-                                offset=2 if MOBILE_VIEW else 5
-                            )
-                        ),
-                        tooltip=[
-                            alt.Tooltip('Component:N', title='Risparmi'),
-                            alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
-                            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                        ]
-                    ).properties(
-                        title="💰 Distribuzione Risparmi",
-                        width=donut_width,
-                        height=donut_height
-                    ).configure_title(
-                        anchor='middle'
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent'
-                    )
-                
-                    # mantiene colori indipendenti se hai più chart simili
-                    chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-                    st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=not MOBILE_VIEW)
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        donut_inner = 32
+                        donut_outer = 56
+                        donut_width = 150
+                        donut_height = 170
+                        chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
+                            theta=alt.Theta(field="Value", type="quantitative"),
+                            color=alt.Color(
+                                field="Component", type="nominal",
+                                scale=alt.Scale(
+                                    domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                                    range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                                ),
+                                legend=alt.Legend(
+                                    title=None,
+                                    orient='right',
+                                    direction='vertical',
+                                    labelColor='rgba(255,255,255,0.65)',
+                                    labelFontSize=11,
+                                    symbolSize=40,
+                                    padding=2,
+                                    offset=5
+                                )
+                            ),
+                            tooltip=[
+                                alt.Tooltip('Component:N', title='Risparmi'),
+                                alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                            ]
+                        ).properties(
+                            title="💰 Distribuzione Risparmi",
+                            width=donut_width,
+                            height=donut_height
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent'
+                        )
+                        chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
+                        st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
     
 
 
@@ -3850,48 +4000,59 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                donut_inner = 26 if MOBILE_VIEW else 32
-                donut_outer = 46 if MOBILE_VIEW else 56
-                donut_width = 126 if MOBILE_VIEW else 150
-                donut_height = 168 if MOBILE_VIEW else 170
-                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
-                theta=alt.Theta(field="Totale", type="quantitative"),
-                color=alt.Color(
-                    field="Carta", type="nominal",
-                    scale=alt.Scale(
-                        domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                        range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
-                    ),
-                    legend=alt.Legend(
-                        title=None,
-                        orient='bottom' if MOBILE_VIEW else 'right',
-                        direction='horizontal' if MOBILE_VIEW else 'vertical',
-                        labelColor='rgba(255,255,255,0.65)',
-                        labelFontSize=9 if MOBILE_VIEW else 11,
-                        symbolSize=24 if MOBILE_VIEW else 40,
-                        padding=1 if MOBILE_VIEW else 2,
-                        offset=2 if MOBILE_VIEW else 5
+                if MOBILE_VIEW:
+                    st.markdown(
+                        _mobile_donut_html(
+                            "Distribuzione carte",
+                            df_carte["Carta"].tolist(),
+                            df_carte["Totale"].tolist(),
+                            ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                        ),
+                        unsafe_allow_html=True
                     )
-        
-                ),
-                tooltip=[
-                    alt.Tooltip("Carta:N", title="Carta"),
-                    alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
-                    alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                ]
-                ).properties(
-                    title="💳 Distribuzione Carte",
-                    width=donut_width,
-                    height=donut_height,
-                ).configure_title(
-                    anchor='middle'
-                ).configure_view(
-                    strokeWidth=0,
-                    fill='transparent',
-                )    
-        
-                chart_carte = carte_arc.resolve_scale(color='independent')
-                st.altair_chart(chart_carte, use_container_width=not MOBILE_VIEW)
+                else:
+                    donut_inner = 32
+                    donut_outer = 56
+                    donut_width = 150
+                    donut_height = 170
+                    carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
+                    theta=alt.Theta(field="Totale", type="quantitative"),
+                    color=alt.Color(
+                        field="Carta", type="nominal",
+                        scale=alt.Scale(
+                            domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                            range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                        ),
+                        legend=alt.Legend(
+                            title=None,
+                            orient='right',
+                            direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)',
+                            labelFontSize=11,
+                            symbolSize=40,
+                            padding=2,
+                            offset=5
+                        )
+            
+                    ),
+                    tooltip=[
+                        alt.Tooltip("Carta:N", title="Carta"),
+                        alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                    ]
+                    ).properties(
+                        title="💳 Distribuzione Carte",
+                        width=donut_width,
+                        height=donut_height,
+                    ).configure_title(
+                        anchor='middle'
+                    ).configure_view(
+                        strokeWidth=0,
+                        fill='transparent',
+                    )    
+            
+                    chart_carte = carte_arc.resolve_scale(color='independent')
+                    st.altair_chart(chart_carte, use_container_width=True)
             st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
         st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         render_turni_guadagni_section()
