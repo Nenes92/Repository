@@ -894,28 +894,26 @@ def _mobile_donut_html(title, labels, values, colors):
         end = start + (value / total * 360)
         stops.append(f"{color} {start:.2f}deg {end:.2f}deg")
         start = end
-        legend_rows.append(f"""
-            <div class="mobile-donut-legend-row">
-                <span class="mobile-donut-dot" style="background:{color};"></span>
-                <span class="mobile-donut-label">{html.escape(label)}</span>
-                <span class="mobile-donut-value">€{value:,.2f}</span>
-            </div>
-        """)
+        legend_rows.append(
+            f'<div class="mobile-donut-legend-row">'
+            f'<span class="mobile-donut-dot" style="background:{color};"></span>'
+            f'<span class="mobile-donut-label">{html.escape(label)}</span>'
+            f'<span class="mobile-donut-value">€{value:,.2f}</span>'
+            f'</div>'
+        )
 
     gradient = ", ".join(stops)
-    return f"""
-    <div class="mobile-donut-card">
-        <div class="mobile-donut-title">{html.escape(title)}</div>
-        <div class="mobile-donut-body">
-            <div class="mobile-donut-ring" style="background:conic-gradient({gradient});">
-                <div class="mobile-donut-hole"></div>
-            </div>
-            <div class="mobile-donut-legend">
-                {''.join(legend_rows)}
-            </div>
-        </div>
-    </div>
-    """
+    return (
+        '<div class="mobile-donut-card">'
+        f'<div class="mobile-donut-title">{html.escape(title)}</div>'
+        '<div class="mobile-donut-body">'
+        f'<div class="mobile-donut-ring" style="background:conic-gradient({gradient});">'
+        '<div class="mobile-donut-hole"></div>'
+        '</div>'
+        f'<div class="mobile-donut-legend">{"".join(legend_rows)}</div>'
+        '</div>'
+        '</div>'
+    )
 
 SPESE = {
     "Fisse": {
