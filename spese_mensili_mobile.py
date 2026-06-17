@@ -650,7 +650,7 @@ if MOBILE_VIEW:
         overflow-x: auto !important;
     }
     [data-testid="stVegaLiteChart"] > div {
-        min-width: 560px !important;
+        min-width: min(100%, 560px) !important;
     }
     .mobile-calendar-grid {
         display: grid;
@@ -3316,8 +3316,12 @@ textarea {
                 
                 # Creazione del grafico
                 if not df_spese_variabili.empty:
+                    donut_inner = 26 if MOBILE_VIEW else 40
+                    donut_outer = 46 if MOBILE_VIEW else 70
+                    donut_width = 126 if MOBILE_VIEW else 200
+                    donut_height = 148 if MOBILE_VIEW else 220
                     chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
-                        innerRadius=40, outerRadius=70
+                        innerRadius=donut_inner, outerRadius=donut_outer
                     ).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
@@ -3331,10 +3335,10 @@ textarea {
                                 orient='right',
                                 direction='vertical',
                                 labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=11,
-                                symbolSize=40,
+                                labelFontSize=9 if MOBILE_VIEW else 11,
+                                symbolSize=28 if MOBILE_VIEW else 40,
                                 padding=2,
-                                offset=5
+                                offset=2 if MOBILE_VIEW else 5
                             )
                         ),
                         tooltip=[
@@ -3344,8 +3348,8 @@ textarea {
                         ]
                     ).properties(
                         title="💸 Distribuzione Spese Variabili",
-                        width=200,
-                        height=220
+                        width=donut_width,
+                        height=donut_height
                     ).configure_title(
                         anchor='middle'
                     ).configure_view(
@@ -3353,7 +3357,7 @@ textarea {
                         fill='transparent'
                     )
                 
-                    st.altair_chart(chart_spese_variabili, use_container_width=True)
+                    st.altair_chart(chart_spese_variabili, use_container_width=not MOBILE_VIEW)
         # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
         st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     
@@ -3503,8 +3507,12 @@ textarea {
 
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+                        donut_inner = 26 if MOBILE_VIEW else 32
+                        donut_outer = 46 if MOBILE_VIEW else 56
+                        donut_width = 126 if MOBILE_VIEW else 150
+                        donut_height = 148 if MOBILE_VIEW else 170
                         chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
-                            innerRadius=32, outerRadius=56
+                            innerRadius=donut_inner, outerRadius=donut_outer
                         ).encode(
                             theta=alt.Theta(field="Value", type="quantitative"),
                             color=alt.Color(
@@ -3515,10 +3523,10 @@ textarea {
                                     orient='right',
                                     direction='vertical',
                                     labelColor='rgba(255,255,255,0.65)',
-                                    labelFontSize=11,
-                                    symbolSize=40,
+                                    labelFontSize=9 if MOBILE_VIEW else 11,
+                                    symbolSize=28 if MOBILE_VIEW else 40,
                                     padding=2,
-                                    offset=5
+                                    offset=2 if MOBILE_VIEW else 5
                                 )
                             ),
                             tooltip=[
@@ -3528,15 +3536,15 @@ textarea {
                             ]
                         ).properties(
                             title="➕ Distribuzione Altre Entrate",
-                            width=150,
-                            height=170
+                            width=donut_width,
+                            height=donut_height
                         ).configure_title(
                             anchor='middle'
                         ).configure_view(
                             strokeWidth=0,
                             fill='transparent'
                         )
-                        st.altair_chart(chart_altre_entrate, use_container_width=True)
+                        st.altair_chart(chart_altre_entrate, use_container_width=not MOBILE_VIEW)
 
         # Visualizzazione grafici
         col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
@@ -3725,7 +3733,11 @@ textarea {
                 
             with col_risparmi_2:
                 if not df_savings.empty:
-                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=32, outerRadius=56).encode(
+                    donut_inner = 26 if MOBILE_VIEW else 32
+                    donut_outer = 46 if MOBILE_VIEW else 56
+                    donut_width = 126 if MOBILE_VIEW else 150
+                    donut_height = 148 if MOBILE_VIEW else 170
+                    chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
                             field="Component", type="nominal",
@@ -3738,10 +3750,10 @@ textarea {
                                 orient='right',
                                 direction='vertical',
                                 labelColor='rgba(255,255,255,0.65)',
-                                labelFontSize=11,
-                                symbolSize=40,
+                                labelFontSize=9 if MOBILE_VIEW else 11,
+                                symbolSize=28 if MOBILE_VIEW else 40,
                                 padding=2,
-                                offset=5  # 👈 distanza dal grafico (chiave!)
+                                offset=2 if MOBILE_VIEW else 5
                             )
                         ),
                         tooltip=[
@@ -3751,8 +3763,8 @@ textarea {
                         ]
                     ).properties(
                         title="💰 Distribuzione Risparmi",
-                        width=150,
-                        height=170
+                        width=donut_width,
+                        height=donut_height
                     ).configure_title(
                         anchor='middle'
                     ).configure_view(
@@ -3762,7 +3774,7 @@ textarea {
                 
                     # mantiene colori indipendenti se hai più chart simili
                     chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-                    st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+                    st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=not MOBILE_VIEW)
     
 
 
@@ -3838,7 +3850,11 @@ textarea {
                         })
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
-                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=32, outerRadius=56).encode(
+                donut_inner = 26 if MOBILE_VIEW else 32
+                donut_outer = 46 if MOBILE_VIEW else 56
+                donut_width = 126 if MOBILE_VIEW else 150
+                donut_height = 148 if MOBILE_VIEW else 170
+                carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
                 theta=alt.Theta(field="Totale", type="quantitative"),
                 color=alt.Color(
                     field="Carta", type="nominal",
@@ -3851,10 +3867,10 @@ textarea {
                         orient='right',
                         direction='vertical',
                         labelColor='rgba(255,255,255,0.65)',
-                        labelFontSize=11,
-                        symbolSize=40,
+                        labelFontSize=9 if MOBILE_VIEW else 11,
+                        symbolSize=28 if MOBILE_VIEW else 40,
                         padding=2,
-                        offset=5  # 👈 distanza dal grafico (chiave!)
+                        offset=2 if MOBILE_VIEW else 5
                     )
         
                 ),
@@ -3865,8 +3881,8 @@ textarea {
                 ]
                 ).properties(
                     title="💳 Distribuzione Carte",
-                    width=150,
-                    height=170,
+                    width=donut_width,
+                    height=donut_height,
                 ).configure_title(
                     anchor='middle'
                 ).configure_view(
@@ -3875,7 +3891,7 @@ textarea {
                 )    
         
                 chart_carte = carte_arc.resolve_scale(color='independent')
-                st.altair_chart(chart_carte, use_container_width=True)
+                st.altair_chart(chart_carte, use_container_width=not MOBILE_VIEW)
             st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
         st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         render_turni_guadagni_section()
