@@ -3319,7 +3319,7 @@ textarea {
                     donut_inner = 26 if MOBILE_VIEW else 40
                     donut_outer = 46 if MOBILE_VIEW else 70
                     donut_width = 126 if MOBILE_VIEW else 200
-                    donut_height = 148 if MOBILE_VIEW else 220
+                    donut_height = 168 if MOBILE_VIEW else 220
                     chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
                         innerRadius=donut_inner, outerRadius=donut_outer
                     ).encode(
@@ -3332,12 +3332,12 @@ textarea {
                             ),
                             legend=alt.Legend(
                                 title=None,
-                                orient='right',
-                                direction='vertical',
+                                orient='bottom' if MOBILE_VIEW else 'right',
+                                direction='horizontal' if MOBILE_VIEW else 'vertical',
                                 labelColor='rgba(255,255,255,0.65)',
                                 labelFontSize=9 if MOBILE_VIEW else 11,
-                                symbolSize=28 if MOBILE_VIEW else 40,
-                                padding=2,
+                                symbolSize=24 if MOBILE_VIEW else 40,
+                                padding=1 if MOBILE_VIEW else 2,
                                 offset=2 if MOBILE_VIEW else 5
                             )
                         ),
@@ -3510,7 +3510,7 @@ textarea {
                         donut_inner = 26 if MOBILE_VIEW else 32
                         donut_outer = 46 if MOBILE_VIEW else 56
                         donut_width = 126 if MOBILE_VIEW else 150
-                        donut_height = 148 if MOBILE_VIEW else 170
+                        donut_height = 168 if MOBILE_VIEW else 170
                         chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
                             innerRadius=donut_inner, outerRadius=donut_outer
                         ).encode(
@@ -3520,12 +3520,12 @@ textarea {
                                 scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
                                 legend=alt.Legend(
                                     title=None,
-                                    orient='right',
-                                    direction='vertical',
+                                    orient='bottom' if MOBILE_VIEW else 'right',
+                                    direction='horizontal' if MOBILE_VIEW else 'vertical',
                                     labelColor='rgba(255,255,255,0.65)',
                                     labelFontSize=9 if MOBILE_VIEW else 11,
-                                    symbolSize=28 if MOBILE_VIEW else 40,
-                                    padding=2,
+                                    symbolSize=24 if MOBILE_VIEW else 40,
+                                    padding=1 if MOBILE_VIEW else 2,
                                     offset=2 if MOBILE_VIEW else 5
                                 )
                             ),
@@ -3736,7 +3736,7 @@ textarea {
                     donut_inner = 26 if MOBILE_VIEW else 32
                     donut_outer = 46 if MOBILE_VIEW else 56
                     donut_width = 126 if MOBILE_VIEW else 150
-                    donut_height = 148 if MOBILE_VIEW else 170
+                    donut_height = 168 if MOBILE_VIEW else 170
                     chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
                         theta=alt.Theta(field="Value", type="quantitative"),
                         color=alt.Color(
@@ -3747,12 +3747,12 @@ textarea {
                             ),
                             legend=alt.Legend(
                                 title=None,
-                                orient='right',
-                                direction='vertical',
+                                orient='bottom' if MOBILE_VIEW else 'right',
+                                direction='horizontal' if MOBILE_VIEW else 'vertical',
                                 labelColor='rgba(255,255,255,0.65)',
                                 labelFontSize=9 if MOBILE_VIEW else 11,
-                                symbolSize=28 if MOBILE_VIEW else 40,
-                                padding=2,
+                                symbolSize=24 if MOBILE_VIEW else 40,
+                                padding=1 if MOBILE_VIEW else 2,
                                 offset=2 if MOBILE_VIEW else 5
                             )
                         ),
@@ -3853,7 +3853,7 @@ textarea {
                 donut_inner = 26 if MOBILE_VIEW else 32
                 donut_outer = 46 if MOBILE_VIEW else 56
                 donut_width = 126 if MOBILE_VIEW else 150
-                donut_height = 148 if MOBILE_VIEW else 170
+                donut_height = 168 if MOBILE_VIEW else 170
                 carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
                 theta=alt.Theta(field="Totale", type="quantitative"),
                 color=alt.Color(
@@ -3864,12 +3864,12 @@ textarea {
                     ),
                     legend=alt.Legend(
                         title=None,
-                        orient='right',
-                        direction='vertical',
+                        orient='bottom' if MOBILE_VIEW else 'right',
+                        direction='horizontal' if MOBILE_VIEW else 'vertical',
                         labelColor='rgba(255,255,255,0.65)',
                         labelFontSize=9 if MOBILE_VIEW else 11,
-                        symbolSize=28 if MOBILE_VIEW else 40,
-                        padding=2,
+                        symbolSize=24 if MOBILE_VIEW else 40,
+                        padding=1 if MOBILE_VIEW else 2,
                         offset=2 if MOBILE_VIEW else 5
                     )
         
