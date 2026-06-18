@@ -592,6 +592,69 @@ if MOBILE_VIEW:
         margin-top: 3px;
         line-height: 1.15;
     }
+    @media (max-width: 767px) {
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.38rem !important;
+            align-items: flex-start !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) > div[data-testid="column"] {
+            width: calc(33.333% - 0.28rem) !important;
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) .salary-input-label {
+            font-size: 9px !important;
+            letter-spacing: .85px !important;
+            white-space: normal !important;
+            min-height: 25px;
+            line-height: 1.15;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] {
+            min-width: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] input {
+            min-width: 0 !important;
+            font-size: 14px !important;
+            padding-left: 8px !important;
+            padding-right: 4px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] button {
+            width: 26px !important;
+            min-width: 26px !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.55rem !important;
+            align-items: stretch !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) > div[data-testid="column"] {
+            width: calc(50% - 0.3rem) !important;
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-card,
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-card {
+            min-height: 0 !important;
+            height: auto !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-value {
+            font-size: 17px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-title {
+            font-size: 10px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-label,
+        div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-value {
+            font-size: 10px !important;
+        }
+    }
     h1 {
         font-size: 1.45rem !important;
         text-align: left !important;
