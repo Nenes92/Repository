@@ -850,10 +850,53 @@ if MOBILE_VIEW:
     }
     .mobile-altre-entrate-grid > div:nth-child(2) {
         align-self: center;
+        transform: translateY(-10px);
     }
     .mobile-side-grid .mobile-donut-card {
         margin: 0;
         padding: 9px;
+    }
+    .mobile-three-donut-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin: 10px 0 12px;
+        width: 100%;
+        max-width: 100%;
+    }
+    .mobile-three-donut-row .mobile-donut-card {
+        min-width: 0;
+        margin: 0;
+        padding: 7px 6px;
+    }
+    .mobile-three-donut-row .mobile-donut-title {
+        font-size: 8px;
+        line-height: 1.1;
+        min-height: 18px;
+        margin-bottom: 5px;
+    }
+    .mobile-three-donut-row .mobile-donut-ring {
+        width: 52px;
+        height: 52px;
+    }
+    .mobile-three-donut-row .mobile-donut-hole {
+        width: 30px;
+        height: 30px;
+    }
+    .mobile-three-donut-row .mobile-donut-legend {
+        gap: 3px;
+    }
+    .mobile-three-donut-row .mobile-donut-legend-row {
+        grid-template-columns: 6px minmax(0, 1fr);
+        gap: 3px;
+    }
+    .mobile-three-donut-row .mobile-donut-dot {
+        width: 5px;
+        height: 5px;
+    }
+    .mobile-three-donut-row .mobile-donut-label {
+        font-size: 7px;
+        line-height: 1.08;
     }
     .mobile-fixed-expenses-grid {
         display: grid;
@@ -3689,8 +3732,39 @@ textarea {
         chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
 
         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        st.markdown("**💶 Distribuzione entrate e budget:**")
-        st.altair_chart(chart_donut, use_container_width=True)
+        if MOBILE_VIEW:
+            fisse_donut_html = _mobile_donut_html(
+                "Spese fisse",
+                df_fisse["Categoria"].tolist(),
+                df_fisse["Importo"].tolist(),
+                df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
+            )
+            entrate_donut_html = _mobile_donut_html(
+                "Entrate",
+                df_totale_clean["Component"].tolist(),
+                df_totale_clean["Value"].tolist(),
+                df_totale_clean["Component"].map({
+                    "Spese Fisse": "#FF6464",
+                    "Budget dopo spese fisse": "#fef3c7",
+                    "Risparmio Stipendi": "#888888",
+                }).fillna("#94a3b8").tolist()
+            )
+            budget_donut_html = _mobile_donut_html(
+                "Budget",
+                df_utilizzare_clean["Component"].tolist(),
+                df_utilizzare_clean["Value"].tolist(),
+                df_utilizzare_clean["Component"].map({
+                    "Spese Fisse": "#FF6961",
+                    "Budget dopo spese fisse": "#fef3c7",
+                }).fillna("#94a3b8").tolist()
+            )
+            st.markdown(
+                f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown("**💶 Distribuzione entrate e budget:**")
+            st.altair_chart(chart_donut, use_container_width=True)
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
@@ -4161,39 +4235,30 @@ textarea {
         else:
             col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns(LAYOUT_COLONNE["dettaglio_spese_fisse"])
         with col1_1:
-            st.altair_chart(chart_fisse, use_container_width=True)
-            st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.altair_chart(chart_fisse, use_container_width=True)
+                st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
 
 
 #####################################################################################################################################################################################################################################################################################
             # 📊 Costruzione barra segmentata per CATEGORIE (come il donut)
 
-            totale = df_fisse["Importo"].sum()
-            
-            barra_html = '<div style="display:flex;width:100%;height:22px;border-radius:999px;overflow:hidden;margin-top:10px;background:#222;padding:2px;">'
-            
-            for _, row in df_fisse.iterrows():
-                categoria = row["Categoria"].strip()
-                valore = row["Importo"]
-                perc = (valore / totale) * 100 if totale > 0 else 0
-                colore = color_map.get(categoria, "#999999")
-            
-                barra_html += f'<div title="{categoria}: €{valore:.2f}" style="width:{perc}%;background:{colore};"></div>'
-            
-            barra_html += '</div>'
-            
-            st.markdown(barra_html, unsafe_allow_html=True)
-
-            for _, row in df_fisse.iterrows():
-                categoria = row["Categoria"].strip()
-                valore = row["Importo"]
-                perc = (valore / totale) * 100 if totale > 0 else 0
-                colore = color_map.get(categoria, "#999999")
-            
-                barra_html += (
-                    f'<div title="{categoria}: €{valore:.2f}" '
-                    f'style="width:{perc}%;background:{colore};"></div>'
-                )
+            if not MOBILE_VIEW:
+                totale = df_fisse["Importo"].sum()
+                
+                barra_html = '<div style="display:flex;width:100%;height:22px;border-radius:999px;overflow:hidden;margin-top:10px;background:#222;padding:2px;">'
+                
+                for _, row in df_fisse.iterrows():
+                    categoria = row["Categoria"].strip()
+                    valore = row["Importo"]
+                    perc = (valore / totale) * 100 if totale > 0 else 0
+                    colore = color_map.get(categoria, "#999999")
+                
+                    barra_html += f'<div title="{categoria}: €{valore:.2f}" style="width:{perc}%;background:{colore};"></div>'
+                
+                barra_html += '</div>'
+                
+                st.markdown(barra_html, unsafe_allow_html=True)
 #####################################################################################################################################################################################################################################################################################
 
 
