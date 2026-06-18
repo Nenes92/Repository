@@ -593,66 +593,102 @@ if MOBILE_VIEW:
         line-height: 1.15;
     }
     @media (max-width: 767px) {
+        html, body, .stApp, [data-testid="stAppViewContainer"], .main {
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+        .block-container {
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding-left: 0.7rem !important;
+            padding-right: 0.7rem !important;
+            overflow-x: hidden !important;
+        }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 0.38rem !important;
+            gap: 0.28rem !important;
             align-items: flex-start !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) > div[data-testid="column"] {
-            width: calc(33.333% - 0.28rem) !important;
+            width: calc(33.333% - 0.20rem) !important;
             flex: 1 1 0 !important;
             min-width: 0 !important;
+            max-width: calc(33.333% - 0.20rem) !important;
+            overflow: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) .salary-input-label {
-            font-size: 9px !important;
-            letter-spacing: .85px !important;
+            font-size: 8px !important;
+            letter-spacing: .55px !important;
             white-space: normal !important;
             min-height: 25px;
             line-height: 1.15;
         }
-        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] {
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"],
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"],
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"] > div {
+            width: 100% !important;
+            max-width: 100% !important;
             min-width: 0 !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] input {
+            width: 100% !important;
+            max-width: 100% !important;
             min-width: 0 !important;
-            font-size: 14px !important;
-            padding-left: 8px !important;
-            padding-right: 4px !important;
+            font-size: 13px !important;
+            padding-left: 7px !important;
+            padding-right: 7px !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] button {
-            width: 26px !important;
-            min-width: 26px !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
+            display: none !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 0.55rem !important;
+            gap: 0.45rem !important;
             align-items: stretch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) > div[data-testid="column"] {
-            width: calc(50% - 0.3rem) !important;
+            width: calc(50% - 0.24rem) !important;
             flex: 1 1 0 !important;
             min-width: 0 !important;
+            max-width: calc(50% - 0.24rem) !important;
+            overflow: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-card,
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-card {
             min-height: 0 !important;
             height: auto !important;
+            padding: 0.68rem 0.7rem !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-value {
-            font-size: 17px !important;
+            font-size: 15px !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-title {
-            font-size: 10px !important;
+            font-size: 9px !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-label,
         div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-value {
-            font-size: 10px !important;
+            font-size: 9px !important;
+            line-height: 1.18 !important;
+        }
+        .mobile-home-grid {
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+        .mobile-home-card {
+            min-width: 0 !important;
+            padding: 11px 12px !important;
         }
     }
     h1 {
