@@ -560,6 +560,113 @@ if MOBILE_VIEW:
         margin-top: 3px;
         line-height: 1.15;
     }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.55rem !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) > div[data-testid="column"] {
+        flex: 0 0 calc(50% - 0.28rem) !important;
+        width: calc(50% - 0.28rem) !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 0.28rem) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) [data-testid="stTextInput"] input {
+        min-width: 0 !important;
+        font-size: 13px !important;
+        padding: 6px 8px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .salary-input-label,
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) label {
+        font-size: 9px !important;
+        letter-spacing: 1px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .kpi-card,
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-card {
+        min-width: 0 !important;
+        height: 100% !important;
+        padding: 0.68rem 0.72rem !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .kpi-value {
+        font-size: 16px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-title,
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-label,
+    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-value {
+        font-size: 10px !important;
+    }
+    .mobile-notes-html-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 8px;
+    }
+    .mobile-notes-html-grid .memo-card {
+        min-width: 0;
+        min-height: 88px;
+        padding: 8px 7px;
+        margin: 0;
+        border-radius: 10px;
+    }
+    .mobile-notes-html-grid .memo-card-title {
+        font-size: 8px;
+        letter-spacing: .45px;
+        margin-bottom: 5px;
+    }
+    .mobile-notes-html-grid .memo-card-preview {
+        min-height: 40px;
+        max-height: 48px;
+        overflow: hidden;
+        font-size: 9px;
+        line-height: 1.22;
+    }
+    .mobile-objective-block {
+        margin-top: 14px;
+    }
+    .mobile-objective-title {
+        color: rgba(255,255,255,.90);
+        font-size: 18px;
+        font-weight: 900;
+        margin: 0 0 10px;
+        line-height: 1.15;
+    }
+    .mobile-objective-metric {
+        margin: 7px 0;
+        line-height: 1.25;
+    }
+    .mobile-objective-label {
+        font-size: 10px;
+        color: rgba(255,255,255,.44);
+        text-transform: uppercase;
+        letter-spacing: .55px;
+    }
+    .mobile-objective-value {
+        font-size: 15px;
+        font-weight: 900;
+        color: rgba(255,255,255,.92);
+    }
+    .mobile-progress {
+        height: 7px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255,255,255,.10);
+        margin: 10px 0 5px;
+    }
+    .mobile-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: #1d9bf0;
+    }
     @media (max-width: 767px) {
         .block-container {
             width: 100% !important;
@@ -574,43 +681,6 @@ if MOBILE_VIEW:
         .mobile-home-card {
             min-width: 0 !important;
             padding: 11px 12px !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 0.32rem !important;
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            width: calc(25% - 0.24rem) !important;
-            flex: 1 1 0 !important;
-            min-width: 0 !important;
-            max-width: calc(25% - 0.24rem) !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card {
-            min-height: 82px !important;
-            padding: 8px 8px !important;
-            margin-bottom: 5px !important;
-            border-radius: 10px !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card-title {
-            font-size: 8px !important;
-            letter-spacing: .45px !important;
-            margin-bottom: 5px !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card-preview {
-            min-height: 36px !important;
-            max-height: 42px !important;
-            overflow: hidden !important;
-            font-size: 9px !important;
-            line-height: 1.2 !important;
-        }
-        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {
-            min-height: 30px !important;
-            padding: 4px !important;
-            font-size: 9px !important;
         }
     }
     h1 {
@@ -2864,9 +2934,8 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     if MOBILE_VIEW:
-        st.markdown('<div class="mobile-three-input-row"></div>', unsafe_allow_html=True)
-        mobile_stip_col, mobile_quota_col, mobile_risp_col = st.columns(3, gap="small")
-        st.markdown('<div class="mobile-summary-budget-row"></div>', unsafe_allow_html=True)
+        mobile_stip_col, mobile_quota_col = st.columns(2, gap="small")
+        mobile_risp_col, mobile_note_col = st.columns(2, gap="small")
         col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1], gap="medium")
     else:
         col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
@@ -2894,6 +2963,7 @@ def main():
 
     if MOBILE_VIEW:
         with mobile_stip_col:
+            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
             stipendio_raw = st.text_input(
                 "Inserisci lo stipendio effettivamente percepito:",
@@ -2916,8 +2986,8 @@ def main():
                 budget_da_stipendio_default,
                 max_value=stipendio_percepito
             )
-            st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
         with mobile_risp_col:
+            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
             st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
             risparmi_raw = st.text_input(
                 "Inserisci quanto hai risparmiato nel mese precedente:",
@@ -2926,6 +2996,8 @@ def main():
                 key="mobile_risparmi_mese_precedente"
             )
             risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
+        with mobile_note_col:
+            st.markdown('<div class="mobile-compact-input-note" style="padding-top:19px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -2958,6 +3030,8 @@ def main():
     stipendio_utilizzare = budget_mensile_disponibile
 
     with col_stip_inserimento3:
+        if MOBILE_VIEW:
+            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
         _ts = f"€{entrate_mensili_totali:,.2f}"
         _tu = f"€{budget_mensile_disponibile:,.2f}"
 
@@ -3905,101 +3979,118 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
-                col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
-                mobile_altre_donut_rendered = False
+                totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
+                altre_entrate_target = totale_entrate_target - stipendio_originale
+                progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
+                progresso = min(max(progresso, 0), 1.0)
+                percentuale_stip = stipendio_originale / totale_entrate_target * 100 if totale_entrate_target else 0
+                percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
+                _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
+                altre_entrate_colori = {
+                    "Macchina (Mamma)": "#E6C48C",
+                    "Altro": "#89CFF0",
+                    "2° Entr. dal mese prec.": "#D8BFD8",
+                }
+                df_altre_entrate = pd.DataFrame({
+                    'Voce': list(ALTRE_ENTRATE.keys()),
+                    'Value': list(ALTRE_ENTRATE.values())
+                })
+                df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+                totale_entrate = df_altre_entrate["Value"].sum()
+                df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+                palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
 
-                with col_altre_entrate_sx:
-                    st.subheader("Altre Entrate:")
-                    altre_entrate_colori = {
-                        "Macchina (Mamma)": "#E6C48C",
-                        "Altro": "#89CFF0",
-                        "2° Entr. dal mese prec.": "#D8BFD8",
-                    }
+                if MOBILE_VIEW:
+                    html_altre = '<h3 style="margin:0 0 10px;">Altre Entrate:</h3>'
                     for voce, importo in ALTRE_ENTRATE.items():
                         colore = altre_entrate_colori.get(voce, "#34d399")
                         peso = (importo / totale_altre * 100) if totale_altre else 0
-                        st.markdown(
-                            _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate"),
-                            unsafe_allow_html=True
-                        )
-
-                with col_altre_entrate_dx:
-                    totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
-                    altre_entrate_target = totale_entrate_target - stipendio_originale
-                    progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
-                    progresso = min(progresso, 1.0)
-
-                    st.markdown("### 🎯 Obiettivo Entrate")
-                    percentuale_stip = stipendio_originale / totale_entrate_target * 100
-                    st.markdown(f"""
-                    <div style="margin:4px 0 10px;line-height:1.25;">
-                        <div style="font-size:12px;color:rgba(255,255,255,.44);">Entrate totali desiderate</div>
-                        <div style="font-size:19px;font-weight:600;color:rgba(255,255,255,.9);">€{totale_entrate_target:,.2f}</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
+                        html_altre += _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate")
+                    html_altre += f"""
+                    <div class="mobile-objective-block">
+                        <div class="mobile-objective-title">🎯 Obiettivo Entrate</div>
+                        <div class="mobile-objective-metric">
+                            <div class="mobile-objective-label">Entrate totali desiderate</div>
+                            <div class="mobile-objective-value">€{totale_entrate_target:,.2f}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
+                        </div>
+                        <div class="mobile-objective-metric">
+                            <div class="mobile-objective-label">Altre entrate target</div>
+                            <div class="mobile-objective-value" style="color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
+                        </div>
+                        <div class="mobile-progress"><div class="mobile-progress-fill" style="width:{progresso * 100:.1f}%;"></div></div>
+                        <div style="font-size:10px;color:rgba(255,255,255,.44);">Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}</div>
                     </div>
-                    """, unsafe_allow_html=True)
-
-                    st.markdown(f"""
-                    <div style="margin:4px 0 10px;line-height:1.25;">
-                        <div style="font-size:12px;color:rgba(255,255,255,.44);">Altre entrate target</div>
-                        <div style="font-size:19px;font-weight:600;color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
-                    st.progress(progresso)
-                    st.markdown(f"""
-                    <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
-                    Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    if MOBILE_VIEW:
-                        df_altre_entrate_mobile = pd.DataFrame({
-                            'Voce': list(ALTRE_ENTRATE.keys()),
-                            'Value': list(ALTRE_ENTRATE.values())
-                        })
-                        df_altre_entrate_mobile = df_altre_entrate_mobile[df_altre_entrate_mobile["Value"] > 0].copy()
-                        if not df_altre_entrate_mobile.empty:
-                            palette_mobile = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
-                            st.markdown(
-                                _mobile_donut_html(
-                                    "Distribuzione",
-                                    df_altre_entrate_mobile["Voce"].tolist(),
-                                    df_altre_entrate_mobile["Value"].tolist(),
-                                    palette_mobile[:len(df_altre_entrate_mobile)]
-                                ),
-                                unsafe_allow_html=True
-                            )
-                            mobile_altre_donut_rendered = True
-
-                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-                col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
-                percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
-                _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
-                with col_altre_entrate_1:
-                    st.markdown(f"""
-                    <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                    <div class="kpi-card" style="margin-top:12px;border-color:rgba(52,211,153,0.2);">
                         <div class="kpi-label">Totale Altre Entrate</div>
                         <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
                     </div>
-                    """, unsafe_allow_html=True)
-                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-
-                with col_altre_entrate_2:
-                    df_altre_entrate = pd.DataFrame({
-                        'Voce': list(ALTRE_ENTRATE.keys()),
-                        'Value': list(ALTRE_ENTRATE.values())
-                    })
-                    df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-                    totale_entrate = df_altre_entrate["Value"].sum()
-                    df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-
+                    """
                     if not df_altre_entrate.empty:
-                        palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
-                        if not MOBILE_VIEW:
+                        donut_altre_html = _mobile_donut_html(
+                            "Distribuzione",
+                            df_altre_entrate["Voce"].tolist(),
+                            df_altre_entrate["Value"].tolist(),
+                            palette[:len(df_altre_entrate)]
+                        )
+                    else:
+                        donut_altre_html = '<div class="mobile-donut-card"><div class="mobile-donut-title">Distribuzione</div><div style="font-size:10px;color:rgba(255,255,255,.44);">Nessuna entrata.</div></div>'
+                    st.markdown(
+                        f'<div class="mobile-side-grid mobile-altre-entrate-grid"><div>{html_altre}</div><div>{donut_altre_html}</div></div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
+                    with col_altre_entrate_sx:
+                        st.subheader("Altre Entrate:")
+                        for voce, importo in ALTRE_ENTRATE.items():
+                            colore = altre_entrate_colori.get(voce, "#34d399")
+                            peso = (importo / totale_altre * 100) if totale_altre else 0
+                            st.markdown(
+                                _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate"),
+                                unsafe_allow_html=True
+                            )
+
+                    with col_altre_entrate_dx:
+                        st.markdown("### 🎯 Obiettivo Entrate")
+                        st.markdown(f"""
+                        <div style="margin:4px 0 10px;line-height:1.25;">
+                            <div style="font-size:12px;color:rgba(255,255,255,.44);">Entrate totali desiderate</div>
+                            <div style="font-size:19px;font-weight:600;color:rgba(255,255,255,.9);">€{totale_entrate_target:,.2f}</div>
+                            <div style="font-size:12px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="margin:4px 0 10px;line-height:1.25;">
+                            <div style="font-size:12px;color:rgba(255,255,255,.44);">Altre entrate target</div>
+                            <div style="font-size:19px;font-weight:600;color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
+                        st.progress(progresso)
+                        st.markdown(f"""
+                        <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
+                        Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                    col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
+                    with col_altre_entrate_1:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                            <div class="kpi-label">Totale Altre Entrate</div>
+                            <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+                    with col_altre_entrate_2:
+                        if not df_altre_entrate.empty:
                             donut_inner = 32
                             donut_outer = 56
                             donut_width = 150
@@ -4126,21 +4217,27 @@ textarea {
                     """
 
                 if MOBILE_VIEW:
-                    st.markdown('<div class="mobile-notes-row-marker"></div>', unsafe_allow_html=True)
-                    note_cols = st.columns(4, gap="small")
                     note_keys = ["nota1", "nota2", "nota3", "nota4"]
-                    note_values_map = {}
-                    for idx, (note_col, note_key) in enumerate(zip(note_cols, note_keys), start=1):
-                        with note_col:
-                            st.markdown(_memo_card(f"Promemoria {idx}", _nota_value(note_key)), unsafe_allow_html=True)
-                            with st.popover(f"Apri {idx}", use_container_width=True):
-                                note_values_map[note_key] = st.text_area(
-                                    f"Promemoria {idx}",
-                                    value=_nota_value(note_key),
-                                    height=420,
-                                    label_visibility="collapsed",
-                                    key=f"{note_key}_text"
-                                )
+                    st.markdown(
+                        '<div class="mobile-notes-html-grid">'
+                        + "".join(_memo_card(f"Promemoria {idx}", _nota_value(note_key)) for idx, note_key in enumerate(note_keys, start=1))
+                        + '</div>',
+                        unsafe_allow_html=True
+                    )
+                    note_values_map = {
+                        "nota1": _nota_value("nota1"),
+                        "nota2": _nota_value("nota2"),
+                        "nota3": _nota_value("nota3"),
+                        "nota4": _nota_value("nota4"),
+                    }
+                    with st.expander("Apri / modifica promemoria", expanded=False):
+                        for idx, note_key in enumerate(note_keys, start=1):
+                            note_values_map[note_key] = st.text_area(
+                                f"Promemoria {idx}",
+                                value=note_values_map[note_key],
+                                height=180,
+                                key=f"{note_key}_text"
+                            )
                     nota1 = note_values_map["nota1"]
                     nota2 = note_values_map["nota2"]
                     nota3 = note_values_map["nota3"]
