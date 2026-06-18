@@ -815,6 +815,35 @@ if MOBILE_VIEW:
         gap: 7px;
         margin-top: 10px;
     }
+    .mobile-calendar-navline {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        gap: 8px;
+        align-items: center;
+        margin: 12px 0 10px;
+    }
+    .mobile-calendar-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        border-radius: 10px;
+        background: rgba(30,58,92,.82);
+        border: 0.5px solid rgba(96,165,250,.44);
+        color: #9bd0ff !important;
+        text-decoration: none !important;
+        font-size: 18px;
+        font-weight: 900;
+    }
+    .mobile-calendar-title {
+        min-width: 0;
+        text-align: center;
+        color: rgba(255,255,255,.92);
+        font-size: 22px;
+        line-height: 1.1;
+        font-weight: 900;
+        white-space: nowrap;
+    }
     .mobile-calendar-head {
         text-align: center;
         color: rgba(255,255,255,.46);
@@ -2588,12 +2617,11 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 195px;
+          max-height: 188px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
-          transform: translateY(-24px);
-          margin-bottom: -14px;
+          margin: 0 0 5px;
         }}
       }}
     </style>
@@ -2745,6 +2773,13 @@ def render_turni_guadagni_section():
     if "turni_calendar_month" not in st.session_state:
         today_month = _now_italy().date()
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
+    turni_nav_delta = st.query_params.get("turni_nav")
+    if turni_nav_delta in ("-1", "1"):
+        st.session_state.turni_calendar_month = _add_months_turni(
+            st.session_state.turni_calendar_month,
+            int(turni_nav_delta),
+        )
+        del st.query_params["turni_nav"]
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
 
@@ -2784,17 +2819,26 @@ def render_turni_guadagni_section():
 
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
-            prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
-            with prev_col:
-                if st.button("←", key="turni_prev_month", use_container_width=True):
-                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
-                    st.rerun()
-            with title_col:
-                st.markdown(f"#### 📅 Calendario · {_turni_month_label(selected_month)}")
-            with next_col:
-                if st.button("→", key="turni_next_month", use_container_width=True):
-                    st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
-                    st.rerun()
+            if MOBILE_VIEW:
+                st.markdown(f"""
+                <div class="mobile-calendar-navline">
+                    <a class="mobile-calendar-arrow" href="?turni_nav=-1#mobile-turni">←</a>
+                    <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
+                    <a class="mobile-calendar-arrow" href="?turni_nav=1#mobile-turni">→</a>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
+                with prev_col:
+                    if st.button("←", key="turni_prev_month", use_container_width=True):
+                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
+                        st.rerun()
+                with title_col:
+                    st.markdown(f"#### 📅 Calendario · {_turni_month_label(selected_month)}")
+                with next_col:
+                    if st.button("→", key="turni_next_month", use_container_width=True):
+                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
+                        st.rerun()
             weekdays = ["L", "M", "M", "G", "V", "S", "D"]
             cal = calendar.Calendar(firstweekday=0)
             if MOBILE_VIEW:
