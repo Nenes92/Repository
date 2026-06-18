@@ -1049,17 +1049,6 @@ if MOBILE_VIEW:
         <a class="mobile-home-card storico" href="#mobile-stipendi"><strong>Storico</strong><span>Stipendi e risparmi</span></a>
         <a class="mobile-home-card bollette" href="#mobile-bollette"><strong>Bollette</strong><span>Storico, saldo e budget</span></a>
     </div>
-    <div class="mobile-nav">
-        <a class="panoramica" href="#mobile-top">Panoramica</a>
-        <a class="spese" href="#mobile-spese">Spese</a>
-        <a class="variabili" href="#mobile-variabili">Variabili</a>
-        <a class="entrate" href="#mobile-entrate">Entrate</a>
-        <a class="risparmi" href="#mobile-risparmi">Risparmi</a>
-        <a class="carte" href="#mobile-carte">Carte</a>
-        <a class="turni" href="#mobile-turni">Turni</a>
-        <a class="storico" href="#mobile-stipendi">Storico</a>
-        <a class="bollette" href="#mobile-bollette">Bollette</a>
-    </div>
     """, unsafe_allow_html=True)
     mobile_targets = {
         "Panoramica": "mobile-top",
@@ -2599,10 +2588,12 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 218px;
+          max-height: 195px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
+          transform: translateY(-24px);
+          margin-bottom: -14px;
         }}
       }}
     </style>
@@ -4381,101 +4372,103 @@ textarea {
                     """)
                 st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
-        with col_vuoto_b:
-            if MOBILE_VIEW:
-                note_wrap = st.container()
-            else:
-                note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
-            with note_wrap:
-                st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
+        def _render_promemoria_block():
+            st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
 
-                def _memo_card(label, value):
-                    raw_text = str(value or "").strip()
-                    if raw_text:
-                        preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
-                        preview_html = html.escape(preview).replace("\n", "<br>")
-                    else:
-                        preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
-                    return (
-                        '<div class="memo-card">'
-                        f'<div class="memo-card-title">{html.escape(label)}</div>'
-                        f'<div class="memo-card-preview">{preview_html}</div>'
-                        '</div>'
-                    )
-
-                if MOBILE_VIEW:
-                    note_keys = ["nota1", "nota2", "nota3", "nota4"]
-                    st.markdown(
-                        '<div class="mobile-notes-html-grid">'
-                        + "".join(_memo_card(f"Promemoria {idx}", _nota_value(note_key)) for idx, note_key in enumerate(note_keys, start=1))
-                        + '</div>',
-                        unsafe_allow_html=True
-                    )
-                    note_values_map = {
-                        "nota1": _nota_value("nota1"),
-                        "nota2": _nota_value("nota2"),
-                        "nota3": _nota_value("nota3"),
-                        "nota4": _nota_value("nota4"),
-                    }
-                    with st.expander("Apri / modifica promemoria", expanded=False):
-                        for idx, note_key in enumerate(note_keys, start=1):
-                            note_values_map[note_key] = st.text_area(
-                                f"Promemoria {idx}",
-                                value=note_values_map[note_key],
-                                height=180,
-                                key=f"{note_key}_text"
-                            )
-                    nota1 = note_values_map["nota1"]
-                    nota2 = note_values_map["nota2"]
-                    nota3 = note_values_map["nota3"]
-                    nota4 = note_values_map["nota4"]
+            def _memo_card(label, value):
+                raw_text = str(value or "").strip()
+                if raw_text:
+                    preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
+                    preview_html = html.escape(preview).replace("\n", "<br>")
                 else:
-                    n1, n2 = st.columns(2, gap="small")
-                    with n1:
-                        st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
-                        with st.popover("Apri / modifica 1", use_container_width=True):
-                            nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
-                    with n2:
-                        st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
-                        with st.popover("Apri / modifica 2", use_container_width=True):
-                            nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
-                    n3, n4 = st.columns(2, gap="small")
-                    with n3:
-                        st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
-                        with st.popover("Apri / modifica 3", use_container_width=True):
-                            nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
-                    with n4:
-                        st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
-                        with st.popover("Apri / modifica 4", use_container_width=True):
-                            nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
-
-                salva = st.button(
-                    "💾 Salva note",
-                    use_container_width=True,
-                    key="save_note_promemoria",
-                    disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                    preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
+                return (
+                    '<div class="memo-card">'
+                    f'<div class="memo-card-title">{html.escape(label)}</div>'
+                    f'<div class="memo-card-preview">{preview_html}</div>'
+                    '</div>'
                 )
-                if salva:
-                    note_values = [nota1, nota2, nota3, nota4]
-                    all_notes_empty = all(not str(value).strip() for value in note_values)
-                    previous_values = [
-                        _nota_value("nota1"),
-                        _nota_value("nota2"),
-                        _nota_value("nota3"),
-                        _nota_value("nota4"),
-                    ]
-                    previous_had_content = any(value.strip() for value in previous_values)
-                    if all_notes_empty and previous_had_content:
-                        st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
-                        st.stop()
-                    df_note = _build_note_df(nota1, nota2, nota3, nota4, risparmio_desiderato_corrente)
-                    if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                        st.session_state.note_df_draft = df_note.copy()
-                        st.session_state.note_loaded_from_sheet = True
-                        st.success("Note salvate")
-                    else:
-                        st.error("Errore salvataggio")
-                
+
+            if MOBILE_VIEW:
+                note_keys = ["nota1", "nota2", "nota3", "nota4"]
+                st.markdown(
+                    '<div class="mobile-notes-html-grid">'
+                    + "".join(_memo_card(f"Promemoria {idx}", _nota_value(note_key)) for idx, note_key in enumerate(note_keys, start=1))
+                    + '</div>',
+                    unsafe_allow_html=True
+                )
+                note_values_map = {
+                    "nota1": _nota_value("nota1"),
+                    "nota2": _nota_value("nota2"),
+                    "nota3": _nota_value("nota3"),
+                    "nota4": _nota_value("nota4"),
+                }
+                with st.expander("Apri / modifica promemoria", expanded=False):
+                    for idx, note_key in enumerate(note_keys, start=1):
+                        note_values_map[note_key] = st.text_area(
+                            f"Promemoria {idx}",
+                            value=note_values_map[note_key],
+                            height=180,
+                            key=f"{note_key}_text"
+                        )
+                nota1 = note_values_map["nota1"]
+                nota2 = note_values_map["nota2"]
+                nota3 = note_values_map["nota3"]
+                nota4 = note_values_map["nota4"]
+            else:
+                n1, n2 = st.columns(2, gap="small")
+                with n1:
+                    st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 1", use_container_width=True):
+                        nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
+                with n2:
+                    st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 2", use_container_width=True):
+                        nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
+                n3, n4 = st.columns(2, gap="small")
+                with n3:
+                    st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 3", use_container_width=True):
+                        nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
+                with n4:
+                    st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
+                    with st.popover("Apri / modifica 4", use_container_width=True):
+                        nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
+
+            salva = st.button(
+                "💾 Salva note",
+                use_container_width=True,
+                key="save_note_promemoria",
+                disabled=not st.session_state.get("note_loaded_from_sheet", True)
+            )
+            if salva:
+                note_values = [nota1, nota2, nota3, nota4]
+                all_notes_empty = all(not str(value).strip() for value in note_values)
+                previous_values = [
+                    _nota_value("nota1"),
+                    _nota_value("nota2"),
+                    _nota_value("nota3"),
+                    _nota_value("nota4"),
+                ]
+                previous_had_content = any(value.strip() for value in previous_values)
+                if all_notes_empty and previous_had_content:
+                    st.error("Salvataggio bloccato: stai per sovrascrivere note esistenti con campi vuoti.")
+                    st.stop()
+                df_note = _build_note_df(nota1, nota2, nota3, nota4, risparmio_desiderato_corrente)
+                if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                    st.session_state.note_df_draft = df_note.copy()
+                    st.session_state.note_loaded_from_sheet = True
+                    st.success("Note salvate")
+                else:
+                    st.error("Errore salvataggio")
+            
+
+        with col_vuoto_b:
+            if not MOBILE_VIEW:
+                note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
+                with note_wrap:
+                    _render_promemoria_block()
+
 
     with col3:
         if MOBILE_VIEW:
@@ -4740,6 +4733,9 @@ textarea {
                     chart_carte = carte_arc.resolve_scale(color='independent')
                     st.altair_chart(chart_carte, use_container_width=True)
             st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+        if MOBILE_VIEW:
+            _render_promemoria_block()
+            st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         render_turni_guadagni_section()
 
