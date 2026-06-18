@@ -850,7 +850,27 @@ if MOBILE_VIEW:
     }
     .mobile-altre-entrate-grid > div:nth-child(2) {
         align-self: center;
-        transform: translateY(-28px);
+    }
+    .mobile-altre-top-grid,
+    .mobile-altre-bottom-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 40%;
+        gap: 10px;
+        align-items: start;
+        margin: 8px 0 10px;
+        width: 100%;
+        max-width: 100%;
+    }
+    .mobile-altre-top-grid > div,
+    .mobile-altre-bottom-grid > div {
+        min-width: 0;
+    }
+    .mobile-altre-bottom-grid {
+        align-items: stretch;
+    }
+    .mobile-altre-bottom-grid .mobile-donut-card {
+        height: 100%;
+        margin: 0;
     }
     .mobile-side-grid .mobile-donut-card {
         margin: 0;
@@ -4117,8 +4137,8 @@ textarea {
                         colore = altre_entrate_colori.get(voce, "#34d399")
                         peso = (importo / totale_altre * 100) if totale_altre else 0
                         html_altre += _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate")
-                    html_altre += f"""
-                    <div class="mobile-objective-block">
+                    html_obiettivo = f"""
+                    <div class="mobile-objective-block" style="margin-top:0;">
                         <div class="mobile-objective-title">🎯 Obiettivo Entrate</div>
                         <div class="mobile-objective-metric">
                             <div class="mobile-objective-label">Entrate totali desiderate</div>
@@ -4132,6 +4152,8 @@ textarea {
                         <div class="mobile-progress"><div class="mobile-progress-fill" style="width:{progresso * 100:.1f}%;"></div></div>
                         <div style="font-size:10px;color:rgba(255,255,255,.44);">Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}</div>
                     </div>
+                    """
+                    html_totale_altre = f"""
                     <div class="kpi-card" style="margin-top:12px;border-color:rgba(52,211,153,0.2);">
                         <div class="kpi-label">Totale Altre Entrate</div>
                         <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
@@ -4148,7 +4170,8 @@ textarea {
                     else:
                         donut_altre_html = '<div class="mobile-donut-card"><div class="mobile-donut-title">Distribuzione</div><div style="font-size:10px;color:rgba(255,255,255,.44);">Nessuna entrata.</div></div>'
                     st.markdown(
-                        f'<div class="mobile-side-grid mobile-altre-entrate-grid"><div>{html_altre}</div><div>{donut_altre_html}</div></div>',
+                        f'<div class="mobile-altre-top-grid"><div>{html_altre}</div><div>{html_obiettivo}</div></div>'
+                        f'<div class="mobile-altre-bottom-grid"><div>{html_totale_altre}</div><div>{donut_altre_html}</div></div>',
                         unsafe_allow_html=True
                     )
                 else:
