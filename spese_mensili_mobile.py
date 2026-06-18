@@ -711,14 +711,42 @@ if MOBILE_VIEW:
         background: rgba(255,255,255,.045);
         border: 0.5px solid rgba(255,255,255,.10);
     }
-    .mobile-float-donut {
-        float: right;
-        width: 46%;
-        max-width: 190px;
-        margin: 0 0 8px 10px;
+    .mobile-variabili-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 40%;
+        gap: 10px;
+        align-items: start;
+        margin-top: 8px;
     }
-    .mobile-float-donut .mobile-donut-card {
-        margin-top: 0;
+    .mobile-variabili-list {
+        min-width: 0;
+    }
+    .mobile-variabili-chart {
+        min-width: 0;
+    }
+    .mobile-variabili-grid .mobile-donut-card {
+        margin: 0;
+        padding: 9px;
+    }
+    .mobile-side-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 40%;
+        gap: 10px;
+        align-items: start;
+        margin: 8px 0 10px;
+    }
+    .mobile-side-grid .mobile-donut-card {
+        margin: 0;
+        padding: 9px;
+    }
+    .mobile-fixed-expenses-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 12px;
+        align-items: start;
+    }
+    .mobile-fixed-expenses-col {
+        min-width: 0;
     }
     .mobile-donut-title {
         font-size: 11px;
@@ -3131,43 +3159,78 @@ textarea {
         with tab_spese_fisse:
             st.subheader("Spese Fisse:")
 
-            col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
             spese_meta = st.session_state.get("spese_fisse_metadata", {})
             rendered_voci = set()
-            group_columns = [col_left, col_right]
-            for group_index, group_name in enumerate(_ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)):
-                group_items = [
-                    (voce, importo)
-                    for voce, importo in SPESE["Fisse"].items()
-                    if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
-                ]
-                if not group_items:
-                    continue
-                with group_columns[group_index % 2]:
-                    if group_index > 1:
-                        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
-                        unsafe_allow_html=True
+            ordered_groups = _ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)
+            if MOBILE_VIEW:
+                mobile_cols = ["", ""]
+                for group_index, group_name in enumerate(ordered_groups):
+                    group_items = [
+                        (voce, importo)
+                        for voce, importo in SPESE["Fisse"].items()
+                        if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                    ]
+                    if not group_items:
+                        continue
+                    group_html = (
+                        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{html.escape(str(group_name))}</div>'
                     )
                     for voce, importo in group_items:
                         categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                         carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                        group_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
                         rendered_voci.add(voce)
+                    mobile_cols[group_index % 2] += group_html
 
-            altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
-            if altre_voci:
-                with col_right:
-                    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-                    st.markdown(
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
-                        unsafe_allow_html=True
-                    )
+                altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                if altre_voci:
+                    altre_html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>'
                     for voce, importo in altre_voci:
                         categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                         carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                        altre_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
+                    mobile_cols[1] += altre_html
+
+                st.markdown(
+                    f'<div class="mobile-fixed-expenses-grid"><div class="mobile-fixed-expenses-col">{mobile_cols[0]}</div><div class="mobile-fixed-expenses-col">{mobile_cols[1]}</div></div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
+                group_columns = [col_left, col_right]
+                for group_index, group_name in enumerate(ordered_groups):
+                    group_items = [
+                        (voce, importo)
+                        for voce, importo in SPESE["Fisse"].items()
+                        if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                    ]
+                    if not group_items:
+                        continue
+                    with group_columns[group_index % 2]:
+                        if group_index > 1:
+                            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
+                            unsafe_allow_html=True
+                        )
+                        for voce, importo in group_items:
+                            categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                            carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                            st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                            rendered_voci.add(voce)
+
+                altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                if altre_voci:
+                    with col_right:
+                        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
+                            unsafe_allow_html=True
+                        )
+                        for voce, importo in altre_voci:
+                            categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                            carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                            st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
 
         st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
         _sf = f"€{spese_fisse_totali:.2f}"
@@ -3312,23 +3375,6 @@ textarea {
                 ]
             })
             df_spese_variabili_mobile = df_spese_variabili_mobile[df_spese_variabili_mobile["Value"] > 0].copy()
-            if MOBILE_VIEW and not df_spese_variabili_mobile.empty:
-                st.markdown(
-                    '<div class="mobile-float-donut">'
-                    + _mobile_donut_html(
-                        "Distribuzione",
-                        df_spese_variabili_mobile["Voce"].tolist(),
-                        df_spese_variabili_mobile["Value"].tolist(),
-                        df_spese_variabili_mobile["Voce"].map({
-                            "Emergenze/Compleanni": "#4ADE80",
-                            "Viaggi": "#166534",
-                            "Da spendere": "#FACC15",
-                            "Spese quotidiane": "#FB923C",
-                        }).fillna("#94a3b8").tolist()
-                    )
-                    + '</div>',
-                    unsafe_allow_html=True
-                )
     
             risparmio_stipendi = stipendio_originale - stipendio_scelto
             risparmio_da_spendere = 0
@@ -3337,69 +3383,99 @@ textarea {
             spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
             risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
 
-            variabili_quote_col, variabili_budget_col = st.columns(LAYOUT_COLONNE["variabili_quote_budget"], gap="large")
-            with variabili_quote_col:
-                st.markdown(
-                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
-                    unsafe_allow_html=True
-                )
-                percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-                st.markdown(
-                    _spesa_variabile_row_html(
-                        "Emergenze/Compleanni",
-                        SPESE["Variabili"]["Emergenze/Compleanni"],
-                        "#4ADE80",
-                        f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
-                    ),
-                    unsafe_allow_html=True
-                )
-                percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-                st.markdown(
-                    _spesa_variabile_row_html(
-                        "Viaggi",
-                        SPESE["Variabili"]["Viaggi"],
-                        "#166534",
-                        f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
-                    ),
-                    unsafe_allow_html=True
-                )
+            percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
+            percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
+            pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
+            da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
+            risparmio_da_spendere = da_spendere_senza_limite - da_spendere
+            spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
+            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
 
-            with variabili_budget_col:
+            if MOBILE_VIEW:
+                variabili_list_html = (
+                    '<div class="mobile-variabili-list">'
+                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
+                    + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
+                    + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
+                    + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:10px 0 4px;">Dopo le quote</div>'
+                    + _spesa_variabile_row_html("Da spendere", SPESE["Variabili"]["Da spendere"], "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}")
+                    + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>'
+                    + _spesa_variabile_row_html("Spese quotidiane", SPESE["Variabili"]["Spese quotidiane"], "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}")
+                    + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>'
+                    '</div>'
+                )
+                variabili_donut_html = _mobile_donut_html(
+                    "Distribuzione",
+                    df_spese_variabili_mobile["Voce"].tolist(),
+                    df_spese_variabili_mobile["Value"].tolist(),
+                    df_spese_variabili_mobile["Voce"].map({
+                        "Emergenze/Compleanni": "#4ADE80",
+                        "Viaggi": "#166534",
+                        "Da spendere": "#FACC15",
+                        "Spese quotidiane": "#FB923C",
+                    }).fillna("#94a3b8").tolist()
+                )
                 st.markdown(
-                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Dopo le quote</div>',
+                    f'<div class="mobile-variabili-grid">{variabili_list_html}<div class="mobile-variabili-chart">{variabili_donut_html}</div></div>',
                     unsafe_allow_html=True
                 )
-                pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
-                st.markdown(
-                    _spesa_variabile_row_html(
-                        "Da spendere",
-                        SPESE["Variabili"]["Da spendere"],
-                        "#FACC15",
-                        f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"
-                    ),
-                    unsafe_allow_html=True
-                )
-                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
-                risparmio_da_spendere = da_spendere_senza_limite - da_spendere
-                st.markdown(
-                    f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(
-                    _spesa_variabile_row_html(
-                        "Spese quotidiane",
-                        SPESE["Variabili"]["Spese quotidiane"],
-                        "#FB923C",
-                        f"rimanente, con limite a €{max_spese_quotidiane:.2f}"
-                    ),
-                    unsafe_allow_html=True
-                )
-                spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
-                risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
-                st.markdown(
-                    f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
-                    unsafe_allow_html=True
-                )
+            else:
+                variabili_quote_col, variabili_budget_col = st.columns(LAYOUT_COLONNE["variabili_quote_budget"], gap="large")
+                with variabili_quote_col:
+                    st.markdown(
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        _spesa_variabile_row_html(
+                            "Emergenze/Compleanni",
+                            SPESE["Variabili"]["Emergenze/Compleanni"],
+                            "#4ADE80",
+                            f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        _spesa_variabile_row_html(
+                            "Viaggi",
+                            SPESE["Variabili"]["Viaggi"],
+                            "#166534",
+                            f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
+                        ),
+                        unsafe_allow_html=True
+                    )
+
+                with variabili_budget_col:
+                    st.markdown(
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Dopo le quote</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        _spesa_variabile_row_html(
+                            "Da spendere",
+                            SPESE["Variabili"]["Da spendere"],
+                            "#FACC15",
+                            f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        _spesa_variabile_row_html(
+                            "Spese quotidiane",
+                            SPESE["Variabili"]["Spese quotidiane"],
+                            "#FB923C",
+                            f"rimanente, con limite a €{max_spese_quotidiane:.2f}"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
+                        unsafe_allow_html=True
+                    )
     
     
             st.markdown('<div style="clear:both;height:10px;"></div>', unsafe_allow_html=True)
@@ -3851,7 +3927,8 @@ textarea {
             html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
             html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
             html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
-            st.markdown(html_risparmi, unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
             col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
@@ -3880,24 +3957,27 @@ textarea {
                     df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
                 else:
                     df_savings["Percentuale"] = 0
+                if MOBILE_VIEW and not df_savings.empty:
+                    risparmi_donut_html = _mobile_donut_html(
+                        "Distribuzione",
+                        df_savings["Component"].tolist(),
+                        df_savings["Value"].tolist(),
+                        df_savings["Component"].map({
+                            "Da Stipendi": "#9ca3af",
+                            "Da Mese Prec.": "#60a5fa",
+                            "Da Spendere": "#fde047",
+                            "Quotidiane": "#FB923C",
+                        }).fillna("#94a3b8").tolist()
+                    )
+                    st.markdown(
+                        f'<div class="mobile-side-grid"><div>{html_risparmi}</div><div>{risparmi_donut_html}</div></div>',
+                        unsafe_allow_html=True
+                    )
                 
             with col_risparmi_2:
                 if not df_savings.empty:
                     if MOBILE_VIEW:
-                        st.markdown(
-                            _mobile_donut_html(
-                                "Distribuzione risparmi",
-                                df_savings["Component"].tolist(),
-                                df_savings["Value"].tolist(),
-                                df_savings["Component"].map({
-                                    "Da Stipendi": "#9ca3af",
-                                    "Da Mese Prec.": "#60a5fa",
-                                    "Da Spendere": "#fde047",
-                                    "Quotidiane": "#FB923C",
-                                }).fillna("#94a3b8").tolist()
-                            ),
-                            unsafe_allow_html=True
-                        )
+                        pass
                     else:
                         donut_inner = 32
                         donut_outer = 56
@@ -3948,6 +4028,7 @@ textarea {
             st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
             st.subheader("Trasferimenti sulle Carte:")
         
+            html_carte = ""
             for carta in ["ING", "Revolut", "BNL"]:
                 spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
                                for voce in SPESE[carta]}
@@ -3959,16 +4040,17 @@ textarea {
                     somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                     spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                     somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                    st.markdown(
-                        _money_row_html(
-                            f"Da {testo} su {carta}",
-                            totale_carta,
-                            colore,
-                            _triangle_for_card(carta),
-                            f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
-                        ),
-                        unsafe_allow_html=True
+                    row_html = _money_row_html(
+                        f"Da {testo} su {carta}",
+                        totale_carta,
+                        colore,
+                        _triangle_for_card(carta),
+                        f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
                     )
+                    if MOBILE_VIEW:
+                        html_carte += row_html
+                    else:
+                        st.markdown(row_html, unsafe_allow_html=True)
                 else:
                     totale_carta = sum(spese_carta.values())
                     if carta == "ING":
@@ -3979,26 +4061,28 @@ textarea {
                         colore2 = "#77DD77"
                         testo = "mantenere"
                         testo2 = "risparmiato"
-                    st.markdown(
-                        _money_row_html(
-                            f"Da {testo} su {carta}",
-                            totale_carta,
-                            colore,
-                            _triangle_for_card(carta),
-                            "totale delle spese previste su questa carta"
-                        ),
-                        unsafe_allow_html=True
+                    row_html = _money_row_html(
+                        f"Da {testo} su {carta}",
+                        totale_carta,
+                        colore,
+                        _triangle_for_card(carta),
+                        "totale delle spese previste su questa carta"
                     )
-            st.markdown(
-                _money_row_html(
-                    f"Totale {testo2} su {carta}",
-                    risparmi_mensili,
-                    colore2,
-                    _triangle_for_card(carta),
-                    "quota da lasciare come risparmio"
-                ),
-                unsafe_allow_html=True
+                    if MOBILE_VIEW:
+                        html_carte += row_html
+                    else:
+                        st.markdown(row_html, unsafe_allow_html=True)
+            totale_risparmiato_carte_html = _money_row_html(
+                f"Totale {testo2} su {carta}",
+                risparmi_mensili,
+                colore2,
+                _triangle_for_card(carta),
+                "quota da lasciare come risparmio"
             )
+            if MOBILE_VIEW:
+                html_carte += totale_risparmiato_carte_html
+            else:
+                st.markdown(totale_risparmiato_carte_html, unsafe_allow_html=True)
     
             # FIX 4: NEW "Carte" donut chart
             st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
@@ -4015,13 +4099,14 @@ textarea {
                 df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
         
                 if MOBILE_VIEW:
-                    st.markdown(
-                        _mobile_donut_html(
+                    carte_donut_html = _mobile_donut_html(
                             "Distribuzione carte",
                             df_carte["Carta"].tolist(),
                             df_carte["Totale"].tolist(),
                             ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
-                        ),
+                    )
+                    st.markdown(
+                        f'<div class="mobile-side-grid"><div>{html_carte}</div><div>{carte_donut_html}</div></div>',
                         unsafe_allow_html=True
                     )
                 else:
