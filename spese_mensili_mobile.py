@@ -560,6 +560,56 @@ if MOBILE_VIEW:
         margin-top: 3px;
         line-height: 1.15;
     }
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+    * {
+        box-sizing: border-box;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.55rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        flex: 1 1 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="column"] > div,
+    div[data-testid="column"] [data-testid="stVerticalBlock"],
+    div[data-testid="column"] [data-testid="element-container"],
+    div[data-testid="column"] [data-testid="stTextInput"],
+    div[data-testid="column"] [data-testid="stNumberInput"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input {
+        min-width: 0 !important;
+        width: 100% !important;
+        font-size: 12px !important;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
+    }
+    [data-testid="stTextInput"] label,
+    [data-testid="stNumberInput"] label,
+    .salary-input-label {
+        font-size: 9px !important;
+        letter-spacing: 1px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) {
         display: flex !important;
         flex-direction: row !important;
@@ -852,6 +902,12 @@ if MOBILE_VIEW:
         gap: 10px;
         align-items: start;
         margin: 8px 0 10px;
+    }
+    .mobile-altre-entrate-grid {
+        align-items: center;
+    }
+    .mobile-altre-entrate-grid > div:nth-child(2) {
+        align-self: center;
     }
     .mobile-side-grid .mobile-donut-card {
         margin: 0;
@@ -2315,7 +2371,7 @@ def render_live_turni_kpis(stats, side_html=""):
     ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
-    component_height = 310 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -2417,10 +2473,10 @@ def render_live_turni_kpis(stats, side_html=""):
         color: rgba(255,255,255,.88);
         font-size: 13px;
         font-weight: 800;
-        margin: 0 0 7px;
+        margin: 0 0 4px;
       }}
       .turni-grid-scroll {{
-        max-height: 252px;
+        max-height: 218px;
         overflow-y: auto;
         padding-right: 4px;
       }}
@@ -2484,7 +2540,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 252px;
+          max-height: 218px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
@@ -4206,15 +4262,15 @@ textarea {
                     raw_text = str(value or "").strip()
                     if raw_text:
                         preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
-                        preview_html = html.escape(preview)
+                        preview_html = html.escape(preview).replace("\n", "<br>")
                     else:
                         preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
-                    return f"""
-                    <div class="memo-card">
-                        <div class="memo-card-title">{html.escape(label)}</div>
-                        <div class="memo-card-preview">{preview_html}</div>
-                    </div>
-                    """
+                    return (
+                        '<div class="memo-card">'
+                        f'<div class="memo-card-title">{html.escape(label)}</div>'
+                        f'<div class="memo-card-preview">{preview_html}</div>'
+                        '</div>'
+                    )
 
                 if MOBILE_VIEW:
                     note_keys = ["nota1", "nota2", "nota3", "nota4"]
