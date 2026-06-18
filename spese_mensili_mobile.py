@@ -592,6 +592,112 @@ if MOBILE_VIEW:
         margin-top: 3px;
         line-height: 1.15;
     }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.28rem !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) > div[data-testid="column"] {
+        width: calc(33.333% - 0.20rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(33.333% - 0.20rem) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) .salary-input-label {
+        font-size: 8px !important;
+        letter-spacing: .55px !important;
+        white-space: normal !important;
+        min-height: 25px;
+        line-height: 1.15;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"],
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stTextInput"],
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"],
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"] > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] input,
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stTextInput"] input {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        font-size: 13px !important;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] button {
+        display: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.45rem !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) > div[data-testid="column"] {
+        width: calc(50% - 0.24rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 0.24rem) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-card,
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-card {
+        min-height: 0 !important;
+        height: auto !important;
+        padding: 0.68rem 0.7rem !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .kpi-value {
+        font-size: 15px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-title {
+        font-size: 9px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-label,
+    div[data-testid="stHorizontalBlock"]:has(.budget-memory-card) .budget-memory-value {
+        font-size: 9px !important;
+        line-height: 1.18 !important;
+    }
+    .element-container:has(.mobile-altre-row-marker) + div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        align-items: flex-start !important;
+    }
+    .element-container:has(.mobile-altre-row-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: calc(50% - 0.25rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 0.25rem) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-altre-row-inside) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        align-items: flex-start !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-altre-row-inside) > div[data-testid="column"] {
+        width: calc(50% - 0.25rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: calc(50% - 0.25rem) !important;
+    }
     @media (max-width: 767px) {
         .block-container {
             width: 100% !important;
@@ -2357,7 +2463,7 @@ def render_live_turni_kpis(stats, side_html=""):
     ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
-    component_height = 380 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 310 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -2462,7 +2568,7 @@ def render_live_turni_kpis(stats, side_html=""):
         margin: 0 0 7px;
       }}
       .turni-grid-scroll {{
-        max-height: 322px;
+        max-height: 252px;
         overflow-y: auto;
         padding-right: 4px;
       }}
@@ -2526,7 +2632,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 326px;
+          max-height: 252px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
@@ -2630,6 +2736,11 @@ def render_live_turni_kpis(stats, side_html=""):
       }}
 
       tick();
+      const focusCard = document.getElementById("turni-focus-card");
+      const liveScroller = document.querySelector(".turni-live-side .turni-grid-scroll");
+      if (focusCard && liveScroller) {{
+        liveScroller.scrollTop = Math.max(0, focusCard.offsetTop - 6);
+      }}
       setInterval(tick, 1000);
     </script>
     """, height=component_height)
@@ -4012,12 +4123,16 @@ textarea {
                             st.error("Errore eliminazione entrata")
 
             with tab_altre_view:
+                if MOBILE_VIEW:
+                    st.markdown('<div class="mobile-altre-row-marker"></div>', unsafe_allow_html=True)
                 col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
                 mobile_altre_donut_rendered = False
 
                 with col_altre_entrate_sx:
+                    if MOBILE_VIEW:
+                        st.markdown('<div class="mobile-altre-row-inside"></div>', unsafe_allow_html=True)
                     st.subheader("Altre Entrate:")
                     altre_entrate_colori = {
                         "Macchina (Mamma)": "#E6C48C",
