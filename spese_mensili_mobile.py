@@ -857,7 +857,7 @@ if MOBILE_VIEW:
         grid-template-columns: minmax(0, 1fr) 40%;
         gap: 10px;
         align-items: start;
-        margin: 8px 0 10px;
+        margin: 6px 0 8px;
         width: 100%;
         max-width: 100%;
     }
@@ -865,11 +865,18 @@ if MOBILE_VIEW:
     .mobile-altre-bottom-grid > div {
         min-width: 0;
     }
+    .mobile-altre-top-grid h3,
+    .mobile-altre-top-grid .mobile-objective-title {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
     .mobile-altre-bottom-grid {
-        align-items: stretch;
+        align-items: start;
+    }
+    .mobile-altre-bottom-grid .kpi-card {
+        margin-top: 0 !important;
     }
     .mobile-altre-bottom-grid .mobile-donut-card {
-        height: 100%;
         margin: 0;
     }
     .mobile-side-grid .mobile-donut-card {
@@ -4154,7 +4161,7 @@ textarea {
                     </div>
                     """
                     html_totale_altre = f"""
-                    <div class="kpi-card" style="margin-top:12px;border-color:rgba(52,211,153,0.2);">
+                    <div class="kpi-card" style="margin-top:0;border-color:rgba(52,211,153,0.2);">
                         <div class="kpi-label">Totale Altre Entrate</div>
                         <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
@@ -4430,7 +4437,8 @@ textarea {
         else:
             col3_left, col3_right = st.columns(LAYOUT_COLONNE["destra_risparmi_carte"], gap="medium")
         with col3_left:
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div id="mobile-risparmi" class="mobile-anchor"></div><div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
             st.subheader("Risparmiati del mese:")
         
@@ -4451,7 +4459,7 @@ textarea {
             html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
             if not MOBILE_VIEW:
                 st.markdown(html_risparmi, unsafe_allow_html=True)
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
             if MOBILE_VIEW:
                 col_risparmi_1 = st.container()
@@ -4471,8 +4479,9 @@ textarea {
                     st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
 
         
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-                st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+                if not MOBILE_VIEW:
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
                 savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                 non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
                 df_savings_raw = pd.DataFrame({
@@ -4553,7 +4562,8 @@ textarea {
 
                             
         with col3_right:
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
             st.subheader("Trasferimenti sulle Carte:")
         
@@ -4614,7 +4624,8 @@ textarea {
                 st.markdown(totale_risparmiato_carte_html, unsafe_allow_html=True)
     
             # FIX 4: NEW "Carte" donut chart
-            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
             with st.container():  
                 # Calculate totals per card
                 ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
