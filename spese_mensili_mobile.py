@@ -850,7 +850,7 @@ if MOBILE_VIEW:
     }
     .mobile-altre-entrate-grid > div:nth-child(2) {
         align-self: center;
-        transform: translateY(-10px);
+        transform: translateY(-28px);
     }
     .mobile-side-grid .mobile-donut-card {
         margin: 0;
@@ -3762,6 +3762,27 @@ textarea {
                 f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
                 unsafe_allow_html=True
             )
+            st.subheader("Dettaglio Spese Fisse:")
+            dettaglio_df = df_fisse.copy()
+            dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
+            dettaglio_rows = []
+            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                categoria = str(row["Categoria"])
+                valore = float(row["Importo"])
+                colore = color_map.get(categoria, "#999999")
+                dettaglio_rows.append(f"""
+                <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                            padding:7px 9px;margin:5px 0;border-radius:8px;
+                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                    <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+                </div>
+                """)
+            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
         else:
             st.markdown("**💶 Distribuzione entrate e budget:**")
             st.altair_chart(chart_donut, use_container_width=True)
@@ -4219,10 +4240,7 @@ textarea {
                             st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
-        if MOBILE_VIEW:
-            st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-        else:
+        if not MOBILE_VIEW:
             col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
             with col_center_pill:
                 st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
@@ -4263,27 +4281,28 @@ textarea {
 
 
         with col1_2:
-            st.subheader("Dettaglio Spese Fisse:")
-            dettaglio_df = df_fisse.copy()
-            dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
-            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
-            dettaglio_rows = []
-            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
-                categoria = str(row["Categoria"])
-                valore = float(row["Importo"])
-                colore = color_map.get(categoria, "#999999")
-                dettaglio_rows.append(f"""
-                <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
-                            padding:7px 9px;margin:5px 0;border-radius:8px;
-                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
-                    <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
-                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
-                    <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
-                </div>
-                """)
-            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.subheader("Dettaglio Spese Fisse:")
+                dettaglio_df = df_fisse.copy()
+                dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+                dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
+                dettaglio_rows = []
+                for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                    categoria = str(row["Categoria"])
+                    valore = float(row["Importo"])
+                    colore = color_map.get(categoria, "#999999")
+                    dettaglio_rows.append(f"""
+                    <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                                padding:7px 9px;margin:5px 0;border-radius:8px;
+                                background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                        <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                        <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+                    </div>
+                    """)
+                st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
         with col_vuoto_b:
             if MOBILE_VIEW:
@@ -4417,14 +4436,16 @@ textarea {
             else:
                 col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
             with col_risparmi_1:
-                st.markdown(f"""
+                risparmi_kpi_html = f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
                     <div class="kpi-label">Tot. Risparmiato</div>
                     <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
                     <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% del budget mensile disponibile</div>
                     <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% delle entrate mensili totali</div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                if not MOBILE_VIEW:
+                    st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
 
         
                 st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
@@ -4457,6 +4478,7 @@ textarea {
                         f'<div class="mobile-side-grid"><div>{html_risparmi}</div><div>{risparmi_donut_html}</div></div>',
                         unsafe_allow_html=True
                     )
+                    st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
                 
             with col_risparmi_2:
                 if not df_savings.empty:
