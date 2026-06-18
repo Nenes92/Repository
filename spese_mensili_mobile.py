@@ -568,27 +568,12 @@ if MOBILE_VIEW:
     * {
         box-sizing: border-box;
     }
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 0.55rem !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        overflow: hidden !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        flex: 1 1 0 !important;
-        width: 0 !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-    }
-    div[data-testid="column"] > div,
-    div[data-testid="column"] [data-testid="stVerticalBlock"],
-    div[data-testid="column"] [data-testid="element-container"],
-    div[data-testid="column"] [data-testid="stTextInput"],
-    div[data-testid="column"] [data-testid="stNumberInput"] {
+    [data-testid="stVerticalBlock"],
+    [data-testid="element-container"],
+    [data-testid="stTextInput"],
+    [data-testid="stNumberInput"],
+    .kpi-card,
+    .budget-memory-card {
         min-width: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
@@ -609,49 +594,6 @@ if MOBILE_VIEW:
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 0.55rem !important;
-        align-items: stretch !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: hidden !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) > div[data-testid="column"] {
-        flex: 0 0 calc(50% - 0.28rem) !important;
-        width: calc(50% - 0.28rem) !important;
-        min-width: 0 !important;
-        max-width: calc(50% - 0.28rem) !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) [data-testid="stTextInput"] input {
-        min-width: 0 !important;
-        font-size: 13px !important;
-        padding: 6px 8px !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .salary-input-label,
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) label {
-        font-size: 9px !important;
-        letter-spacing: 1px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .kpi-card,
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-card {
-        min-width: 0 !important;
-        height: 100% !important;
-        padding: 0.68rem 0.72rem !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .kpi-value {
-        font-size: 16px !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-title,
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-label,
-    div[data-testid="stHorizontalBlock"]:has(.mobile-two-col-token) .budget-memory-value {
-        font-size: 10px !important;
     }
     .mobile-notes-html-grid {
         display: grid;
@@ -2981,7 +2923,11 @@ def main():
     load_spese_fisse_settings()
     load_altre_entrate_settings()
 
-    col_left, col_center, col_right = st.columns(LAYOUT_COLONNE["titolo_dashboard"], gap="large")
+    if MOBILE_VIEW:
+        col_left = st.container()
+        col_center = st.container()
+    else:
+        col_left, col_center, col_right = st.columns(LAYOUT_COLONNE["titolo_dashboard"], gap="large")
     with col_left:
         st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div><div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
     with col_center:
@@ -2990,12 +2936,20 @@ def main():
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     if MOBILE_VIEW:
-        mobile_stip_col, mobile_quota_col = st.columns(2, gap="small")
-        mobile_risp_col, mobile_note_col = st.columns(2, gap="small")
-        col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1], gap="medium")
+        mobile_stip_col = st.container()
+        mobile_quota_col = st.container()
+        mobile_risp_col = st.container()
+        mobile_note_col = st.container()
+        col_stip_inserimento3 = st.container()
+        col_stip_inserimento4 = st.container()
     else:
         col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
-    col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
+    if MOBILE_VIEW:
+        col1 = st.container()
+        col2 = st.container()
+        col3 = st.container()
+    else:
+        col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
 
     def _parse_mobile_amount(raw_value, fallback=0.0, max_value=None):
         text = str(raw_value).strip().replace("€", "").replace(" ", "")
@@ -3019,7 +2973,6 @@ def main():
 
     if MOBILE_VIEW:
         with mobile_stip_col:
-            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
             stipendio_raw = st.text_input(
                 "Inserisci lo stipendio effettivamente percepito:",
@@ -3043,7 +2996,6 @@ def main():
                 max_value=stipendio_percepito
             )
         with mobile_risp_col:
-            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
             st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
             risparmi_raw = st.text_input(
                 "Inserisci quanto hai risparmiato nel mese precedente:",
@@ -3086,8 +3038,6 @@ def main():
     stipendio_utilizzare = budget_mensile_disponibile
 
     with col_stip_inserimento3:
-        if MOBILE_VIEW:
-            st.markdown('<div class="mobile-two-col-token"></div>', unsafe_allow_html=True)
         _ts = f"€{entrate_mensili_totali:,.2f}"
         _tu = f"€{budget_mensile_disponibile:,.2f}"
 
@@ -3744,7 +3694,11 @@ textarea {
 
     # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
-        col2_left, col2_right = st.columns(LAYOUT_COLONNE["centrale_variabili_altre"], gap="large")
+        if MOBILE_VIEW:
+            col2_left = st.container()
+            col2_right = st.container()
+        else:
+            col2_left, col2_right = st.columns(LAYOUT_COLONNE["centrale_variabili_altre"], gap="large")
         with col2_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div id="mobile-variabili" class="mobile-anchor"></div><div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
@@ -3867,7 +3821,11 @@ textarea {
     
     
             st.markdown('<div style="clear:both;height:10px;"></div>', unsafe_allow_html=True)
-            col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
+            if MOBILE_VIEW:
+                col_spese_variabili_1 = st.container()
+                col_spese_variabili_2 = st.container()
+            else:
+                col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
             with col_spese_variabili_1:
                 _sv = f"€{spese_variabili_totali:.2f}"
                 _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
@@ -4187,12 +4145,21 @@ textarea {
                             st.altair_chart(chart_altre_entrate, use_container_width=True)
 
         # Visualizzazione grafici
-        col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
-        with col_center_pill:
+        if MOBILE_VIEW:
             st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            
-        col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns(LAYOUT_COLONNE["dettaglio_spese_fisse"])
+        else:
+            col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
+            with col_center_pill:
+                st.markdown('<div class="section-pill">🏠 Spese Fisse</div>',unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+
+        if MOBILE_VIEW:
+            col1_1 = st.container()
+            col1_2 = st.container()
+            col_vuoto_b = st.container()
+        else:
+            col_vuoto_a, col1_1, col1_2, col_vuoto_b= st.columns(LAYOUT_COLONNE["dettaglio_spese_fisse"])
         with col1_1:
             st.altair_chart(chart_fisse, use_container_width=True)
             st.markdown(f'<span style="font-size:10pt;">Totale spese fisse:</span> <span style="color:#f87171">{_sf}</span>', unsafe_allow_html=True)
@@ -4254,7 +4221,10 @@ textarea {
             st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
         with col_vuoto_b:
-            note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
+            if MOBILE_VIEW:
+                note_wrap = st.container()
+            else:
+                note_wrap_left, note_wrap, note_wrap_right = st.columns([0.02, 0.96, 0.02], gap="small")
             with note_wrap:
                 st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
 
@@ -4347,7 +4317,11 @@ textarea {
                 
 
     with col3:
-        col3_left, col3_right = st.columns(LAYOUT_COLONNE["destra_risparmi_carte"], gap="medium")
+        if MOBILE_VIEW:
+            col3_left = st.container()
+            col3_right = st.container()
+        else:
+            col3_left, col3_right = st.columns(LAYOUT_COLONNE["destra_risparmi_carte"], gap="medium")
         with col3_left:
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             st.markdown('<div id="mobile-risparmi" class="mobile-anchor"></div><div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
@@ -4372,7 +4346,11 @@ textarea {
                 st.markdown(html_risparmi, unsafe_allow_html=True)
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             
-            col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
+            if MOBILE_VIEW:
+                col_risparmi_1 = st.container()
+                col_risparmi_2 = st.container()
+            else:
+                col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
             with col_risparmi_1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
