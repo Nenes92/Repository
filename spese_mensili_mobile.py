@@ -593,16 +593,11 @@ if MOBILE_VIEW:
         line-height: 1.15;
     }
     @media (max-width: 767px) {
-        html, body, .stApp, [data-testid="stAppViewContainer"], .main {
-            max-width: 100vw !important;
-            overflow-x: hidden !important;
-        }
         .block-container {
             width: 100% !important;
             max-width: 100vw !important;
             padding-left: 0.7rem !important;
             padding-right: 0.7rem !important;
-            overflow-x: hidden !important;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) {
             display: flex !important;
@@ -629,13 +624,15 @@ if MOBILE_VIEW:
             line-height: 1.15;
         }
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"],
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stTextInput"],
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"],
         div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-baseweb="input"] > div {
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] input {
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stNumberInput"] input,
+        div[data-testid="stHorizontalBlock"]:has(.salary-input-label) [data-testid="stTextInput"] input {
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
@@ -689,6 +686,43 @@ if MOBILE_VIEW:
         .mobile-home-card {
             min-width: 0 !important;
             padding: 11px 12px !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.32rem !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            width: calc(25% - 0.24rem) !important;
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            max-width: calc(25% - 0.24rem) !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card {
+            min-height: 82px !important;
+            padding: 8px 8px !important;
+            margin-bottom: 5px !important;
+            border-radius: 10px !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card-title {
+            font-size: 8px !important;
+            letter-spacing: .45px !important;
+            margin-bottom: 5px !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] .memo-card-preview {
+            min-height: 36px !important;
+            max-height: 42px !important;
+            overflow: hidden !important;
+            font-size: 9px !important;
+            line-height: 1.2 !important;
+        }
+        .element-container:has(.mobile-notes-row-marker) + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {
+            min-height: 30px !important;
+            padding: 4px !important;
+            font-size: 9px !important;
         }
     }
     h1 {
@@ -2295,7 +2329,7 @@ def _default_calendar_ical_urls():
     return urls
 
 
-def render_live_turni_kpis(stats):
+def render_live_turni_kpis(stats, side_html=""):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
@@ -2321,31 +2355,37 @@ def render_live_turni_kpis(stats):
     ferie_days_total = int(stats.get("ferie_days_total", 0))
     month_days_total = work_days_total + ferie_days_total
     ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
+    side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
+    shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
+    component_height = 380 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     components.html(f"""
-    <div class="turni-live-grid">
-      <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-        <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
-        <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
-        <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
-      </div>
-      <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-        <div class="kpi-label">{turno_kpi_label}</div>
-        <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
-        <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
-        <div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>
-      </div>
-      <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
-        <div class="kpi-label">Stato turno</div>
-        <div class="turni-status-row">
-          <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
-          <span id="turni-status-text">{status_text}</span>
+    <div class="{shell_class}">
+      <div class="turni-live-grid">
+        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+          <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
+          <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
+          <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
         </div>
-        <div class="turni-rate-row">
-          <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
-          <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
+        <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
+          <div class="kpi-label">{turno_kpi_label}</div>
+          <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+          <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
+          <div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>
         </div>
-        <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+        <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
+          <div class="kpi-label">Stato turno</div>
+          <div class="turni-status-row">
+            <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
+            <span id="turni-status-text">{status_text}</span>
+          </div>
+          <div class="turni-rate-row">
+            <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
+            <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
+          </div>
+          <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+        </div>
       </div>
+      {side_block}
     </div>
     <style>
       body {{
@@ -2358,6 +2398,12 @@ def render_live_turni_kpis(stats):
         grid-template-columns: 1fr 1fr 1fr;
         gap: 12px;
         margin-bottom: 12px;
+      }}
+      .turni-live-shell.has-side {{
+        display: grid;
+        grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+        gap: 10px;
+        align-items: start;
       }}
       .kpi-card {{
         background: rgba(255,255,255,0.045);
@@ -2406,17 +2452,84 @@ def render_live_turni_kpis(stats):
         color: rgba(255,255,255,0.42);
         margin-top: 5px;
       }}
+      .turni-live-side {{
+        min-width: 0;
+      }}
+      .turni-summary-compact-title {{
+        color: rgba(255,255,255,.88);
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 0 7px;
+      }}
+      .turni-grid-scroll {{
+        max-height: 322px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }}
+      .turni-card-small {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-left: 4px solid rgba(255,255,255,0.25);
+        border-radius: 10px;
+        padding: 6px 7px;
+        margin-bottom: 5px;
+      }}
+      .turni-card-small .date {{
+        font-size: 10px;
+        color: rgba(255,255,255,0.58);
+      }}
+      .turni-card-small .title {{
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 1px;
+      }}
+      .turni-card-small .meta {{
+        font-size: 9px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 2px;
+      }}
+      .turni-mattina {{ border-left-color:#60a5fa; }}
+      .turni-pomeriggio {{ border-left-color:#fb923c; }}
+      .turni-notte {{ border-left-color:#64748b; }}
+      .turni-ferie {{ border-left-color:#34d399; }}
       @media (max-width: 760px) {{
+        .turni-live-shell.has-side {{
+          grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+          gap: 7px;
+        }}
         .turni-live-grid {{
           grid-template-columns: 1fr;
-          gap: 8px;
+          gap: 6px;
         }}
         .kpi-card {{
-          padding: 12px 13px;
+          padding: 8px 9px;
           min-height: auto;
         }}
+        .kpi-label {{
+          font-size: 8px;
+          letter-spacing: .55px;
+          margin-bottom: 4px;
+        }}
         .kpi-value {{
-          font-size: 20px;
+          font-size: 14px;
+        }}
+        .turni-subline {{
+          font-size: 9px;
+          margin-top: 3px;
+        }}
+        .turni-status-row {{
+          font-size: 10px;
+          gap: 5px;
+          margin-bottom: 4px;
+        }}
+        .turni-rate-row {{
+          gap: 5px;
+        }}
+        .turni-grid-scroll {{
+          max-height: 326px;
+        }}
+        .turni-summary-compact-title {{
+          font-size: 11px;
         }}
       }}
     </style>
@@ -2519,7 +2632,42 @@ def render_live_turni_kpis(stats):
       tick();
       setInterval(tick, 1000);
     </script>
-    """, height=330 if MOBILE_VIEW else 126)
+    """, height=component_height)
+
+
+def _turni_month_summary_html(df_turni, month_key, rules):
+    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+    if month_df.empty:
+        return """
+        <div class="turni-summary-compact">
+          <div class="turni-summary-compact-title">Riepilogo turni</div>
+          <div class="turni-card-small"><div class="meta">Nessun turno nel mese selezionato.</div></div>
+        </div>
+        """
+    month_df = month_df.sort_values("Data")
+    today_key = _now_italy().strftime("%Y-%m-%d")
+    focus_candidates = month_df[month_df["Data"] >= today_key]
+    focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
+    cards = ['<div class="turni-summary-compact"><div class="turni-summary-compact-title">Riepilogo turni</div><div class="turni-grid-scroll">']
+    for _, r in month_df.iterrows():
+        turno = r["Turno"]
+        info = _turno_color_info(turno)
+        calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
+        seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
+        data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
+        festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
+        focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
+        cards.append(
+            f'<div{focus_attr} class="turni-card-small {info["class"]}">'
+            f'<div class="date">{html.escape(str(r["Data"]))}{festivo_txt}</div>'
+            f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
+            f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
+            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra {html.escape(_money_turni(calc["extra"]))}</div>'
+            f'</div>'
+        )
+    cards.append("</div></div>")
+    return "".join(cards)
 
 
 def render_turni_guadagni_section():
@@ -2547,7 +2695,8 @@ def render_turni_guadagni_section():
     stats = compute_turni_dashboard(df_turni, rules)
     current_work_day = stats.get("current_shift_start_date", "") if stats.get("is_on_shift", False) else ""
 
-    render_live_turni_kpis(stats)
+    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules) if MOBILE_VIEW else ""
+    render_live_turni_kpis(stats, mobile_summary_html)
 
     tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
 
@@ -2558,7 +2707,11 @@ def render_turni_guadagni_section():
 
         year, month = selected_month.year, selected_month.month
 
-        cal_col, summary_col = st.columns([1, 1] if MOBILE_VIEW else LAYOUT_COLONNE["turni_calendario_riepilogo"], gap="medium")
+        if MOBILE_VIEW:
+            cal_col = st.container()
+            summary_col = None
+        else:
+            cal_col, summary_col = st.columns(LAYOUT_COLONNE["turni_calendario_riepilogo"], gap="medium")
 
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
@@ -2688,7 +2841,8 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        with summary_col:
+        if summary_col is not None:
+          with summary_col:
             st.markdown("#### 🗓️ Riepilogo turni del mese")
             month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
             month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
@@ -2825,25 +2979,60 @@ def main():
         col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
     col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
 
+    def _parse_mobile_amount(raw_value, fallback=0.0, max_value=None):
+        text = str(raw_value).strip().replace("€", "").replace(" ", "")
+        if not text:
+            value = float(fallback)
+        else:
+            if "," in text and "." in text:
+                if text.rfind(",") > text.rfind("."):
+                    text = text.replace(".", "").replace(",", ".")
+                else:
+                    text = text.replace(",", "")
+            elif "," in text:
+                text = text.replace(".", "").replace(",", ".")
+            try:
+                value = float(text)
+            except ValueError:
+                value = float(fallback)
+        if max_value is not None:
+            value = min(value, float(max_value))
+        return max(0.0, value)
+
     if MOBILE_VIEW:
         with mobile_stip_col:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
-            stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
+            stipendio_raw = st.text_input(
+                "Inserisci lo stipendio effettivamente percepito:",
+                value=f"{float(input_stipendio_percepito):.0f}",
+                label_visibility="collapsed",
+                key="mobile_stipendio_percepito"
+            )
+            stipendio_percepito = _parse_mobile_amount(stipendio_raw, input_stipendio_percepito)
         with mobile_quota_col:
             st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
             budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
-            budget_da_stipendio = st.number_input(
+            budget_da_stipendio_raw = st.text_input(
                 "Inserisci la parte dello stipendio che scegli di usare:",
-                min_value=0.0,
-                max_value=float(stipendio_percepito),
-                value=budget_da_stipendio_default,
-                step=50.0,
-                label_visibility="collapsed"
+                value=f"{budget_da_stipendio_default:.0f}",
+                label_visibility="collapsed",
+                key="mobile_budget_da_stipendio"
+            )
+            budget_da_stipendio = _parse_mobile_amount(
+                budget_da_stipendio_raw,
+                budget_da_stipendio_default,
+                max_value=stipendio_percepito
             )
             st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
         with mobile_risp_col:
             st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
-            risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
+            risparmi_raw = st.text_input(
+                "Inserisci quanto hai risparmiato nel mese precedente:",
+                value=f"{float(input_risparmi_mese_precedente):.0f}",
+                label_visibility="collapsed",
+                key="mobile_risparmi_mese_precedente"
+            )
+            risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -3826,6 +4015,7 @@ textarea {
                 col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
                 totale_altre = sum(ALTRE_ENTRATE.values())
                 _ae = f"€{totale_altre:.2f}"
+                mobile_altre_donut_rendered = False
 
                 with col_altre_entrate_sx:
                     st.subheader("Altre Entrate:")
@@ -3872,6 +4062,24 @@ textarea {
                     Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
                     </div>
                     """, unsafe_allow_html=True)
+                    if MOBILE_VIEW:
+                        df_altre_entrate_mobile = pd.DataFrame({
+                            'Voce': list(ALTRE_ENTRATE.keys()),
+                            'Value': list(ALTRE_ENTRATE.values())
+                        })
+                        df_altre_entrate_mobile = df_altre_entrate_mobile[df_altre_entrate_mobile["Value"] > 0].copy()
+                        if not df_altre_entrate_mobile.empty:
+                            palette_mobile = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+                            st.markdown(
+                                _mobile_donut_html(
+                                    "Distribuzione",
+                                    df_altre_entrate_mobile["Voce"].tolist(),
+                                    df_altre_entrate_mobile["Value"].tolist(),
+                                    palette_mobile[:len(df_altre_entrate_mobile)]
+                                ),
+                                unsafe_allow_html=True
+                            )
+                            mobile_altre_donut_rendered = True
 
                 st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
                 col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
@@ -3898,17 +4106,7 @@ textarea {
 
                     if not df_altre_entrate.empty:
                         palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
-                        if MOBILE_VIEW:
-                            st.markdown(
-                                _mobile_donut_html(
-                                    "Distribuzione altre entrate",
-                                    df_altre_entrate["Voce"].tolist(),
-                                    df_altre_entrate["Value"].tolist(),
-                                    palette[:len(df_altre_entrate)]
-                                ),
-                                unsafe_allow_html=True
-                            )
-                        else:
+                        if not MOBILE_VIEW:
                             donut_inner = 32
                             donut_outer = 56
                             donut_width = 150
@@ -4034,24 +4232,45 @@ textarea {
                     </div>
                     """
 
-                n1, n2 = st.columns(2, gap="small")
-                with n1:
-                    st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
-                    with st.popover("Apri / modifica 1", use_container_width=True):
-                        nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
-                with n2:
-                    st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
-                    with st.popover("Apri / modifica 2", use_container_width=True):
-                        nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
-                n3, n4 = st.columns(2, gap="small")
-                with n3:
-                    st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
-                    with st.popover("Apri / modifica 3", use_container_width=True):
-                        nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
-                with n4:
-                    st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
-                    with st.popover("Apri / modifica 4", use_container_width=True):
-                        nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
+                if MOBILE_VIEW:
+                    st.markdown('<div class="mobile-notes-row-marker"></div>', unsafe_allow_html=True)
+                    note_cols = st.columns(4, gap="small")
+                    note_keys = ["nota1", "nota2", "nota3", "nota4"]
+                    note_values_map = {}
+                    for idx, (note_col, note_key) in enumerate(zip(note_cols, note_keys), start=1):
+                        with note_col:
+                            st.markdown(_memo_card(f"Promemoria {idx}", _nota_value(note_key)), unsafe_allow_html=True)
+                            with st.popover(f"Apri {idx}", use_container_width=True):
+                                note_values_map[note_key] = st.text_area(
+                                    f"Promemoria {idx}",
+                                    value=_nota_value(note_key),
+                                    height=420,
+                                    label_visibility="collapsed",
+                                    key=f"{note_key}_text"
+                                )
+                    nota1 = note_values_map["nota1"]
+                    nota2 = note_values_map["nota2"]
+                    nota3 = note_values_map["nota3"]
+                    nota4 = note_values_map["nota4"]
+                else:
+                    n1, n2 = st.columns(2, gap="small")
+                    with n1:
+                        st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
+                        with st.popover("Apri / modifica 1", use_container_width=True):
+                            nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
+                    with n2:
+                        st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
+                        with st.popover("Apri / modifica 2", use_container_width=True):
+                            nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
+                    n3, n4 = st.columns(2, gap="small")
+                    with n3:
+                        st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
+                        with st.popover("Apri / modifica 3", use_container_width=True):
+                            nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
+                    with n4:
+                        st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
+                        with st.popover("Apri / modifica 4", use_container_width=True):
+                            nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
 
                 salva = st.button(
                     "💾 Salva note",
