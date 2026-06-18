@@ -718,13 +718,30 @@ if MOBILE_VIEW:
         padding: 13px 14px;
         border-radius: 14px;
         text-decoration: none !important;
-        background: rgba(255,255,255,.055);
-        border: 0.5px solid rgba(255,255,255,.13);
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--section-color) 18%, transparent), rgba(255,255,255,.035));
+        border: 0.5px solid color-mix(in srgb, var(--section-color) 42%, rgba(255,255,255,.12));
+        border-left: 4px solid var(--section-color);
         box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
+    .mobile-home-card.spese,
+    .mobile-nav a.spese { --section-color:#f87171; }
+    .mobile-home-card.entrate,
+    .mobile-nav a.entrate { --section-color:#34d399; }
+    .mobile-home-card.risparmi,
+    .mobile-nav a.risparmi { --section-color:#facc15; }
+    .mobile-home-card.turni,
+    .mobile-nav a.turni { --section-color:#60a5fa; }
+    .mobile-home-card.storico,
+    .mobile-nav a.storico { --section-color:#a78bfa; }
+    .mobile-home-card.bollette,
+    .mobile-nav a.bollette { --section-color:#fb923c; }
+    .mobile-nav a.panoramica { --section-color:#38bdf8; }
+    .mobile-nav a.variabili { --section-color:#4ade80; }
+    .mobile-nav a.carte { --section-color:#89cff0; }
     .mobile-home-card strong {
         display: block;
-        color: rgba(255,255,255,.90);
+        color: rgba(255,255,255,.94);
         font-size: 14px;
         line-height: 1.2;
         margin-bottom: 6px;
@@ -744,17 +761,47 @@ if MOBILE_VIEW:
     .mobile-nav a {
         flex: 0 0 auto;
         text-decoration: none;
-        color: #bfdbfe;
-        background: rgba(96,165,250,.12);
-        border: 0.5px solid rgba(96,165,250,.30);
+        color: rgba(255,255,255,.88);
+        background: color-mix(in srgb, var(--section-color) 16%, rgba(15,23,42,.75));
+        border: 0.5px solid color-mix(in srgb, var(--section-color) 48%, rgba(255,255,255,.12));
+        border-bottom: 3px solid var(--section-color);
         border-radius: 999px;
-        padding: 7px 10px;
+        padding: 7px 11px 6px;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 850;
         white-space: nowrap;
+        box-shadow: 0 8px 18px rgba(0,0,0,.16);
     }
     .mobile-anchor {
         scroll-margin-top: 22px;
+    }
+    .mobile-anchor:not(#mobile-top):not(#mobile-dashboard) {
+        display:block;
+        border-top: 1px solid rgba(255,255,255,.08);
+        margin-top: 18px;
+        padding-top: 10px;
+    }
+    #mobile-spese { border-top-color: rgba(248,113,113,.48); }
+    #mobile-variabili { border-top-color: rgba(74,222,128,.48); }
+    #mobile-entrate { border-top-color: rgba(52,211,153,.48); }
+    #mobile-risparmi { border-top-color: rgba(250,204,21,.48); }
+    #mobile-carte { border-top-color: rgba(137,207,240,.48); }
+    #mobile-turni { border-top-color: rgba(96,165,250,.48); }
+    #mobile-promemoria { border-top-color: rgba(253,230,138,.44); }
+    #mobile-stipendi { border-top-color: rgba(167,139,250,.48); }
+    #mobile-bollette { border-top-color: rgba(251,146,60,.48); }
+    section[data-testid="stSidebar"] [data-testid="stSelectbox"] label {
+        color: rgba(255,255,255,.78) !important;
+        font-weight: 900 !important;
+        letter-spacing: .5px !important;
+    }
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        background:
+            linear-gradient(135deg, rgba(56,189,248,.16), rgba(167,139,250,.10)),
+            rgba(15,23,42,.82) !important;
+        border: 1px solid rgba(96,165,250,.34) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 22px rgba(0,0,0,.20) !important;
     }
     [data-testid="stVegaLiteChart"] {
         overflow-x: auto !important;
@@ -995,23 +1042,23 @@ if MOBILE_VIEW:
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
     <div class="mobile-home-grid">
-        <a class="mobile-home-card" href="#mobile-spese"><strong>Spese</strong><span>Fisse, variabili e dettaglio</span></a>
-        <a class="mobile-home-card" href="#mobile-entrate"><strong>Entrate</strong><span>Altre entrate e obiettivi</span></a>
-        <a class="mobile-home-card" href="#mobile-risparmi"><strong>Risparmi</strong><span>Riepilogo mese e carte</span></a>
-        <a class="mobile-home-card" href="#mobile-turni"><strong>Turni</strong><span>Live, calendario e riepilogo</span></a>
-        <a class="mobile-home-card" href="#mobile-stipendi"><strong>Storico</strong><span>Stipendi e risparmi</span></a>
-        <a class="mobile-home-card" href="#mobile-bollette"><strong>Bollette</strong><span>Storico, saldo e budget</span></a>
+        <a class="mobile-home-card spese" href="#mobile-spese"><strong>Spese</strong><span>Fisse, variabili e dettaglio</span></a>
+        <a class="mobile-home-card entrate" href="#mobile-entrate"><strong>Entrate</strong><span>Altre entrate e obiettivi</span></a>
+        <a class="mobile-home-card risparmi" href="#mobile-risparmi"><strong>Risparmi</strong><span>Riepilogo mese e carte</span></a>
+        <a class="mobile-home-card turni" href="#mobile-turni"><strong>Turni</strong><span>Live, calendario e riepilogo</span></a>
+        <a class="mobile-home-card storico" href="#mobile-stipendi"><strong>Storico</strong><span>Stipendi e risparmi</span></a>
+        <a class="mobile-home-card bollette" href="#mobile-bollette"><strong>Bollette</strong><span>Storico, saldo e budget</span></a>
     </div>
     <div class="mobile-nav">
-        <a href="#mobile-top">Panoramica</a>
-        <a href="#mobile-spese">Spese</a>
-        <a href="#mobile-variabili">Variabili</a>
-        <a href="#mobile-entrate">Entrate</a>
-        <a href="#mobile-risparmi">Risparmi</a>
-        <a href="#mobile-carte">Carte</a>
-        <a href="#mobile-turni">Turni</a>
-        <a href="#mobile-stipendi">Storico</a>
-        <a href="#mobile-bollette">Bollette</a>
+        <a class="panoramica" href="#mobile-top">Panoramica</a>
+        <a class="spese" href="#mobile-spese">Spese</a>
+        <a class="variabili" href="#mobile-variabili">Variabili</a>
+        <a class="entrate" href="#mobile-entrate">Entrate</a>
+        <a class="risparmi" href="#mobile-risparmi">Risparmi</a>
+        <a class="carte" href="#mobile-carte">Carte</a>
+        <a class="turni" href="#mobile-turni">Turni</a>
+        <a class="storico" href="#mobile-stipendi">Storico</a>
+        <a class="bollette" href="#mobile-bollette">Bollette</a>
     </div>
     """, unsafe_allow_html=True)
     mobile_targets = {
