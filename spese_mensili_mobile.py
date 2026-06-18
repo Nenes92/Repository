@@ -565,6 +565,33 @@ if MOBILE_VIEW:
         flex: 1 1 calc(50% - 0.35rem) !important;
         min-width: 0 !important;
     }
+    .element-container:has(.mobile-three-input-row) + div[data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.45rem !important;
+    }
+    .element-container:has(.mobile-three-input-row) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: calc(33.333% - 0.35rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+    .element-container:has(.mobile-summary-budget-row) + div[data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.65rem !important;
+        align-items: stretch !important;
+    }
+    .element-container:has(.mobile-summary-budget-row) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: calc(50% - 0.35rem) !important;
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+    .mobile-compact-input-note {
+        font-size: 10px;
+        color: rgba(255,255,255,.42);
+        margin-top: 3px;
+        line-height: 1.15;
+    }
     h1 {
         font-size: 1.45rem !important;
         text-align: left !important;
@@ -2690,26 +2717,52 @@ def main():
 
     st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
-    col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
+    if MOBILE_VIEW:
+        st.markdown('<div class="mobile-three-input-row"></div>', unsafe_allow_html=True)
+        mobile_stip_col, mobile_quota_col, mobile_risp_col = st.columns(3, gap="small")
+        st.markdown('<div class="mobile-summary-budget-row"></div>', unsafe_allow_html=True)
+        col_stip_inserimento3, col_stip_inserimento4 = st.columns([1, 1], gap="medium")
+    else:
+        col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
     col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
 
-    with col_stip_inserimento1:
-        st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
-        stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
-        st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
-        risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
-    with col_stip_inserimento2:
-        st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
-        budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
-        budget_da_stipendio = st.number_input(
-            "Inserisci la parte dello stipendio che scegli di usare:",
-            min_value=0.0,
-            max_value=float(stipendio_percepito),
-            value=budget_da_stipendio_default,
-            step=50.0,
-            label_visibility="collapsed"
-        )
-        st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+    if MOBILE_VIEW:
+        with mobile_stip_col:
+            st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
+            stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
+        with mobile_quota_col:
+            st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
+            budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+            budget_da_stipendio = st.number_input(
+                "Inserisci la parte dello stipendio che scegli di usare:",
+                min_value=0.0,
+                max_value=float(stipendio_percepito),
+                value=budget_da_stipendio_default,
+                step=50.0,
+                label_visibility="collapsed"
+            )
+            st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+        with mobile_risp_col:
+            st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
+            risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
+    else:
+        with col_stip_inserimento1:
+            st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
+            stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
+            st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
+            risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
+        with col_stip_inserimento2:
+            st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
+            budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+            budget_da_stipendio = st.number_input(
+                "Inserisci la parte dello stipendio che scegli di usare:",
+                min_value=0.0,
+                max_value=float(stipendio_percepito),
+                value=budget_da_stipendio_default,
+                step=50.0,
+                label_visibility="collapsed"
+            )
+            st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -2726,12 +2779,8 @@ def main():
     with col_stip_inserimento3:
         _ts = f"€{entrate_mensili_totali:,.2f}"
         _tu = f"€{budget_mensile_disponibile:,.2f}"
-    
-        # ───────── Divisione in 2 colonne ─────────
-        col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2, gap="medium")
-    
-        # ───────── Prima card ─────────
-        with col_stip_inserimento3_1:
+
+        if MOBILE_VIEW:
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Entrate mensili totali</div>
@@ -2741,9 +2790,6 @@ def main():
                 </div>
             </div>
             """, unsafe_allow_html=True)
-    
-        # ───────── Seconda card ─────────
-        with col_stip_inserimento3_2:
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Budget mensile disponibile</div>
@@ -2753,6 +2799,33 @@ def main():
                 </div>
             </div>
             """, unsafe_allow_html=True)
+        else:
+            # ───────── Divisione in 2 colonne ─────────
+            col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2, gap="medium")
+        
+            # ───────── Prima card ─────────
+            with col_stip_inserimento3_1:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-label">Entrate mensili totali</div>
+                    <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
+                        Stipendio percepito + altre entrate
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+            # ───────── Seconda card ─────────
+            with col_stip_inserimento3_2:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-label">Budget mensile disponibile</div>
+                    <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
+                        Quota stipendio scelta + altre entrate
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
     with col_stip_inserimento4:
             # ───────── STILE POST-IT ─────────
@@ -2894,7 +2967,11 @@ textarea {
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
-            budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
+            if MOBILE_VIEW:
+                budget_card_col = st.container()
+                obiettivi_col = st.container()
+            else:
+                budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
             with budget_card_col:
                 entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                 gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
