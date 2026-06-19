@@ -541,11 +541,18 @@ with st.sidebar:
     )
 
 MOBILE_VIEW = VISTA_APP == "Telefono"
+MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Promemoria", "Turni", "Storico", "Bollette"]
 
 if MOBILE_VIEW:
+    requested_mobile_section = st.query_params.get("mobile_section")
+    if isinstance(requested_mobile_section, list):
+        requested_mobile_section = requested_mobile_section[0] if requested_mobile_section else None
+    if requested_mobile_section in MOBILE_SECTIONS:
+        st.session_state["mobile_section_select"] = requested_mobile_section
+
     mobile_section = st.sidebar.selectbox(
         "Vai alla sezione",
-        ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Turni", "Storico", "Bollette"],
+        MOBILE_SECTIONS,
         key="mobile_section_select"
     )
     st.markdown("""
@@ -724,12 +731,16 @@ if MOBILE_VIEW:
         border-left: 4px solid var(--section-color);
         box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
+    .mobile-home-card.panoramica { --section-color:#38bdf8; }
     .mobile-home-card.spese,
     .mobile-nav a.spese { --section-color:#f87171; }
+    .mobile-home-card.variabili { --section-color:#4ade80; }
     .mobile-home-card.entrate,
     .mobile-nav a.entrate { --section-color:#34d399; }
     .mobile-home-card.risparmi,
     .mobile-nav a.risparmi { --section-color:#facc15; }
+    .mobile-home-card.carte { --section-color:#89cff0; }
+    .mobile-home-card.promemoria { --section-color:#fde68a; }
     .mobile-home-card.turni,
     .mobile-nav a.turni { --section-color:#60a5fa; }
     .mobile-home-card.storico,
@@ -739,6 +750,12 @@ if MOBILE_VIEW:
     .mobile-nav a.panoramica { --section-color:#38bdf8; }
     .mobile-nav a.variabili { --section-color:#4ade80; }
     .mobile-nav a.carte { --section-color:#89cff0; }
+    .mobile-home-card.active {
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--section-color) 32%, transparent), rgba(255,255,255,.06));
+        border-color: color-mix(in srgb, var(--section-color) 72%, rgba(255,255,255,.16));
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--section-color) 38%, transparent), 0 14px 30px rgba(0,0,0,.22);
+    }
     .mobile-home-card strong {
         display: block;
         color: rgba(255,255,255,.94);
@@ -1068,37 +1085,31 @@ if MOBILE_VIEW:
         white-space: nowrap;
     }
     </style>
+    """, unsafe_allow_html=True)
+    _mobile_cards = [
+        ("Panoramica", "panoramica", "Panoramica", "Budget e impostazioni"),
+        ("Spese", "spese", "Spese", "Fisse e dettaglio"),
+        ("Variabili", "variabili", "Variabili", "Quote e donut"),
+        ("Entrate", "entrate", "Entrate", "Altre entrate e obiettivi"),
+        ("Risparmi", "risparmi", "Risparmi", "Riepilogo mese"),
+        ("Carte", "carte", "Carte", "Trasferimenti"),
+        ("Promemoria", "promemoria", "Promemoria", "Note mensili"),
+        ("Turni", "turni", "Turni", "Live e calendario"),
+        ("Storico", "storico", "Storico", "Stipendi e risparmi"),
+        ("Bollette", "bollette", "Bollette", "Storico e saldo"),
+    ]
+    _mobile_cards_html = ''.join(
+        f'<a class="mobile-home-card {css_class} {"active" if mobile_section == label else ""}" href="?mobile_section={label}#mobile-top"><strong>{title}</strong><span>{subtitle}</span></a>'
+        for label, css_class, title, subtitle in _mobile_cards
+    )
+    st.markdown(f"""
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
-    <div class="mobile-home-grid">
-        <a class="mobile-home-card spese" href="#mobile-spese"><strong>Spese</strong><span>Fisse, variabili e dettaglio</span></a>
-        <a class="mobile-home-card entrate" href="#mobile-entrate"><strong>Entrate</strong><span>Altre entrate e obiettivi</span></a>
-        <a class="mobile-home-card risparmi" href="#mobile-risparmi"><strong>Risparmi</strong><span>Riepilogo mese e carte</span></a>
-        <a class="mobile-home-card turni" href="#mobile-turni"><strong>Turni</strong><span>Live, calendario e riepilogo</span></a>
-        <a class="mobile-home-card storico" href="#mobile-stipendi"><strong>Storico</strong><span>Stipendi e risparmi</span></a>
-        <a class="mobile-home-card bollette" href="#mobile-bollette"><strong>Bollette</strong><span>Storico, saldo e budget</span></a>
-    </div>
+    <div class="mobile-home-grid">{_mobile_cards_html}</div>
     """, unsafe_allow_html=True)
-    mobile_targets = {
-        "Panoramica": "mobile-top",
-        "Spese": "mobile-spese",
-        "Variabili": "mobile-variabili",
-        "Entrate": "mobile-entrate",
-        "Risparmi": "mobile-risparmi",
-        "Carte": "mobile-carte",
-        "Turni": "mobile-turni",
-        "Storico": "mobile-stipendi",
-        "Bollette": "mobile-bollette",
-    }
-    if mobile_section != "Panoramica":
-        components.html(f"""
-        <script>
-        setTimeout(() => {{
-            const target = window.parent.document.getElementById({json.dumps(mobile_targets[mobile_section])});
-            if (target) target.scrollIntoView({{behavior: "smooth", block: "start"}});
-        }}, 500);
-        </script>
-        """, height=0)
+
+def _mobile_show(*sections):
+    return (not MOBILE_VIEW) or (mobile_section in sections)
 
 
 # Flag per controllare se la configurazione della pagina è già stata impostata
@@ -3080,13 +3091,14 @@ def main():
         col_center = st.container()
     else:
         col_left, col_center, col_right = st.columns(LAYOUT_COLONNE["titolo_dashboard"], gap="large")
-    with col_left:
-        st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div><div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
-    with col_center:
-        st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
+    if _mobile_show("Panoramica"):
+        with col_left:
+            st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div><div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
+        with col_center:
+            st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
 
-    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
     if MOBILE_VIEW:
         mobile_stip_col = st.container()
         mobile_quota_col = st.container()
@@ -3124,40 +3136,46 @@ def main():
         return max(0.0, value)
 
     if MOBILE_VIEW:
-        with mobile_stip_col:
-            st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
-            stipendio_raw = st.text_input(
-                "Inserisci lo stipendio effettivamente percepito:",
-                value=f"{float(input_stipendio_percepito):.0f}",
-                label_visibility="collapsed",
-                key="mobile_stipendio_percepito"
-            )
-            stipendio_percepito = _parse_mobile_amount(stipendio_raw, input_stipendio_percepito)
-        with mobile_quota_col:
-            st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
+        if _mobile_show("Panoramica"):
+            with mobile_stip_col:
+                st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
+                stipendio_raw = st.text_input(
+                    "Inserisci lo stipendio effettivamente percepito:",
+                    value=f"{float(input_stipendio_percepito):.0f}",
+                    label_visibility="collapsed",
+                    key="mobile_stipendio_percepito"
+                )
+                stipendio_percepito = _parse_mobile_amount(stipendio_raw, input_stipendio_percepito)
+            with mobile_quota_col:
+                st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
+                budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+                budget_da_stipendio_raw = st.text_input(
+                    "Inserisci la parte dello stipendio che scegli di usare:",
+                    value=f"{budget_da_stipendio_default:.0f}",
+                    label_visibility="collapsed",
+                    key="mobile_budget_da_stipendio"
+                )
+                budget_da_stipendio = _parse_mobile_amount(
+                    budget_da_stipendio_raw,
+                    budget_da_stipendio_default,
+                    max_value=stipendio_percepito
+                )
+            with mobile_risp_col:
+                st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
+                risparmi_raw = st.text_input(
+                    "Inserisci quanto hai risparmiato nel mese precedente:",
+                    value=f"{float(input_risparmi_mese_precedente):.0f}",
+                    label_visibility="collapsed",
+                    key="mobile_risparmi_mese_precedente"
+                )
+                risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
+            with mobile_note_col:
+                st.markdown('<div class="mobile-compact-input-note" style="padding-top:19px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+        else:
+            stipendio_percepito = _parse_mobile_amount(st.session_state.get("mobile_stipendio_percepito", input_stipendio_percepito), input_stipendio_percepito)
             budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
-            budget_da_stipendio_raw = st.text_input(
-                "Inserisci la parte dello stipendio che scegli di usare:",
-                value=f"{budget_da_stipendio_default:.0f}",
-                label_visibility="collapsed",
-                key="mobile_budget_da_stipendio"
-            )
-            budget_da_stipendio = _parse_mobile_amount(
-                budget_da_stipendio_raw,
-                budget_da_stipendio_default,
-                max_value=stipendio_percepito
-            )
-        with mobile_risp_col:
-            st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
-            risparmi_raw = st.text_input(
-                "Inserisci quanto hai risparmiato nel mese precedente:",
-                value=f"{float(input_risparmi_mese_precedente):.0f}",
-                label_visibility="collapsed",
-                key="mobile_risparmi_mese_precedente"
-            )
-            risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
-        with mobile_note_col:
-            st.markdown('<div class="mobile-compact-input-note" style="padding-top:19px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+            budget_da_stipendio = _parse_mobile_amount(st.session_state.get("mobile_budget_da_stipendio", budget_da_stipendio_default), budget_da_stipendio_default, max_value=stipendio_percepito)
+            risparmi_mese_precedente = _parse_mobile_amount(st.session_state.get("mobile_risparmi_mese_precedente", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -3193,7 +3211,7 @@ def main():
         _ts = f"€{entrate_mensili_totali:,.2f}"
         _tu = f"€{budget_mensile_disponibile:,.2f}"
 
-        if MOBILE_VIEW:
+        if MOBILE_VIEW and _mobile_show("Panoramica"):
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Entrate mensili totali</div>
@@ -3385,55 +3403,56 @@ textarea {
                 obiettivi_col = st.container()
             else:
                 budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
-            with budget_card_col:
-                entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
-                gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
-                gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
-                budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
-                entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
-                st.markdown(f"""
-                <div class="budget-memory-card">
-                    <div class="budget-memory-title">Promemoria budget</div>
-                    <div class="budget-memory-row">
-                        <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
-                        <div class="budget-memory-value">{budget_status}</div>
+            if _mobile_show("Panoramica"):
+                with budget_card_col:
+                    entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
+                    gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
+                    gap_entrate_ideali = max(0, entrate_totali_target - entrate_mensili_totali)
+                    budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
+                    entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
+                    st.markdown(f"""
+                    <div class="budget-memory-card">
+                        <div class="budget-memory-title">Promemoria budget</div>
+                        <div class="budget-memory-row">
+                            <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
+                            <div class="budget-memory-value">{budget_status}</div>
+                        </div>
+                        <div class="budget-memory-row">
+                            <div class="budget-memory-label">Entrate mensili totali desiderate<br><span style="color:rgba(255,255,255,.42);">target €{entrate_totali_target:,.0f} · per risparmiare €{risparmio_desiderato_corrente:,.0f}</span></div>
+                            <div class="budget-memory-value">{entrate_status}</div>
+                        </div>
                     </div>
-                    <div class="budget-memory-row">
-                        <div class="budget-memory-label">Entrate mensili totali desiderate<br><span style="color:rgba(255,255,255,.42);">target €{entrate_totali_target:,.0f} · per risparmiare €{risparmio_desiderato_corrente:,.0f}</span></div>
-                        <div class="budget-memory-value">{entrate_status}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            with obiettivi_col:
-                with st.expander("Obiettivo risparmi", expanded=False):
-                    risparmio_desiderato_corrente = st.number_input(
-                        "Risparmio desiderato",
-                        min_value=0.0,
-                        value=float(risparmio_desiderato_corrente),
-                        step=25.0,
-                        help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
-                        key="risparmio_desiderato_promemoria"
-                    )
-                    salva_obiettivo = st.button(
-                        "💾 Salva obiettivo",
-                        use_container_width=True,
-                        key="save_obiettivo_risparmi",
-                        disabled=not st.session_state.get("note_loaded_from_sheet", True)
-                    )
-                    if salva_obiettivo:
-                        df_note = _build_note_df(
-                            _nota_value("nota1"),
-                            _nota_value("nota2"),
-                            _nota_value("nota3"),
-                            _nota_value("nota4"),
-                            risparmio_desiderato_corrente
+                    """, unsafe_allow_html=True)
+                with obiettivi_col:
+                    with st.expander("Obiettivo risparmi", expanded=False):
+                        risparmio_desiderato_corrente = st.number_input(
+                            "Risparmio desiderato",
+                            min_value=0.0,
+                            value=float(risparmio_desiderato_corrente),
+                            step=25.0,
+                            help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
+                            key="risparmio_desiderato_promemoria"
                         )
-                        if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
-                            st.session_state.note_df_draft = df_note.copy()
-                            st.session_state.note_loaded_from_sheet = True
-                            st.success("Obiettivo salvato")
-                        else:
-                            st.error("Errore salvataggio obiettivo")
+                        salva_obiettivo = st.button(
+                            "💾 Salva obiettivo",
+                            use_container_width=True,
+                            key="save_obiettivo_risparmi",
+                            disabled=not st.session_state.get("note_loaded_from_sheet", True)
+                        )
+                        if salva_obiettivo:
+                            df_note = _build_note_df(
+                                _nota_value("nota1"),
+                                _nota_value("nota2"),
+                                _nota_value("nota3"),
+                                _nota_value("nota4"),
+                                risparmio_desiderato_corrente
+                            )
+                            if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
+                                st.session_state.note_df_draft = df_note.copy()
+                                st.session_state.note_loaded_from_sheet = True
+                                st.success("Obiettivo salvato")
+                            else:
+                                st.error("Errore salvataggio obiettivo")
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             # Le note vengono mostrate piu sotto, accanto al dettaglio spese fisse.
@@ -3547,356 +3566,357 @@ textarea {
     
     # --- COLONNA 1: SPESE FISSE ---
     with col1:
-        st.markdown('<div id="mobile-spese" class="mobile-anchor"></div><div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
-        tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
+        if _mobile_show("Spese"):
+            st.markdown('<div id="mobile-spese" class="mobile-anchor"></div><div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
+            tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
-        with tab_decisioni_fisse:
-            settings = SPESE["Fisse"].copy()
-            metadata = st.session_state.get("spese_fisse_metadata", {})
-            gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
+            with tab_decisioni_fisse:
+                settings = SPESE["Fisse"].copy()
+                metadata = st.session_state.get("spese_fisse_metadata", {})
+                gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
 
-            st.markdown("#### Aggiungi spesa")
-            add_nome_col, add_importo_col = st.columns(LAYOUT_COLONNE["form_nome_importo"])
-            with add_nome_col:
-                nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
-            with add_importo_col:
-                nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
+                st.markdown("#### Aggiungi spesa")
+                add_nome_col, add_importo_col = st.columns(LAYOUT_COLONNE["form_nome_importo"])
+                with add_nome_col:
+                    nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
+                with add_importo_col:
+                    nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
 
-            nuovo_gruppo = st.text_input(
-                "Nuovo gruppo visivo da aggiungere",
-                key="nuovo_gruppo_spese_fisse",
-                placeholder="Es. Animali, Viaggi, Donazioni..."
-            ).strip()
-            if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
-                gruppi_disponibili.append(nuovo_gruppo)
-            add_meta_col1, add_meta_col2 = st.columns(2)
-            with add_meta_col1:
-                nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
-            with add_meta_col2:
-                nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
-            nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
+                nuovo_gruppo = st.text_input(
+                    "Nuovo gruppo visivo da aggiungere",
+                    key="nuovo_gruppo_spese_fisse",
+                    placeholder="Es. Animali, Viaggi, Donazioni..."
+                ).strip()
+                if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
+                    gruppi_disponibili.append(nuovo_gruppo)
+                add_meta_col1, add_meta_col2 = st.columns(2)
+                with add_meta_col1:
+                    nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+                with add_meta_col2:
+                    nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
+                nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
 
-            st.markdown("#### Elimina spesa")
-            elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
-            st.markdown("#### Modifica spese esistenti")
+                st.markdown("#### Elimina spesa")
+                elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
+                st.markdown("#### Modifica spese esistenti")
 
-            editor_cols = st.columns(2)
-            editable_settings = {}
-            editable_metadata = {}
-            for idx, (voce, importo) in enumerate(settings.items()):
-                with editor_cols[idx % 2]:
-                    st.markdown(f"**{voce}**")
-                    editable_settings[voce] = st.number_input(
-                        "Importo",
-                        min_value=0.0,
-                        value=float(importo),
-                        step=5.0,
-                        key=f"spesa_fissa_importo_{voce}"
-                    )
-                    current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                    current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                    current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
-                    if current_gruppo not in gruppi_disponibili:
-                        gruppi_disponibili.append(current_gruppo)
-                    editable_metadata[voce] = {
-                        "Categoria": st.selectbox(
-                            "Colore categoria",
-                            SPESA_FISSA_CATEGORIE,
-                            index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
-                            key=f"spesa_fissa_categoria_{voce}"
-                        ),
-                        "Carta": st.selectbox(
-                            "Carta",
-                            SPESA_FISSA_CARTE,
-                            index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
-                            key=f"spesa_fissa_carta_{voce}"
-                        ),
-                        "Gruppo": st.selectbox(
-                            "Gruppo visivo",
-                            gruppi_disponibili,
-                            index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
-                            key=f"spesa_fissa_gruppo_{voce}"
-                        ),
-                    }
-                    st.markdown("---")
-
-            save_col, delete_col = st.columns(2)
-            with save_col:
-                if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
-                    nome_nuova = nuova_spesa_nome.strip()
-                    if nome_nuova:
-                        editable_settings[nome_nuova] = float(nuova_spesa_importo)
-                        editable_metadata[nome_nuova] = {
-                            "Categoria": nuova_spesa_categoria,
-                            "Carta": nuova_spesa_carta,
-                            "Gruppo": nuova_spesa_gruppo,
+                editor_cols = st.columns(2)
+                editable_settings = {}
+                editable_metadata = {}
+                for idx, (voce, importo) in enumerate(settings.items()):
+                    with editor_cols[idx % 2]:
+                        st.markdown(f"**{voce}**")
+                        editable_settings[voce] = st.number_input(
+                            "Importo",
+                            min_value=0.0,
+                            value=float(importo),
+                            step=5.0,
+                            key=f"spesa_fissa_importo_{voce}"
+                        )
+                        current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                        current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                        current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
+                        if current_gruppo not in gruppi_disponibili:
+                            gruppi_disponibili.append(current_gruppo)
+                        editable_metadata[voce] = {
+                            "Categoria": st.selectbox(
+                                "Colore categoria",
+                                SPESA_FISSA_CATEGORIE,
+                                index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
+                                key=f"spesa_fissa_categoria_{voce}"
+                            ),
+                            "Carta": st.selectbox(
+                                "Carta",
+                                SPESA_FISSA_CARTE,
+                                index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
+                                key=f"spesa_fissa_carta_{voce}"
+                            ),
+                            "Gruppo": st.selectbox(
+                                "Gruppo visivo",
+                                gruppi_disponibili,
+                                index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
+                                key=f"spesa_fissa_gruppo_{voce}"
+                            ),
                         }
-                    if save_spese_fisse_settings(editable_settings, editable_metadata):
-                        st.success("Spese fisse salvate")
-                        st.rerun()
-                    else:
-                        st.error("Errore salvataggio spese fisse")
-            with delete_col:
-                if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
-                    editable_settings.pop(elimina_spesa, None)
-                    editable_metadata.pop(elimina_spesa, None)
-                    if save_spese_fisse_settings(editable_settings, editable_metadata):
-                        st.success("Spesa eliminata")
-                        st.rerun()
-                    else:
-                        st.error("Errore eliminazione spesa")
+                        st.markdown("---")
 
-        with tab_spese_fisse:
-            st.subheader("Spese Fisse:")
+                save_col, delete_col = st.columns(2)
+                with save_col:
+                    if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
+                        nome_nuova = nuova_spesa_nome.strip()
+                        if nome_nuova:
+                            editable_settings[nome_nuova] = float(nuova_spesa_importo)
+                            editable_metadata[nome_nuova] = {
+                                "Categoria": nuova_spesa_categoria,
+                                "Carta": nuova_spesa_carta,
+                                "Gruppo": nuova_spesa_gruppo,
+                            }
+                        if save_spese_fisse_settings(editable_settings, editable_metadata):
+                            st.success("Spese fisse salvate")
+                            st.rerun()
+                        else:
+                            st.error("Errore salvataggio spese fisse")
+                with delete_col:
+                    if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
+                        editable_settings.pop(elimina_spesa, None)
+                        editable_metadata.pop(elimina_spesa, None)
+                        if save_spese_fisse_settings(editable_settings, editable_metadata):
+                            st.success("Spesa eliminata")
+                            st.rerun()
+                        else:
+                            st.error("Errore eliminazione spesa")
 
-            spese_meta = st.session_state.get("spese_fisse_metadata", {})
-            rendered_voci = set()
-            ordered_groups = _ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)
-            if MOBILE_VIEW:
-                mobile_cols = ["", ""]
-                for group_index, group_name in enumerate(ordered_groups):
-                    group_items = [
-                        (voce, importo)
-                        for voce, importo in SPESE["Fisse"].items()
-                        if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
-                    ]
-                    if not group_items:
-                        continue
-                    group_html = (
-                        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{html.escape(str(group_name))}</div>'
-                    )
-                    for voce, importo in group_items:
-                        categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                        carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        group_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
-                        rendered_voci.add(voce)
-                    mobile_cols[group_index % 2] += group_html
+            with tab_spese_fisse:
+                st.subheader("Spese Fisse:")
 
-                altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
-                if altre_voci:
-                    altre_html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>'
-                    for voce, importo in altre_voci:
-                        categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                        carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        altre_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
-                    mobile_cols[1] += altre_html
-
-                st.markdown(
-                    f'<div class="mobile-fixed-expenses-grid"><div class="mobile-fixed-expenses-col">{mobile_cols[0]}</div><div class="mobile-fixed-expenses-col">{mobile_cols[1]}</div></div>',
-                    unsafe_allow_html=True
-                )
-            else:
-                col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
-                group_columns = [col_left, col_right]
-                for group_index, group_name in enumerate(ordered_groups):
-                    group_items = [
-                        (voce, importo)
-                        for voce, importo in SPESE["Fisse"].items()
-                        if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
-                    ]
-                    if not group_items:
-                        continue
-                    with group_columns[group_index % 2]:
-                        if group_index > 1:
-                            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-                        st.markdown(
-                            f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
-                            unsafe_allow_html=True
+                spese_meta = st.session_state.get("spese_fisse_metadata", {})
+                rendered_voci = set()
+                ordered_groups = _ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)
+                if MOBILE_VIEW:
+                    mobile_cols = ["", ""]
+                    for group_index, group_name in enumerate(ordered_groups):
+                        group_items = [
+                            (voce, importo)
+                            for voce, importo in SPESE["Fisse"].items()
+                            if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                        ]
+                        if not group_items:
+                            continue
+                        group_html = (
+                            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{html.escape(str(group_name))}</div>'
                         )
                         for voce, importo in group_items:
                             categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                             carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                            st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                            group_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
                             rendered_voci.add(voce)
+                        mobile_cols[group_index % 2] += group_html
 
-                altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
-                if altre_voci:
-                    with col_right:
-                        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-                        st.markdown(
-                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
-                            unsafe_allow_html=True
-                        )
+                    altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                    if altre_voci:
+                        altre_html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>'
                         for voce, importo in altre_voci:
                             categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                             carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                            st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                            altre_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
+                        mobile_cols[1] += altre_html
 
-        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-        _sf = f"€{spese_fisse_totali:.2f}"
-        _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
-        _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
-        _ri = f"€{risparmiabili:.2f}"
-        _rip = f"{(risparmiabili)/stipendio*100:.1f}"
-        _ripo = f"{(risparmiabili)/tot_stipendio*100:.1f}"
-        st.markdown(f"""
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
-            <div class="kpi-card">
-                <div class="kpi-label">Totale Spese Fisse</div>
-                <div class="kpi-value" style="color:#f87171;">{_sf}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% del budget mensile disponibile</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Budget dopo spese fisse</div>
-                <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="mobile-fixed-expenses-grid"><div class="mobile-fixed-expenses-col">{mobile_cols[0]}</div><div class="mobile-fixed-expenses-col">{mobile_cols[1]}</div></div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
+                    group_columns = [col_left, col_right]
+                    for group_index, group_name in enumerate(ordered_groups):
+                        group_items = [
+                            (voce, importo)
+                            for voce, importo in SPESE["Fisse"].items()
+                            if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                        ]
+                        if not group_items:
+                            continue
+                        with group_columns[group_index % 2]:
+                            if group_index > 1:
+                                st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
+                                unsafe_allow_html=True
+                            )
+                            for voce, importo in group_items:
+                                categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                                carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                                st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                                rendered_voci.add(voce)
 
-        df_totale = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
-            'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
-        })
-        df_utilizzare = pd.DataFrame({
-            'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
-            'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
-        })
+                    altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                    if altre_voci:
+                        with col_right:
+                            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                            st.markdown(
+                                '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
+                                unsafe_allow_html=True
+                            )
+                            for voce, importo in altre_voci:
+                                categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                                carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                                st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
 
-        df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
-        df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
-
-        # FIX 3: Entrate mensili totali donut - labels outside
-        chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=60).encode(
-            theta=alt.Theta(field="Value", type="quantitative"),
-            color=alt.Color(
-                field="Component", type="nominal", 
-                scale=alt.Scale(
-                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'], 
-                    range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
-                ),
-                legend=None
-            ),
-            tooltip=[
-                alt.Tooltip("Component:N", title="Categoria"),
-                alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
-            ]
-        ).properties(title="Entrate mensili totali", width=150, height=150)
-
-        # Filter zero/negative values to avoid broken donuts
-        df_totale_clean = df_totale[df_totale["Value"] > 0].copy()
-        df_utilizzare_clean = df_utilizzare[df_utilizzare["Value"] > 0].copy()
-
-        chart_totale_clean = alt.Chart(df_totale_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
-            theta=alt.Theta(field="Value", type="quantitative"),
-            color=alt.Color(
-                field="Component", type="nominal",
-                scale=alt.Scale(
-                    domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
-                    range=['#FF6464', '#fef3c7', '#888888']
-                ),
-                legend=alt.Legend(
-                    title=None, orient='bottom', direction='vertical',
-                    labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
-                    symbolSize=60, padding=4
-                )
-            ),
-            tooltip=[
-                alt.Tooltip("Component:N", title="Categoria"),
-                alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="% sulle entrate", format=".1f")
-            ]
-        ).properties(
-            title=alt.TitleParams(
-                "Entrate mensili totali",
-                anchor='middle',   # <-- centra il titolo
-                color='rgba(255,255,255,0.7)',
-                fontSize=12
-            ),
-            width=160,
-            height=160
-        )
-
-        chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
-            theta=alt.Theta(field="Value", type="quantitative"),
-            color=alt.Color(
-                field="Component", type="nominal",
-                scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
-                legend=alt.Legend(
-                    title=None, orient='bottom', direction='vertical',
-                    labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
-                    symbolSize=60, padding=4
-                )
-            ),
-            tooltip=[
-                alt.Tooltip("Component:N", title="Categoria"),
-                alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                alt.Tooltip("Percentuale:Q", title="% sul budget", format=".1f")
-            ]
-        ).properties(
-            title=alt.TitleParams(
-                "Budget mensile disponibile",
-                anchor='middle',   # <-- centra il titolo
-                color='rgba(255,255,255,0.7)',
-                fontSize=12
-            ),
-            width=160,
-            height=160
-        )
-
-
-        chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
-
-        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        if MOBILE_VIEW:
-            fisse_donut_html = _mobile_donut_html(
-                "Spese fisse",
-                df_fisse["Categoria"].tolist(),
-                df_fisse["Importo"].tolist(),
-                df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
-            )
-            entrate_donut_html = _mobile_donut_html(
-                "Entrate",
-                df_totale_clean["Component"].tolist(),
-                df_totale_clean["Value"].tolist(),
-                df_totale_clean["Component"].map({
-                    "Spese Fisse": "#FF6464",
-                    "Budget dopo spese fisse": "#fef3c7",
-                    "Risparmio Stipendi": "#888888",
-                }).fillna("#94a3b8").tolist()
-            )
-            budget_donut_html = _mobile_donut_html(
-                "Budget",
-                df_utilizzare_clean["Component"].tolist(),
-                df_utilizzare_clean["Value"].tolist(),
-                df_utilizzare_clean["Component"].map({
-                    "Spese Fisse": "#FF6961",
-                    "Budget dopo spese fisse": "#fef3c7",
-                }).fillna("#94a3b8").tolist()
-            )
-            st.markdown(
-                f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
-                unsafe_allow_html=True
-            )
-            st.subheader("Dettaglio Spese Fisse:")
-            dettaglio_df = df_fisse.copy()
-            dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
-            dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
-            dettaglio_rows = []
-            for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
-                categoria = str(row["Categoria"])
-                valore = float(row["Importo"])
-                colore = color_map.get(categoria, "#999999")
-                dettaglio_rows.append(f"""
-                <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
-                            padding:7px 9px;margin:5px 0;border-radius:8px;
-                            background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
-                    <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
-                    <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
-                    <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            _sf = f"€{spese_fisse_totali:.2f}"
+            _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
+            _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
+            _ri = f"€{risparmiabili:.2f}"
+            _rip = f"{(risparmiabili)/stipendio*100:.1f}"
+            _ripo = f"{(risparmiabili)/tot_stipendio*100:.1f}"
+            st.markdown(f"""
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
+                <div class="kpi-card">
+                    <div class="kpi-label">Totale Spese Fisse</div>
+                    <div class="kpi-value" style="color:#f87171;">{_sf}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% del budget mensile disponibile</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
                 </div>
-                """)
-            st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
-        else:
-            st.markdown("**💶 Distribuzione entrate e budget:**")
-            st.altair_chart(chart_donut, use_container_width=True)
+                <div class="kpi-card">
+                    <div class="kpi-label">Budget dopo spese fisse</div>
+                    <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # --- COLONNA 2: SPESE VARIABILI ---
+            df_totale = pd.DataFrame({
+                'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
+                'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
+            })
+            df_utilizzare = pd.DataFrame({
+                'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
+                'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
+            })
+
+            df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
+            df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
+
+            # FIX 3: Entrate mensili totali donut - labels outside
+            chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=60).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component", type="nominal", 
+                    scale=alt.Scale(
+                        domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'], 
+                        range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
+                    ),
+                    legend=None
+                ),
+                tooltip=[
+                    alt.Tooltip("Component:N", title="Categoria"),
+                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                    alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
+                ]
+            ).properties(title="Entrate mensili totali", width=150, height=150)
+
+            # Filter zero/negative values to avoid broken donuts
+            df_totale_clean = df_totale[df_totale["Value"] > 0].copy()
+            df_utilizzare_clean = df_utilizzare[df_utilizzare["Value"] > 0].copy()
+
+            chart_totale_clean = alt.Chart(df_totale_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component", type="nominal",
+                    scale=alt.Scale(
+                        domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
+                        range=['#FF6464', '#fef3c7', '#888888']
+                    ),
+                    legend=alt.Legend(
+                        title=None, orient='bottom', direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                        symbolSize=60, padding=4
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip("Component:N", title="Categoria"),
+                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                    alt.Tooltip("Percentuale:Q", title="% sulle entrate", format=".1f")
+                ]
+            ).properties(
+                title=alt.TitleParams(
+                    "Entrate mensili totali",
+                    anchor='middle',   # <-- centra il titolo
+                    color='rgba(255,255,255,0.7)',
+                    fontSize=12
+                ),
+                width=160,
+                height=160
+            )
+
+            chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
+                theta=alt.Theta(field="Value", type="quantitative"),
+                color=alt.Color(
+                    field="Component", type="nominal",
+                    scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
+                    legend=alt.Legend(
+                        title=None, orient='bottom', direction='vertical',
+                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                        symbolSize=60, padding=4
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip("Component:N", title="Categoria"),
+                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                    alt.Tooltip("Percentuale:Q", title="% sul budget", format=".1f")
+                ]
+            ).properties(
+                title=alt.TitleParams(
+                    "Budget mensile disponibile",
+                    anchor='middle',   # <-- centra il titolo
+                    color='rgba(255,255,255,0.7)',
+                    fontSize=12
+                ),
+                width=160,
+                height=160
+            )
+
+
+            chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
+
+            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+            if MOBILE_VIEW:
+                fisse_donut_html = _mobile_donut_html(
+                    "Spese fisse",
+                    df_fisse["Categoria"].tolist(),
+                    df_fisse["Importo"].tolist(),
+                    df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
+                )
+                entrate_donut_html = _mobile_donut_html(
+                    "Entrate",
+                    df_totale_clean["Component"].tolist(),
+                    df_totale_clean["Value"].tolist(),
+                    df_totale_clean["Component"].map({
+                        "Spese Fisse": "#FF6464",
+                        "Budget dopo spese fisse": "#fef3c7",
+                        "Risparmio Stipendi": "#888888",
+                    }).fillna("#94a3b8").tolist()
+                )
+                budget_donut_html = _mobile_donut_html(
+                    "Budget",
+                    df_utilizzare_clean["Component"].tolist(),
+                    df_utilizzare_clean["Value"].tolist(),
+                    df_utilizzare_clean["Component"].map({
+                        "Spese Fisse": "#FF6961",
+                        "Budget dopo spese fisse": "#fef3c7",
+                    }).fillna("#94a3b8").tolist()
+                )
+                st.markdown(
+                    f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
+                    unsafe_allow_html=True
+                )
+                st.subheader("Dettaglio Spese Fisse:")
+                dettaglio_df = df_fisse.copy()
+                dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+                dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
+                dettaglio_rows = []
+                for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                    categoria = str(row["Categoria"])
+                    valore = float(row["Importo"])
+                    colore = color_map.get(categoria, "#999999")
+                    dettaglio_rows.append(f"""
+                    <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                                padding:7px 9px;margin:5px 0;border-radius:8px;
+                                background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                        <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                        <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+                    </div>
+                    """)
+                st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
+            else:
+                st.markdown("**💶 Distribuzione entrate e budget:**")
+                st.altair_chart(chart_donut, use_container_width=True)
+
+        # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
         if MOBILE_VIEW:
             col2_left = st.container()
@@ -3904,163 +3924,15 @@ textarea {
         else:
             col2_left, col2_right = st.columns(LAYOUT_COLONNE["centrale_variabili_altre"], gap="large")
         with col2_left:
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div id="mobile-variabili" class="mobile-anchor"></div><div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
-            st.subheader("Spese Variabili:")
+            if _mobile_show("Variabili"):
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div id="mobile-variabili" class="mobile-anchor"></div><div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
+                st.subheader("Spese Variabili:")
     
-            da_spendere = 0
-            spese_quotidiane = 0
-            spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
-            df_spese_variabili_mobile = pd.DataFrame({
-                'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-                'Value': [
-                    SPESE["Variabili"]["Emergenze/Compleanni"],
-                    SPESE["Variabili"]["Viaggi"],
-                    SPESE["Variabili"]["Da spendere"],
-                    SPESE["Variabili"]["Spese quotidiane"]
-                ]
-            })
-            df_spese_variabili_mobile = df_spese_variabili_mobile[df_spese_variabili_mobile["Value"] > 0].copy()
-    
-            risparmio_stipendi = stipendio_originale - stipendio_scelto
-            risparmio_da_spendere = 0
-            risparmio_spese_quotidiane = 0
-
-            spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
-            risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
-
-            percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
-            percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
-            pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
-            da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
-            risparmio_da_spendere = da_spendere_senza_limite - da_spendere
-            spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
-            risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
-
-            if MOBILE_VIEW:
-                variabili_list_html = (
-                    '<div class="mobile-variabili-list">'
-                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
-                    + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
-                    + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
-                    + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:10px 0 4px;">Dopo le quote</div>'
-                    + _spesa_variabile_row_html("Da spendere", SPESE["Variabili"]["Da spendere"], "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}")
-                    + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>'
-                    + _spesa_variabile_row_html("Spese quotidiane", SPESE["Variabili"]["Spese quotidiane"], "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}")
-                    + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>'
-                    '</div>'
-                )
-                variabili_donut_html = _mobile_donut_html(
-                    "Distribuzione",
-                    df_spese_variabili_mobile["Voce"].tolist(),
-                    df_spese_variabili_mobile["Value"].tolist(),
-                    df_spese_variabili_mobile["Voce"].map({
-                        "Emergenze/Compleanni": "#4ADE80",
-                        "Viaggi": "#166534",
-                        "Da spendere": "#FACC15",
-                        "Spese quotidiane": "#FB923C",
-                    }).fillna("#94a3b8").tolist()
-                )
-                st.markdown(
-                    f'<div class="mobile-variabili-grid">{variabili_list_html}<div class="mobile-variabili-chart">{variabili_donut_html}</div></div>',
-                    unsafe_allow_html=True
-                )
-            else:
-                variabili_quote_col, variabili_budget_col = st.columns(LAYOUT_COLONNE["variabili_quote_budget"], gap="large")
-                with variabili_quote_col:
-                    st.markdown(
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        _spesa_variabile_row_html(
-                            "Emergenze/Compleanni",
-                            SPESE["Variabili"]["Emergenze/Compleanni"],
-                            "#4ADE80",
-                            f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
-                        ),
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        _spesa_variabile_row_html(
-                            "Viaggi",
-                            SPESE["Variabili"]["Viaggi"],
-                            "#166534",
-                            f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
-                        ),
-                        unsafe_allow_html=True
-                    )
-
-                with variabili_budget_col:
-                    st.markdown(
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Dopo le quote</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        _spesa_variabile_row_html(
-                            "Da spendere",
-                            SPESE["Variabili"]["Da spendere"],
-                            "#FACC15",
-                            f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"
-                        ),
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        _spesa_variabile_row_html(
-                            "Spese quotidiane",
-                            SPESE["Variabili"]["Spese quotidiane"],
-                            "#FB923C",
-                            f"rimanente, con limite a €{max_spese_quotidiane:.2f}"
-                        ),
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
-                        unsafe_allow_html=True
-                    )
-    
-    
-            st.markdown('<div style="clear:both;height:10px;"></div>', unsafe_allow_html=True)
-            if MOBILE_VIEW:
-                col_spese_variabili_1 = st.container()
-                col_spese_variabili_2 = st.container()
-            else:
-                col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
-            with col_spese_variabili_1:
-                _sv = f"€{spese_variabili_totali:.2f}"
-                _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
-                _sv_st_util = f"€{spese_variabili_totali/stipendio_utilizzare*100:.1f}"
-                _sv_st_tot = f"€{spese_variabili_totali/stipendio_totale*100:.2f}"
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-label">Totale Spese Variabili</div>
-                    <div class="kpi-value" style="color:#fde047;">{_sv}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% del budget dopo spese fisse</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% del budget mensile disponibile</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% delle entrate mensili totali</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-
-                progresso_altre_entrate = spese_variabili_totali / risparmiabili if risparmiabili > 0 else 0
-                progresso_altre_entrate = min(progresso_altre_entrate, 1.0)
-                st.progress(progresso_altre_entrate)
-                st.markdown(f"""
-                <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
-                Spese variabili rispetto al budget dopo spese fisse: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-    
-            with col_spese_variabili_2:
-                # Creo il DataFrame per il grafico delle spese variabili
-                df_spese_variabili = pd.DataFrame({
+                da_spendere = 0
+                spese_quotidiane = 0
+                spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
+                df_spese_variabili_mobile = pd.DataFrame({
                     'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
                     'Value': [
                         SPESE["Variabili"]["Emergenze/Compleanni"],
@@ -4069,260 +3941,182 @@ textarea {
                         SPESE["Variabili"]["Spese quotidiane"]
                     ]
                 })
-                
-                # Solo voci con importo > 0
-                df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
-                
-                # Calcolo le percentuali relative alle spese variabili
-                totale_spese = df_spese_variabili["Value"].sum()
-                df_spese_variabili["Percentuale"] = (df_spese_variabili["Value"] / totale_spese * 100).round(1) if totale_spese != 0 else 0
-                
-                # Creazione del grafico
-                if not df_spese_variabili.empty:
-                    if MOBILE_VIEW:
-                        pass
-                    else:
-                        donut_inner = 40
-                        donut_outer = 70
-                        donut_width = 200
-                        donut_height = 220
-                        chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
-                            innerRadius=donut_inner, outerRadius=donut_outer
-                        ).encode(
-                            theta=alt.Theta(field="Value", type="quantitative"),
-                            color=alt.Color(
-                                field="Voce", type="nominal",
-                                scale=alt.Scale(
-                                    domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
-                                    range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
-                                ),
-                                legend=alt.Legend(
-                                    title=None,
-                                    orient='right',
-                                    direction='vertical',
-                                    labelColor='rgba(255,255,255,0.65)',
-                                    labelFontSize=11,
-                                    symbolSize=40,
-                                    padding=2,
-                                    offset=5
-                                )
-                            ),
-                            tooltip=[
-                                alt.Tooltip('Voce:N', title='Voce'),
-                                alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
-                                alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
-                            ]
-                        ).properties(
-                            title="💸 Distribuzione Spese Variabili",
-                            width=donut_width,
-                            height=donut_height
-                        ).configure_title(
-                            anchor='middle'
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill='transparent'
-                        )
-                        st.altair_chart(chart_spese_variabili, use_container_width=True)
-        # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
-        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+                df_spese_variabili_mobile = df_spese_variabili_mobile[df_spese_variabili_mobile["Value"] > 0].copy()
     
-        # Recalculate risparmi variables for this section
-        risparmi_mensili_calc = stipendio_originale - stipendio_scelto
-        percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-        for voce, percentuale in percentuali_variabili_calc.items():
-            SPESE["Variabili"][voce] = percentuale * risparmiabili
-        da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
-        SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
-        spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
-        SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
-        if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
-            risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
-        if da_spendere_senza_limite_calc > limite_da_spendere:
-            risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
-        risparmi_mensili_calc += risparmi_mese_precedente
-        risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
-        risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
-        risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
+                risparmio_stipendi = stipendio_originale - stipendio_scelto
+                risparmio_da_spendere = 0
+                risparmio_spese_quotidiane = 0
 
+                spese_emergenze_viaggi = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"]
+                risparmiabili_dopo_emergenze_viaggi = risparmiabili - spese_emergenze_viaggi
 
-
-    # --- COLONNA 3: ALTRE ENTRATE ---
-        with col2_right:
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div id="mobile-entrate" class="mobile-anchor"></div><div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
-            tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
-
-            with tab_altre_decisioni:
-                altre_settings = ALTRE_ENTRATE.copy()
-                editor_cols = st.columns(2)
-                edited_altre = {}
-                for idx, (voce, importo) in enumerate(altre_settings.items()):
-                    with editor_cols[idx % 2]:
-                        st.markdown(
-                            f'<div style="font-size:15px;font-weight:800;color:rgba(255,255,255,.92);margin:0 0 6px;">{html.escape(str(voce))}</div>',
-                            unsafe_allow_html=True
-                        )
-                        edited_altre[voce] = st.number_input(
-                            voce,
-                            min_value=0.0,
-                            value=float(importo),
-                            step=10.0,
-                            key=f"altra_entrata_{voce}",
-                            label_visibility="collapsed"
-                        )
-                new_col1, new_col2 = st.columns(LAYOUT_COLONNE["form_nome_importo"])
-                with new_col1:
-                    nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
-                with new_col2:
-                    nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
-                if nuova_voce.strip():
-                    edited_altre[nuova_voce.strip()] = float(nuovo_importo)
-
-                elimina_entrata = st.selectbox("Entrata da eliminare", [""] + list(altre_settings.keys()), key="elimina_altra_entrata")
-                save_altre_col, delete_altre_col = st.columns(2)
-                with save_altre_col:
-                    if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
-                        if save_altre_entrate_settings(edited_altre):
-                            st.success("Altre entrate salvate")
-                            st.rerun()
-                        else:
-                            st.error("Errore salvataggio altre entrate")
-                with delete_altre_col:
-                    if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
-                        edited_altre.pop(elimina_entrata, None)
-                        if save_altre_entrate_settings(edited_altre):
-                            st.success("Entrata eliminata")
-                            st.rerun()
-                        else:
-                            st.error("Errore eliminazione entrata")
-
-            with tab_altre_view:
-                totale_altre = sum(ALTRE_ENTRATE.values())
-                _ae = f"€{totale_altre:.2f}"
-                totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
-                altre_entrate_target = totale_entrate_target - stipendio_originale
-                progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
-                progresso = min(max(progresso, 0), 1.0)
-                percentuale_stip = stipendio_originale / totale_entrate_target * 100 if totale_entrate_target else 0
-                percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
-                _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
-                altre_entrate_colori = {
-                    "Macchina (Mamma)": "#E6C48C",
-                    "Altro": "#89CFF0",
-                    "2° Entr. dal mese prec.": "#D8BFD8",
-                }
-                df_altre_entrate = pd.DataFrame({
-                    'Voce': list(ALTRE_ENTRATE.keys()),
-                    'Value': list(ALTRE_ENTRATE.values())
-                })
-                df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
-                totale_entrate = df_altre_entrate["Value"].sum()
-                df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
-                palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+                percentuale_emergenze = percentuali_variabili.get("Emergenze/Compleanni", 0) * 100
+                percentuale_viaggi = percentuali_variabili.get("Viaggi", 0) * 100
+                pct_rimanente = (da_spendere_senza_limite * 100 / risparmiabili_dopo_emergenze_viaggi) if risparmiabili_dopo_emergenze_viaggi != 0 else 0
+                da_spendere = min(da_spendere_senza_limite, limite_da_spendere)
+                risparmio_da_spendere = da_spendere_senza_limite - da_spendere
+                spese_quotidiane = min(spese_quotidiane_senza_limite, max_spese_quotidiane)
+                risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane
 
                 if MOBILE_VIEW:
-                    html_altre = '<h3 style="margin:0 0 10px;">Altre Entrate:</h3>'
-                    for voce, importo in ALTRE_ENTRATE.items():
-                        colore = altre_entrate_colori.get(voce, "#34d399")
-                        peso = (importo / totale_altre * 100) if totale_altre else 0
-                        html_altre += _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate")
-                    html_obiettivo = f"""
-                    <div class="mobile-objective-block" style="margin-top:0;">
-                        <div class="mobile-objective-title">🎯 Obiettivo Entrate</div>
-                        <div class="mobile-objective-metric">
-                            <div class="mobile-objective-label">Entrate totali desiderate</div>
-                            <div class="mobile-objective-value">€{totale_entrate_target:,.2f}</div>
-                            <div style="font-size:10px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
-                        </div>
-                        <div class="mobile-objective-metric">
-                            <div class="mobile-objective-label">Altre entrate target</div>
-                            <div class="mobile-objective-value" style="color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
-                        </div>
-                        <div class="mobile-progress"><div class="mobile-progress-fill" style="width:{progresso * 100:.1f}%;"></div></div>
-                        <div style="font-size:10px;color:rgba(255,255,255,.44);">Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}</div>
-                    </div>
-                    """
-                    html_totale_altre = f"""
-                    <div class="kpi-card" style="margin-top:0;border-color:rgba(52,211,153,0.2);">
-                        <div class="kpi-label">Totale Altre Entrate</div>
-                        <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
-                        <div style="font-size:10px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
-                    </div>
-                    """
-                    if not df_altre_entrate.empty:
-                        donut_altre_html = _mobile_donut_html(
-                            "Distribuzione",
-                            df_altre_entrate["Voce"].tolist(),
-                            df_altre_entrate["Value"].tolist(),
-                            palette[:len(df_altre_entrate)]
-                        )
-                    else:
-                        donut_altre_html = '<div class="mobile-donut-card"><div class="mobile-donut-title">Distribuzione</div><div style="font-size:10px;color:rgba(255,255,255,.44);">Nessuna entrata.</div></div>'
+                    variabili_list_html = (
+                        '<div class="mobile-variabili-list">'
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
+                        + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
+                        + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
+                        + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:10px 0 4px;">Dopo le quote</div>'
+                        + _spesa_variabile_row_html("Da spendere", SPESE["Variabili"]["Da spendere"], "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}")
+                        + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>'
+                        + _spesa_variabile_row_html("Spese quotidiane", SPESE["Variabili"]["Spese quotidiane"], "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}")
+                        + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>'
+                        '</div>'
+                    )
+                    variabili_donut_html = _mobile_donut_html(
+                        "Distribuzione",
+                        df_spese_variabili_mobile["Voce"].tolist(),
+                        df_spese_variabili_mobile["Value"].tolist(),
+                        df_spese_variabili_mobile["Voce"].map({
+                            "Emergenze/Compleanni": "#4ADE80",
+                            "Viaggi": "#166534",
+                            "Da spendere": "#FACC15",
+                            "Spese quotidiane": "#FB923C",
+                        }).fillna("#94a3b8").tolist()
+                    )
                     st.markdown(
-                        f'<div class="mobile-altre-top-grid"><div>{html_altre}</div><div>{html_obiettivo}</div></div>'
-                        f'<div class="mobile-altre-bottom-grid"><div>{html_totale_altre}</div><div>{donut_altre_html}</div></div>',
+                        f'<div class="mobile-variabili-grid">{variabili_list_html}<div class="mobile-variabili-chart">{variabili_donut_html}</div></div>',
                         unsafe_allow_html=True
                     )
                 else:
-                    col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
-                    with col_altre_entrate_sx:
-                        st.subheader("Altre Entrate:")
-                        for voce, importo in ALTRE_ENTRATE.items():
-                            colore = altre_entrate_colori.get(voce, "#34d399")
-                            peso = (importo / totale_altre * 100) if totale_altre else 0
-                            st.markdown(
-                                _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate"),
-                                unsafe_allow_html=True
-                            )
+                    variabili_quote_col, variabili_budget_col = st.columns(LAYOUT_COLONNE["variabili_quote_budget"], gap="large")
+                    with variabili_quote_col:
+                        st.markdown(
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            _spesa_variabile_row_html(
+                                "Emergenze/Compleanni",
+                                SPESE["Variabili"]["Emergenze/Compleanni"],
+                                "#4ADE80",
+                                f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
+                            ),
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            _spesa_variabile_row_html(
+                                "Viaggi",
+                                SPESE["Variabili"]["Viaggi"],
+                                "#166534",
+                                f"{percentuale_viaggi:.2f}% del budget dopo spese fisse"
+                            ),
+                            unsafe_allow_html=True
+                        )
 
-                    with col_altre_entrate_dx:
-                        st.markdown("### 🎯 Obiettivo Entrate")
-                        st.markdown(f"""
-                        <div style="margin:4px 0 10px;line-height:1.25;">
-                            <div style="font-size:12px;color:rgba(255,255,255,.44);">Entrate totali desiderate</div>
-                            <div style="font-size:19px;font-weight:600;color:rgba(255,255,255,.9);">€{totale_entrate_target:,.2f}</div>
-                            <div style="font-size:12px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.markdown(f"""
-                        <div style="margin:4px 0 10px;line-height:1.25;">
-                            <div style="font-size:12px;color:rgba(255,255,255,.44);">Altre entrate target</div>
-                            <div style="font-size:19px;font-weight:600;color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
-                        st.progress(progresso)
-                        st.markdown(f"""
-                        <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
-                        Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
-                        </div>
-                        """, unsafe_allow_html=True)
+                    with variabili_budget_col:
+                        st.markdown(
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Dopo le quote</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            _spesa_variabile_row_html(
+                                "Da spendere",
+                                SPESE["Variabili"]["Da spendere"],
+                                "#FACC15",
+                                f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}"
+                            ),
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            _spesa_variabile_row_html(
+                                "Spese quotidiane",
+                                SPESE["Variabili"]["Spese quotidiane"],
+                                "#FB923C",
+                                f"rimanente, con limite a €{max_spese_quotidiane:.2f}"
+                            ),
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{spese_quotidiane_senza_limite:.2f} · risparmiati €{risparmio_spese_quotidiane:.2f}</div>',
+                            unsafe_allow_html=True
+                        )
+    
+    
+                st.markdown('<div style="clear:both;height:10px;"></div>', unsafe_allow_html=True)
+                if MOBILE_VIEW:
+                    col_spese_variabili_1 = st.container()
+                    col_spese_variabili_2 = st.container()
+                else:
+                    col_spese_variabili_1, col_spese_variabili_2 = st.columns(LAYOUT_COLONNE["variabili_kpi_grafico"], gap="medium")
+                with col_spese_variabili_1:
+                    _sv = f"€{spese_variabili_totali:.2f}"
+                    _sv_st_risp = f"€{spese_variabili_totali/risparmiabili*100:.1f}"
+                    _sv_st_util = f"€{spese_variabili_totali/stipendio_utilizzare*100:.1f}"
+                    _sv_st_tot = f"€{spese_variabili_totali/stipendio_totale*100:.2f}"
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">Totale Spese Variabili</div>
+                        <div class="kpi-value" style="color:#fde047;">{_sv}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_risp}% del budget dopo spese fisse</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_util}% del budget mensile disponibile</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sv_st_tot}% delle entrate mensili totali</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-                    col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
-                    with col_altre_entrate_1:
-                        st.markdown(f"""
-                        <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
-                            <div class="kpi-label">Totale Altre Entrate</div>
-                            <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
-                            <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
 
-                    with col_altre_entrate_2:
-                        if not df_altre_entrate.empty:
-                            donut_inner = 32
-                            donut_outer = 56
-                            donut_width = 150
-                            donut_height = 170
-                            chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                    progresso_altre_entrate = spese_variabili_totali / risparmiabili if risparmiabili > 0 else 0
+                    progresso_altre_entrate = min(progresso_altre_entrate, 1.0)
+                    st.progress(progresso_altre_entrate)
+                    st.markdown(f"""
+                    <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
+                    Spese variabili rispetto al budget dopo spese fisse: €{spese_variabili_totali:,.2f} / €{risparmiabili:,.2f}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+    
+                with col_spese_variabili_2:
+                    # Creo il DataFrame per il grafico delle spese variabili
+                    df_spese_variabili = pd.DataFrame({
+                        'Voce': ['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                        'Value': [
+                            SPESE["Variabili"]["Emergenze/Compleanni"],
+                            SPESE["Variabili"]["Viaggi"],
+                            SPESE["Variabili"]["Da spendere"],
+                            SPESE["Variabili"]["Spese quotidiane"]
+                        ]
+                    })
+                
+                    # Solo voci con importo > 0
+                    df_spese_variabili = df_spese_variabili[df_spese_variabili["Value"] > 0].copy()
+                
+                    # Calcolo le percentuali relative alle spese variabili
+                    totale_spese = df_spese_variabili["Value"].sum()
+                    df_spese_variabili["Percentuale"] = (df_spese_variabili["Value"] / totale_spese * 100).round(1) if totale_spese != 0 else 0
+                
+                    # Creazione del grafico
+                    if not df_spese_variabili.empty:
+                        if MOBILE_VIEW:
+                            pass
+                        else:
+                            donut_inner = 40
+                            donut_outer = 70
+                            donut_width = 200
+                            donut_height = 220
+                            chart_spese_variabili = alt.Chart(df_spese_variabili).mark_arc(
                                 innerRadius=donut_inner, outerRadius=donut_outer
                             ).encode(
                                 theta=alt.Theta(field="Value", type="quantitative"),
                                 color=alt.Color(
                                     field="Voce", type="nominal",
-                                    scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                    scale=alt.Scale(
+                                        domain=['Emergenze/Compleanni', 'Viaggi', 'Da spendere', 'Spese quotidiane'],
+                                        range=['#4ADE80', '#166534', '#FACC15', '#FB923C']
+                                    ),
                                     legend=alt.Legend(
                                         title=None,
                                         orient='right',
@@ -4340,7 +4134,7 @@ textarea {
                                     alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
                                 ]
                             ).properties(
-                                title="➕ Distribuzione Altre Entrate",
+                                title="💸 Distribuzione Spese Variabili",
                                 width=donut_width,
                                 height=donut_height
                             ).configure_title(
@@ -4349,9 +4143,237 @@ textarea {
                                 strokeWidth=0,
                                 fill='transparent'
                             )
-                            st.altair_chart(chart_altre_entrate, use_container_width=True)
+                            st.altair_chart(chart_spese_variabili, use_container_width=True)
+            # --- RISPARMIATI DEL MESE --- Full width after col1, col2, col3
+            st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+    
+            # Recalculate risparmi variables for this section
+            risparmi_mensili_calc = stipendio_originale - stipendio_scelto
+            percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
+            for voce, percentuale in percentuali_variabili_calc.items():
+                SPESE["Variabili"][voce] = percentuale * risparmiabili
+            da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
+            SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
+            spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
+            SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
+            if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
+                risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
+            if da_spendere_senza_limite_calc > limite_da_spendere:
+                risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
+            risparmi_mensili_calc += risparmi_mese_precedente
+            risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
+            risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
+            risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
 
-        # Visualizzazione grafici
+
+
+        # --- COLONNA 3: ALTRE ENTRATE ---
+        with col2_right:
+            if _mobile_show("Entrate"):
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div id="mobile-entrate" class="mobile-anchor"></div><div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
+                tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
+
+                with tab_altre_decisioni:
+                    altre_settings = ALTRE_ENTRATE.copy()
+                    editor_cols = st.columns(2)
+                    edited_altre = {}
+                    for idx, (voce, importo) in enumerate(altre_settings.items()):
+                        with editor_cols[idx % 2]:
+                            st.markdown(
+                                f'<div style="font-size:15px;font-weight:800;color:rgba(255,255,255,.92);margin:0 0 6px;">{html.escape(str(voce))}</div>',
+                                unsafe_allow_html=True
+                            )
+                            edited_altre[voce] = st.number_input(
+                                voce,
+                                min_value=0.0,
+                                value=float(importo),
+                                step=10.0,
+                                key=f"altra_entrata_{voce}",
+                                label_visibility="collapsed"
+                            )
+                    new_col1, new_col2 = st.columns(LAYOUT_COLONNE["form_nome_importo"])
+                    with new_col1:
+                        nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
+                    with new_col2:
+                        nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
+                    if nuova_voce.strip():
+                        edited_altre[nuova_voce.strip()] = float(nuovo_importo)
+
+                    elimina_entrata = st.selectbox("Entrata da eliminare", [""] + list(altre_settings.keys()), key="elimina_altra_entrata")
+                    save_altre_col, delete_altre_col = st.columns(2)
+                    with save_altre_col:
+                        if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
+                            if save_altre_entrate_settings(edited_altre):
+                                st.success("Altre entrate salvate")
+                                st.rerun()
+                            else:
+                                st.error("Errore salvataggio altre entrate")
+                    with delete_altre_col:
+                        if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
+                            edited_altre.pop(elimina_entrata, None)
+                            if save_altre_entrate_settings(edited_altre):
+                                st.success("Entrata eliminata")
+                                st.rerun()
+                            else:
+                                st.error("Errore eliminazione entrata")
+
+                with tab_altre_view:
+                    totale_altre = sum(ALTRE_ENTRATE.values())
+                    _ae = f"€{totale_altre:.2f}"
+                    totale_entrate_target = stipendio_originale / totale_entrate_target_oltre_lo_stipendio
+                    altre_entrate_target = totale_entrate_target - stipendio_originale
+                    progresso = totale_altre / altre_entrate_target if altre_entrate_target > 0 else 0
+                    progresso = min(max(progresso, 0), 1.0)
+                    percentuale_stip = stipendio_originale / totale_entrate_target * 100 if totale_entrate_target else 0
+                    percentuale_altre_su_totale_altre = totale_altre / altre_entrate_target if altre_entrate_target else 0
+                    _ae_ipot = f"{percentuale_altre_su_totale_altre * 100:.2f}"
+                    altre_entrate_colori = {
+                        "Macchina (Mamma)": "#E6C48C",
+                        "Altro": "#89CFF0",
+                        "2° Entr. dal mese prec.": "#D8BFD8",
+                    }
+                    df_altre_entrate = pd.DataFrame({
+                        'Voce': list(ALTRE_ENTRATE.keys()),
+                        'Value': list(ALTRE_ENTRATE.values())
+                    })
+                    df_altre_entrate = df_altre_entrate[df_altre_entrate["Value"] > 0].copy()
+                    totale_entrate = df_altre_entrate["Value"].sum()
+                    df_altre_entrate["Percentuale"] = (df_altre_entrate["Value"] / totale_entrate * 100).round(1) if totale_entrate != 0 else 0
+                    palette = ['#E6C48C', '#D8BFD8', '#89CFF0', '#A78BFA', '#34d399', '#fb923c', '#60a5fa']
+
+                    if MOBILE_VIEW:
+                        html_altre = '<h3 style="margin:0 0 10px;">Altre Entrate:</h3>'
+                        for voce, importo in ALTRE_ENTRATE.items():
+                            colore = altre_entrate_colori.get(voce, "#34d399")
+                            peso = (importo / totale_altre * 100) if totale_altre else 0
+                            html_altre += _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate")
+                        html_obiettivo = f"""
+                        <div class="mobile-objective-block" style="margin-top:0;">
+                            <div class="mobile-objective-title">🎯 Obiettivo Entrate</div>
+                            <div class="mobile-objective-metric">
+                                <div class="mobile-objective-label">Entrate totali desiderate</div>
+                                <div class="mobile-objective-value">€{totale_entrate_target:,.2f}</div>
+                                <div style="font-size:10px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
+                            </div>
+                            <div class="mobile-objective-metric">
+                                <div class="mobile-objective-label">Altre entrate target</div>
+                                <div class="mobile-objective-value" style="color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
+                            </div>
+                            <div class="mobile-progress"><div class="mobile-progress-fill" style="width:{progresso * 100:.1f}%;"></div></div>
+                            <div style="font-size:10px;color:rgba(255,255,255,.44);">Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}</div>
+                        </div>
+                        """
+                        html_totale_altre = f"""
+                        <div class="kpi-card" style="margin-top:0;border-color:rgba(52,211,153,0.2);">
+                            <div class="kpi-label">Totale Altre Entrate</div>
+                            <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                        </div>
+                        """
+                        if not df_altre_entrate.empty:
+                            donut_altre_html = _mobile_donut_html(
+                                "Distribuzione",
+                                df_altre_entrate["Voce"].tolist(),
+                                df_altre_entrate["Value"].tolist(),
+                                palette[:len(df_altre_entrate)]
+                            )
+                        else:
+                            donut_altre_html = '<div class="mobile-donut-card"><div class="mobile-donut-title">Distribuzione</div><div style="font-size:10px;color:rgba(255,255,255,.44);">Nessuna entrata.</div></div>'
+                        st.markdown(
+                            f'<div class="mobile-altre-top-grid"><div>{html_altre}</div><div>{html_obiettivo}</div></div>'
+                            f'<div class="mobile-altre-bottom-grid"><div>{html_totale_altre}</div><div>{donut_altre_html}</div></div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        col_altre_entrate_sx, col_altre_entrate_dx = st.columns(LAYOUT_COLONNE["altre_entrate_obiettivo"], gap="medium")
+                        with col_altre_entrate_sx:
+                            st.subheader("Altre Entrate:")
+                            for voce, importo in ALTRE_ENTRATE.items():
+                                colore = altre_entrate_colori.get(voce, "#34d399")
+                                peso = (importo / totale_altre * 100) if totale_altre else 0
+                                st.markdown(
+                                    _money_row_html(voce, importo, colore, triangolino_verde_BNL, f"{peso:.1f}% delle altre entrate"),
+                                    unsafe_allow_html=True
+                                )
+
+                        with col_altre_entrate_dx:
+                            st.markdown("### 🎯 Obiettivo Entrate")
+                            st.markdown(f"""
+                            <div style="margin:4px 0 10px;line-height:1.25;">
+                                <div style="font-size:12px;color:rgba(255,255,255,.44);">Entrate totali desiderate</div>
+                                <div style="font-size:19px;font-weight:600;color:rgba(255,255,255,.9);">€{totale_entrate_target:,.2f}</div>
+                                <div style="font-size:12px;color:rgba(255,255,255,.42);">Stipendio = {percentuale_stip:.0f}% delle entrate totali</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div style="margin:4px 0 10px;line-height:1.25;">
+                                <div style="font-size:12px;color:rgba(255,255,255,.44);">Altre entrate target</div>
+                                <div style="font-size:19px;font-weight:600;color:#8fe28f;">€{altre_entrate_target:,.2f}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
+                            st.progress(progresso)
+                            st.markdown(f"""
+                            <div style="font-size:12px; color:rgba(255,255,255,0.44); margin-top:5px;">
+                            Attuale: €{totale_altre:,.2f} / €{altre_entrate_target:,.2f}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                        col_altre_entrate_1, col_altre_entrate_2 = st.columns(LAYOUT_COLONNE["altre_entrate_kpi_grafico"], gap="medium")
+                        with col_altre_entrate_1:
+                            st.markdown(f"""
+                            <div class="kpi-card" style="border-color:rgba(52,211,153,0.2);">
+                                <div class="kpi-label">Totale Altre Entrate</div>
+                                <div class="kpi-value" style="color:#77DD77;">{_ae}</div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ae_ipot}% di Obiettivo Entrate</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+
+                        with col_altre_entrate_2:
+                            if not df_altre_entrate.empty:
+                                donut_inner = 32
+                                donut_outer = 56
+                                donut_width = 150
+                                donut_height = 170
+                                chart_altre_entrate = alt.Chart(df_altre_entrate).mark_arc(
+                                    innerRadius=donut_inner, outerRadius=donut_outer
+                                ).encode(
+                                    theta=alt.Theta(field="Value", type="quantitative"),
+                                    color=alt.Color(
+                                        field="Voce", type="nominal",
+                                        scale=alt.Scale(domain=list(ALTRE_ENTRATE.keys()), range=palette[:len(ALTRE_ENTRATE)]),
+                                        legend=alt.Legend(
+                                            title=None,
+                                            orient='right',
+                                            direction='vertical',
+                                            labelColor='rgba(255,255,255,0.65)',
+                                            labelFontSize=11,
+                                            symbolSize=40,
+                                            padding=2,
+                                            offset=5
+                                        )
+                                    ),
+                                    tooltip=[
+                                        alt.Tooltip('Voce:N', title='Voce'),
+                                        alt.Tooltip('Value:Q', title='Importo (€)', format='.2f'),
+                                        alt.Tooltip('Percentuale:Q', title='Percentuale', format='.1f')
+                                    ]
+                                ).properties(
+                                    title="➕ Distribuzione Altre Entrate",
+                                    width=donut_width,
+                                    height=donut_height
+                                ).configure_title(
+                                    anchor='middle'
+                                ).configure_view(
+                                    strokeWidth=0,
+                                    fill='transparent'
+                                )
+                                st.altair_chart(chart_altre_entrate, use_container_width=True)
+
+            # Visualizzazione grafici
         if not MOBILE_VIEW:
             col_center_pill = st.columns(LAYOUT_COLONNE["titolo_dashboard"])[1]
             with col_center_pill:
@@ -4521,267 +4543,270 @@ textarea {
         else:
             col3_left, col3_right = st.columns(LAYOUT_COLONNE["destra_risparmi_carte"], gap="medium")
         with col3_left:
-            if not MOBILE_VIEW:
-                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div id="mobile-risparmi" class="mobile-anchor"></div><div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
-            st.subheader("Risparmiati del mese:")
-        
-            kpi_val = f"€{risparmi_mensili_calc:.2f}"
-            kpi_pct = f"{risparmi_mensili_calc/stipendio_utilizzare*100:.1f}"
-            kpi_pctot = f"{risparmi_mensili_calc/stipendio_totale*100:.1f}"
-        
-            # valori già calcolati
-            v1 = risparmio_stipendi_calc
-            v2 = risparmi_mese_precedente
-            v3 = risparmio_da_spendere_calc
-            v4 = risparmio_spese_quotidiane_calc
-            
-            html_risparmi = ""
-            html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
-            html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
-            html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
-            html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
-            if not MOBILE_VIEW:
-                st.markdown(html_risparmi, unsafe_allow_html=True)
-                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            
-            if MOBILE_VIEW:
-                col_risparmi_1 = st.container()
-                col_risparmi_2 = st.container()
-            else:
-                col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
-            with col_risparmi_1:
-                risparmi_kpi_html = f"""
-                <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-                    <div class="kpi-label">Tot. Risparmiato</div>
-                    <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% del budget mensile disponibile</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% delle entrate mensili totali</div>
-                </div>
-                """
+            if _mobile_show("Risparmi"):
                 if not MOBILE_VIEW:
-                    st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
+                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div id="mobile-risparmi" class="mobile-anchor"></div><div class="section-pill">💰 Risparmi del Mese</div>', unsafe_allow_html=True)
+                st.subheader("Risparmiati del mese:")
+        
+                kpi_val = f"€{risparmi_mensili_calc:.2f}"
+                kpi_pct = f"{risparmi_mensili_calc/stipendio_utilizzare*100:.1f}"
+                kpi_pctot = f"{risparmi_mensili_calc/stipendio_totale*100:.1f}"
+        
+                # valori già calcolati
+                v1 = risparmio_stipendi_calc
+                v2 = risparmi_mese_precedente
+                v3 = risparmio_da_spendere_calc
+                v4 = risparmio_spese_quotidiane_calc
+            
+                html_risparmi = ""
+                html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
+                html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
+                html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
+                html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
+                if not MOBILE_VIEW:
+                    st.markdown(html_risparmi, unsafe_allow_html=True)
+                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            
+                if MOBILE_VIEW:
+                    col_risparmi_1 = st.container()
+                    col_risparmi_2 = st.container()
+                else:
+                    col_risparmi_1, col_risparmi_2 = st.columns(LAYOUT_COLONNE["risparmi_kpi_grafico"], gap="small")
+                with col_risparmi_1:
+                    risparmi_kpi_html = f"""
+                    <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+                        <div class="kpi-label">Tot. Risparmiato</div>
+                        <div class="kpi-value" style="color:#34d399;">{kpi_val}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pct}% del budget mensile disponibile</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{kpi_pctot}% delle entrate mensili totali</div>
+                    </div>
+                    """
+                    if not MOBILE_VIEW:
+                        st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
 
         
-                if not MOBILE_VIEW:
-                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-                    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-                savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-                non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
-                df_savings_raw = pd.DataFrame({
-                    'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                    'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
-                })
-                df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
-                totale = df_savings["Value"].sum()
-                if totale != 0:
-                    df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
-                else:
-                    df_savings["Percentuale"] = 0
-                if MOBILE_VIEW and not df_savings.empty:
-                    risparmi_donut_html = _mobile_donut_html(
-                        "Distribuzione",
-                        df_savings["Component"].tolist(),
-                        df_savings["Value"].tolist(),
-                        df_savings["Component"].map({
-                            "Da Stipendi": "#9ca3af",
-                            "Da Mese Prec.": "#60a5fa",
-                            "Da Spendere": "#fde047",
-                            "Quotidiane": "#FB923C",
-                        }).fillna("#94a3b8").tolist()
-                    )
-                    st.markdown(
-                        f'<div class="mobile-side-grid"><div>{html_risparmi}</div><div>{risparmi_donut_html}</div></div>',
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
-                
-            with col_risparmi_2:
-                if not df_savings.empty:
-                    if MOBILE_VIEW:
-                        pass
+                    if not MOBILE_VIEW:
+                        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+                    savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                    non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
+                    df_savings_raw = pd.DataFrame({
+                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                        'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                    })
+                    df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
+                    totale = df_savings["Value"].sum()
+                    if totale != 0:
+                        df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
                     else:
-                        donut_inner = 32
-                        donut_outer = 56
-                        donut_width = 150
-                        donut_height = 170
-                        chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
-                            theta=alt.Theta(field="Value", type="quantitative"),
-                            color=alt.Color(
-                                field="Component", type="nominal",
-                                scale=alt.Scale(
-                                    domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                    range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
-                                ),
-                                legend=alt.Legend(
-                                    title=None,
-                                    orient='right',
-                                    direction='vertical',
-                                    labelColor='rgba(255,255,255,0.65)',
-                                    labelFontSize=11,
-                                    symbolSize=40,
-                                    padding=2,
-                                    offset=5
-                                )
-                            ),
-                            tooltip=[
-                                alt.Tooltip('Component:N', title='Risparmi'),
-                                alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
-                                alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                            ]
-                        ).properties(
-                            title="💰 Distribuzione Risparmi",
-                            width=donut_width,
-                            height=donut_height
-                        ).configure_title(
-                            anchor='middle'
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill='transparent'
+                        df_savings["Percentuale"] = 0
+                    if MOBILE_VIEW and not df_savings.empty:
+                        risparmi_donut_html = _mobile_donut_html(
+                            "Distribuzione",
+                            df_savings["Component"].tolist(),
+                            df_savings["Value"].tolist(),
+                            df_savings["Component"].map({
+                                "Da Stipendi": "#9ca3af",
+                                "Da Mese Prec.": "#60a5fa",
+                                "Da Spendere": "#fde047",
+                                "Quotidiane": "#FB923C",
+                            }).fillna("#94a3b8").tolist()
                         )
-                        chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
-                        st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
+                        st.markdown(
+                            f'<div class="mobile-side-grid"><div>{html_risparmi}</div><div>{risparmi_donut_html}</div></div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(risparmi_kpi_html, unsafe_allow_html=True)
+                
+                with col_risparmi_2:
+                    if not df_savings.empty:
+                        if MOBILE_VIEW:
+                            pass
+                        else:
+                            donut_inner = 32
+                            donut_outer = 56
+                            donut_width = 150
+                            donut_height = 170
+                            chart_savings_arc = alt.Chart(df_savings).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
+                                theta=alt.Theta(field="Value", type="quantitative"),
+                                color=alt.Color(
+                                    field="Component", type="nominal",
+                                    scale=alt.Scale(
+                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
+                                        range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                                    ),
+                                    legend=alt.Legend(
+                                        title=None,
+                                        orient='right',
+                                        direction='vertical',
+                                        labelColor='rgba(255,255,255,0.65)',
+                                        labelFontSize=11,
+                                        symbolSize=40,
+                                        padding=2,
+                                        offset=5
+                                    )
+                                ),
+                                tooltip=[
+                                    alt.Tooltip('Component:N', title='Risparmi'),
+                                    alt.Tooltip('Value:Q', title='Totale (€)', format='.2f'),
+                                    alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                                ]
+                            ).properties(
+                                title="💰 Distribuzione Risparmi",
+                                width=donut_width,
+                                height=donut_height
+                            ).configure_title(
+                                anchor='middle'
+                            ).configure_view(
+                                strokeWidth=0,
+                                fill='transparent'
+                            )
+                            chart_donut_Distribuzione_Risparmi = chart_savings_arc.resolve_scale(color='independent')
+                            st.altair_chart(chart_donut_Distribuzione_Risparmi, use_container_width=True)
     
 
 
                             
         with col3_right:
-            if not MOBILE_VIEW:
-                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
-            st.subheader("Trasferimenti sulle Carte:")
+            if _mobile_show("Carte"):
+                if not MOBILE_VIEW:
+                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
+                st.subheader("Trasferimenti sulle Carte:")
         
-            html_carte = ""
-            for carta in ["ING", "Revolut", "BNL"]:
-                spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
-                               for voce in SPESE[carta]}
-                spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
-                if carta == "Revolut":
-                    totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
-                    colore = "#89CFF0"  # Azzurro
-                    testo = "trasferire"
-                    somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                    spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                    somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
-                    row_html = _money_row_html(
-                        f"Da {testo} su {carta}",
-                        totale_carta,
-                        colore,
-                        _triangle_for_card(carta),
-                        f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
-                    )
-                    if MOBILE_VIEW:
-                        html_carte += row_html
-                    else:
-                        st.markdown(row_html, unsafe_allow_html=True)
-                else:
-                    totale_carta = sum(spese_carta.values())
-                    if carta == "ING":
-                        colore = "#D2691E"
+                html_carte = ""
+                for carta in ["ING", "Revolut", "BNL"]:
+                    spese_carta = {voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0) 
+                                   for voce in SPESE[carta]}
+                    spese_carta = {voce: importo for voce, importo in spese_carta.items() if importo != 0}
+                    if carta == "Revolut":
+                        totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
+                        colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                    elif carta == "BNL":
-                        colore = "green"
-                        colore2 = "#77DD77"
-                        testo = "mantenere"
-                        testo2 = "risparmiato"
-                    row_html = _money_row_html(
-                        f"Da {testo} su {carta}",
-                        totale_carta,
-                        colore,
-                        _triangle_for_card(carta),
-                        "totale delle spese previste su questa carta"
-                    )
-                    if MOBILE_VIEW:
-                        html_carte += row_html
-                    else:
-                        st.markdown(row_html, unsafe_allow_html=True)
-            totale_risparmiato_carte_html = _money_row_html(
-                f"Totale {testo2} su {carta}",
-                risparmi_mensili,
-                colore2,
-                _triangle_for_card(carta),
-                "quota da lasciare come risparmio"
-            )
-            if MOBILE_VIEW:
-                html_carte += totale_risparmiato_carte_html
-            else:
-                st.markdown(totale_risparmiato_carte_html, unsafe_allow_html=True)
-    
-            # FIX 4: NEW "Carte" donut chart
-            if not MOBILE_VIEW:
-                st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-            with st.container():  
-                # Calculate totals per card
-                ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
-                revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
-                bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
-        
-                df_carte = pd.DataFrame({
-                    'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                    'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
-                        })
-                df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
-        
-                if MOBILE_VIEW:
-                    carte_donut_html = _mobile_donut_html(
-                            "Distribuzione carte",
-                            df_carte["Carta"].tolist(),
-                            df_carte["Totale"].tolist(),
-                            ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
-                    )
-                    st.markdown(
-                        f'<div class="mobile-side-grid"><div>{html_carte}</div><div>{carte_donut_html}</div></div>',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    donut_inner = 32
-                    donut_outer = 56
-                    donut_width = 150
-                    donut_height = 170
-                    carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
-                    theta=alt.Theta(field="Totale", type="quantitative"),
-                    color=alt.Color(
-                        field="Carta", type="nominal",
-                        scale=alt.Scale(
-                            domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
-                            range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
-                        ),
-                        legend=alt.Legend(
-                            title=None,
-                            orient='right',
-                            direction='vertical',
-                            labelColor='rgba(255,255,255,0.65)',
-                            labelFontSize=11,
-                            symbolSize=40,
-                            padding=2,
-                            offset=5
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        spese_che_anticipo_per_un_giorno_di_disney_spotify=18
+                        somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                        row_html = _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
                         )
+                        if MOBILE_VIEW:
+                            html_carte += row_html
+                        else:
+                            st.markdown(row_html, unsafe_allow_html=True)
+                    else:
+                        totale_carta = sum(spese_carta.values())
+                        if carta == "ING":
+                            colore = "#D2691E"
+                            testo = "trasferire"
+                        elif carta == "BNL":
+                            colore = "green"
+                            colore2 = "#77DD77"
+                            testo = "mantenere"
+                            testo2 = "risparmiato"
+                        row_html = _money_row_html(
+                            f"Da {testo} su {carta}",
+                            totale_carta,
+                            colore,
+                            _triangle_for_card(carta),
+                            "totale delle spese previste su questa carta"
+                        )
+                        if MOBILE_VIEW:
+                            html_carte += row_html
+                        else:
+                            st.markdown(row_html, unsafe_allow_html=True)
+                totale_risparmiato_carte_html = _money_row_html(
+                    f"Totale {testo2} su {carta}",
+                    risparmi_mensili,
+                    colore2,
+                    _triangle_for_card(carta),
+                    "quota da lasciare come risparmio"
+                )
+                if MOBILE_VIEW:
+                    html_carte += totale_risparmiato_carte_html
+                else:
+                    st.markdown(totale_risparmiato_carte_html, unsafe_allow_html=True)
+    
+                # FIX 4: NEW "Carte" donut chart
+                if not MOBILE_VIEW:
+                    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                with st.container():  
+                    # Calculate totals per card
+                    ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
+                    revolut_total = revolut_expenses + risparmi_mese_precedente  # original before subtraction
+                    bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
+        
+                    df_carte = pd.DataFrame({
+                        'Carta': ['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                        'Totale': [ing_total, revolut_total, bnl_total, risparmi_mensili]
+                            })
+                    df_carte['Percentuale'] = (df_carte['Totale'] / df_carte['Totale'].sum() * 100).round(1)
+        
+                    if MOBILE_VIEW:
+                        carte_donut_html = _mobile_donut_html(
+                                "Distribuzione carte",
+                                df_carte["Carta"].tolist(),
+                                df_carte["Totale"].tolist(),
+                                ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                        )
+                        st.markdown(
+                            f'<div class="mobile-side-grid"><div>{html_carte}</div><div>{carte_donut_html}</div></div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        donut_inner = 32
+                        donut_outer = 56
+                        donut_width = 150
+                        donut_height = 170
+                        carte_arc = alt.Chart(df_carte).mark_arc(innerRadius=donut_inner, outerRadius=donut_outer).encode(
+                        theta=alt.Theta(field="Totale", type="quantitative"),
+                        color=alt.Color(
+                            field="Carta", type="nominal",
+                            scale=alt.Scale(
+                                domain=['ING', 'Revolut', 'BNL', 'Risparmiato BNL'],
+                                range=['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
+                            ),
+                            legend=alt.Legend(
+                                title=None,
+                                orient='right',
+                                direction='vertical',
+                                labelColor='rgba(255,255,255,0.65)',
+                                labelFontSize=11,
+                                symbolSize=40,
+                                padding=2,
+                                offset=5
+                            )
             
-                    ),
-                    tooltip=[
-                        alt.Tooltip("Carta:N", title="Carta"),
-                        alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
-                        alt.Tooltip("Percentuale:Q", title="%", format=".1f")
-                    ]
-                    ).properties(
-                        title="💳 Distribuzione Carte",
-                        width=donut_width,
-                        height=donut_height,
-                    ).configure_title(
-                        anchor='middle'
-                    ).configure_view(
-                        strokeWidth=0,
-                        fill='transparent',
-                    )    
+                        ),
+                        tooltip=[
+                            alt.Tooltip("Carta:N", title="Carta"),
+                            alt.Tooltip("Totale:Q", title="Totale (€)", format=".2f"),
+                            alt.Tooltip("Percentuale:Q", title="%", format=".1f")
+                        ]
+                        ).properties(
+                            title="💳 Distribuzione Carte",
+                            width=donut_width,
+                            height=donut_height,
+                        ).configure_title(
+                            anchor='middle'
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill='transparent',
+                        )    
             
-                    chart_carte = carte_arc.resolve_scale(color='independent')
-                    st.altair_chart(chart_carte, use_container_width=True)
-            st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-        if MOBILE_VIEW:
+                        chart_carte = carte_arc.resolve_scale(color='independent')
+                        st.altair_chart(chart_carte, use_container_width=True)
+                st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+        if MOBILE_VIEW and _mobile_show("Promemoria"):
             _render_promemoria_block()
             st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
-        render_turni_guadagni_section()
+        if _mobile_show("Turni"):
+            st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+            render_turni_guadagni_section()
 
 if __name__ == "__main__":
     main()
@@ -5103,575 +5128,577 @@ def salva_budget_bollette_da_mese(budget_df, mese, importo):
     return save_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS, budget_df)
 
 
-#######################################
-# SEZIONE: Storico Stipendi e Risparmi
-#######################################
+if (not MOBILE_VIEW) or mobile_section == "Storico":
+    #######################################
+    # SEZIONE: Storico Stipendi e Risparmi
+    #######################################
 
-st.markdown('<div id="mobile-stipendi" class="mobile-anchor"></div><div class="section-pill">📈 Storico Stipendi</div>', unsafe_allow_html=True)
-st.title("Storico Stipendi e Risparmi")
+    st.markdown('<div id="mobile-stipendi" class="mobile-anchor"></div><div class="section-pill">📈 Storico Stipendi</div>', unsafe_allow_html=True)
+    st.title("Storico Stipendi e Risparmi")
 
-STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
-data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
-if data_stipendi.empty:
-    data_stipendi = pd.DataFrame(columns=STIPENDI_HEADERS)
-else:
-    data_stipendi["Mese"] = pd.to_datetime(data_stipendi["Mese"], errors="coerce")
-    data_stipendi = data_stipendi.dropna(subset=["Mese"])
-    data_stipendi["Mese"] = data_stipendi["Mese"].dt.to_period("M").dt.to_timestamp()
-    for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
-        data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
-
-col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns(LAYOUT_COLONNE["storico_form_chart"])
-with col_sx_stip:
-    st.subheader("Gestisci mese")
-    mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-    current_month_label = _now_italy().strftime("%B %Y")
-    mese_default_index = list(mesi_anni).index(current_month_label) if current_month_label in list(mesi_anni) else 0
-    selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, index=mese_default_index, key="mese_stipendi")
-    mese_dt = pd.Timestamp(datetime.strptime(selected_mese, "%B %Y")).to_period("M").to_timestamp()
-
-    record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
-    stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
-    risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
-    messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
-    st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
-
-    col_input1, col_input2 = st.columns(2)
-    with col_input1:
-        stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
-        aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
-    with col_input2:
-        risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
-        messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
-        elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
-
-    if aggiungi_button:
-        if stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
-            if not record_esistente.empty:
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Messi da parte Totali"] = messi_da_parte_mese_corrente
-                placeholder = st.empty()
-                placeholder.success(f"Record per {selected_mese} aggiornato!")
-                time.sleep(3)
-                placeholder.empty()
-            else:
-                nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
-                data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
-                placeholder = st.empty()
-                placeholder.success(f"Dati per {selected_mese} aggiunti!")
-                time.sleep(3)
-                placeholder.empty()
-
-            data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-            save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
-        else:
-            placeholder = st.empty()
-            placeholder.error("Inserisci valori validi per stipendio, risparmi o messi da parte!")
-            time.sleep(3)
-            placeholder.empty()
-
-    if elimina_button:
-        if not record_esistente.empty:
-            data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-            save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
-            placeholder = st.empty()
-            placeholder.success(f"Record per {selected_mese} eliminato!")
-            time.sleep(3)
-            placeholder.empty()
-        else:
-            placeholder = st.empty()
-            placeholder.error(f"Nessun record trovato per {selected_mese}.")
-            time.sleep(3)
-            placeholder.empty()
-
-with col_dx_stip_chart:
-    st.markdown("### Confronto Anno su Anno degli Stipendi")
-    if not data_stipendi.empty:
-        confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
-        st.altair_chart(confronto_chart, use_container_width=True)
+    STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
+    data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
+    if data_stipendi.empty:
+        data_stipendi = pd.DataFrame(columns=STIPENDI_HEADERS)
     else:
-        st.info("Nessun dato disponibile ancora.")
+        data_stipendi["Mese"] = pd.to_datetime(data_stipendi["Mese"], errors="coerce")
+        data_stipendi = data_stipendi.dropna(subset=["Mese"])
+        data_stipendi["Mese"] = data_stipendi["Mese"].dt.to_period("M").dt.to_timestamp()
+        for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
+            data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
 
-st.markdown("---")
-st.subheader("Dati Storici Stipendi/Risparmi")
+    col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns(LAYOUT_COLONNE["storico_form_chart"])
+    with col_sx_stip:
+        st.subheader("Gestisci mese")
+        mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+        current_month_label = _now_italy().strftime("%B %Y")
+        mese_default_index = list(mesi_anni).index(current_month_label) if current_month_label in list(mesi_anni) else 0
+        selected_mese = st.selectbox("Seleziona il mese e l'anno", mesi_anni, index=mese_default_index, key="mese_stipendi")
+        mese_dt = pd.Timestamp(datetime.strptime(selected_mese, "%B %Y")).to_period("M").to_timestamp()
 
-col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
-with col_table:
-    df_stip = data_stipendi.copy()
-    st.markdown(
-        _history_table_html(
-            df_stip,
-            ["Stipendio", "Risparmi", "Messi da parte Totali"],
-            {
-                "Stipendio": "#5792E8",
-                "Risparmi": "#EF9F27",
-                "Messi da parte Totali": "#1D9E75",
-            },
-        ),
-        unsafe_allow_html=True,
-    )
-    
-    data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
-    stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
-    st.markdown(
-        '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
-        unsafe_allow_html=True
-    )
-    
-    col_somme1, col_somme2, col_somme3 = st.columns(LAYOUT_COLONNE["storico_kpi"])
-    _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
-    _s2 = f"{stats_stip['Stipendio']['media']:,.2f} €"
-    _r1 = f"{stats_stip['Risparmi']['somma']:,.2f} €"
-    _r2 = f"{stats_stip['Risparmi']['media']:,.2f} €"
-    _m1 = f"{stats_stip['Messi da parte Totali']['somma']:,.2f} €"
-    _m2 = f"{stats_stip['Messi da parte Totali']['media']:,.2f} €"
-    with col_somme1:
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Stipendi</div>
-            <div class="kpi-value" style="color:#5792E8;font-size:16px;">{_s1}</div>
-        </div>
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Media Stipendi</div>
-            <div class="kpi-value" style="color:#f87171;font-size:16px;">{_s2}</div>
-        </div>""", unsafe_allow_html=True)
-        if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-            _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
-            st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
-            <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
-        </div>""", unsafe_allow_html=True)
-    with col_somme2:
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Risparmi Mese Precedente</div>
-            <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Media Risparmi Mese Precedente</div>
-            <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
-        </div>""", unsafe_allow_html=True)
-    with col_somme3:
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Messi da Parte</div>
-            <div class="kpi-value" style="color:#1D9E75;font-size:16px;">{_m1}</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Media Messi da Parte</div>
-            <div class="kpi-value" style="color:#90EE90;font-size:16px;">{_m2}</div>
-        </div>""", unsafe_allow_html=True)
-
-with col_chart:
-    if data_stipendi is not None and not data_stipendi.empty:
-        try:
-            chart_data = data_stipendi.copy()
-            chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
-            chart_data = chart_data.dropna(subset=["Mese"])
-            current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-            chart_start = current_month_start - pd.DateOffset(years=3)
-            chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
-            chart_data["Extra messi da parte"] = (
-                pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
-                - pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
-            ).clip(lower=0)
-            chart_data["Risparmi tooltip"] = pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
-            chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
-            ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
-
-            x_axis = alt.X(
-                "Mese_str:N",
-                sort=ordine_mesi,
-                title="Mese",
-                axis=alt.Axis(labelAngle=-45, labelFontSize=10)
-            )
-
-            line_stipendi = alt.Chart(chart_data).mark_line(
-                color="#5792E8", strokeWidth=2
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
-            )
-            point_stipendi = alt.Chart(chart_data).mark_point(
-                color="#5792E8", size=42, filled=True
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Stipendio:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendi", format=",.2f")]
-            )
-
-            line_media_stip = alt.Chart(chart_data).mark_line(
-                color="#f87171", strokeWidth=2, strokeDash=[6,3], opacity=0.4
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Stipendio:Q"),
-            )
-            point_media_stip = alt.Chart(chart_data).mark_point(
-                color="#f87171", size=36, filled=True, opacity=0.85
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Stipendio:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendi", format=",.2f")]
-            )
-
-            line_media_no13 = alt.Chart(chart_data).mark_line(
-                color="#fb923c", strokeWidth=2, strokeDash=[3,3]
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-            )
-            point_media_no13 = alt.Chart(chart_data).mark_point(
-                color="#fb923c", size=36, filled=True
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari (no spikes)", format=",.2f")]
-            )
-
-            risparmi_stack = chart_data.melt(
-                id_vars=["Mese_str", "Risparmi tooltip", "Messi da parte Totali"],
-                value_vars=["Risparmi", "Extra messi da parte"],
-                var_name="Componente risparmio",
-                value_name="Valore"
-            )
-            risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
-                "Risparmi": "Risparmi mese precedente",
-                "Extra messi da parte": "Messi da parte"
-            })
-
-            bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
-                opacity=0.38, size=17
-            ).encode(
-                x=x_axis,
-                y=alt.Y(
-                    "Valore:Q",
-                    title="Risparmi / messi da parte (€)",
-                    axis=alt.Axis(orient="right"),
-                    stack="zero"
-                ),
-                color=alt.Color(
-                    "Voce:N",
-                    scale=alt.Scale(
-                        domain=["Risparmi mese precedente", "Messi da parte"],
-                        range=["#EF9F27", "#1D9E75"]
-                    ),
-                    legend=None
-                ),
-                order=alt.Order("Componente risparmio:N", sort="descending"),
-                tooltip=[
-                    alt.Tooltip("Mese_str:N", title="Mese"),
-                    alt.Tooltip("Voce:N", title="Voce"),
-                    alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
-                    alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
-                ]
-            )
-
-            line_media_risp = alt.Chart(chart_data).mark_line(
-                color="#FFA040", strokeWidth=2, strokeDash=[4,4], opacity=0.9
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Risparmi:Q"),
-            )
-            point_media_risp = alt.Chart(chart_data).mark_point(
-                color="#FFA040", size=36, filled=True
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Risparmi:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi mese precedente", format=",.2f")]
-            )
-
-            line_media_messi = alt.Chart(chart_data).mark_line(
-                color="#90EE90", strokeWidth=2, strokeDash=[5,5]
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Messi da parte Totali:Q"),
-            )
-            point_media_messi = alt.Chart(chart_data).mark_point(
-                color="#90EE90", size=36, filled=True
-            ).encode(
-                x=x_axis,
-                y=alt.Y("Media Messi da parte Totali:Q"),
-                tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
-            )
-
-            stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
-            risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
-
-            grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
-                title="Storico Stipendi e Risparmi",
-                height=430
-            ).resolve_scale(y="independent")
-
-            st.altair_chart(grafico_finale, use_container_width=True)
-
-            # Legend labels  <-- YAHAN SE ADD KARO
-            st.markdown("""
-            <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; padding:10px 16px; 
-                        background:rgba(255,255,255,0.04); border-radius:10px;">
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente
-                </span>
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
-                    <span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"Errore nel grafico: {e}")
-    else:
-        st.info("Nessun dato disponibile. Aggiungi i dati nella sezione a sinistra.")
-
-st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
-
-
-############################
-# SEZIONE: Storico Bollette
-#############################
-
-st.markdown('<div id="mobile-bollette" class="mobile-anchor"></div><div class="section-pill">🧾 Storico Bollette</div>', unsafe_allow_html=True)
-st.title("Storico Bollette")
-
-BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
-data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
-if data_bollette.empty:
-    data_bollette = pd.DataFrame(columns=BOLLETTE_HEADERS)
-else:
-    data_bollette["Mese"] = pd.to_datetime(data_bollette["Mese"], errors="coerce")
-    data_bollette = data_bollette.dropna(subset=["Mese"])
-    data_bollette["Mese"] = data_bollette["Mese"].dt.to_period("M").dt.to_timestamp()
-    for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
-        data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
-
-budget_bollette_df = normalizza_budget_bollette(
-    load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
-)
-
-col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
-
-with col_sx_bol:
-    with st.container():
-        st.subheader("Gestisci bollette")
-        mesi_anni_bol = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
-        current_month_label_bol = _now_italy().strftime("%B %Y")
-        mese_bol_default_index = list(mesi_anni_bol).index(current_month_label_bol) if current_month_label_bol in list(mesi_anni_bol) else 0
-        selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, index=mese_bol_default_index, key="mese_bollette")
-        mese_dt_bol = pd.Timestamp(datetime.strptime(selected_mese_bol, "%B %Y")).to_period("M").to_timestamp()
-        
-        record_bol = data_bollette[data_bollette["Mese"] == mese_dt_bol] if not data_bollette.empty else pd.DataFrame()
-        elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
-        gas_val = float(record_bol["Gas"].iloc[0]) if not record_bol.empty else 0.0
-        acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
-        internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
-        tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
+        record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
+        stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
+        risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
+        messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
         st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
-        
-        col_bol_input1, col_bol_input2 = st.columns(2)
-        with col_bol_input1:
-            elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
-            gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
-            aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
-        with col_bol_input2:
-            acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
-            internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
-            tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
-            elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
 
-        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-        budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
-        with st.expander("Budget mensile bollette", expanded=False):
-            nuovo_budget_bollette = st.number_input(
-                "Importo messo da parte al mese",
-                min_value=0.0,
-                value=float(budget_bollette_corrente_mese),
-                step=10.0,
-                key=f"budget_bollette_input_{selected_mese_bol}",
-                help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
-            )
-            if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}"):
-                if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
-                    st.success("Budget bollette salvato")
-                    st.rerun()
-                else:
-                    st.error("Errore salvataggio budget bollette")
+        col_input1, col_input2 = st.columns(2)
+        with col_input1:
+            stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
+            aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
+        with col_input2:
+            risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+            messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
+            elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
-        if aggiungi_bollette:
-            if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
-                if not record_bol.empty:
-                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
-                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
-                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
-                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
-                    data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
+        if aggiungi_button:
+            if stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
+                if not record_esistente.empty:
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Messi da parte Totali"] = messi_da_parte_mese_corrente
                     placeholder = st.empty()
-                    placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
+                    placeholder.success(f"Record per {selected_mese} aggiornato!")
                     time.sleep(3)
                     placeholder.empty()
                 else:
-                    nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita, "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
-                    data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
+                    data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
                     placeholder = st.empty()
-                    placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                    placeholder.success(f"Dati per {selected_mese} aggiunti!")
                     time.sleep(3)
                     placeholder.empty()
 
-                data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
-                save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+                data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+                save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
             else:
                 placeholder = st.empty()
-                placeholder.error("Inserisci valori validi per le bollette!")
+                placeholder.error("Inserisci valori validi per stipendio, risparmi o messi da parte!")
                 time.sleep(3)
                 placeholder.empty()
 
-        if elimina_bollette:
-            if not record_bol.empty:
-                data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
-                save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+        if elimina_button:
+            if not record_esistente.empty:
+                data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+                save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
                 placeholder = st.empty()
-                placeholder.success(f"Record per {selected_mese_bol} eliminato!")
+                placeholder.success(f"Record per {selected_mese} eliminato!")
                 time.sleep(3)
                 placeholder.empty()
             else:
                 placeholder = st.empty()
-                placeholder.error(f"Nessun record trovato per {selected_mese_bol}.")
+                placeholder.error(f"Nessun record trovato per {selected_mese}.")
                 time.sleep(3)
                 placeholder.empty()
 
-with col_dx_bol_chart:
-    st.markdown("### Confronto Anno su Anno delle Bollette")
-    if not data_bollette.empty:
-        confronto_bollette_chart = crea_confronto_anno_su_anno_bollette(data_bollette)
-        st.altair_chart(confronto_bollette_chart, use_container_width=True)
+    with col_dx_stip_chart:
+        st.markdown("### Confronto Anno su Anno degli Stipendi")
+        if not data_stipendi.empty:
+            confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
+            st.altair_chart(confronto_chart, use_container_width=True)
+        else:
+            st.info("Nessun dato disponibile ancora.")
+
+    st.markdown("---")
+    st.subheader("Dati Storici Stipendi/Risparmi")
+
+    col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
+    with col_table:
+        df_stip = data_stipendi.copy()
+        st.markdown(
+            _history_table_html(
+                df_stip,
+                ["Stipendio", "Risparmi", "Messi da parte Totali"],
+                {
+                    "Stipendio": "#5792E8",
+                    "Risparmi": "#EF9F27",
+                    "Messi da parte Totali": "#1D9E75",
+                },
+            ),
+            unsafe_allow_html=True,
+        )
+    
+        data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+        stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+        st.markdown(
+            '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+            unsafe_allow_html=True
+        )
+    
+        col_somme1, col_somme2, col_somme3 = st.columns(LAYOUT_COLONNE["storico_kpi"])
+        _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
+        _s2 = f"{stats_stip['Stipendio']['media']:,.2f} €"
+        _r1 = f"{stats_stip['Risparmi']['somma']:,.2f} €"
+        _r2 = f"{stats_stip['Risparmi']['media']:,.2f} €"
+        _m1 = f"{stats_stip['Messi da parte Totali']['somma']:,.2f} €"
+        _m2 = f"{stats_stip['Messi da parte Totali']['media']:,.2f} €"
+        with col_somme1:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Stipendi</div>
+                <div class="kpi-value" style="color:#5792E8;font-size:16px;">{_s1}</div>
+            </div>
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Media Stipendi</div>
+                <div class="kpi-value" style="color:#f87171;font-size:16px;">{_s2}</div>
+            </div>""", unsafe_allow_html=True)
+            if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
+                _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
+                st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
+                <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
+            </div>""", unsafe_allow_html=True)
+        with col_somme2:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Risparmi Mese Precedente</div>
+                <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Media Risparmi Mese Precedente</div>
+                <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
+            </div>""", unsafe_allow_html=True)
+        with col_somme3:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Messi da Parte</div>
+                <div class="kpi-value" style="color:#1D9E75;font-size:16px;">{_m1}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Media Messi da Parte</div>
+                <div class="kpi-value" style="color:#90EE90;font-size:16px;">{_m2}</div>
+            </div>""", unsafe_allow_html=True)
+
+    with col_chart:
+        if data_stipendi is not None and not data_stipendi.empty:
+            try:
+                chart_data = data_stipendi.copy()
+                chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
+                chart_data = chart_data.dropna(subset=["Mese"])
+                current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+                chart_start = current_month_start - pd.DateOffset(years=3)
+                chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
+                chart_data["Extra messi da parte"] = (
+                    pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
+                    - pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+                ).clip(lower=0)
+                chart_data["Risparmi tooltip"] = pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+                chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
+                ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
+
+                x_axis = alt.X(
+                    "Mese_str:N",
+                    sort=ordine_mesi,
+                    title="Mese",
+                    axis=alt.Axis(labelAngle=-45, labelFontSize=10)
+                )
+
+                line_stipendi = alt.Chart(chart_data).mark_line(
+                    color="#5792E8", strokeWidth=2
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
+                )
+                point_stipendi = alt.Chart(chart_data).mark_point(
+                    color="#5792E8", size=42, filled=True
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Stipendio:Q"),
+                    tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendi", format=",.2f")]
+                )
+
+                line_media_stip = alt.Chart(chart_data).mark_line(
+                    color="#f87171", strokeWidth=2, strokeDash=[6,3], opacity=0.4
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Stipendio:Q"),
+                )
+                point_media_stip = alt.Chart(chart_data).mark_point(
+                    color="#f87171", size=36, filled=True, opacity=0.85
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Stipendio:Q"),
+                    tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendi", format=",.2f")]
+                )
+
+                line_media_no13 = alt.Chart(chart_data).mark_line(
+                    color="#fb923c", strokeWidth=2, strokeDash=[3,3]
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+                )
+                point_media_no13 = alt.Chart(chart_data).mark_point(
+                    color="#fb923c", size=36, filled=True
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+                    tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari (no spikes)", format=",.2f")]
+                )
+
+                risparmi_stack = chart_data.melt(
+                    id_vars=["Mese_str", "Risparmi tooltip", "Messi da parte Totali"],
+                    value_vars=["Risparmi", "Extra messi da parte"],
+                    var_name="Componente risparmio",
+                    value_name="Valore"
+                )
+                risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
+                    "Risparmi": "Risparmi mese precedente",
+                    "Extra messi da parte": "Messi da parte"
+                })
+
+                bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
+                    opacity=0.38, size=17
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y(
+                        "Valore:Q",
+                        title="Risparmi / messi da parte (€)",
+                        axis=alt.Axis(orient="right"),
+                        stack="zero"
+                    ),
+                    color=alt.Color(
+                        "Voce:N",
+                        scale=alt.Scale(
+                            domain=["Risparmi mese precedente", "Messi da parte"],
+                            range=["#EF9F27", "#1D9E75"]
+                        ),
+                        legend=None
+                    ),
+                    order=alt.Order("Componente risparmio:N", sort="descending"),
+                    tooltip=[
+                        alt.Tooltip("Mese_str:N", title="Mese"),
+                        alt.Tooltip("Voce:N", title="Voce"),
+                        alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+                        alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
+                    ]
+                )
+
+                line_media_risp = alt.Chart(chart_data).mark_line(
+                    color="#FFA040", strokeWidth=2, strokeDash=[4,4], opacity=0.9
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Risparmi:Q"),
+                )
+                point_media_risp = alt.Chart(chart_data).mark_point(
+                    color="#FFA040", size=36, filled=True
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Risparmi:Q"),
+                    tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi mese precedente", format=",.2f")]
+                )
+
+                line_media_messi = alt.Chart(chart_data).mark_line(
+                    color="#90EE90", strokeWidth=2, strokeDash=[5,5]
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Messi da parte Totali:Q"),
+                )
+                point_media_messi = alt.Chart(chart_data).mark_point(
+                    color="#90EE90", size=36, filled=True
+                ).encode(
+                    x=x_axis,
+                    y=alt.Y("Media Messi da parte Totali:Q"),
+                    tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
+                )
+
+                stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+                risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
+
+                grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
+                    title="Storico Stipendi e Risparmi",
+                    height=430
+                ).resolve_scale(y="independent")
+
+                st.altair_chart(grafico_finale, use_container_width=True)
+
+                # Legend labels  <-- YAHAN SE ADD KARO
+                st.markdown("""
+                <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; padding:10px 16px; 
+                            background:rgba(255,255,255,0.04); border-radius:10px;">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);">
+                        <span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Errore nel grafico: {e}")
+        else:
+            st.info("Nessun dato disponibile. Aggiungi i dati nella sezione a sinistra.")
+
+    st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+
+
+if (not MOBILE_VIEW) or mobile_section == "Bollette":
+    ############################
+    # SEZIONE: Storico Bollette
+    #############################
+
+    st.markdown('<div id="mobile-bollette" class="mobile-anchor"></div><div class="section-pill">🧾 Storico Bollette</div>', unsafe_allow_html=True)
+    st.title("Storico Bollette")
+
+    BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
+    data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
+    if data_bollette.empty:
+        data_bollette = pd.DataFrame(columns=BOLLETTE_HEADERS)
     else:
-        st.info("Nessun dato disponibile ancora.")
+        data_bollette["Mese"] = pd.to_datetime(data_bollette["Mese"], errors="coerce")
+        data_bollette = data_bollette.dropna(subset=["Mese"])
+        data_bollette["Mese"] = data_bollette["Mese"].dt.to_period("M").dt.to_timestamp()
+        for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
+            data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
 
-st.markdown("---")
-st.subheader("Dati Storici Bollette")
-col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
-with col_bol_table:
-    df_bol = data_bollette.copy()
-    st.markdown(
-        _history_table_html(
-            df_bol,
-            ["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-            {
-                "Elettricità": "#84B6F4",
-                "Gas": "#FF6961",
-                "Acqua": "#96DED1",
-                "Internet": "#FFF5A1",
-                "Tari": "#C19A6B",
-            },
-        ),
-        unsafe_allow_html=True,
+    budget_bollette_df = normalizza_budget_bollette(
+        load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
     )
-    
-    stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
-    st.markdown(
-        '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
-        unsafe_allow_html=True
-    )
-    
-    col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
-    with col_bol_somme1:
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Elettricità</div>
-            <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Somma Gas</div>
-            <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
-        </div>""", unsafe_allow_html=True)
-    with col_bol_somme2:
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom:8px;">
-            <div class="kpi-label">Somma Acqua</div>
-            <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Somma Tari</div>
-            <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
-        </div>""", unsafe_allow_html=True)
-    with col_bol_somme3:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-label">Somma Internet</div>
-            <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
-        </div>""", unsafe_allow_html=True)
-    
-    def calcola_saldo(data, budget_df):
-        saldo_iniziale = 0
-        saldi = []
-        budget_mensili = []
-        data = data.sort_values("Mese").reset_index(drop=True).copy()
-        for _, row in data.iterrows():
-            budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
-            totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
-            saldo = saldo_iniziale + budget_mese - totale
-            saldi.append(saldo)
-            budget_mensili.append(budget_mese)
-            saldo_iniziale = saldo
-        data["Saldo"] = saldi
-        data["Budget bollette mensile"] = budget_mensili
-        return data
-    
-    data_bollette = calcola_saldo(data_bollette, budget_bollette_df)
-    
-    data_melted = data_bollette.melt(
-        id_vars=["Mese"],
-        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-        var_name="Categoria",
-        value_name="Valore"
-    )
-    data_saldo = data_bollette[["Mese", "Saldo"]].copy()
-    data_saldo["Categoria"] = "Saldo"
-    data_saldo["Valore"] = data_saldo["Saldo"]
-    data_saldo.drop(columns=["Saldo"], inplace=True)
-    data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
-    data_completa_bollette["Mese"] = pd.to_datetime(data_completa_bollette["Mese"], errors="coerce")
-    current_month_start_bol = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-    chart_start_bol = current_month_start_bol - pd.DateOffset(years=3)
-    data_completa_bollette = data_completa_bollette[
-        (data_completa_bollette["Mese"] >= chart_start_bol)
-        & (data_completa_bollette["Mese"] <= current_month_start_bol)
-    ].copy()
-    data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
-    ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
-    
-with col_bol_chart:
-    st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
-    total_bollette = (stats_bollette["Elettricità"]["somma"] + stats_bollette["Gas"]["somma"] +
-                    stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
-    n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
-    media_annua = total_bollette / n_mesi
-    budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
-    saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
-    saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
-    st.markdown(f"""
-    <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
-        <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
-        <div style="line-height:1.55;">
-            <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
-            <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
 
-st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+    with col_sx_bol:
+        with st.container():
+            st.subheader("Gestisci bollette")
+            mesi_anni_bol = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
+            current_month_label_bol = _now_italy().strftime("%B %Y")
+            mese_bol_default_index = list(mesi_anni_bol).index(current_month_label_bol) if current_month_label_bol in list(mesi_anni_bol) else 0
+            selected_mese_bol = st.selectbox("Seleziona il mese e l'anno", mesi_anni_bol, index=mese_bol_default_index, key="mese_bollette")
+            mese_dt_bol = pd.Timestamp(datetime.strptime(selected_mese_bol, "%B %Y")).to_period("M").to_timestamp()
+        
+            record_bol = data_bollette[data_bollette["Mese"] == mese_dt_bol] if not data_bollette.empty else pd.DataFrame()
+            elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
+            gas_val = float(record_bol["Gas"].iloc[0]) if not record_bol.empty else 0.0
+            acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
+            internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
+            tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
+            st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
+        
+            col_bol_input1, col_bol_input2 = st.columns(2)
+            with col_bol_input1:
+                elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
+                gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
+                aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
+            with col_bol_input2:
+                acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
+                internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
+                tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
+                elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
+
+            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+            budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
+            with st.expander("Budget mensile bollette", expanded=False):
+                nuovo_budget_bollette = st.number_input(
+                    "Importo messo da parte al mese",
+                    min_value=0.0,
+                    value=float(budget_bollette_corrente_mese),
+                    step=10.0,
+                    key=f"budget_bollette_input_{selected_mese_bol}",
+                    help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
+                )
+                if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}"):
+                    if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
+                        st.success("Budget bollette salvato")
+                        st.rerun()
+                    else:
+                        st.error("Errore salvataggio budget bollette")
+
+            if aggiungi_bollette:
+                if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+                    if not record_bol.empty:
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
+                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
+                        placeholder = st.empty()
+                        placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
+                        time.sleep(3)
+                        placeholder.empty()
+                    else:
+                        nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita, "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
+                        data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                        placeholder = st.empty()
+                        placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                        time.sleep(3)
+                        placeholder.empty()
+
+                    data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
+                    save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+                else:
+                    placeholder = st.empty()
+                    placeholder.error("Inserisci valori validi per le bollette!")
+                    time.sleep(3)
+                    placeholder.empty()
+
+            if elimina_bollette:
+                if not record_bol.empty:
+                    data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
+                    save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+                    placeholder = st.empty()
+                    placeholder.success(f"Record per {selected_mese_bol} eliminato!")
+                    time.sleep(3)
+                    placeholder.empty()
+                else:
+                    placeholder = st.empty()
+                    placeholder.error(f"Nessun record trovato per {selected_mese_bol}.")
+                    time.sleep(3)
+                    placeholder.empty()
+
+    with col_dx_bol_chart:
+        st.markdown("### Confronto Anno su Anno delle Bollette")
+        if not data_bollette.empty:
+            confronto_bollette_chart = crea_confronto_anno_su_anno_bollette(data_bollette)
+            st.altair_chart(confronto_bollette_chart, use_container_width=True)
+        else:
+            st.info("Nessun dato disponibile ancora.")
+
+    st.markdown("---")
+    st.subheader("Dati Storici Bollette")
+    col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
+    with col_bol_table:
+        df_bol = data_bollette.copy()
+        st.markdown(
+            _history_table_html(
+                df_bol,
+                ["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                {
+                    "Elettricità": "#84B6F4",
+                    "Gas": "#FF6961",
+                    "Acqua": "#96DED1",
+                    "Internet": "#FFF5A1",
+                    "Tari": "#C19A6B",
+                },
+            ),
+            unsafe_allow_html=True,
+        )
+    
+        stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+        st.markdown(
+            '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+            unsafe_allow_html=True
+        )
+    
+        col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
+        with col_bol_somme1:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Elettricità</div>
+                <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Somma Gas</div>
+                <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+            </div>""", unsafe_allow_html=True)
+        with col_bol_somme2:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Acqua</div>
+                <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Somma Tari</div>
+                <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+            </div>""", unsafe_allow_html=True)
+        with col_bol_somme3:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-label">Somma Internet</div>
+                <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+            </div>""", unsafe_allow_html=True)
+    
+        def calcola_saldo(data, budget_df):
+            saldo_iniziale = 0
+            saldi = []
+            budget_mensili = []
+            data = data.sort_values("Mese").reset_index(drop=True).copy()
+            for _, row in data.iterrows():
+                budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
+                totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
+                saldo = saldo_iniziale + budget_mese - totale
+                saldi.append(saldo)
+                budget_mensili.append(budget_mese)
+                saldo_iniziale = saldo
+            data["Saldo"] = saldi
+            data["Budget bollette mensile"] = budget_mensili
+            return data
+    
+        data_bollette = calcola_saldo(data_bollette, budget_bollette_df)
+    
+        data_melted = data_bollette.melt(
+            id_vars=["Mese"],
+            value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+            var_name="Categoria",
+            value_name="Valore"
+        )
+        data_saldo = data_bollette[["Mese", "Saldo"]].copy()
+        data_saldo["Categoria"] = "Saldo"
+        data_saldo["Valore"] = data_saldo["Saldo"]
+        data_saldo.drop(columns=["Saldo"], inplace=True)
+        data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
+        data_completa_bollette["Mese"] = pd.to_datetime(data_completa_bollette["Mese"], errors="coerce")
+        current_month_start_bol = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+        chart_start_bol = current_month_start_bol - pd.DateOffset(years=3)
+        data_completa_bollette = data_completa_bollette[
+            (data_completa_bollette["Mese"] >= chart_start_bol)
+            & (data_completa_bollette["Mese"] <= current_month_start_bol)
+        ].copy()
+        data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
+        ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
+    
+    with col_bol_chart:
+        st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+
+        total_bollette = (stats_bollette["Elettricità"]["somma"] + stats_bollette["Gas"]["somma"] +
+                        stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
+        n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
+        media_annua = total_bollette / n_mesi
+        budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
+        saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
+        saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
+        st.markdown(f"""
+        <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
+            <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+            <div style="line-height:1.55;">
+                <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+                <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
