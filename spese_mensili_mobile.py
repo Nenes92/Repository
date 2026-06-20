@@ -573,12 +573,6 @@ if MOBILE_VIEW:
         st.session_state["mobile_section_select"] = pending_mobile_section
     if "mobile_section_select" not in st.session_state:
         st.session_state["mobile_section_select"] = "Panoramica"
-
-    mobile_section = st.sidebar.selectbox(
-        "Vai alla sezione",
-        MOBILE_SECTIONS,
-        key="mobile_section_select"
-    )
     st.markdown("""
     <style>
     .block-container {
@@ -819,6 +813,54 @@ if MOBILE_VIEW:
         font-size: 11px !important;
         font-weight: 800 !important;
     }
+    div[data-testid="stRadio"] [role="radiogroup"] {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label {
+        min-width: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
+        display: none !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
+        width: 100% !important;
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 8px 6px !important;
+        border-radius: 13px !important;
+        border: 0.5px solid color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 52%, rgba(255,255,255,.13)) !important;
+        border-bottom: 3px solid var(--mobile-radio-color, #60a5fa) !important;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
+        color: rgba(255,255,255,.90) !important;
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        line-height: 1.05 !important;
+        box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) > div:last-child {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, rgba(15,23,42,.88)), rgba(255,255,255,.08)) !important;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22) !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { --mobile-radio-color:#38bdf8; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { --mobile-radio-color:#f87171; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { --mobile-radio-color:#4ade80; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { --mobile-radio-color:#34d399; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { --mobile-radio-color:#facc15; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { --mobile-radio-color:#89cff0; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { --mobile-radio-color:#fde68a; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
     .mobile-nav {
         display: flex;
         gap: 7px;
@@ -1153,18 +1195,13 @@ if MOBILE_VIEW:
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
     """, unsafe_allow_html=True)
-    mobile_card_cols = st.columns(3, gap="small")
-    for idx, (label, css_class, title, subtitle) in enumerate(_mobile_cards):
-        with mobile_card_cols[idx % 3]:
-            if st.button(
-                f"✓ {title}" if mobile_section == label else title,
-                key=f"mobile_section_button_{label}",
-                use_container_width=True,
-                disabled=mobile_section == label,
-                help=subtitle
-            ):
-                st.session_state["_pending_mobile_section"] = label
-                st.rerun()
+    mobile_section = st.radio(
+        "Sezione telefono",
+        MOBILE_SECTIONS,
+        key="mobile_section_select",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
