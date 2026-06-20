@@ -726,10 +726,15 @@ if MOBILE_VIEW:
         flex-wrap: nowrap !important;
     }
     .mobile-home-title {
-        font-size: 1.05rem;
+        font-size: 1.45rem;
         font-weight: 900;
-        color: rgba(255,255,255,.88);
-        margin: 4px 0 10px;
+        text-align: center;
+        color: #dbeafe;
+        margin: 6px 0 14px;
+        line-height: 1.15;
+        background: linear-gradient(90deg, #60a5fa, #a78bfa, #5eead4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     .mobile-home-grid {
         display: grid;
@@ -815,8 +820,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 7px !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 6px !important;
         align-items: stretch !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label {
@@ -830,18 +835,18 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
-        min-height: 44px !important;
+        min-height: 38px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         text-align: center !important;
-        padding: 8px 6px !important;
-        border-radius: 13px !important;
+        padding: 7px 4px !important;
+        border-radius: 11px !important;
         border: 0.5px solid color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 52%, rgba(255,255,255,.13)) !important;
         border-bottom: 3px solid var(--mobile-radio-color, #60a5fa) !important;
         background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
         color: rgba(255,255,255,.90) !important;
-        font-size: 11px !important;
+        font-size: 10px !important;
         font-weight: 900 !important;
         line-height: 1.05 !important;
         box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
@@ -1193,7 +1198,7 @@ if MOBILE_VIEW:
     ]
     st.markdown(f"""
     <div id="mobile-top" class="mobile-anchor"></div>
-    <div class="mobile-home-title">Vista telefono</div>
+    <div class="mobile-home-title">Calcolatore di Spese Personali</div>
     """, unsafe_allow_html=True)
     mobile_section = st.radio(
         "Sezione telefono",
@@ -3188,9 +3193,13 @@ def main():
         col_left, col_center, col_right = st.columns(LAYOUT_COLONNE["titolo_dashboard"], gap="large")
     if _mobile_show("Panoramica"):
         with col_left:
-            st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div><div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
+            if MOBILE_VIEW:
+                st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div id="mobile-dashboard" class="mobile-anchor"></div><div class="section-pill">💎 Dashboard Finanziaria</div>', unsafe_allow_html=True)
         with col_center:
-            st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
 
         st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
@@ -3240,46 +3249,31 @@ def main():
             st.session_state.setdefault(salary_key, salary_default)
 
         if _mobile_show("Panoramica"):
-            mobile_salary_cols = st.columns(3, gap="small")
-            with mobile_salary_cols[0]:
-                st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
-                stipendio_raw = st.text_input(
-                    "Inserisci lo stipendio effettivamente percepito:",
-                    value=f"{float(st.session_state['mobile_salary_stipendio_percepito_value']):.0f}",
-                    label_visibility="collapsed",
-                    key="mobile_stipendio_percepito"
-                )
-                stipendio_percepito = _parse_mobile_amount(stipendio_raw, input_stipendio_percepito)
-                st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
-            with mobile_salary_cols[1]:
-                st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
-                budget_da_stipendio_default = min(
-                    float(st.session_state["mobile_salary_budget_da_stipendio_value"]),
-                    float(stipendio_percepito)
-                )
-                budget_da_stipendio_raw = st.text_input(
-                    "Inserisci la parte dello stipendio che scegli di usare:",
-                    value=f"{budget_da_stipendio_default:.0f}",
-                    label_visibility="collapsed",
-                    key="mobile_budget_da_stipendio"
-                )
-                budget_da_stipendio = _parse_mobile_amount(
-                    budget_da_stipendio_raw,
-                    budget_da_stipendio_default,
-                    max_value=stipendio_percepito
-                )
-                st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
-                st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
-            with mobile_salary_cols[2]:
-                st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
-                risparmi_raw = st.text_input(
-                    "Inserisci quanto hai risparmiato nel mese precedente:",
-                    value=f"{float(st.session_state['mobile_salary_risparmi_mese_precedente_value']):.0f}",
-                    label_visibility="collapsed",
-                    key="mobile_risparmi_mese_precedente"
-                )
-                risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
-                st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
+            salary_editor_df = pd.DataFrame([{
+                "Stipendio": float(st.session_state["mobile_salary_stipendio_percepito_value"]),
+                "Quota": float(st.session_state["mobile_salary_budget_da_stipendio_value"]),
+                "Risp. prec.": float(st.session_state["mobile_salary_risparmi_mese_precedente_value"]),
+            }])
+            salary_editor_df = st.data_editor(
+                salary_editor_df,
+                hide_index=True,
+                use_container_width=True,
+                height=76,
+                key="mobile_salary_editor",
+                column_config={
+                    "Stipendio": st.column_config.NumberColumn("Stipendio percepito", min_value=0.0, step=50.0, format="%.0f"),
+                    "Quota": st.column_config.NumberColumn("Quota scelta", min_value=0.0, step=50.0, format="%.0f"),
+                    "Risp. prec.": st.column_config.NumberColumn("Risp. prec.", min_value=0.0, step=50.0, format="%.0f"),
+                }
+            )
+            salary_row = salary_editor_df.iloc[0] if not salary_editor_df.empty else salary_editor_df
+            stipendio_percepito = _parse_mobile_amount(salary_row.get("Stipendio", input_stipendio_percepito), input_stipendio_percepito)
+            budget_da_stipendio = _parse_mobile_amount(salary_row.get("Quota", input_budget_da_stipendio), input_budget_da_stipendio, max_value=stipendio_percepito)
+            risparmi_mese_precedente = _parse_mobile_amount(salary_row.get("Risp. prec.", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
+            st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
+            st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
+            st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
+            st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
         else:
             stipendio_percepito = _parse_mobile_amount(
                 st.session_state.get("mobile_salary_stipendio_percepito_value", input_stipendio_percepito),
