@@ -825,16 +825,16 @@ if MOBILE_VIEW:
         font-weight: 800 !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
-        display: flex !important;
-        flex-wrap: wrap !important;
+        display: grid !important;
+        grid-template-columns: minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) !important;
         gap: 8px 10px !important;
         align-items: stretch !important;
-        justify-content: flex-start !important;
+        justify-content: start !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label {
         min-width: 0 !important;
-        width: 118px !important;
-        max-width: 118px !important;
+        width: 100% !important;
+        max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
     }
@@ -843,7 +843,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
-        max-width: 118px !important;
+        max-width: 100% !important;
         min-height: 38px !important;
         display: flex !important;
         align-items: center !important;
@@ -875,12 +875,16 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1),
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3),
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7),
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) {
-        margin-right: 42px !important;
-    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { grid-column:1; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { grid-column:3; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { grid-column:4; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
     .mobile-panorama-budget-row [data-testid="column"] {
         min-width: 0 !important;
         width: 100% !important;
@@ -3301,34 +3305,31 @@ def main():
             st.session_state.setdefault(salary_key, salary_default)
 
         if _mobile_show("Panoramica"):
-            salary_editor_df = pd.DataFrame([{
-                "Stipendio": float(st.session_state["mobile_salary_stipendio_percepito_value"]),
-                "Quota": float(st.session_state["mobile_salary_budget_da_stipendio_value"]),
-                "Risp. prec.": float(st.session_state["mobile_salary_risparmi_mese_precedente_value"]),
-            }])
-            salary_editor_df = st.data_editor(
-                salary_editor_df,
-                hide_index=True,
-                use_container_width=True,
-                height=76,
-                key="mobile_salary_editor",
-                column_config={
-                    "Stipendio": st.column_config.NumberColumn("Stipendio percepito", min_value=0.0, step=50.0, format="%.0f"),
-                    "Quota": st.column_config.NumberColumn("Quota scelta", min_value=0.0, step=50.0, format="%.0f"),
-                    "Risp. prec.": st.column_config.NumberColumn("Risp. prec.", min_value=0.0, step=50.0, format="%.0f"),
-                }
-            )
-            salary_row = salary_editor_df.iloc[0] if not salary_editor_df.empty else salary_editor_df
-            editor_state = st.session_state.get("mobile_salary_editor", {})
-            edited_rows = editor_state.get("edited_rows", {}) if isinstance(editor_state, dict) else {}
-            edited_row = edited_rows.get(0, edited_rows.get("0", {})) if isinstance(edited_rows, dict) else {}
-            if isinstance(edited_row, dict):
-                for edited_key, edited_value in edited_row.items():
-                    if edited_key in salary_row.index:
-                        salary_row[edited_key] = edited_value
-            stipendio_percepito = _parse_mobile_amount(salary_row.get("Stipendio", input_stipendio_percepito), input_stipendio_percepito)
-            budget_da_stipendio = _parse_mobile_amount(salary_row.get("Quota", input_budget_da_stipendio), input_budget_da_stipendio, max_value=stipendio_percepito)
-            risparmi_mese_precedente = _parse_mobile_amount(salary_row.get("Risp. prec.", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
+            salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
+            with salary_col1:
+                stipendio_percepito_raw = st.text_input(
+                    "Stipendio",
+                    value=f"{float(st.session_state['mobile_salary_stipendio_percepito_value']):.0f}",
+                    key="mobile_salary_stipendio_percepito_input",
+                    label_visibility="visible"
+                )
+            stipendio_percepito = _parse_mobile_amount(stipendio_percepito_raw, input_stipendio_percepito)
+            with salary_col2:
+                budget_da_stipendio_raw = st.text_input(
+                    "Quota",
+                    value=f"{min(float(st.session_state['mobile_salary_budget_da_stipendio_value']), stipendio_percepito):.0f}",
+                    key="mobile_salary_budget_da_stipendio_input",
+                    label_visibility="visible"
+                )
+            with salary_col3:
+                risparmi_mese_precedente_raw = st.text_input(
+                    "Risp. prec.",
+                    value=f"{float(st.session_state['mobile_salary_risparmi_mese_precedente_value']):.0f}",
+                    key="mobile_salary_risparmi_mese_precedente_input",
+                    label_visibility="visible"
+                )
+            budget_da_stipendio = _parse_mobile_amount(budget_da_stipendio_raw, input_budget_da_stipendio, max_value=stipendio_percepito)
+            risparmi_mese_precedente = _parse_mobile_amount(risparmi_mese_precedente_raw, input_risparmi_mese_precedente)
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
             st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
             st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
