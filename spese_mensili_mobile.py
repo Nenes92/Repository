@@ -829,6 +829,7 @@ if MOBILE_VIEW:
         flex-wrap: wrap !important;
         gap: 8px 10px !important;
         align-items: stretch !important;
+        justify-content: flex-start !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label {
         min-width: 0 !important;
@@ -875,11 +876,9 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1),
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) {
-        margin-right: 42px !important;
-    }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3),
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7),
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) {
         margin-right: 42px !important;
     }
     .mobile-panorama-budget-row [data-testid="column"] {
@@ -3268,9 +3267,7 @@ def main():
     else:
         col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
     if MOBILE_VIEW:
-        col1 = st.container()
-        col2 = st.container()
-        col3 = st.container()
+        col1 = col2 = col3 = None
     else:
         col1, col2, col3 = st.columns(LAYOUT_COLONNE["dashboard_principale"], gap="large")
 
@@ -3637,6 +3634,10 @@ textarea {
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             # Le note vengono mostrate piu sotto, accanto al dettaglio spese fisse.
+    if MOBILE_VIEW:
+        col1 = st.container()
+        col2 = st.container()
+        col3 = st.container()
     spese_fisse_totali = sum(SPESE["Fisse"].values())
     risparmiabili = stipendio - spese_fisse_totali
     if risparmiabili < 0:
