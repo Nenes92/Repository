@@ -664,7 +664,7 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stip. percepito"]):has(input[aria-label="Quota scelta"]):has(input[aria-label="Risp. prec."]) {
         display: grid !important;
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         gap: 6px !important;
@@ -673,19 +673,27 @@ if MOBILE_VIEW:
         max-width: 100% !important;
         overflow: hidden !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stip. percepito"]):has(input[aria-label="Quota scelta"]):has(input[aria-label="Risp. prec."]) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
         flex: initial !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] input {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stip. percepito"]):has(input[aria-label="Quota scelta"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] input {
         height: 34px !important;
         min-height: 34px !important;
         font-size: 12px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] label {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stip. percepito"]):has(input[aria-label="Quota scelta"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] label {
         min-height: 20px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stip. percepito"]):has(input[aria-label="Quota scelta"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] {
+        padding: 7px 8px 8px !important;
+        border-radius: 12px !important;
+        background:
+            linear-gradient(135deg, rgba(96,165,250,.12), rgba(255,255,255,.035)),
+            rgba(15,23,42,.36) !important;
+        border: 0.5px solid rgba(96,165,250,.16) !important;
     }
     .mobile-kpi-summary-grid {
         display: grid;
@@ -951,7 +959,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
         display: grid !important;
-        grid-template-columns: minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
         gap: 8px 10px !important;
         align-items: stretch !important;
         justify-content: start !important;
@@ -3441,7 +3449,7 @@ def main():
             salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
             with salary_col1:
                 stipendio_percepito_raw = st.text_input(
-                    "Stipendio",
+                    "Stip. percepito",
                     value=f"{float(st.session_state['mobile_salary_stipendio_percepito_value']):.0f}",
                     key="mobile_salary_stipendio_percepito_input",
                     label_visibility="visible"
@@ -3449,11 +3457,12 @@ def main():
             stipendio_percepito = _parse_mobile_amount(stipendio_percepito_raw, input_stipendio_percepito)
             with salary_col2:
                 budget_da_stipendio_raw = st.text_input(
-                    "Quota",
+                    "Quota scelta",
                     value=f"{min(float(st.session_state['mobile_salary_budget_da_stipendio_value']), stipendio_percepito):.0f}",
                     key="mobile_salary_budget_da_stipendio_input",
                     label_visibility="visible"
                 )
+                st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
             with salary_col3:
                 risparmi_mese_precedente_raw = st.text_input(
                     "Risp. prec.",
@@ -3466,7 +3475,6 @@ def main():
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
             st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
             st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
-            st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
         else:
             stipendio_percepito = _parse_mobile_amount(
                 st.session_state.get("mobile_salary_stipendio_percepito_value", input_stipendio_percepito),
@@ -3700,7 +3708,7 @@ textarea {
                 obiettivi_col = budget_card_col
             else:
                 budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
-            if _mobile_show("Panoramica"):
+            if MOBILE_VIEW or _mobile_show("Panoramica"):
                 if MOBILE_VIEW:
                     with budget_left_col:
                         st.markdown(f"""
