@@ -565,13 +565,19 @@ if st.query_params.get("view") != _target_view_param:
     st.query_params["view"] = _target_view_param
 
 MOBILE_VIEW = VISTA_APP == "Telefono"
-MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Promemoria", "Turni", "Storico", "Bollette"]
+MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Note", "Turni", "Storico", "Bollette"]
 
 if MOBILE_VIEW:
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
+    if pending_mobile_section == "Promemoria":
+        pending_mobile_section = "Note"
     if pending_mobile_section in MOBILE_SECTIONS:
         st.session_state["mobile_section_select"] = pending_mobile_section
     if "mobile_section_select" not in st.session_state:
+        st.session_state["mobile_section_select"] = "Panoramica"
+    if st.session_state.get("mobile_section_select") == "Promemoria":
+        st.session_state["mobile_section_select"] = "Note"
+    if st.session_state.get("mobile_section_select") not in MOBILE_SECTIONS:
         st.session_state["mobile_section_select"] = "Panoramica"
     st.markdown("""
     <style>
@@ -819,14 +825,15 @@ if MOBILE_VIEW:
         font-weight: 800 !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
-        display: grid !important;
-        grid-template-columns: minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) !important;
-        gap: 6px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px 10px !important;
         align-items: stretch !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label {
         min-width: 0 !important;
-        width: 100% !important;
+        width: 118px !important;
+        max-width: 118px !important;
         margin: 0 !important;
         padding: 0 !important;
     }
@@ -835,6 +842,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
+        max-width: 118px !important;
         min-height: 38px !important;
         display: flex !important;
         align-items: center !important;
@@ -866,27 +874,14 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { grid-column:1; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { grid-column:3; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { grid-column:4; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1),
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) {
+        margin-right: 42px !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3),
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
-        grid-column:2 / span 2;
-        grid-row:2;
-        margin-left:-5px !important;
-        width: 118px !important;
-        max-width: 118px !important;
-        justify-self: start !important;
+        margin-right: 42px !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) > div:last-child {
-        width: 118px !important;
-        max-width: 118px !important;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; margin-left:10px !important; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
     .mobile-panorama-budget-row [data-testid="column"] {
         min-width: 0 !important;
         width: 100% !important;
@@ -1248,7 +1243,7 @@ if MOBILE_VIEW:
         ("Entrate", "entrate", "Entrate", "Altre entrate e obiettivi"),
         ("Risparmi", "risparmi", "Risparmi", "Riepilogo mese"),
         ("Carte", "carte", "Carte", "Trasferimenti"),
-        ("Promemoria", "promemoria", "Promemoria", "Note mensili"),
+        ("Note", "promemoria", "Note", "Note mensili"),
         ("Turni", "turni", "Turni", "Live e calendario"),
         ("Storico", "storico", "Storico", "Stipendi e risparmi"),
         ("Bollette", "bollette", "Bollette", "Storico e saldo"),
@@ -3598,7 +3593,7 @@ textarea {
                     entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                     st.markdown(f"""
                     <div class="budget-memory-card">
-                        <div class="budget-memory-title">Promemoria budget</div>
+                        <div class="budget-memory-title">Note budget</div>
                         <div class="budget-memory-row">
                             <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
                             <div class="budget-memory-value">{budget_status}</div>
@@ -4624,7 +4619,7 @@ textarea {
                 st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
     
         def _render_promemoria_block():
-            st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Promemoria</div>', unsafe_allow_html=True)
+            st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Note</div>', unsafe_allow_html=True)
 
             def _memo_card(label, value):
                 raw_text = str(value or "").strip()
@@ -4632,7 +4627,7 @@ textarea {
                     preview = raw_text if len(raw_text) <= 230 else raw_text[:227].rstrip() + "..."
                     preview_html = html.escape(preview).replace("\n", "<br>")
                 else:
-                    preview_html = '<span class="memo-card-empty">Nessun promemoria scritto.</span>'
+                    preview_html = '<span class="memo-card-empty">Nessuna nota scritta.</span>'
                 return (
                     '<div class="memo-card">'
                     f'<div class="memo-card-title">{html.escape(label)}</div>'
@@ -4644,7 +4639,7 @@ textarea {
                 note_keys = ["nota1", "nota2", "nota3", "nota4"]
                 st.markdown(
                     '<div class="mobile-notes-html-grid">'
-                    + "".join(_memo_card(f"Promemoria {idx}", _nota_value(note_key)) for idx, note_key in enumerate(note_keys, start=1))
+                    + "".join(_memo_card(f"Nota {idx}", _nota_value(note_key)) for idx, note_key in enumerate(note_keys, start=1))
                     + '</div>',
                     unsafe_allow_html=True
                 )
@@ -4654,10 +4649,10 @@ textarea {
                     "nota3": _nota_value("nota3"),
                     "nota4": _nota_value("nota4"),
                 }
-                with st.expander("Apri / modifica promemoria", expanded=False):
+                with st.expander("Apri / modifica note", expanded=False):
                     for idx, note_key in enumerate(note_keys, start=1):
                         note_values_map[note_key] = st.text_area(
-                            f"Promemoria {idx}",
+                            f"Nota {idx}",
                             value=note_values_map[note_key],
                             height=180,
                             key=f"{note_key}_text"
@@ -4669,22 +4664,22 @@ textarea {
             else:
                 n1, n2 = st.columns(2, gap="small")
                 with n1:
-                    st.markdown(_memo_card("Promemoria 1", _nota_value("nota1")), unsafe_allow_html=True)
+                    st.markdown(_memo_card("Nota 1", _nota_value("nota1")), unsafe_allow_html=True)
                     with st.popover("Apri / modifica 1", use_container_width=True):
-                        nota1 = st.text_area("Promemoria 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
+                        nota1 = st.text_area("Nota 1", value=_nota_value("nota1"), height=420, label_visibility="collapsed", key="nota1_text")
                 with n2:
-                    st.markdown(_memo_card("Promemoria 2", _nota_value("nota2")), unsafe_allow_html=True)
+                    st.markdown(_memo_card("Nota 2", _nota_value("nota2")), unsafe_allow_html=True)
                     with st.popover("Apri / modifica 2", use_container_width=True):
-                        nota2 = st.text_area("Promemoria 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
+                        nota2 = st.text_area("Nota 2", value=_nota_value("nota2"), height=420, label_visibility="collapsed", key="nota2_text")
                 n3, n4 = st.columns(2, gap="small")
                 with n3:
-                    st.markdown(_memo_card("Promemoria 3", _nota_value("nota3")), unsafe_allow_html=True)
+                    st.markdown(_memo_card("Nota 3", _nota_value("nota3")), unsafe_allow_html=True)
                     with st.popover("Apri / modifica 3", use_container_width=True):
-                        nota3 = st.text_area("Promemoria 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
+                        nota3 = st.text_area("Nota 3", value=_nota_value("nota3"), height=420, label_visibility="collapsed", key="nota3_text")
                 with n4:
-                    st.markdown(_memo_card("Promemoria 4", _nota_value("nota4")), unsafe_allow_html=True)
+                    st.markdown(_memo_card("Nota 4", _nota_value("nota4")), unsafe_allow_html=True)
                     with st.popover("Apri / modifica 4", use_container_width=True):
-                        nota4 = st.text_area("Promemoria 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
+                        nota4 = st.text_area("Nota 4", value=_nota_value("nota4"), height=420, label_visibility="collapsed", key="nota4_text")
 
             salva = st.button(
                 "💾 Salva note",
@@ -4986,7 +4981,7 @@ textarea {
                         chart_carte = carte_arc.resolve_scale(color='independent')
                         st.altair_chart(chart_carte, use_container_width=True)
                 st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-        if MOBILE_VIEW and _mobile_show("Promemoria"):
+        if MOBILE_VIEW and _mobile_show("Note"):
             _render_promemoria_block()
             st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         if _mobile_show("Turni"):
