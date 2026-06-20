@@ -531,24 +531,48 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
+components.html(
+    """
+    <script>
+    const params = new URLSearchParams(window.parent.location.search);
+    const hasExplicitView = params.has("view");
+    const isPhoneWidth = window.parent.innerWidth <= 820;
+    if (!hasExplicitView && isPhoneWidth) {
+        params.set("view", "mobile");
+        window.parent.location.replace(window.parent.location.pathname + "?" + params.toString() + window.parent.location.hash);
+    }
+    </script>
+    """,
+    height=0,
+)
+
+_view_param = st.query_params.get("view")
+if isinstance(_view_param, list):
+    _view_param = _view_param[0] if _view_param else None
+_default_view = "Telefono" if _view_param == "mobile" else "Desktop"
+
 with st.sidebar:
     VISTA_APP = st.radio(
         "Vista",
         ["Desktop", "Telefono"],
-        index=0,
+        index=["Desktop", "Telefono"].index(_default_view),
         horizontal=True,
         key="vista_app_mode"
     )
+
+_target_view_param = "mobile" if VISTA_APP == "Telefono" else "desktop"
+if st.query_params.get("view") != _target_view_param:
+    st.query_params["view"] = _target_view_param
 
 MOBILE_VIEW = VISTA_APP == "Telefono"
 MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Promemoria", "Turni", "Storico", "Bollette"]
 
 if MOBILE_VIEW:
-    requested_mobile_section = st.query_params.get("mobile_section")
-    if isinstance(requested_mobile_section, list):
-        requested_mobile_section = requested_mobile_section[0] if requested_mobile_section else None
-    if requested_mobile_section in MOBILE_SECTIONS:
-        st.session_state["mobile_section_select"] = requested_mobile_section
+    pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
+    if pending_mobile_section in MOBILE_SECTIONS:
+        st.session_state["mobile_section_select"] = pending_mobile_section
+    if "mobile_section_select" not in st.session_state:
+        st.session_state["mobile_section_select"] = "Panoramica"
 
     mobile_section = st.sidebar.selectbox(
         "Vai alla sezione",
@@ -719,7 +743,8 @@ if MOBILE_VIEW:
         gap: 10px;
         margin: 4px 0 18px;
     }
-    .mobile-home-card {
+    .mobile-home-card,
+    .mobile-card-caption {
         display: block;
         min-height: 78px;
         padding: 13px 14px;
@@ -731,42 +756,68 @@ if MOBILE_VIEW:
         border-left: 4px solid var(--section-color);
         box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
-    .mobile-home-card.panoramica { --section-color:#38bdf8; }
+    .mobile-card-caption {
+        min-height: 68px;
+        margin: 0 0 6px;
+    }
+    .mobile-home-card.panoramica,
+    .mobile-card-caption.panoramica { --section-color:#38bdf8; }
     .mobile-home-card.spese,
+    .mobile-card-caption.spese,
     .mobile-nav a.spese { --section-color:#f87171; }
-    .mobile-home-card.variabili { --section-color:#4ade80; }
+    .mobile-home-card.variabili,
+    .mobile-card-caption.variabili { --section-color:#4ade80; }
     .mobile-home-card.entrate,
+    .mobile-card-caption.entrate,
     .mobile-nav a.entrate { --section-color:#34d399; }
     .mobile-home-card.risparmi,
+    .mobile-card-caption.risparmi,
     .mobile-nav a.risparmi { --section-color:#facc15; }
-    .mobile-home-card.carte { --section-color:#89cff0; }
-    .mobile-home-card.promemoria { --section-color:#fde68a; }
+    .mobile-home-card.carte,
+    .mobile-card-caption.carte { --section-color:#89cff0; }
+    .mobile-home-card.promemoria,
+    .mobile-card-caption.promemoria { --section-color:#fde68a; }
     .mobile-home-card.turni,
+    .mobile-card-caption.turni,
     .mobile-nav a.turni { --section-color:#60a5fa; }
     .mobile-home-card.storico,
+    .mobile-card-caption.storico,
     .mobile-nav a.storico { --section-color:#a78bfa; }
     .mobile-home-card.bollette,
+    .mobile-card-caption.bollette,
     .mobile-nav a.bollette { --section-color:#fb923c; }
     .mobile-nav a.panoramica { --section-color:#38bdf8; }
     .mobile-nav a.variabili { --section-color:#4ade80; }
     .mobile-nav a.carte { --section-color:#89cff0; }
-    .mobile-home-card.active {
+    .mobile-home-card.active,
+    .mobile-card-caption.active {
         background:
             linear-gradient(135deg, color-mix(in srgb, var(--section-color) 32%, transparent), rgba(255,255,255,.06));
         border-color: color-mix(in srgb, var(--section-color) 72%, rgba(255,255,255,.16));
         box-shadow: 0 0 0 1px color-mix(in srgb, var(--section-color) 38%, transparent), 0 14px 30px rgba(0,0,0,.22);
     }
-    .mobile-home-card strong {
+    .mobile-home-card strong,
+    .mobile-card-caption strong {
         display: block;
         color: rgba(255,255,255,.94);
         font-size: 14px;
         line-height: 1.2;
         margin-bottom: 6px;
     }
-    .mobile-home-card span {
+    .mobile-home-card span,
+    .mobile-card-caption span {
         color: rgba(255,255,255,.46);
         font-size: 11px;
         line-height: 1.25;
+    }
+    div[data-testid="stButton"] > button[kind="secondary"] {
+        min-height: 34px !important;
+        border-radius: 11px !important;
+        background: rgba(30,64,105,.50) !important;
+        border: 0.5px solid rgba(96,165,250,.30) !important;
+        color: rgba(219,234,254,.94) !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
     }
     .mobile-nav {
         display: flex;
@@ -1098,15 +1149,26 @@ if MOBILE_VIEW:
         ("Storico", "storico", "Storico", "Stipendi e risparmi"),
         ("Bollette", "bollette", "Bollette", "Storico e saldo"),
     ]
-    _mobile_cards_html = ''.join(
-        f'<a class="mobile-home-card {css_class} {"active" if mobile_section == label else ""}" href="?mobile_section={label}#mobile-top"><strong>{title}</strong><span>{subtitle}</span></a>'
-        for label, css_class, title, subtitle in _mobile_cards
-    )
     st.markdown(f"""
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
-    <div class="mobile-home-grid">{_mobile_cards_html}</div>
     """, unsafe_allow_html=True)
+    mobile_card_cols = st.columns(2, gap="small")
+    for idx, (label, css_class, title, subtitle) in enumerate(_mobile_cards):
+        with mobile_card_cols[idx % 2]:
+            active_class = " active" if mobile_section == label else ""
+            st.markdown(
+                f'<div class="mobile-card-caption {css_class}{active_class}"><strong>{title}</strong><span>{subtitle}</span></div>',
+                unsafe_allow_html=True
+            )
+            if st.button(
+                "Apri" if mobile_section != label else "Aperta",
+                key=f"mobile_section_button_{label}",
+                use_container_width=True,
+                disabled=mobile_section == label
+            ):
+                st.session_state["_pending_mobile_section"] = label
+                st.rerun()
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
