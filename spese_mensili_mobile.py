@@ -556,52 +556,50 @@ st.markdown("""
 [data-testid="stSidebar"] {
     display: none !important;
 }
-.main-view-switch [data-testid="stRadio"] [role="radiogroup"] {
-    display: inline-flex !important;
-    gap: 6px !important;
-    padding: 3px !important;
-    border-radius: 999px !important;
-    background: rgba(15,23,42,.72) !important;
-    border: 0.5px solid rgba(148,163,184,.20) !important;
+.main-view-switch {
+    position: fixed;
+    z-index: 999999;
+    top: 54px;
+    left: 10px;
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(9,14,24,.86);
+    border: 0.5px solid rgba(148,163,184,.18);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 22px rgba(0,0,0,.22);
 }
-.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label {
-    margin: 0 !important;
+.main-view-switch a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    text-decoration: none !important;
+    color: rgba(219,234,254,.72) !important;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .15px;
 }
-.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
-    display: none !important;
-}
-.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
-    min-height: 28px !important;
-    padding: 5px 12px !important;
-    border-radius: 999px !important;
-    background: rgba(30,64,105,.42) !important;
-    border: 0.5px solid rgba(96,165,250,.22) !important;
-    color: rgba(219,234,254,.88) !important;
-    font-size: 11px !important;
-    font-weight: 850 !important;
-}
-.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) > div:last-child {
-    background: linear-gradient(135deg, rgba(56,189,248,.38), rgba(96,165,250,.26)) !important;
+.main-view-switch a.active {
     color: #fff !important;
-    box-shadow: 0 0 0 1px rgba(56,189,248,.32) !important;
+    background: linear-gradient(135deg, rgba(56,189,248,.40), rgba(96,165,250,.22));
+    box-shadow: 0 0 0 1px rgba(56,189,248,.30);
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-view-switch">', unsafe_allow_html=True)
-VISTA_APP = st.radio(
-    "Vista",
-    ["Desktop", "Telefono"],
-    index=["Desktop", "Telefono"].index(_default_view),
-    horizontal=True,
-    key="vista_app_mode",
-    label_visibility="collapsed"
+VISTA_APP = _default_view
+_desktop_active = "active" if VISTA_APP == "Desktop" else ""
+_mobile_active = "active" if VISTA_APP == "Telefono" else ""
+st.markdown(
+    f'<div class="main-view-switch">'
+    f'<a class="{_desktop_active}" href="?view=desktop" target="_self">Desktop</a>'
+    f'<a class="{_mobile_active}" href="?view=mobile" target="_self">Telefono</a>'
+    f'</div>',
+    unsafe_allow_html=True
 )
-st.markdown('</div>', unsafe_allow_html=True)
-
-_target_view_param = "mobile" if VISTA_APP == "Telefono" else "desktop"
-if st.query_params.get("view") != _target_view_param:
-    st.query_params["view"] = _target_view_param
 
 MOBILE_VIEW = VISTA_APP == "Telefono"
 MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Note", "Turni", "Storico", "Bollette"]
@@ -665,6 +663,50 @@ if MOBILE_VIEW:
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        align-items: end !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] input {
+        height: 34px !important;
+        min-height: 34px !important;
+        font-size: 12px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio"]):has(input[aria-label="Quota"]):has(input[aria-label="Risp. prec."]) [data-testid="stTextInput"] label {
+        min-height: 20px !important;
+    }
+    .mobile-kpi-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 4px;
+    }
+    .mobile-kpi-summary-grid .kpi-card {
+        min-height: 104px !important;
+        padding: 12px 11px !important;
+        margin-bottom: 0 !important;
+    }
+    .mobile-kpi-summary-grid .kpi-value {
+        font-size: 18px !important;
+        line-height: 1.12 !important;
+    }
+    .mobile-kpi-summary-grid .kpi-label {
+        font-size: 9px !important;
+        line-height: 1.15 !important;
     }
     .mobile-notes-html-grid {
         display: grid;
@@ -922,9 +964,9 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
-        grid-column:2 / span 2;
+        grid-column:2;
         grid-row:2;
-        width: 78% !important;
+        width: 100% !important;
         justify-self: start !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) > div:last-child {
@@ -3440,6 +3482,7 @@ def main():
 
         if MOBILE_VIEW:
             st.markdown(f"""
+            <div class="mobile-kpi-summary-grid">
             <div class="kpi-card">
                 <div class="kpi-label">Entrate mensili totali</div>
                 <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
@@ -3447,14 +3490,13 @@ def main():
                     Stipendio percepito + altre entrate
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Budget mensile disponibile</div>
                 <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
                 <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
                     Quota stipendio scelta + altre entrate
                 </div>
+            </div>
             </div>
             """, unsafe_allow_html=True)
         else:
