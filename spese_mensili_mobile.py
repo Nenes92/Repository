@@ -622,30 +622,30 @@ if MOBILE_VIEW:
     }
     .mobile-notes-html-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 6px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
         width: 100%;
         max-width: 100%;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
     }
     .mobile-notes-html-grid .memo-card {
         min-width: 0;
-        min-height: 88px;
-        padding: 8px 7px;
+        min-height: 132px;
+        padding: 10px 9px;
         margin: 0;
-        border-radius: 10px;
+        border-radius: 12px;
     }
     .mobile-notes-html-grid .memo-card-title {
-        font-size: 8px;
-        letter-spacing: .45px;
-        margin-bottom: 5px;
+        font-size: 9.5px;
+        letter-spacing: .55px;
+        margin-bottom: 7px;
     }
     .mobile-notes-html-grid .memo-card-preview {
-        min-height: 40px;
-        max-height: 48px;
+        min-height: 78px;
+        max-height: 92px;
         overflow: hidden;
-        font-size: 9px;
-        line-height: 1.22;
+        font-size: 10px;
+        line-height: 1.3;
     }
     .mobile-objective-block {
         margin-top: 14px;
@@ -872,8 +872,8 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; margin-left:-5px !important; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; margin-left:10px !important; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
     .mobile-nav {
