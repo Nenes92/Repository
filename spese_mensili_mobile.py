@@ -872,10 +872,52 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; margin-left:-5px !important; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
+        grid-column:2 / span 2;
+        grid-row:2;
+        margin-left:-5px !important;
+        max-width: 128px !important;
+        justify-self: start !important;
+    }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; margin-left:10px !important; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
+    .mobile-panorama-budget-row [data-testid="column"] {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    .mobile-panorama-budget-row .kpi-card {
+        min-height: 112px !important;
+        padding: 12px 13px !important;
+    }
+    .mobile-panorama-budget-row .budget-memory-card {
+        min-height: 184px !important;
+        height: 100% !important;
+        padding: 10px 11px 9px !important;
+    }
+    .mobile-panorama-budget-row .budget-memory-title {
+        font-size: 10px !important;
+        margin-bottom: 6px !important;
+    }
+    .mobile-panorama-budget-row .budget-memory-row {
+        gap: 8px !important;
+        padding: 8px 0 !important;
+        align-items: center !important;
+    }
+    .mobile-panorama-budget-row .budget-memory-label {
+        font-size: 9.5px !important;
+        line-height: 1.2 !important;
+    }
+    .mobile-panorama-budget-row .budget-memory-value {
+        font-size: 12px !important;
+    }
+    .mobile-panorama-budget-row [data-testid="stExpander"] {
+        margin-top: 6px !important;
+    }
+    .mobile-panorama-budget-row [data-testid="stExpander"] summary {
+        min-height: 36px !important;
+        font-size: 11px !important;
+    }
     .mobile-nav {
         display: flex;
         gap: 7px;
@@ -3342,9 +3384,15 @@ def main():
     stipendio_totale = entrate_mensili_totali
     stipendio_utilizzare = budget_mensile_disponibile
 
+    mobile_panorama_budget_open = False
     if MOBILE_VIEW:
-        col_stip_inserimento3 = st.container()
-        col_stip_inserimento4 = st.container()
+        if _mobile_show("Panoramica"):
+            st.markdown('<div class="mobile-panorama-budget-row">', unsafe_allow_html=True)
+            mobile_panorama_budget_open = True
+            col_stip_inserimento3, col_stip_inserimento4 = st.columns([1.05, 0.95], gap="small")
+        else:
+            col_stip_inserimento3 = st.container()
+            col_stip_inserimento4 = st.container()
 
     with col_stip_inserimento3:
         _ts = f"€{entrate_mensili_totali:,.2f}"
@@ -3595,6 +3643,8 @@ textarea {
             if not st.session_state.get("note_loaded_from_sheet", True):
                 st.warning("Note non caricate da Google Sheets: salvataggio disabilitato per evitare di sovrascriverle vuote.")
             # Le note vengono mostrate piu sotto, accanto al dettaglio spese fisse.
+    if mobile_panorama_budget_open:
+        st.markdown('</div>', unsafe_allow_html=True)
 
     spese_fisse_totali = sum(SPESE["Fisse"].values())
     risparmiabili = stipendio - spese_fisse_totali
