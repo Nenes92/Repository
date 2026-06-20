@@ -820,7 +820,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
         display: grid !important;
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        grid-template-columns: minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) 0.28fr minmax(0,1fr) minmax(0,1fr) !important;
         gap: 6px !important;
         align-items: stretch !important;
     }
@@ -840,13 +840,13 @@ if MOBILE_VIEW:
         align-items: center !important;
         justify-content: center !important;
         text-align: center !important;
-        padding: 7px 4px !important;
+        padding: 6px 3px !important;
         border-radius: 11px !important;
         border: 0.5px solid color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 52%, rgba(255,255,255,.13)) !important;
         border-bottom: 3px solid var(--mobile-radio-color, #60a5fa) !important;
         background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
         color: rgba(255,255,255,.90) !important;
-        font-size: 10px !important;
+        font-size: 8.5px !important;
         font-weight: 900 !important;
         line-height: 1.05 !important;
         box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
@@ -866,6 +866,16 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { grid-column:1; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { grid-column:3; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { grid-column:4; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
     .mobile-nav {
         display: flex;
         gap: 7px;
@@ -1200,12 +1210,17 @@ if MOBILE_VIEW:
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Calcolatore di Spese Personali</div>
     """, unsafe_allow_html=True)
+    mobile_section_labels = {
+        "Spese": "Spese fisse",
+        "Variabili": "Spese variabili",
+    }
     mobile_section = st.radio(
         "Sezione telefono",
         MOBILE_SECTIONS,
         key="mobile_section_select",
         horizontal=True,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        format_func=lambda section: mobile_section_labels.get(section, section)
     )
 
 def _mobile_show(*sections):
@@ -3208,8 +3223,6 @@ def main():
         mobile_quota_col = st.container()
         mobile_risp_col = st.container()
         mobile_note_col = st.container()
-        col_stip_inserimento3 = st.container()
-        col_stip_inserimento4 = st.container()
     else:
         col_stip_inserimento1, col_stip_inserimento2, col_stip_inserimento3, col_stip_inserimento4 = st.columns(LAYOUT_COLONNE["header_stipendi_note"], gap="large")
     if MOBILE_VIEW:
@@ -3267,6 +3280,13 @@ def main():
                 }
             )
             salary_row = salary_editor_df.iloc[0] if not salary_editor_df.empty else salary_editor_df
+            editor_state = st.session_state.get("mobile_salary_editor", {})
+            edited_rows = editor_state.get("edited_rows", {}) if isinstance(editor_state, dict) else {}
+            edited_row = edited_rows.get(0, edited_rows.get("0", {})) if isinstance(edited_rows, dict) else {}
+            if isinstance(edited_row, dict):
+                for edited_key, edited_value in edited_row.items():
+                    if edited_key in salary_row.index:
+                        salary_row[edited_key] = edited_value
             stipendio_percepito = _parse_mobile_amount(salary_row.get("Stipendio", input_stipendio_percepito), input_stipendio_percepito)
             budget_da_stipendio = _parse_mobile_amount(salary_row.get("Quota", input_budget_da_stipendio), input_budget_da_stipendio, max_value=stipendio_percepito)
             risparmi_mese_precedente = _parse_mobile_amount(salary_row.get("Risp. prec.", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
@@ -3321,6 +3341,10 @@ def main():
     stipendio = budget_mensile_disponibile
     stipendio_totale = entrate_mensili_totali
     stipendio_utilizzare = budget_mensile_disponibile
+
+    if MOBILE_VIEW:
+        col_stip_inserimento3 = st.container()
+        col_stip_inserimento4 = st.container()
 
     with col_stip_inserimento3:
         _ts = f"€{entrate_mensili_totali:,.2f}"
