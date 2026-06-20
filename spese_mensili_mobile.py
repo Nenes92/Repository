@@ -559,8 +559,8 @@ st.markdown("""
 .main-view-switch {
     position: fixed;
     z-index: 999999;
-    top: 54px;
-    left: 10px;
+    top: 4px;
+    left: 8px;
     display: inline-flex;
     gap: 4px;
     padding: 3px;
@@ -689,15 +689,15 @@ if MOBILE_VIEW:
     }
     .mobile-kpi-summary-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: 1fr;
+        gap: 7px;
         width: 100%;
         max-width: 100%;
-        margin-top: 4px;
+        height: 100%;
     }
     .mobile-kpi-summary-grid .kpi-card {
-        min-height: 104px !important;
-        padding: 12px 11px !important;
+        min-height: 76px !important;
+        padding: 10px 10px !important;
         margin-bottom: 0 !important;
     }
     .mobile-kpi-summary-grid .kpi-value {
@@ -707,6 +707,49 @@ if MOBILE_VIEW:
     .mobile-kpi-summary-grid .kpi-label {
         font-size: 9px !important;
         line-height: 1.15 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) {
+        display: grid !important;
+        grid-template-columns: minmax(0, .98fr) minmax(0, 1.02fr) !important;
+        gap: 8px !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-card {
+        min-height: 159px !important;
+        height: 100% !important;
+        padding: 10px 10px 8px !important;
+        margin-bottom: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-title {
+        font-size: 10px !important;
+        margin-bottom: 5px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-row {
+        padding: 7px 0 !important;
+        gap: 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-label {
+        font-size: 9px !important;
+        line-height: 1.17 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-value {
+        font-size: 11px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) [data-testid="stExpander"] {
+        margin-top: 7px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) [data-testid="stExpander"] summary {
+        min-height: 34px !important;
+        font-size: 11px !important;
     }
     .mobile-notes-html-grid {
         display: grid;
@@ -3481,24 +3524,7 @@ def main():
         _tu = f"€{budget_mensile_disponibile:,.2f}"
 
         if MOBILE_VIEW:
-            st.markdown(f"""
-            <div class="mobile-kpi-summary-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">Entrate mensili totali</div>
-                <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Stipendio percepito + altre entrate
-                </div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Budget mensile disponibile</div>
-                <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">
-                    Quota stipendio scelta + altre entrate
-                </div>
-            </div>
-            </div>
-            """, unsafe_allow_html=True)
+            pass
         else:
             # ───────── Divisione in 2 colonne ─────────
             col_stip_inserimento3_1, col_stip_inserimento3_2 = st.columns(2, gap="medium")
@@ -3670,11 +3696,32 @@ textarea {
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
 
             if MOBILE_VIEW:
-                budget_card_col = st.container()
-                obiettivi_col = st.container()
+                budget_left_col, budget_card_col = st.columns([1, 1], gap="small")
+                obiettivi_col = budget_card_col
             else:
                 budget_card_col, obiettivi_col, budget_spacer = st.columns([1.06, 0.44, 1.20], gap="small")
             if _mobile_show("Panoramica"):
+                if MOBILE_VIEW:
+                    with budget_left_col:
+                        st.markdown(f"""
+                        <div class="mobile-budget-left-marker"></div>
+                        <div class="mobile-kpi-summary-grid">
+                            <div class="kpi-card">
+                                <div class="kpi-label">Entrate mensili totali</div>
+                                <div class="kpi-value" style="color:#77DD77;">{_ts}</div>
+                                <div style="font-size:10px;color:rgba(255,255,255,0.42);margin-top:3px;">
+                                    Stipendio percepito + altre entrate
+                                </div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="kpi-label">Budget mensile disponibile</div>
+                                <div class="kpi-value" style="color:#60a5fa;">{_tu}</div>
+                                <div style="font-size:10px;color:rgba(255,255,255,0.42);margin-top:3px;">
+                                    Quota stipendio scelta + altre entrate
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 with budget_card_col:
                     entrate_totali_target = budget_disponibile_target + max(0, risparmio_desiderato_corrente - risparmio_auto_variabili_target)
                     gap_budget_ideale = max(0, budget_disponibile_target - budget_mensile_disponibile)
@@ -3682,6 +3729,7 @@ textarea {
                     budget_status = "ok" if gap_budget_ideale <= 0 else f"-€{gap_budget_ideale:,.2f}"
                     entrate_status = "ok" if gap_entrate_ideali <= 0 else f"-€{gap_entrate_ideali:,.2f}"
                     st.markdown(f"""
+                    <div class="mobile-budget-right-marker"></div>
                     <div class="budget-memory-card">
                         <div class="budget-memory-title">Note budget</div>
                         <div class="budget-memory-row">
