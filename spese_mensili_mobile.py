@@ -1153,19 +1153,15 @@ if MOBILE_VIEW:
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Vista telefono</div>
     """, unsafe_allow_html=True)
-    mobile_card_cols = st.columns(2, gap="small")
+    mobile_card_cols = st.columns(3, gap="small")
     for idx, (label, css_class, title, subtitle) in enumerate(_mobile_cards):
-        with mobile_card_cols[idx % 2]:
-            active_class = " active" if mobile_section == label else ""
-            st.markdown(
-                f'<div class="mobile-card-caption {css_class}{active_class}"><strong>{title}</strong><span>{subtitle}</span></div>',
-                unsafe_allow_html=True
-            )
+        with mobile_card_cols[idx % 3]:
             if st.button(
-                "Apri" if mobile_section != label else "Aperta",
+                f"✓ {title}" if mobile_section == label else title,
                 key=f"mobile_section_button_{label}",
                 use_container_width=True,
-                disabled=mobile_section == label
+                disabled=mobile_section == label,
+                help=subtitle
             ):
                 st.session_state["_pending_mobile_section"] = label
                 st.rerun()
