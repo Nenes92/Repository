@@ -3198,19 +3198,32 @@ def main():
         return max(0.0, value)
 
     if MOBILE_VIEW:
+        mobile_salary_defaults = {
+            "mobile_salary_stipendio_percepito_value": float(input_stipendio_percepito),
+            "mobile_salary_budget_da_stipendio_value": float(input_budget_da_stipendio),
+            "mobile_salary_risparmi_mese_precedente_value": float(input_risparmi_mese_precedente),
+        }
+        for salary_key, salary_default in mobile_salary_defaults.items():
+            st.session_state.setdefault(salary_key, salary_default)
+
         if _mobile_show("Panoramica"):
-            with mobile_stip_col:
+            mobile_salary_cols = st.columns(3, gap="small")
+            with mobile_salary_cols[0]:
                 st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
                 stipendio_raw = st.text_input(
                     "Inserisci lo stipendio effettivamente percepito:",
-                    value=f"{float(input_stipendio_percepito):.0f}",
+                    value=f"{float(st.session_state['mobile_salary_stipendio_percepito_value']):.0f}",
                     label_visibility="collapsed",
                     key="mobile_stipendio_percepito"
                 )
                 stipendio_percepito = _parse_mobile_amount(stipendio_raw, input_stipendio_percepito)
-            with mobile_quota_col:
+                st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
+            with mobile_salary_cols[1]:
                 st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
-                budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
+                budget_da_stipendio_default = min(
+                    float(st.session_state["mobile_salary_budget_da_stipendio_value"]),
+                    float(stipendio_percepito)
+                )
                 budget_da_stipendio_raw = st.text_input(
                     "Inserisci la parte dello stipendio che scegli di usare:",
                     value=f"{budget_da_stipendio_default:.0f}",
@@ -3222,22 +3235,35 @@ def main():
                     budget_da_stipendio_default,
                     max_value=stipendio_percepito
                 )
-            with mobile_risp_col:
+                st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
+                st.markdown('<div class="mobile-compact-input-note">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+            with mobile_salary_cols[2]:
                 st.markdown('<div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
                 risparmi_raw = st.text_input(
                     "Inserisci quanto hai risparmiato nel mese precedente:",
-                    value=f"{float(input_risparmi_mese_precedente):.0f}",
+                    value=f"{float(st.session_state['mobile_salary_risparmi_mese_precedente_value']):.0f}",
                     label_visibility="collapsed",
                     key="mobile_risparmi_mese_precedente"
                 )
                 risparmi_mese_precedente = _parse_mobile_amount(risparmi_raw, input_risparmi_mese_precedente)
-            with mobile_note_col:
-                st.markdown('<div class="mobile-compact-input-note" style="padding-top:19px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+                st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
         else:
-            stipendio_percepito = _parse_mobile_amount(st.session_state.get("mobile_stipendio_percepito", input_stipendio_percepito), input_stipendio_percepito)
-            budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
-            budget_da_stipendio = _parse_mobile_amount(st.session_state.get("mobile_budget_da_stipendio", budget_da_stipendio_default), budget_da_stipendio_default, max_value=stipendio_percepito)
-            risparmi_mese_precedente = _parse_mobile_amount(st.session_state.get("mobile_risparmi_mese_precedente", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
+            stipendio_percepito = _parse_mobile_amount(
+                st.session_state.get("mobile_salary_stipendio_percepito_value", input_stipendio_percepito),
+                input_stipendio_percepito
+            )
+            budget_da_stipendio = _parse_mobile_amount(
+                st.session_state.get("mobile_salary_budget_da_stipendio_value", input_budget_da_stipendio),
+                input_budget_da_stipendio,
+                max_value=stipendio_percepito
+            )
+            risparmi_mese_precedente = _parse_mobile_amount(
+                st.session_state.get("mobile_salary_risparmi_mese_precedente_value", input_risparmi_mese_precedente),
+                input_risparmi_mese_precedente
+            )
+            st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
+            st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
+            st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
