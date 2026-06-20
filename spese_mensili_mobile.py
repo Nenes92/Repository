@@ -551,14 +551,53 @@ if isinstance(_view_param, list):
     _view_param = _view_param[0] if _view_param else None
 _default_view = "Telefono" if _view_param == "mobile" else "Desktop"
 
-with st.sidebar:
-    VISTA_APP = st.radio(
-        "Vista",
-        ["Desktop", "Telefono"],
-        index=["Desktop", "Telefono"].index(_default_view),
-        horizontal=True,
-        key="vista_app_mode"
-    )
+st.markdown("""
+<style>
+[data-testid="stSidebar"] {
+    display: none !important;
+}
+.main-view-switch [data-testid="stRadio"] [role="radiogroup"] {
+    display: inline-flex !important;
+    gap: 6px !important;
+    padding: 3px !important;
+    border-radius: 999px !important;
+    background: rgba(15,23,42,.72) !important;
+    border: 0.5px solid rgba(148,163,184,.20) !important;
+}
+.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label {
+    margin: 0 !important;
+}
+.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
+    display: none !important;
+}
+.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
+    min-height: 28px !important;
+    padding: 5px 12px !important;
+    border-radius: 999px !important;
+    background: rgba(30,64,105,.42) !important;
+    border: 0.5px solid rgba(96,165,250,.22) !important;
+    color: rgba(219,234,254,.88) !important;
+    font-size: 11px !important;
+    font-weight: 850 !important;
+}
+.main-view-switch [data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) > div:last-child {
+    background: linear-gradient(135deg, rgba(56,189,248,.38), rgba(96,165,250,.26)) !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 1px rgba(56,189,248,.32) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="main-view-switch">', unsafe_allow_html=True)
+VISTA_APP = st.radio(
+    "Vista",
+    ["Desktop", "Telefono"],
+    index=["Desktop", "Telefono"].index(_default_view),
+    horizontal=True,
+    key="vista_app_mode",
+    label_visibility="collapsed"
+)
+st.markdown('</div>', unsafe_allow_html=True)
 
 _target_view_param = "mobile" if VISTA_APP == "Telefono" else "desktop"
 if st.query_params.get("view") != _target_view_param:
@@ -588,7 +627,8 @@ if MOBILE_VIEW:
     .mobile-compact-input-note {
         font-size: 10px;
         color: rgba(255,255,255,.42);
-        margin-top: 3px;
+        margin-top: 6px;
+        margin-bottom: 18px;
         line-height: 1.15;
     }
     html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .block-container {
@@ -881,7 +921,15 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { grid-column:2 / span 2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
+        grid-column:2 / span 2;
+        grid-row:2;
+        width: 78% !important;
+        justify-self: start !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) > div:last-child {
+        max-width: 100% !important;
+    }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
@@ -3573,6 +3621,8 @@ textarea {
         
             # ───────── UI BUDGET ─────────
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
+            if "risparmio_desiderato_promemoria" in st.session_state:
+                risparmio_desiderato_corrente = float(st.session_state["risparmio_desiderato_promemoria"])
             target_budget = calcola_target_budget_dinamico(sum(SPESE["Fisse"].values()))
             budget_disponibile_target = target_budget["budget_disponibile_target"]
             risparmio_auto_variabili_target = target_budget["risparmio_auto_variabili"]
