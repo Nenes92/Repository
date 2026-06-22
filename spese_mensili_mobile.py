@@ -704,6 +704,33 @@ if MOBILE_VIEW:
         min-height: 34px !important;
         padding: 0 !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(1) [data-testid="stNumberInput"] {
+        background:
+            linear-gradient(135deg, rgba(52,211,153,.20), rgba(255,255,255,.035)),
+            rgba(15,23,42,.36) !important;
+        border-color: rgba(52,211,153,.30) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(1) [data-testid="stNumberInput"] label {
+        color: rgba(134,239,172,.96) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(2) [data-testid="stNumberInput"] {
+        background:
+            linear-gradient(135deg, rgba(96,165,250,.22), rgba(255,255,255,.035)),
+            rgba(15,23,42,.36) !important;
+        border-color: rgba(96,165,250,.34) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(2) [data-testid="stNumberInput"] label {
+        color: rgba(147,197,253,.98) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(3) [data-testid="stNumberInput"] {
+        background:
+            linear-gradient(135deg, rgba(250,204,21,.18), rgba(255,255,255,.035)),
+            rgba(15,23,42,.36) !important;
+        border-color: rgba(250,204,21,.30) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(3) [data-testid="stNumberInput"] label {
+        color: rgba(253,224,71,.98) !important;
+    }
     .mobile-salary-note-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2987,7 +3014,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 210px;
+          max-height: 188px;
           padding-top: 2px;
         }}
         .turni-summary-compact-title {{
