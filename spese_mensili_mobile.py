@@ -749,17 +749,17 @@ if MOBILE_VIEW:
         flex: initial !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-card {
-        min-height: 159px !important;
-        height: 100% !important;
-        padding: 10px 10px 8px !important;
+        min-height: 122px !important;
+        height: auto !important;
+        padding: 9px 10px 7px !important;
         margin-bottom: 0 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-title {
         font-size: 10px !important;
-        margin-bottom: 5px !important;
+        margin-bottom: 3px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-row {
-        padding: 7px 0 !important;
+        padding: 5px 0 !important;
         gap: 6px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) .budget-memory-label {
@@ -770,7 +770,7 @@ if MOBILE_VIEW:
         font-size: 11px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) [data-testid="stExpander"] {
-        margin-top: 7px !important;
+        margin-top: 6px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) [data-testid="stExpander"] summary {
         min-height: 34px !important;
@@ -976,8 +976,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stRadio"] [role="radiogroup"] {
         display: grid !important;
-        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 8px 10px !important;
+        grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+        gap: 8px 9px !important;
         align-items: stretch !important;
         justify-content: start !important;
     }
@@ -1025,11 +1025,11 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { grid-column:1; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { grid-column:3; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { grid-column:4; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:6; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:7; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { grid-column:1 / span 2; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { grid-column:4; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { grid-column:5; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { grid-column:7; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { grid-column:8; grid-row:1; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { grid-column:1; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) {
         grid-column:2;
@@ -1040,9 +1040,9 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) > div:last-child {
         max-width: 100% !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:6; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:7; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4 / span 2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:7; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:8; grid-row:2; }
     .mobile-panorama-budget-row [data-testid="column"] {
         min-width: 0 !important;
         width: 100% !important;
@@ -3774,7 +3774,7 @@ textarea {
                     st.markdown(f"""
                     <div class="mobile-budget-right-marker"></div>
                     <div class="budget-memory-card">
-                        <div class="budget-memory-title">Note budget</div>
+                        <div class="budget-memory-title">Budget desiderato</div>
                         <div class="budget-memory-row">
                             <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
                             <div class="budget-memory-value">{budget_status}</div>
