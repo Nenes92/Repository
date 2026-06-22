@@ -739,6 +739,19 @@ if MOBILE_VIEW:
         margin-top: 4px;
         margin-bottom: 16px;
     }
+    .mobile-salary-field-title {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .15px;
+        line-height: 1.05;
+        margin: 0 0 7px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mobile-salary-field-title.green { color: #86efac; }
+    .mobile-salary-field-title.blue { color: #93c5fd; }
+    .mobile-salary-field-title.yellow { color: #fde047; }
     .mobile-kpi-summary-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -3014,7 +3027,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 188px;
+          max-height: 199px;
           padding-top: 2px;
         }}
         .turni-summary-compact-title {{
@@ -3550,13 +3563,14 @@ def main():
         if _mobile_show("Panoramica"):
             salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
             with salary_col1:
+                st.markdown('<div class="mobile-salary-field-title green">Stipendio percepito</div>', unsafe_allow_html=True)
                 stipendio_percepito = st.number_input(
                     "Stipendio percepito",
                     min_value=0.0,
                     value=float(st.session_state["mobile_salary_stipendio_percepito_value"]),
                     step=50.0,
                     key="mobile_salary_stipendio_percepito_num",
-                    label_visibility="visible",
+                    label_visibility="collapsed",
                     format="%.0f"
                 )
             if "mobile_salary_budget_da_stipendio_num" in st.session_state:
@@ -3565,6 +3579,7 @@ def main():
                     float(stipendio_percepito)
                 )
             with salary_col2:
+                st.markdown('<div class="mobile-salary-field-title blue">Quota stip. scelta</div>', unsafe_allow_html=True)
                 budget_da_stipendio = st.number_input(
                     "Quota stip. scelta",
                     min_value=0.0,
@@ -3572,17 +3587,18 @@ def main():
                     value=min(float(st.session_state["mobile_salary_budget_da_stipendio_value"]), float(stipendio_percepito)),
                     step=50.0,
                     key="mobile_salary_budget_da_stipendio_num",
-                    label_visibility="visible",
+                    label_visibility="collapsed",
                     format="%.0f"
                 )
             with salary_col3:
+                st.markdown('<div class="mobile-salary-field-title yellow">Risparmi mese prec.</div>', unsafe_allow_html=True)
                 risparmi_mese_precedente = st.number_input(
                     "Risparmi mese prec.",
                     min_value=0.0,
                     value=float(st.session_state["mobile_salary_risparmi_mese_precedente_value"]),
                     step=50.0,
                     key="mobile_salary_risparmi_mese_precedente_num",
-                    label_visibility="visible",
+                    label_visibility="collapsed",
                     format="%.0f"
                 )
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
@@ -4414,7 +4430,8 @@ textarea {
                         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
                         + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
                         + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
-                        + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:10px 0 4px;">Dopo le quote</div>'
+                        + '<div style="height:1px;background:rgba(148,163,184,.22);margin:10px 0 8px;"></div>'
+                        + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:0 0 4px;">Dopo le quote</div>'
                         + _spesa_variabile_row_html("Da spendere", SPESE["Variabili"]["Da spendere"], "#FACC15", f"{pct_rimanente:.2f}% del rimanente €{risparmiabili_dopo_emergenze_viaggi:.2f}, limite €{limite_da_spendere:.2f}")
                         + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{da_spendere_senza_limite:.2f} · risparmiati €{risparmio_da_spendere:.2f}</div>'
                         + _spesa_variabile_row_html("Spese quotidiane", SPESE["Variabili"]["Spese quotidiane"], "#FB923C", f"rimanente, con limite a €{max_spese_quotidiane:.2f}")
@@ -5051,18 +5068,31 @@ textarea {
                         df_savings["Percentuale"] = (df_savings["Value"] / totale * 100).round(1)
                     else:
                         df_savings["Percentuale"] = 0
-                    if MOBILE_VIEW and not df_savings.empty:
-                        risparmi_donut_html = _mobile_donut_html(
-                            "Distribuzione",
-                            df_savings["Component"].tolist(),
-                            df_savings["Value"].tolist(),
-                            df_savings["Component"].map({
-                                "Da Stipendi": "#9ca3af",
-                                "Da Mese Prec.": "#60a5fa",
-                                "Da Spendere": "#fde047",
-                                "Quotidiane": "#FB923C",
-                            }).fillna("#94a3b8").tolist()
-                        )
+                    if MOBILE_VIEW:
+                        if not df_savings.empty:
+                            risparmi_donut_html = _mobile_donut_html(
+                                "Distribuzione",
+                                df_savings["Component"].tolist(),
+                                df_savings["Value"].tolist(),
+                                df_savings["Component"].map({
+                                    "Da Stipendi": "#9ca3af",
+                                    "Da Mese Prec.": "#60a5fa",
+                                    "Da Spendere": "#fde047",
+                                    "Quotidiane": "#FB923C",
+                                }).fillna("#94a3b8").tolist()
+                            )
+                        else:
+                            risparmi_donut_html = (
+                                '<div class="mobile-donut-card">'
+                                '<div class="mobile-donut-title">Distribuzione</div>'
+                                '<div class="mobile-donut-body">'
+                                '<div class="mobile-donut-ring" style="background:conic-gradient(rgba(148,163,184,.24) 0deg 360deg);">'
+                                '<div class="mobile-donut-hole"></div>'
+                                '</div>'
+                                '<div class="mobile-donut-legend">'
+                                '<div class="mobile-donut-legend-row"><span class="mobile-donut-dot" style="background:#9ca3af;"></span><span class="mobile-donut-label">Tutto a zero</span></div>'
+                                '</div></div></div>'
+                            )
                         st.markdown(
                             f'<div class="mobile-side-grid"><div>{html_risparmi}</div><div>{risparmi_donut_html}</div></div>',
                             unsafe_allow_html=True
