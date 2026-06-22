@@ -664,7 +664,7 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) {
         display: grid !important;
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         gap: 6px !important;
@@ -673,24 +673,24 @@ if MOBILE_VIEW:
         max-width: 100% !important;
         overflow: hidden !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
         flex: initial !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stTextInput"] input,
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stNumberInput"] input {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stTextInput"] input,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stNumberInput"] input {
         height: 34px !important;
         min-height: 34px !important;
         font-size: 12px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stTextInput"] label,
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stNumberInput"] label {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stTextInput"] label,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stNumberInput"] label {
         min-height: 20px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stTextInput"],
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stNumberInput"] {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stTextInput"],
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stNumberInput"] {
         padding: 7px 8px 8px !important;
         border-radius: 12px !important;
         background:
@@ -698,7 +698,7 @@ if MOBILE_VIEW:
             rgba(15,23,42,.36) !important;
         border: 0.5px solid rgba(96,165,250,.16) !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi prec."]) [data-testid="stNumberInput"] button {
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) [data-testid="stNumberInput"] button {
         min-width: 24px !important;
         width: 24px !important;
         min-height: 34px !important;
@@ -1398,24 +1398,28 @@ if MOBILE_VIEW:
     </style>
     """, unsafe_allow_html=True)
     _mobile_cards = [
-        ("Panoramica", "panoramica", "Panoramica", "Budget e impostazioni"),
+        ("Panoramica", "panoramica", "Stipendi", "Budget e impostazioni"),
         ("Spese", "spese", "Spese", "Fisse e dettaglio"),
         ("Variabili", "variabili", "Variabili", "Quote e donut"),
-        ("Entrate", "entrate", "Entrate", "Altre entrate e obiettivi"),
+        ("Entrate", "entrate", "Altre entrate", "Altre entrate e obiettivi"),
         ("Risparmi", "risparmi", "Risparmi", "Riepilogo mese"),
         ("Carte", "carte", "Carte", "Trasferimenti"),
         ("Note", "promemoria", "Note", "Note mensili"),
         ("Turni", "turni", "Turni", "Live e calendario"),
-        ("Storico", "storico", "Storico", "Stipendi e risparmi"),
-        ("Bollette", "bollette", "Bollette", "Storico e saldo"),
+        ("Storico", "storico", "Storico stipendi", "Stipendi e risparmi"),
+        ("Bollette", "bollette", "Storico bollette", "Storico e saldo"),
     ]
     st.markdown(f"""
     <div id="mobile-top" class="mobile-anchor"></div>
     <div class="mobile-home-title">Calcolatore di Spese Personali</div>
     """, unsafe_allow_html=True)
     mobile_section_labels = {
+        "Panoramica": "Stipendi",
         "Spese": "Spese fisse",
         "Variabili": "Spese variabili",
+        "Entrate": "Altre entrate",
+        "Storico": "Storico stipendi",
+        "Bollette": "Storico bollette",
     }
     mobile_section = st.radio(
         "Sezione telefono",
@@ -2923,6 +2927,11 @@ def render_live_turni_kpis(stats, side_html=""):
         padding: 6px 7px;
         margin-bottom: 5px;
       }}
+      #turni-focus-card {{
+        border-color: rgba(147,197,253,.55);
+        box-shadow: 0 0 0 1px rgba(147,197,253,.26), 0 0 13px rgba(96,165,250,.18);
+        background: rgba(96,165,250,.08);
+      }}
       .turni-card-small .date {{
         font-size: 10px;
         color: rgba(255,255,255,0.58);
@@ -2947,7 +2956,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 7px;
         }}
         .turni-live-side {{
-          margin-top: -3px;
+          margin-top: 0;
         }}
         .turni-live-grid {{
           grid-template-columns: 1fr;
@@ -2979,10 +2988,11 @@ def render_live_turni_kpis(stats, side_html=""):
         }}
         .turni-grid-scroll {{
           max-height: 210px;
+          padding-top: 2px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
-          margin: 0 0 5px;
+          margin: 0 0 7px;
         }}
       }}
     </style>
@@ -3098,7 +3108,7 @@ def render_live_turni_kpis(stats, side_html=""):
       const focusCard = document.getElementById("turni-focus-card");
       const liveScroller = document.querySelector(".turni-live-side .turni-grid-scroll");
       if (focusCard && liveScroller) {{
-        liveScroller.scrollTop = Math.max(0, focusCard.offsetTop - 6);
+        liveScroller.scrollTop = Math.max(0, focusCard.offsetTop - liveScroller.offsetTop - 6);
       }}
       setInterval(tick, 1000);
     </script>
@@ -3170,7 +3180,11 @@ def render_turni_guadagni_section():
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     stats = compute_turni_dashboard(df_turni, rules)
-    current_work_day = stats.get("current_shift_start_date", "") if stats.get("is_on_shift", False) else ""
+    current_work_day = (
+        stats.get("current_shift_start_date", "")
+        if (stats.get("is_on_shift", False) or stats.get("is_on_leave", False))
+        else _now_italy().strftime("%Y-%m-%d")
+    )
 
     mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules) if MOBILE_VIEW else ""
     render_live_turni_kpis(stats, mobile_summary_html)
@@ -3464,7 +3478,7 @@ def main():
                 st.markdown("<h1 style='text-align: center;'>Calcolatore di Spese Personali</h1>", unsafe_allow_html=True)
 
         st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-pill">💶 Impostazioni Mese</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-pill">💶 Stipendi</div>', unsafe_allow_html=True)
     if MOBILE_VIEW:
         mobile_stip_col = st.container()
         mobile_quota_col = st.container()
@@ -3536,7 +3550,7 @@ def main():
                 )
             with salary_col3:
                 risparmi_mese_precedente = st.number_input(
-                    "Risparmi prec.",
+                    "Risparmi mese prec.",
                     min_value=0.0,
                     value=float(st.session_state["mobile_salary_risparmi_mese_precedente_value"]),
                     step=50.0,
