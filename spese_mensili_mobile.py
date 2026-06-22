@@ -2510,7 +2510,7 @@ def compute_turni_dashboard(df_turni, rules):
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
             last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
-        if current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
+        if turno != "Ferie" and current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
 
@@ -2947,7 +2947,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 7px;
         }}
         .turni-live-side {{
-          margin-top: -17px;
+          margin-top: -3px;
         }}
         .turni-live-grid {{
           grid-template-columns: 1fr;
