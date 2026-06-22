@@ -1208,7 +1208,7 @@ if MOBILE_VIEW:
     .mobile-calendar-day .shift {
         font-size: 14px;
         font-weight: 1000;
-        text-shadow: 0 0 7px currentColor;
+        text-shadow: 0 0 2px color-mix(in srgb, currentColor 35%, transparent);
     }
     .mobile-calendar-legend {
         display:flex;
@@ -2079,11 +2079,9 @@ st.markdown("""
     font-size: 21px !important;
     font-weight: 1000 !important;
     letter-spacing: 0 !important;
-    filter: saturate(1.8) brightness(1.35);
+    filter: saturate(1.35) brightness(1.15);
     text-shadow:
-        0 0 1px currentColor,
-        0 0 8px currentColor,
-        0 0 14px rgba(255,255,255,0.30),
+        0 0 2px rgba(255,255,255,0.18),
         0 1px 1px rgba(0,0,0,0.75);
 }
 .turni-card-small {
@@ -2130,7 +2128,7 @@ TURNI_ORARI = {
     "Mattina": ("06:00", "14:00"),
     "Pomeriggio": ("14:00", "22:00"),
     "Notte": ("22:00", "06:00"),
-    "Ferie": ("06:00", "14:00"),
+    "Ferie": ("09:00", "17:00"),
     "Riposo": ("00:00", "00:00"),
 }
 
@@ -2361,13 +2359,17 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
         return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
 
     if turno == "Ferie":
-        start = _dt_for_turno(data_str, "06:00")
+        start, end = _shift_bounds(data_str, turno)
         if only_day is not None and data_str != only_day:
             return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
-        if now < start:
-            return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
-        base = paga * 8
-        return {"total": base, "base": base, "extra": 0.0, "hours": 8.0, "rate_min": 0.0}
+        effective_end = min(end, now)
+        if effective_end <= start:
+            hours = 0.0
+        else:
+            hours = min(8.0, (effective_end - start).total_seconds() / 3600)
+        base = paga * hours
+        rate_min = paga / 60 if start <= _now_italy() < end else 0.0
+        return {"total": base, "base": base, "extra": 0.0, "hours": hours, "rate_min": rate_min}
 
     start, end = _shift_bounds(data_str, turno)
     effective_end = min(end, now)
@@ -2433,6 +2435,7 @@ def compute_turni_dashboard(df_turni, rules):
     current_shift_start_date = ""
     current_shift_end = None
     current_rate_change_at = None
+    is_on_leave = False
     next_shift_start = None
     next_shift_label = "—"
     next_shift_total = 0.0
@@ -2466,7 +2469,21 @@ def compute_turni_dashboard(df_turni, rules):
             calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
-            if turno not in ["Ferie", "Riposo"] and start <= now < end:
+            if turno == "Ferie" and start.strftime("%Y-%m-%d") == today:
+                is_on_leave = True
+                rate_min = calc_live["rate_min"]
+                current_shift = f"Ferie {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_shift_type = "Ferie · base 8h"
+                turno_kpi_label = "Ferie — live / totale giornata"
+                current_turno = "Ferie"
+                current_shift_date = _turni_short_date_label(start)
+                current_shift_start_date = data
+                if now < end:
+                    current_shift_end = end
+                    current_rate_change_at = start if now < start else None
+                live_today = calc_live["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+            elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_shift_type = f"{turno} {'festivo' if _is_festive_at(now, festivo) else 'feriale'}"
@@ -2497,7 +2514,7 @@ def compute_turni_dashboard(df_turni, rules):
             live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
             expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
 
-    if current_shift_end is None:
+    if current_shift_end is None and not is_on_leave:
         live_today = last_shift_total
         expected_today = next_shift_total
         turno_kpi_label = "Ultimo / prossimo turno"
@@ -2521,7 +2538,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_shift_start_date": current_shift_start_date,
         "turno_kpi_label": turno_kpi_label,
         "last_shift_label": last_shift_label,
-        "is_on_shift": bool(current_shift_end),
+        "is_on_shift": bool(current_shift_end and not is_on_leave),
+        "is_on_leave": bool(is_on_leave),
         "current_shift_end": current_shift_end.isoformat() if current_shift_end else "",
         "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
         "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
@@ -2763,9 +2781,20 @@ def render_live_turni_kpis(stats, side_html=""):
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     is_on_shift = bool(stats.get("is_on_shift", False))
-    status_color = "#22c55e" if is_on_shift else "#64748b"
-    status_shadow = "0 0 12px rgba(34,197,94,0.75)" if is_on_shift else "none"
-    status_text = f"In turno · {current_turno} · {current_shift_date}" if is_on_shift else "Fuori turno"
+    is_on_leave = bool(stats.get("is_on_leave", False))
+    is_live_accrual = is_on_shift or (is_on_leave and bool(stats.get("current_shift_end", "")))
+    if is_on_shift:
+        status_color = "#22c55e"
+        status_shadow = "0 0 12px rgba(34,197,94,0.75)"
+        status_text = f"In turno · {current_turno} · {current_shift_date}"
+    elif is_on_leave:
+        status_color = "#84cc16"
+        status_shadow = "0 0 8px rgba(132,204,22,0.34)"
+        status_text = f"Fuori turno · in ferie · {current_shift_date}"
+    else:
+        status_color = "#64748b"
+        status_shadow = "none"
+        status_text = "Fuori turno"
     current_shift_end = stats.get("current_shift_end", "")
     current_rate_change_at = stats.get("current_rate_change_at", "")
     next_shift_start = stats.get("next_shift_start", "")
@@ -2882,7 +2911,7 @@ def render_live_turni_kpis(stats, side_html=""):
         margin: 0 0 4px;
       }}
       .turni-grid-scroll {{
-        max-height: 218px;
+        max-height: 236px;
         overflow-y: auto;
         padding-right: 4px;
       }}
@@ -2917,6 +2946,9 @@ def render_live_turni_kpis(stats, side_html=""):
           grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
           gap: 7px;
         }}
+        .turni-live-side {{
+          margin-top: -17px;
+        }}
         .turni-live-grid {{
           grid-template-columns: 1fr;
           gap: 6px;
@@ -2946,7 +2978,7 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 188px;
+          max-height: 210px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
@@ -2964,6 +2996,8 @@ def render_live_turni_kpis(stats, side_html=""):
       const nextShiftStart = {json.dumps(next_shift_start)};
       const nextShiftLabel = {json.dumps(next_shift_label)};
       const isInitiallyOnShift = {json.dumps(is_on_shift)};
+      const isOnLeave = {json.dumps(is_on_leave)};
+      const isLiveAccrual = {json.dumps(is_live_accrual)};
       const monthEl = document.getElementById("turni-live-month");
       const todayEl = document.getElementById("turni-live-today");
       const dotEl = document.getElementById("turni-status-dot");
@@ -2998,6 +3032,10 @@ def render_live_turni_kpis(stats, side_html=""):
         const days = Math.floor(totalMinutes / 1440);
         const clockHours = Math.floor((totalMinutes % 1440) / 60);
         const minutes = totalMinutes % 60;
+        if (isOnLeave && shiftEnd) {{
+          const totalHours = Math.floor(totalMinutes / 60);
+          return `Ore ferie mancanti: ${{totalHours}}h ${{String(minutes).padStart(2, "0")}}m`;
+        }}
         if (!isInitiallyOnShift) {{
           const dayPart = days ? `${{days}}g ` : "";
           return `Prossimo turno tra: ${{dayPart}}${{clockHours}}h ${{String(minutes).padStart(2, "0")}}m`;
@@ -3021,12 +3059,12 @@ def render_live_turni_kpis(stats, side_html=""):
       function tick() {{
         const ended = shiftEnd && Date.now() >= Date.parse(shiftEnd);
         const rateChanged = rateChangeAt && Date.now() >= Date.parse(rateChangeAt);
-        const shouldStart = !isInitiallyOnShift && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
+        const shouldStart = !isInitiallyOnShift && !isOnLeave && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
         hoursLeftEl.textContent = remainingLabel();
-        if (!isInitiallyOnShift && nextShiftLabel && nextShiftLabel !== "—") {{
+        if (!isInitiallyOnShift && !isOnLeave && nextShiftLabel && nextShiftLabel !== "—") {{
           shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
         }}
         if (shouldStart) {{
@@ -3038,14 +3076,20 @@ def render_live_turni_kpis(stats, side_html=""):
           refreshParentSoon();
           return;
         }}
-        if (ended) {{
-          dotEl.style.background = "#64748b";
-          dotEl.style.boxShadow = "none";
-          statusEl.textContent = "Fuori turno";
-          rateEl.textContent = "0.00 €/min";
-          rateHourEl.textContent = "0.00 €/h";
-          shiftEl.textContent = "—";
-          hoursLeftEl.textContent = "Aggiorno stato turno...";
+        if (ended && (isInitiallyOnShift || isOnLeave)) {{
+          if (isOnLeave) {{
+            rateEl.textContent = "0.00 €/min";
+            rateHourEl.textContent = "0.00 €/h";
+            hoursLeftEl.textContent = "Aggiorno ferie...";
+          }} else {{
+            dotEl.style.background = "#64748b";
+            dotEl.style.boxShadow = "none";
+            statusEl.textContent = "Fuori turno";
+            rateEl.textContent = "0.00 €/min";
+            rateHourEl.textContent = "0.00 €/h";
+            shiftEl.textContent = "—";
+            hoursLeftEl.textContent = "Aggiorno stato turno...";
+          }}
           refreshParentSoon();
         }}
       }}
