@@ -889,6 +889,12 @@ if MOBILE_VIEW:
     .fixed-expense-editor-marker {
         display: none !important;
     }
+    div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker) {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker),
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) {
         display: grid !important;
@@ -4272,7 +4278,14 @@ textarea {
                         st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
                 for idx, (voce, importo) in enumerate(settings.items()):
                     with editor_cols[idx % len(editor_cols)]:
-                        st.markdown(f"**{voce}**")
+                        current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                        current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                        current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
+                        titolo_colore = SPESA_FISSA_CATEGORIA_COLORI.get(current_categoria, "#f8fafc")
+                        st.markdown(
+                            f'<div style="font-weight: 800; color: {titolo_colore}; margin: 0 0 8px; line-height: 1.15;">{html.escape(str(voce))}</div>',
+                            unsafe_allow_html=True,
+                        )
                         editable_settings[voce] = st.number_input(
                             "Importo",
                             min_value=0.0,
@@ -4280,9 +4293,6 @@ textarea {
                             step=5.0,
                             key=f"spesa_fissa_importo_{voce}"
                         )
-                        current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                        current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
                         if current_gruppo not in gruppi_disponibili:
                             gruppi_disponibili.append(current_gruppo)
                         editable_metadata[voce] = {
