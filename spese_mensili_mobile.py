@@ -886,12 +886,16 @@ if MOBILE_VIEW:
     }
     .fixed-expense-add-main-marker,
     .fixed-expense-add-meta-marker,
+    .fixed-expense-actions-marker,
     .fixed-expense-editor-marker,
+    .other-income-actions-marker,
     .other-income-editor-marker,
     .other-income-new-marker {
         display: none !important;
     }
+    div[data-testid="stMarkdown"]:has(.fixed-expense-actions-marker),
     div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker),
+    div[data-testid="stMarkdown"]:has(.other-income-actions-marker),
     div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
     div[data-testid="stMarkdown"]:has(.other-income-new-marker) {
         display: none !important;
@@ -936,15 +940,35 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: end !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-actions-marker),
+    div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
         flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-actions-marker) [data-testid="stButton"] button,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) [data-testid="stButton"] button {
+        min-height: 38px !important;
+        padding: 6px 6px !important;
+        font-size: 10.5px !important;
+        line-height: 1.1 !important;
+        white-space: normal !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) label,
@@ -4353,6 +4377,8 @@ textarea {
 
                 save_col, delete_col = st.columns(2)
                 with save_col:
+                    if MOBILE_VIEW:
+                        st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
                     if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
                         nome_nuova = nuova_spesa_nome.strip()
                         if nome_nuova:
@@ -4368,6 +4394,8 @@ textarea {
                         else:
                             st.error("Errore salvataggio spese fisse")
                 with delete_col:
+                    if MOBILE_VIEW:
+                        st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
                     if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
                         editable_settings.pop(elimina_spesa, None)
                         editable_metadata.pop(elimina_spesa, None)
@@ -4928,6 +4956,8 @@ textarea {
                     elimina_entrata = st.selectbox("Entrata da eliminare", [""] + list(altre_settings.keys()), key="elimina_altra_entrata")
                     save_altre_col, delete_altre_col = st.columns(2)
                     with save_altre_col:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="other-income-actions-marker"></span>', unsafe_allow_html=True)
                         if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
                             if save_altre_entrate_settings(edited_altre):
                                 st.success("Altre entrate salvate")
@@ -4935,6 +4965,8 @@ textarea {
                             else:
                                 st.error("Errore salvataggio altre entrate")
                     with delete_altre_col:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="other-income-actions-marker"></span>', unsafe_allow_html=True)
                         if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
                             edited_altre.pop(elimina_entrata, None)
                             if save_altre_entrate_settings(edited_altre):
