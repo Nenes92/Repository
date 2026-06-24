@@ -886,10 +886,12 @@ if MOBILE_VIEW:
     }
     .fixed-expense-add-main-marker,
     .fixed-expense-add-meta-marker,
-    .fixed-expense-editor-marker {
+    .fixed-expense-editor-marker,
+    .other-income-editor-marker {
         display: none !important;
     }
-    div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker) {
+    div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker),
+    div[data-testid="stMarkdown"]:has(.other-income-editor-marker) {
         display: none !important;
         height: 0 !important;
         margin: 0 !important;
@@ -914,9 +916,19 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: start !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: start !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) > div[data-testid="column"],
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
@@ -924,7 +936,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) label,
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label {
         min-height: 17px !important;
         font-size: 7.8px !important;
         line-height: 1.05 !important;
@@ -932,14 +945,16 @@ if MOBILE_VIEW:
         white-space: normal !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input {
         height: 32px !important;
         min-height: 32px !important;
         font-size: 10.5px !important;
         padding: 4px 6px !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) [data-testid="stNumberInput"] button,
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button {
         min-width: 19px !important;
         width: 19px !important;
         min-height: 32px !important;
@@ -947,13 +962,16 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-baseweb="select"],
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-baseweb="select"] {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-baseweb="select"] {
         min-width: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) p {
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) p,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) p {
         font-size: 12px !important;
         line-height: 1.1 !important;
         margin-bottom: 4px !important;
@@ -4854,10 +4872,18 @@ textarea {
 
                 with tab_altre_decisioni:
                     altre_settings = ALTRE_ENTRATE.copy()
-                    editor_cols = st.columns(2)
+                    st.markdown(
+                        '<div style="border-top: 1px solid rgba(148, 163, 184, .28); margin: 8px 0 18px;"></div>'
+                        '<h4 style="text-align: center; margin: 0 0 18px;">Modifica entrate esistenti</h4>',
+                        unsafe_allow_html=True,
+                    )
+                    editor_cols = st.columns(3 if MOBILE_VIEW else 2)
                     edited_altre = {}
+                    if MOBILE_VIEW:
+                        with editor_cols[0]:
+                            st.markdown('<span class="other-income-editor-marker"></span>', unsafe_allow_html=True)
                     for idx, (voce, importo) in enumerate(altre_settings.items()):
-                        with editor_cols[idx % 2]:
+                        with editor_cols[idx % len(editor_cols)]:
                             st.markdown(
                                 f'<div style="font-size:15px;font-weight:800;color:rgba(255,255,255,.92);margin:0 0 6px;">{html.escape(str(voce))}</div>',
                                 unsafe_allow_html=True
