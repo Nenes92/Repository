@@ -5888,109 +5888,6 @@ def crea_grafico_stipendi(data):
     return final_chart
 
 
-def crea_grafico_stipendi_mobile(data, height=330):
-    if data.empty:
-        return alt.Chart(pd.DataFrame({"Mese_str": [], "Valore": [], "Voce": []})).mark_line()
-
-    df = data.copy()
-    df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
-    df = df.dropna(subset=["Mese"]).sort_values("Mese")
-    current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-    chart_start = current_month_start - pd.DateOffset(years=3)
-    df = df[(df["Mese"] >= chart_start) & (df["Mese"] <= current_month_start)].copy()
-    if df.empty:
-        return alt.Chart(pd.DataFrame({"Mese_str": [], "Valore": [], "Voce": []})).mark_line()
-
-    for col in ["Stipendio", "Risparmi", "Messi da parte Totali", "Media Stipendio", "Media Risparmi", "Media Stipendio NO 13°/PDR", "Media Messi da parte Totali"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    df["Extra messi da parte"] = (df["Messi da parte Totali"] - df["Risparmi"]).clip(lower=0)
-    df["Mese_str"] = df["Mese"].dt.strftime("%b %Y")
-    ordine_mesi = df["Mese_str"].tolist()
-
-    x_axis = alt.X(
-        "Mese_str:N",
-        sort=ordine_mesi,
-        title="Mese",
-        axis=alt.Axis(labelAngle=-45, labelFontSize=9, titleFontSize=10),
-    )
-
-    risparmi_stack = df.melt(
-        id_vars=["Mese_str", "Risparmi", "Messi da parte Totali"],
-        value_vars=["Risparmi", "Extra messi da parte"],
-        var_name="Componente",
-        value_name="Valore",
-    )
-    risparmi_stack["Voce"] = risparmi_stack["Componente"].replace({
-        "Risparmi": "Risparmi mese precedente",
-        "Extra messi da parte": "Messi da parte",
-    })
-
-    bars = alt.Chart(risparmi_stack).mark_bar(opacity=0.42, size=14).encode(
-        x=x_axis,
-        y=alt.Y("Valore:Q", title="Risparmi / messi da parte (€)", axis=alt.Axis(orient="right"), stack="zero"),
-        color=alt.Color(
-            "Voce:N",
-            scale=alt.Scale(
-                domain=["Risparmi mese precedente", "Messi da parte"],
-                range=["#EF9F27", "#1D9E75"],
-            ),
-            legend=alt.Legend(orient="bottom", title=None, columns=2, labelFontSize=10),
-        ),
-        tooltip=[
-            alt.Tooltip("Mese_str:N", title="Mese"),
-            alt.Tooltip("Voce:N", title="Voce"),
-            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
-            alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
-        ],
-    )
-
-    line_columns = [
-        ("Stipendio", "Stipendi", "#5792E8", []),
-        ("Media Stipendio", "Media stipendi", "#f87171", [6, 3]),
-        ("Media Stipendio NO 13°/PDR", "Media stipendi ordinari (no spikes)", "#fb923c", [3, 3]),
-        ("Media Risparmi", "Media risparmi mese precedente", "#FFA040", [4, 4]),
-        ("Media Messi da parte Totali", "Media messi da parte", "#90EE90", [5, 5]),
-    ]
-    line_frames = []
-    for col, label, color, dash in line_columns:
-        if col in df.columns:
-            part = df[["Mese_str", col]].rename(columns={col: "Valore"})
-            part["Voce"] = label
-            part["Colore"] = color
-            part["Dash"] = ",".join(map(str, dash))
-            line_frames.append(part)
-    line_df = pd.concat(line_frames, ignore_index=True) if line_frames else pd.DataFrame(columns=["Mese_str", "Valore", "Voce"])
-
-    lines = alt.Chart(line_df).mark_line(strokeWidth=2).encode(
-        x=x_axis,
-        y=alt.Y("Valore:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
-        color=alt.Color(
-            "Voce:N",
-            scale=alt.Scale(
-                domain=[label for _, label, _, _ in line_columns],
-                range=[color for _, _, color, _ in line_columns],
-            ),
-            legend=alt.Legend(orient="bottom", title=None, columns=2, labelFontSize=10),
-        ),
-        strokeDash=alt.StrokeDash(
-            "Voce:N",
-            scale=alt.Scale(
-                domain=[label for _, label, _, _ in line_columns],
-                range=[dash for _, _, _, dash in line_columns],
-            ),
-            legend=None,
-        ),
-        tooltip=[
-            alt.Tooltip("Mese_str:N", title="Mese"),
-            alt.Tooltip("Voce:N", title="Voce"),
-            alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
-        ],
-    )
-    points = lines.mark_point(size=38, filled=True)
-
-    return alt.layer(bars, lines, points).resolve_scale(y="independent").properties(height=height)
-
 def crea_grafico_bollette_linea_continua(data_completa, order):
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
@@ -6239,7 +6136,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         st.markdown("---")
         st.markdown("### Storico Stipendi e Risparmi")
         if not data_stipendi.empty:
-            st.altair_chart(crea_grafico_stipendi_mobile(data_stipendi, height=330), use_container_width=True)
+            st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=330), use_container_width=True)
         else:
             st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
         _render_stipendi_kpi_cards(data_stipendi)
