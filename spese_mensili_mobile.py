@@ -890,14 +890,16 @@ if MOBILE_VIEW:
     .fixed-expense-editor-marker,
     .other-income-actions-marker,
     .other-income-editor-marker,
-    .other-income-new-marker {
+    .other-income-new-marker,
+    .turni-rules-marker {
         display: none !important;
     }
     div[data-testid="stMarkdown"]:has(.fixed-expense-actions-marker),
     div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker),
     div[data-testid="stMarkdown"]:has(.other-income-actions-marker),
     div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
-    div[data-testid="stMarkdown"]:has(.other-income-new-marker) {
+    div[data-testid="stMarkdown"]:has(.other-income-new-marker),
+    div[data-testid="stMarkdown"]:has(.turni-rules-marker) {
         display: none !important;
         height: 0 !important;
         margin: 0 !important;
@@ -950,13 +952,23 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: stretch !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: start !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
-    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
@@ -974,7 +986,8 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) label {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) label {
         min-height: 17px !important;
         font-size: 7.8px !important;
         line-height: 1.05 !important;
@@ -984,7 +997,8 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) input {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) input {
         height: 32px !important;
         min-height: 32px !important;
         font-size: 10.5px !important;
@@ -993,7 +1007,8 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) [data-testid="stNumberInput"] button {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) [data-testid="stNumberInput"] button {
         min-width: 19px !important;
         width: 19px !important;
         min-height: 32px !important;
@@ -3722,6 +3737,8 @@ def render_turni_guadagni_section():
     with tab_rules:
         c1, c2 = st.columns(2)
         with c1:
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
             rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga")
             rules["quota_fissa_mensile"] = st.number_input("Quota fissa mensile opzionale", value=float(rules["quota_fissa_mensile"]), step=10.0, key="turni_quota")
             rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
@@ -3729,6 +3746,8 @@ def render_turni_guadagni_section():
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
             rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
         with c2:
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
             rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
             rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
             rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
