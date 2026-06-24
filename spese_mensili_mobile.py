@@ -4042,25 +4042,26 @@ textarea {
                 gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
 
                 st.markdown("#### Aggiungi spesa")
-                add_nome_col, add_importo_col = st.columns(LAYOUT_COLONNE["form_nome_importo"])
+                add_nome_col, add_importo_col, add_gruppo_nuovo_col = st.columns(3, gap="small")
                 with add_nome_col:
                     nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
                 with add_importo_col:
                     nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
-
-                nuovo_gruppo = st.text_input(
-                    "Nuovo gruppo visivo da aggiungere",
-                    key="nuovo_gruppo_spese_fisse",
-                    placeholder="Es. Animali, Viaggi, Donazioni..."
-                ).strip()
+                with add_gruppo_nuovo_col:
+                    nuovo_gruppo = st.text_input(
+                        "Nuovo gruppo visivo da aggiungere",
+                        key="nuovo_gruppo_spese_fisse",
+                        placeholder="Es. Animali, Viaggi, Donazioni..."
+                    ).strip()
                 if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
                     gruppi_disponibili.append(nuovo_gruppo)
-                add_meta_col1, add_meta_col2 = st.columns(2)
+                add_meta_col1, add_meta_col2, add_meta_col3 = st.columns(3, gap="small")
                 with add_meta_col1:
                     nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
                 with add_meta_col2:
                     nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
-                nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
+                with add_meta_col3:
+                    nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
 
                 st.markdown("#### Elimina spesa")
                 elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
