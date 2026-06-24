@@ -887,11 +887,13 @@ if MOBILE_VIEW:
     .fixed-expense-add-main-marker,
     .fixed-expense-add-meta-marker,
     .fixed-expense-editor-marker,
-    .other-income-editor-marker {
+    .other-income-editor-marker,
+    .other-income-new-marker {
         display: none !important;
     }
     div[data-testid="stMarkdown"]:has(.fixed-expense-editor-marker),
-    div[data-testid="stMarkdown"]:has(.other-income-editor-marker) {
+    div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
+    div[data-testid="stMarkdown"]:has(.other-income-new-marker) {
         display: none !important;
         height: 0 !important;
         margin: 0 !important;
@@ -925,10 +927,20 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: start !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: end !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"],
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
@@ -937,7 +949,8 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) label {
         min-height: 17px !important;
         font-size: 7.8px !important;
         line-height: 1.05 !important;
@@ -946,7 +959,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) input {
         height: 32px !important;
         min-height: 32px !important;
         font-size: 10.5px !important;
@@ -954,7 +968,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button,
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) [data-testid="stNumberInput"] button {
         min-width: 19px !important;
         width: 19px !important;
         min-height: 32px !important;
@@ -4292,8 +4307,9 @@ textarea {
                 editable_settings = {}
                 editable_metadata = {}
                 if MOBILE_VIEW:
-                    with editor_cols[0]:
-                        st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
+                    for editor_col in editor_cols:
+                        with editor_col:
+                            st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
                 for idx, (voce, importo) in enumerate(settings.items()):
                     with editor_cols[idx % len(editor_cols)]:
                         current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
@@ -4880,8 +4896,9 @@ textarea {
                     editor_cols = st.columns(3 if MOBILE_VIEW else 2)
                     edited_altre = {}
                     if MOBILE_VIEW:
-                        with editor_cols[0]:
-                            st.markdown('<span class="other-income-editor-marker"></span>', unsafe_allow_html=True)
+                        for editor_col in editor_cols:
+                            with editor_col:
+                                st.markdown('<span class="other-income-editor-marker"></span>', unsafe_allow_html=True)
                     for idx, (voce, importo) in enumerate(altre_settings.items()):
                         with editor_cols[idx % len(editor_cols)]:
                             st.markdown(
@@ -4896,10 +4913,14 @@ textarea {
                                 key=f"altra_entrata_{voce}",
                                 label_visibility="collapsed"
                             )
-                    new_col1, new_col2 = st.columns(LAYOUT_COLONNE["form_nome_importo"])
+                    new_col1, new_col2 = st.columns(2 if MOBILE_VIEW else LAYOUT_COLONNE["form_nome_importo"])
                     with new_col1:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="other-income-new-marker"></span>', unsafe_allow_html=True)
                         nuova_voce = st.text_input("Nuova entrata", key="nuova_altra_entrata_nome")
                     with new_col2:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="other-income-new-marker"></span>', unsafe_allow_html=True)
                         nuovo_importo = st.number_input("Importo", min_value=0.0, value=0.0, step=10.0, key="nuova_altra_entrata_importo")
                     if nuova_voce.strip():
                         edited_altre[nuova_voce.strip()] = float(nuovo_importo)
