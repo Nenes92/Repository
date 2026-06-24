@@ -816,6 +816,142 @@ if MOBILE_VIEW:
         min-height: 34px !important;
         font-size: 11px !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Nome nuova spesa"]):has(input[aria-label="Importo nuova spesa"]):has(input[aria-label="Nuovo gruppo visivo da aggiungere"]),
+    div[data-testid="stHorizontalBlock"]:has([aria-label="Colore categoria nuova spesa"]):has([aria-label="Carta nuova spesa"]):has([aria-label="Gruppo visivo nuova spesa"]) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: end !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Nome nuova spesa"]):has(input[aria-label="Importo nuova spesa"]):has(input[aria-label="Nuovo gruppo visivo da aggiungere"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has([aria-label="Colore categoria nuova spesa"]):has([aria-label="Carta nuova spesa"]):has([aria-label="Gruppo visivo nuova spesa"]) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Nome nuova spesa"]):has(input[aria-label="Importo nuova spesa"]):has(input[aria-label="Nuovo gruppo visivo da aggiungere"]) label,
+    div[data-testid="stHorizontalBlock"]:has([aria-label="Colore categoria nuova spesa"]):has([aria-label="Carta nuova spesa"]):has([aria-label="Gruppo visivo nuova spesa"]) label,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) label {
+        min-height: 18px !important;
+        font-size: 8px !important;
+        line-height: 1.05 !important;
+        letter-spacing: .2px !important;
+        white-space: normal !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Nome nuova spesa"]):has(input[aria-label="Importo nuova spesa"]):has(input[aria-label="Nuovo gruppo visivo da aggiungere"]) input,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 10.5px !important;
+        padding: 4px 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Nome nuova spesa"]):has(input[aria-label="Importo nuova spesa"]):has(input[aria-label="Nuovo gruppo visivo da aggiungere"]) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) [data-testid="stNumberInput"] button {
+        min-width: 19px !important;
+        width: 19px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has([aria-label="Colore categoria nuova spesa"]):has([aria-label="Carta nuova spesa"]):has([aria-label="Gruppo visivo nuova spesa"]) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has([aria-label="Colore categoria nuova spesa"]):has([aria-label="Carta nuova spesa"]):has([aria-label="Gruppo visivo nuova spesa"]) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) [data-baseweb="select"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: start !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) p {
+        font-size: 12px !important;
+        line-height: 1.1 !important;
+        margin-bottom: 4px !important;
+    }
+    .fixed-expense-add-main-marker,
+    .fixed-expense-add-meta-marker,
+    .fixed-expense-editor-marker {
+        display: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker),
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: end !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: start !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label {
+        min-height: 17px !important;
+        font-size: 7.8px !important;
+        line-height: 1.05 !important;
+        letter-spacing: .18px !important;
+        white-space: normal !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 10.5px !important;
+        padding: 4px 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button {
+        min-width: 19px !important;
+        width: 19px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-baseweb="select"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) p {
+        font-size: 12px !important;
+        line-height: 1.1 !important;
+        margin-bottom: 4px !important;
+    }
     .mobile-notes-html-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -886,6 +1022,59 @@ if MOBILE_VIEW:
             max-width: 100vw !important;
             padding-left: 0.7rem !important;
             padding-right: 0.7rem !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(2)):not(:has(> div[data-testid="column"]:nth-child(3))) {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            align-items: start !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            align-items: start !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(2)):not(:has(> div[data-testid="column"]:nth-child(3))) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) > div[data-testid="column"] {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            flex: initial !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stTextInput"] label,
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stNumberInput"] label,
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stSelectbox"] label {
+            min-height: 17px !important;
+            font-size: 7.8px !important;
+            line-height: 1.05 !important;
+            white-space: normal !important;
+            letter-spacing: .16px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stTextInput"] input,
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stNumberInput"] input {
+            min-height: 32px !important;
+            height: 32px !important;
+            font-size: 10.5px !important;
+            padding: 4px 6px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stNumberInput"] button {
+            min-width: 19px !important;
+            width: 19px !important;
+            min-height: 32px !important;
+            padding: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-testid="stSelectbox"],
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)):not(:has(> div[data-testid="column"]:nth-child(4))) [data-baseweb="select"] {
+            min-width: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
         .mobile-home-grid {
             max-width: 100% !important;
@@ -4044,6 +4233,8 @@ textarea {
                 st.markdown("#### Aggiungi spesa")
                 add_nome_col, add_importo_col, add_gruppo_nuovo_col = st.columns(3, gap="small")
                 with add_nome_col:
+                    if MOBILE_VIEW:
+                        st.markdown('<span class="fixed-expense-add-main-marker"></span>', unsafe_allow_html=True)
                     nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
                 with add_importo_col:
                     nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
@@ -4057,6 +4248,8 @@ textarea {
                     gruppi_disponibili.append(nuovo_gruppo)
                 add_meta_col1, add_meta_col2, add_meta_col3 = st.columns(3, gap="small")
                 with add_meta_col1:
+                    if MOBILE_VIEW:
+                        st.markdown('<span class="fixed-expense-add-meta-marker"></span>', unsafe_allow_html=True)
                     nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
                 with add_meta_col2:
                     nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
@@ -4070,6 +4263,9 @@ textarea {
                 editor_cols = st.columns(2)
                 editable_settings = {}
                 editable_metadata = {}
+                if MOBILE_VIEW:
+                    with editor_cols[0]:
+                        st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
                 for idx, (voce, importo) in enumerate(settings.items()):
                     with editor_cols[idx % 2]:
                         st.markdown(f"**{voce}**")
