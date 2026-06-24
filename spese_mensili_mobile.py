@@ -4923,14 +4923,20 @@ textarea {
                     )
                     editor_cols = st.columns(3 if MOBILE_VIEW else 2)
                     edited_altre = {}
+                    altre_entrate_title_colors = {
+                        "Macchina (Mamma)": "#D2B48C",
+                        "2° Entr. dal mese prec.": "#D8BFD8",
+                        "Altro": "#89CFF0",
+                    }
                     if MOBILE_VIEW:
                         for editor_col in editor_cols:
                             with editor_col:
                                 st.markdown('<span class="other-income-editor-marker"></span>', unsafe_allow_html=True)
                     for idx, (voce, importo) in enumerate(altre_settings.items()):
                         with editor_cols[idx % len(editor_cols)]:
+                            title_color = altre_entrate_title_colors.get(voce, "#E5E7EB")
                             st.markdown(
-                                f'<div style="font-size:15px;font-weight:800;color:rgba(255,255,255,.92);margin:0 0 6px;">{html.escape(str(voce))}</div>',
+                                f'<div style="font-size:15px;font-weight:800;color:{title_color};margin:0 0 6px;">{html.escape(str(voce))}</div>',
                                 unsafe_allow_html=True
                             )
                             edited_altre[voce] = st.number_input(
