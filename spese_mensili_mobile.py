@@ -901,7 +901,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -4258,16 +4258,20 @@ textarea {
 
                 st.markdown("#### Elimina spesa")
                 elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
-                st.markdown("#### Modifica spese esistenti")
+                st.markdown(
+                    '<div style="border-top: 1px solid rgba(148, 163, 184, .28); margin: 26px 0 18px;"></div>'
+                    '<h4 style="text-align: center; margin: 0 0 18px;">Modifica spese esistenti</h4>',
+                    unsafe_allow_html=True,
+                )
 
-                editor_cols = st.columns(2)
+                editor_cols = st.columns(3 if MOBILE_VIEW else 2)
                 editable_settings = {}
                 editable_metadata = {}
                 if MOBILE_VIEW:
                     with editor_cols[0]:
                         st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
                 for idx, (voce, importo) in enumerate(settings.items()):
-                    with editor_cols[idx % 2]:
+                    with editor_cols[idx % len(editor_cols)]:
                         st.markdown(f"**{voce}**")
                         editable_settings[voce] = st.number_input(
                             "Importo",
