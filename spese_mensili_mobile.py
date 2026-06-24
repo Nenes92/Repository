@@ -2036,6 +2036,98 @@ def _history_table_html(df, columns, colors):
     )
 
 
+def _mobile_history_table_html(df, columns, colors):
+    if df.empty:
+        return '<div class="kpi-card" style="color:rgba(255,255,255,.62);">Nessun dato storico disponibile.</div>'
+
+    cards = []
+    for _, row in df.sort_values("Mese", ascending=False).iterrows():
+        mese_raw = pd.to_datetime(row.get("Mese"), errors="coerce")
+        mese = mese_raw.strftime("%B %Y") if not pd.isna(mese_raw) else str(row.get("Mese", ""))
+        values_html = ""
+        for col in columns:
+            value = pd.to_numeric(row.get(col, 0), errors="coerce")
+            value = 0.0 if pd.isna(value) else float(value)
+            color = colors.get(col, "#9ca3af")
+            values_html += (
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;'
+                'padding:4px 0;border-top:1px solid rgba(255,255,255,.055);">'
+                f'<span style="display:flex;align-items:center;gap:5px;color:rgba(255,255,255,.64);font-size:11px;">'
+                f'<span style="width:6px;height:6px;border-radius:999px;background:{color};display:inline-block;"></span>'
+                f'{html.escape(col)}</span>'
+                f'<span style="font-family:DM Mono, monospace;color:{color};font-weight:800;font-size:12px;">€{value:,.2f}</span>'
+                '</div>'
+            )
+        cards.append(
+            '<div style="padding:9px 10px;border-radius:10px;'
+            'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.075);min-width:0;">'
+            f'<div style="font-weight:900;color:rgba(255,255,255,.88);margin-bottom:5px;font-size:13px;">{html.escape(mese)}</div>'
+            f'{values_html}</div>'
+        )
+
+    return (
+        '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));'
+        'gap:8px;max-height:410px;overflow-y:auto;padding-right:3px;'
+        'scrollbar-color:rgba(148,163,184,.55) transparent;">'
+        + "".join(cards) +
+        '</div>'
+    )
+
+
+def _render_stipendi_kpi_cards(data_stipendi):
+    data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+    stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+    st.markdown(
+        '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+        unsafe_allow_html=True
+    )
+
+    col_somme1, col_somme2, col_somme3 = st.columns(LAYOUT_COLONNE["storico_kpi"])
+    _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
+    _s2 = f"{stats_stip['Stipendio']['media']:,.2f} €"
+    _r1 = f"{stats_stip['Risparmi']['somma']:,.2f} €"
+    _r2 = f"{stats_stip['Risparmi']['media']:,.2f} €"
+    _m1 = f"{stats_stip['Messi da parte Totali']['somma']:,.2f} €"
+    _m2 = f"{stats_stip['Messi da parte Totali']['media']:,.2f} €"
+    with col_somme1:
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Somma Stipendi</div>
+            <div class="kpi-value" style="color:#5792E8;font-size:16px;">{_s1}</div>
+        </div>
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Media Stipendi</div>
+            <div class="kpi-value" style="color:#f87171;font-size:16px;">{_s2}</div>
+        </div>""", unsafe_allow_html=True)
+        if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
+            _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
+            st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
+            <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
+        </div>""", unsafe_allow_html=True)
+    with col_somme2:
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Somma Risparmi Mese Precedente</div>
+            <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Media Risparmi Mese Precedente</div>
+            <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
+        </div>""", unsafe_allow_html=True)
+    with col_somme3:
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom:8px;">
+            <div class="kpi-label">Somma Messi da Parte</div>
+            <div class="kpi-value" style="color:#1D9E75;font-size:16px;">{_m1}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Media Messi da Parte</div>
+            <div class="kpi-value" style="color:#90EE90;font-size:16px;">{_m2}</div>
+        </div>""", unsafe_allow_html=True)
+
+
 def _apply_spese_fisse_settings(settings, metadata):
     SPESE["Fisse"].clear()
     SPESE["Fisse"].update({voce: float(importo) for voce, importo in settings.items()})
@@ -6006,22 +6098,42 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 time.sleep(3)
                 placeholder.empty()
 
-    with col_dx_stip_chart:
-        st.markdown("### Confronto Anno su Anno degli Stipendi")
+    data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+
+    if MOBILE_VIEW:
+        st.markdown("---")
+        st.markdown("### Storico Stipendi e Risparmi")
         if not data_stipendi.empty:
-            confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
-            st.altair_chart(confronto_chart, use_container_width=True)
+            storico_mobile_chart = crea_grafico_stipendi(data_stipendi).properties(height=330)
+            st.altair_chart(storico_mobile_chart, use_container_width=True)
+            with st.expander("Apri grafico grande / orizzontale", expanded=False):
+                st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(width=980, height=560), use_container_width=False)
         else:
-            st.info("Nessun dato disponibile ancora.")
+            st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
+        _render_stipendi_kpi_cards(data_stipendi)
+
+    if not MOBILE_VIEW:
+        with col_dx_stip_chart:
+            st.markdown("### Confronto Anno su Anno degli Stipendi")
+            if not data_stipendi.empty:
+                confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi)
+                st.altair_chart(confronto_chart, use_container_width=True)
+            else:
+                st.info("Nessun dato disponibile ancora.")
 
     st.markdown("---")
     st.subheader("Dati Storici Stipendi/Risparmi")
 
-    col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
+    if MOBILE_VIEW:
+        col_table = st.container()
+        col_chart = st.container()
+    else:
+        col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
+
     with col_table:
         df_stip = data_stipendi.copy()
-        st.markdown(
-            _history_table_html(
+        history_html = (
+            _mobile_history_table_html(
                 df_stip,
                 ["Stipendio", "Risparmi", "Messi da parte Totali"],
                 {
@@ -6029,64 +6141,27 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     "Risparmi": "#EF9F27",
                     "Messi da parte Totali": "#1D9E75",
                 },
-            ),
-            unsafe_allow_html=True,
+            )
+            if MOBILE_VIEW
+            else _history_table_html(
+                df_stip,
+                ["Stipendio", "Risparmi", "Messi da parte Totali"],
+                {
+                    "Stipendio": "#5792E8",
+                    "Risparmi": "#EF9F27",
+                    "Messi da parte Totali": "#1D9E75",
+                },
+            )
         )
-    
-        data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
-        stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
-        st.markdown(
-            '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
-            unsafe_allow_html=True
-        )
-    
-        col_somme1, col_somme2, col_somme3 = st.columns(LAYOUT_COLONNE["storico_kpi"])
-        _s1 = f"{stats_stip['Stipendio']['somma']:,.2f} €"
-        _s2 = f"{stats_stip['Stipendio']['media']:,.2f} €"
-        _r1 = f"{stats_stip['Risparmi']['somma']:,.2f} €"
-        _r2 = f"{stats_stip['Risparmi']['media']:,.2f} €"
-        _m1 = f"{stats_stip['Messi da parte Totali']['somma']:,.2f} €"
-        _m2 = f"{stats_stip['Messi da parte Totali']['media']:,.2f} €"
-        with col_somme1:
-            st.markdown(f"""
-            <div class="kpi-card" style="margin-bottom:8px;">
-                <div class="kpi-label">Somma Stipendi</div>
-                <div class="kpi-value" style="color:#5792E8;font-size:16px;">{_s1}</div>
-            </div>
-            <div class="kpi-card" style="margin-bottom:8px;">
-                <div class="kpi-label">Media Stipendi</div>
-                <div class="kpi-value" style="color:#f87171;font-size:16px;">{_s2}</div>
-            </div>""", unsafe_allow_html=True)
-            if "Media Stipendio NO 13°/PDR" in data_stipendi.columns and not data_stipendi.empty:
-                _s3 = f"{data_stipendi['Media Stipendio NO 13°/PDR'].iloc[-1]:,.2f} €"
-                st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Media Stipendi Ordinari (no spikes)</div>
-                <div class="kpi-value" style="color:#fb923c;font-size:16px;">{_s3}</div>
-            </div>""", unsafe_allow_html=True)
-        with col_somme2:
-            st.markdown(f"""
-            <div class="kpi-card" style="margin-bottom:8px;">
-                <div class="kpi-label">Somma Risparmi Mese Precedente</div>
-                <div class="kpi-value" style="color:#EF9F27;font-size:16px;">{_r1}</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Media Risparmi Mese Precedente</div>
-                <div class="kpi-value" style="color:#FFA040;font-size:16px;">{_r2}</div>
-            </div>""", unsafe_allow_html=True)
-        with col_somme3:
-            st.markdown(f"""
-            <div class="kpi-card" style="margin-bottom:8px;">
-                <div class="kpi-label">Somma Messi da Parte</div>
-                <div class="kpi-value" style="color:#1D9E75;font-size:16px;">{_m1}</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Media Messi da Parte</div>
-                <div class="kpi-value" style="color:#90EE90;font-size:16px;">{_m2}</div>
-            </div>""", unsafe_allow_html=True)
+        st.markdown(history_html, unsafe_allow_html=True)
+
+        if not MOBILE_VIEW:
+            _render_stipendi_kpi_cards(data_stipendi)
 
     with col_chart:
-        if data_stipendi is not None and not data_stipendi.empty:
+        if MOBILE_VIEW:
+            pass
+        elif data_stipendi is not None and not data_stipendi.empty:
             try:
                 chart_data = data_stipendi.copy()
                 chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
@@ -6258,6 +6333,17 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 st.error(f"Errore nel grafico: {e}")
         else:
             st.info("Nessun dato disponibile. Aggiungi i dati nella sezione a sinistra.")
+
+    if MOBILE_VIEW:
+        st.markdown("---")
+        st.markdown("### Confronto Anno su Anno degli Stipendi")
+        if not data_stipendi.empty:
+            confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(height=320)
+            st.altair_chart(confronto_chart, use_container_width=True)
+            with st.expander("Apri confronto grande / orizzontale", expanded=False):
+                st.altair_chart(crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(width=980, height=540), use_container_width=False)
+        else:
+            st.info("Nessun dato disponibile ancora.")
 
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
 
