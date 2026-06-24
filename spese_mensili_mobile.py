@@ -5888,6 +5888,147 @@ def crea_grafico_stipendi(data):
     return final_chart
 
 
+def render_grafico_stipendi_desktop_style(data_stipendi, height=430):
+    if data_stipendi is None or data_stipendi.empty:
+        st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
+        return
+    try:
+        chart_data = data_stipendi.copy()
+        chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
+        chart_data = chart_data.dropna(subset=["Mese"])
+        current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+        chart_start = current_month_start - pd.DateOffset(years=3)
+        chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
+        if chart_data.empty:
+            st.info("Nessun dato disponibile negli ultimi tre anni.")
+            return
+        chart_data["Extra messi da parte"] = (
+            pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
+            - pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+        ).clip(lower=0)
+        chart_data["Risparmi tooltip"] = pd.to_numeric(chart_data["Risparmi"], errors="coerce").fillna(0)
+        chart_data["Mese_str"] = chart_data["Mese"].dt.strftime("%b %Y")
+        ordine_mesi = chart_data.sort_values("Mese")["Mese_str"].unique().tolist()
+
+        x_axis = alt.X(
+            "Mese_str:N",
+            sort=ordine_mesi,
+            title="Mese",
+            axis=alt.Axis(labelAngle=-45, labelFontSize=10)
+        )
+
+        line_stipendi = alt.Chart(chart_data).mark_line(
+            color="#5792E8", strokeWidth=2
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Stipendio:Q", title="Stipendi (€)", axis=alt.Axis(orient="left")),
+        )
+        point_stipendi = alt.Chart(chart_data).mark_point(
+            color="#5792E8", size=42, filled=True
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Stipendio:Q"),
+            tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Stipendio:Q", title="Stipendi", format=",.2f")]
+        )
+
+        line_media_stip = alt.Chart(chart_data).mark_line(
+            color="#f87171", strokeWidth=2, strokeDash=[6, 3], opacity=0.4
+        ).encode(x=x_axis, y=alt.Y("Media Stipendio:Q"))
+        point_media_stip = alt.Chart(chart_data).mark_point(
+            color="#f87171", size=36, filled=True, opacity=0.85
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Media Stipendio:Q"),
+            tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio:Q", title="Media stipendi", format=",.2f")]
+        )
+
+        line_media_no13 = alt.Chart(chart_data).mark_line(
+            color="#fb923c", strokeWidth=2, strokeDash=[3, 3]
+        ).encode(x=x_axis, y=alt.Y("Media Stipendio NO 13°/PDR:Q"))
+        point_media_no13 = alt.Chart(chart_data).mark_point(
+            color="#fb923c", size=36, filled=True
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Media Stipendio NO 13°/PDR:Q"),
+            tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Stipendio NO 13°/PDR:Q", title="Media stipendi ordinari (no spikes)", format=",.2f")]
+        )
+
+        risparmi_stack = chart_data.melt(
+            id_vars=["Mese_str", "Risparmi tooltip", "Messi da parte Totali"],
+            value_vars=["Risparmi", "Extra messi da parte"],
+            var_name="Componente risparmio",
+            value_name="Valore"
+        )
+        risparmi_stack["Voce"] = risparmi_stack["Componente risparmio"].replace({
+            "Risparmi": "Risparmi mese precedente",
+            "Extra messi da parte": "Messi da parte"
+        })
+
+        bars_risparmi = alt.Chart(risparmi_stack).mark_bar(
+            opacity=0.38, size=17
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Valore:Q", title="Risparmi / messi da parte (€)", axis=alt.Axis(orient="right"), stack="zero"),
+            color=alt.Color(
+                "Voce:N",
+                scale=alt.Scale(domain=["Risparmi mese precedente", "Messi da parte"], range=["#EF9F27", "#1D9E75"]),
+                legend=None
+            ),
+            order=alt.Order("Componente risparmio:N", sort="descending"),
+            tooltip=[
+                alt.Tooltip("Mese_str:N", title="Mese"),
+                alt.Tooltip("Voce:N", title="Voce"),
+                alt.Tooltip("Valore:Q", title="Importo", format=",.2f"),
+                alt.Tooltip("Messi da parte Totali:Q", title="Totale messo da parte", format=",.2f"),
+            ]
+        )
+
+        line_media_risp = alt.Chart(chart_data).mark_line(
+            color="#FFA040", strokeWidth=2, strokeDash=[4, 4], opacity=0.9
+        ).encode(x=x_axis, y=alt.Y("Media Risparmi:Q"))
+        point_media_risp = alt.Chart(chart_data).mark_point(
+            color="#FFA040", size=36, filled=True
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Media Risparmi:Q"),
+            tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Risparmi:Q", title="Media risparmi mese precedente", format=",.2f")]
+        )
+
+        line_media_messi = alt.Chart(chart_data).mark_line(
+            color="#90EE90", strokeWidth=2, strokeDash=[5, 5]
+        ).encode(x=x_axis, y=alt.Y("Media Messi da parte Totali:Q"))
+        point_media_messi = alt.Chart(chart_data).mark_point(
+            color="#90EE90", size=36, filled=True
+        ).encode(
+            x=x_axis,
+            y=alt.Y("Media Messi da parte Totali:Q"),
+            tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
+        )
+
+        stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+        risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
+        grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
+            title="Storico Stipendi e Risparmi",
+            height=height
+        ).resolve_scale(y="independent")
+
+        st.altair_chart(grafico_finale, use_container_width=True)
+        st.markdown("""
+        <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; padding:10px 16px; 
+                    background:rgba(255,255,255,0.04); border-radius:10px;">
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.7);"><span style="width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte</span>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Errore nel grafico: {e}")
+
+
 def crea_grafico_bollette_linea_continua(data_completa, order):
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
@@ -6066,7 +6207,11 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
             data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
 
-    col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns(LAYOUT_COLONNE["storico_form_chart"])
+    if MOBILE_VIEW:
+        col_sx_stip = st.container()
+        col_dx_stip_chart = st.container()
+    else:
+        col_sx_stip, col_cx_stip_vuoto, col_dx_stip_chart = st.columns(LAYOUT_COLONNE["storico_form_chart"])
     with col_sx_stip:
         st.subheader("Gestisci mese")
         mesi_anni = pd.date_range(start="2024-03-01", end="2030-12-01", freq="MS").strftime("%B %Y")
@@ -6079,16 +6224,30 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
         risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
         messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
-        st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
-
-        col_input1, col_input2 = st.columns(2)
-        with col_input1:
-            stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
-            aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
-        with col_input2:
-            risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
-            messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
-            elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
+        if MOBILE_VIEW:
+            st.caption("Valori salvati per il mese selezionato; se il mese non esiste viene creato al salvataggio.")
+            col_input1, col_input2, col_input3 = st.columns(3)
+            with col_input1:
+                stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
+            with col_input2:
+                risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+            with col_input3:
+                messi_da_parte_mese_corrente = st.number_input("Messi da parte (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}", help="Messi da parte totali / risparmio su BNL")
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                aggiungi_button = st.button("Salva mese", key="aggiorna_stipendi", use_container_width=True)
+            with col_btn2:
+                elimina_button = st.button("Elimina mese", key="elimina_stipendi", use_container_width=True)
+        else:
+            st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
+            col_input1, col_input2 = st.columns(2)
+            with col_input1:
+                stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
+                aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
+            with col_input2:
+                risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+                messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
+                elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
         if aggiungi_button:
             if stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
@@ -6135,10 +6294,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
     if MOBILE_VIEW:
         st.markdown("---")
         st.markdown("### Storico Stipendi e Risparmi")
-        if not data_stipendi.empty:
-            st.altair_chart(crea_grafico_stipendi(data_stipendi).properties(height=330), use_container_width=True)
-        else:
-            st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
+        render_grafico_stipendi_desktop_style(data_stipendi, height=430)
         _render_stipendi_kpi_cards(data_stipendi)
 
     if not MOBILE_VIEW:
