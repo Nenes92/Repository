@@ -1646,6 +1646,29 @@ if MOBILE_VIEW:
         font-weight: 1000;
         text-shadow: 0 0 2px color-mix(in srgb, currentColor 35%, transparent);
     }
+    .mobile-day-extra,
+    .mobile-day-sede {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 10px;
+        height: 10px;
+        border-radius: 4px;
+        margin-left: 1px;
+        font-size: 7px;
+        line-height: 1;
+        font-weight: 1000;
+    }
+    .mobile-day-extra {
+        color: #f5d0fe;
+        background: rgba(168,85,247,.24);
+        border: 0.5px solid rgba(216,180,254,.45);
+    }
+    .mobile-day-sede {
+        color: #fef3c7;
+        background: rgba(245,158,11,.20);
+        border: 0.5px solid rgba(251,191,36,.40);
+    }
     .mobile-calendar-legend {
         display:flex;
         gap:8px;
@@ -2677,7 +2700,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 # ─── MODULO CONTATORE GUADAGNI TURNI ─────────────────────────────────────────
-TURNI_HEADERS = ["Data", "Turno", "Festivo", "Straordinario feriale", "Straordinario festivo"]
+TURNI_HEADERS = ["Data", "Turno", "Festivo", "Straordinario minuti", "Sede"]
 TURNI_WORKSHEET = "TurniGuadagni"
 CALENDAR_ICAL_URL = ""
 CALENDAR_ICAL_URLS = {
@@ -2704,6 +2727,18 @@ DEFAULT_TURNI_RULES = {
     "festivo_sera_notte_pct": 60.0,
     "straordinario_feriale_pct": 25.0,
     "straordinario_festivo_pct": 50.0,
+    "stra_mattina_feriale_pct": 25.0,
+    "stra_mattina_festivo_pct": 55.0,
+    "stra_pomeriggio_feriale_pct": 40.0,
+    "stra_pomeriggio_festivo_pct": 60.0,
+    "stra_notte_feriale_pct": 50.0,
+    "stra_notte_festivo_pct": 70.0,
+    "stra_ferie_feriale_pct": 25.0,
+    "stra_ferie_festivo_pct": 50.0,
+    "buono_pasto": 7.0,
+    "smart_target": 15.0,
+    "accrediti_mensili": 0.0,
+    "trattenute_mensili": 0.0,
     "ind_m_p_feriale": 6.0,
     "ind_notte_feriale": 15.0,
     "ind_m_p_festivo": 15.0,
@@ -2747,17 +2782,23 @@ def _parse_float_turni(value):
 def _normalize_turni_df(df):
     if df.empty:
         return pd.DataFrame(columns=TURNI_HEADERS)
+    old_stra_cols = [col for col in ["Straordinario feriale", "Straordinario festivo"] if col in df.columns]
     for col in TURNI_HEADERS:
         if col not in df.columns:
             df[col] = ""
+    if "Straordinario minuti" in df.columns:
+        df["Straordinario minuti"] = df["Straordinario minuti"].apply(_parse_float_turni)
+    if old_stra_cols:
+        old_minutes = sum(df[col].apply(_parse_float_turni) for col in old_stra_cols) * 60
+        df["Straordinario minuti"] = df["Straordinario minuti"].where(df["Straordinario minuti"] > 0, old_minutes)
     df = df[TURNI_HEADERS].copy()
     df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
     df = df.dropna(subset=["Data"])
     df["Data"] = df["Data"].dt.strftime("%Y-%m-%d")
     df["Turno"] = df["Turno"].astype(str)
     df["Festivo"] = df["Festivo"].apply(_parse_bool_turni)
-    df["Straordinario feriale"] = df["Straordinario feriale"].apply(_parse_float_turni)
-    df["Straordinario festivo"] = df["Straordinario festivo"].apply(_parse_float_turni)
+    df["Straordinario minuti"] = df["Straordinario minuti"].apply(lambda value: int(round(max(0, _parse_float_turni(value)))))
+    df["Sede"] = df["Sede"].apply(_parse_bool_turni)
     return df.sort_values("Data").reset_index(drop=True)
 
 
@@ -2852,6 +2893,18 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_festivo_notte": "festivo_sera_notte_pct",
         "turni_stra_feriale": "straordinario_feriale_pct",
         "turni_stra_festivo": "straordinario_festivo_pct",
+        "turni_stra_m_feriale": "stra_mattina_feriale_pct",
+        "turni_stra_m_festivo": "stra_mattina_festivo_pct",
+        "turni_stra_p_feriale": "stra_pomeriggio_feriale_pct",
+        "turni_stra_p_festivo": "stra_pomeriggio_festivo_pct",
+        "turni_stra_n_feriale": "stra_notte_feriale_pct",
+        "turni_stra_n_festivo": "stra_notte_festivo_pct",
+        "turni_stra_f_feriale": "stra_ferie_feriale_pct",
+        "turni_stra_f_festivo": "stra_ferie_festivo_pct",
+        "turni_buono_pasto": "buono_pasto",
+        "turni_smart_target": "smart_target",
+        "turni_accrediti_mensili": "accrediti_mensili",
+        "turni_trattenute_mensili": "trattenute_mensili",
         "turni_ind_mp_f": "ind_m_p_feriale",
         "turni_ind_n_f": "ind_notte_feriale",
         "turni_ind_mp_fe": "ind_m_p_festivo",
@@ -2947,38 +3000,189 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
     return rules["ind_m_p_festivo"] if festive_at_start else rules["ind_m_p_feriale"]
 
 
-def _turni_row_straordinari(row):
-    return (
-        _parse_float_turni(row.get("Straordinario feriale", 0.0)),
-        _parse_float_turni(row.get("Straordinario festivo", 0.0)),
-    )
+def _turni_row_straordinario_minuti(row):
+    return int(round(max(0, _parse_float_turni(row.get("Straordinario minuti", 0)))))
 
 
-def _straordinari_included(data_str, until, only_day):
-    if only_day is not None and data_str != only_day:
-        return False
-    if until is None:
-        until = _now_italy()
-    if until.year >= 9999:
-        return True
-    day_start = _dt_for_turno(data_str, "00:00")
-    return until >= day_start + timedelta(days=1)
+def _turni_row_sede(row):
+    return _parse_bool_turni(row.get("Sede", False))
 
 
-def _calc_straordinari(data_str, rules, until=None, only_day=None, straordinario_feriale=0.0, straordinario_festivo=0.0):
-    ore_feriali = max(0.0, _parse_float_turni(straordinario_feriale))
-    ore_festive = max(0.0, _parse_float_turni(straordinario_festivo))
-    if ore_feriali <= 0 and ore_festive <= 0:
-        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0}
-    if not _straordinari_included(data_str, until, only_day):
-        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0}
+def _upsert_turni_day(df_turni, day_str, turno=None, festivo=None, straordinario_minuti=None, sede=None):
+    row = df_turni[df_turni["Data"] == day_str]
+    current = {
+        "Data": day_str,
+        "Turno": "" if row.empty else str(row.iloc[0].get("Turno", "")),
+        "Festivo": False if row.empty else _parse_bool_turni(row.iloc[0].get("Festivo", False)),
+        "Straordinario minuti": 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0]),
+        "Sede": False if row.empty else _turni_row_sede(row.iloc[0]),
+    }
+    if turno is not None:
+        current["Turno"] = turno if turno in TURNI_ORARI else ""
+    if festivo is not None:
+        current["Festivo"] = bool(festivo)
+    if straordinario_minuti is not None:
+        current["Straordinario minuti"] = int(round(max(0, _parse_float_turni(straordinario_minuti))))
+    if sede is not None:
+        current["Sede"] = bool(sede)
+    df_new = df_turni[df_turni["Data"] != day_str].copy()
+    return _normalize_turni_df(pd.concat([df_new, pd.DataFrame([current])], ignore_index=True))
+
+
+def _save_turni_and_rerun(df_new, error_message="Aggiornato in bozza, ma non salvato su Google Sheets."):
+    df_new = _normalize_turni_df(df_new)
+    st.session_state.turni_df_draft = df_new.copy()
+    if save_turni_data(df_new):
+        st.session_state.turni_dirty = False
+        st.rerun()
+    st.session_state.turni_dirty = True
+    st.error(error_message)
+    return df_new
+
+
+def _format_minutes_label(minutes):
+    minutes = int(round(max(0, _parse_float_turni(minutes))))
+    if minutes <= 0:
+        return "0m"
+    hours, mins = divmod(minutes, 60)
+    if hours and mins:
+        return f"{hours}h {mins:02d}m"
+    if hours:
+        return f"{hours}h"
+    return f"{mins}m"
+
+
+def _pct_for_straordinario(turno, dt_obj, forced_festivo, rules):
+    festive = _is_festive_at(dt_obj, forced_festivo)
+    fallback_key = "straordinario_festivo_pct" if festive else "straordinario_feriale_pct"
+    fallback = float(rules.get(fallback_key, 50.0 if festive else 25.0))
+    if turno == "Pomeriggio":
+        key = "stra_pomeriggio_festivo_pct" if festive else "stra_pomeriggio_feriale_pct"
+    elif turno == "Notte":
+        key = "stra_notte_festivo_pct" if festive else "stra_notte_feriale_pct"
+    elif turno == "Ferie":
+        key = "stra_ferie_festivo_pct" if festive else "stra_ferie_feriale_pct"
+    else:
+        key = "stra_mattina_festivo_pct" if festive else "stra_mattina_feriale_pct"
+    return float(rules.get(key, fallback))
+
+
+def _calc_straordinario_minuti(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_minuti=0):
+    minuti = int(round(max(0, _parse_float_turni(straordinario_minuti))))
+    if minuti <= 0 or turno in ["", "Riposo"]:
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "hours_by_pct": {}}
+    now = _now_italy() if until is None else until
+    _, shift_end = _shift_bounds(data_str, turno)
+    overtime_start = shift_end
+    overtime_end = overtime_start + timedelta(minutes=min(minuti, 120))
+    effective_end = overtime_end if now.year >= 9999 else min(overtime_end, now)
+
+    start = overtime_start
+    if only_day is not None:
+        day_start = _dt_for_turno(only_day, "00:00")
+        day_end = day_start + timedelta(days=1)
+        start = max(start, day_start)
+        effective_end = min(effective_end, day_end)
+    if effective_end <= start:
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "hours_by_pct": {}}
+
     paga = float(rules["paga_oraria"])
-    base = paga * (ore_feriali + ore_festive)
-    extra = (
-        paga * float(rules.get("straordinario_feriale_pct", 0.0)) / 100 * ore_feriali
-        + paga * float(rules.get("straordinario_festivo_pct", 0.0)) / 100 * ore_festive
-    )
-    return {"total": base + extra, "base": base, "extra": extra, "hours": ore_feriali + ore_festive}
+    base = 0.0
+    extra = 0.0
+    hours = 0.0
+    hours_by_pct = {}
+    t = start
+    while t < effective_end:
+        nxt = min(t + timedelta(minutes=1), effective_end)
+        h = (nxt - t).total_seconds() / 3600
+        pct = _pct_for_straordinario(turno, t, forced_festivo, rules)
+        base += paga * h
+        extra += paga * pct / 100 * h
+        hours += h
+        hours_by_pct[pct] = hours_by_pct.get(pct, 0.0) + h
+        t = nxt
+    return {"total": base + extra, "base": base, "extra": extra, "hours": hours, "hours_by_pct": hours_by_pct}
+
+
+def _is_sede_buono_pasto(data_str, turno, forced_festivo, sede):
+    if not sede or turno in ["", "Ferie", "Riposo"]:
+        return False
+    start, _ = _shift_bounds(data_str, turno)
+    return turno != "Mattina" or _is_festive_at(start, forced_festivo)
+
+
+def _calc_turno_hours_by_pct(data_str, turno, forced_festivo, rules):
+    if turno in ["", "Ferie", "Riposo"]:
+        return {}
+    start, end = _shift_bounds(data_str, turno)
+    hours_by_pct = {}
+    t = start
+    while t < end:
+        nxt = min(t + timedelta(minutes=1), end)
+        h = (nxt - t).total_seconds() / 3600
+        pct = _pct_for_turno(turno, t, forced_festivo, rules)
+        hours_by_pct[pct] = hours_by_pct.get(pct, 0.0) + h
+        t = nxt
+    return hours_by_pct
+
+
+def compute_turni_month_report(df_turni, rules, month_key):
+    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+    report = {
+        "work_days": 0,
+        "ferie_days": 0,
+        "turn_counts": {"Mattina": 0, "Pomeriggio": 0, "Notte": 0, "Ferie": 0},
+        "turn_type_counts": {},
+        "sede_days": 0,
+        "sede_required": 0,
+        "sede_remaining": 0,
+        "buoni_pasto_days": 0,
+        "buoni_pasto_total": 0.0,
+        "straordinario_minutes": 0,
+        "straordinario_total": 0.0,
+        "hours_by_pct": {},
+    }
+    for _, row in month_df.iterrows():
+        data = row["Data"]
+        turno = row["Turno"]
+        festivo = bool(row["Festivo"])
+        sede = _turni_row_sede(row)
+        stra_minuti = _turni_row_straordinario_minuti(row)
+        if turno == "Ferie":
+            report["ferie_days"] += 1
+            report["turn_counts"]["Ferie"] += 1
+        elif turno != "Riposo":
+            report["work_days"] += 1
+            report["turn_counts"][turno] = report["turn_counts"].get(turno, 0) + 1
+            start, _ = _shift_bounds(data, turno)
+            suffix = "festivo" if _is_festive_at(start, festivo) else "feriale"
+            key = f"{turno} {suffix}"
+            report["turn_type_counts"][key] = report["turn_type_counts"].get(key, 0) + 1
+            for pct, hours in _calc_turno_hours_by_pct(data, turno, festivo, rules).items():
+                report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
+        if sede:
+            report["sede_days"] += 1
+        if _is_sede_buono_pasto(data, turno, festivo, sede):
+            report["buoni_pasto_days"] += 1
+        if stra_minuti:
+            report["straordinario_minutes"] += stra_minuti
+            stra_calc = _calc_straordinario_minuti(
+                data,
+                turno,
+                festivo,
+                rules,
+                until=datetime.max.replace(tzinfo=None),
+                straordinario_minuti=stra_minuti,
+            )
+            report["straordinario_total"] += stra_calc["total"]
+            for pct, hours in stra_calc.get("hours_by_pct", {}).items():
+                report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
+    smart_target = int(round(max(0, _parse_float_turni(rules.get("smart_target", 15)))))
+    report["sede_required"] = max(0, report["work_days"] - smart_target)
+    report["sede_remaining"] = max(0, report["sede_required"] - report["sede_days"])
+    report["buoni_pasto_total"] = report["buoni_pasto_days"] * float(rules.get("buono_pasto", 7.0))
+    return report
 
 
 def _next_rate_checkpoint(now, end):
@@ -2993,16 +3197,17 @@ def _next_rate_checkpoint(now, end):
     return min(checkpoints) if checkpoints else None
 
 
-def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_feriale=0.0, straordinario_festivo=0.0):
+def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_minuti=0):
     now = _now_italy() if until is None else until
     paga = float(rules["paga_oraria"])
-    stra_calc = _calc_straordinari(
+    stra_calc = _calc_straordinario_minuti(
         data_str,
+        turno,
+        forced_festivo,
         rules,
         until=until,
         only_day=only_day,
-        straordinario_feriale=straordinario_feriale,
-        straordinario_festivo=straordinario_festivo,
+        straordinario_minuti=straordinario_minuti,
     )
 
     if turno == "Riposo":
@@ -3110,7 +3315,7 @@ def compute_turni_dashboard(df_turni, rules):
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
-        stra_feriale, stra_festivo = _turni_row_straordinari(row)
+        stra_minuti = _turni_row_straordinario_minuti(row)
         has_turno = turno in TURNI_ORARI and turno != ""
 
         if has_turno and turno == "Ferie" and data[:7] == current_m:
@@ -3123,10 +3328,10 @@ def compute_turni_dashboard(df_turni, rules):
                 work_days_done += 1
 
         if has_turno and data[:7] == current_m:
-            calc_live = compute_turno(data, turno, festivo, rules, until=now, straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)
+            calc_live = compute_turno(data, turno, festivo, rules, until=now, straordinario_minuti=stra_minuti)
             live_month += calc_live["total"]
             hours_live += calc_live["hours"]
-            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)
+            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
             if turno == "Ferie" and start.strftime("%Y-%m-%d") == today:
@@ -3142,7 +3347,7 @@ def compute_turni_dashboard(df_turni, rules):
                     current_shift_end = end
                     current_rate_change_at = start if now < start else None
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
             elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
@@ -3153,10 +3358,10 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
 
         if has_turno and data[:7] == prev_m:
-            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)
+            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
             prev_extras += calc_prev["extra"]
 
         if not has_turno:
@@ -3165,22 +3370,30 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
+            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
+            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno != "Ferie" and current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
-            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today, straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
-            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_feriale=stra_feriale, straordinario_festivo=stra_festivo)["total"]
+            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today, straordinario_minuti=stra_minuti)["total"]
+            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_minuti=stra_minuti)["total"]
 
     if current_shift_end is None and not is_on_leave:
         live_today = last_shift_total
         expected_today = next_shift_total
         turno_kpi_label = "Ultimo / prossimo turno"
 
-    live_month += rules["quota_fissa_mensile"]
-    payslip_estimate = rules["quota_fissa_mensile"] + current_base_full + prev_extras
+    month_report = compute_turni_month_report(df_turni, rules, current_m)
+    buoni_pasto_total = float(month_report.get("buoni_pasto_total", 0.0))
+    monthly_adjustments = (
+        float(rules["quota_fissa_mensile"])
+        + float(rules.get("accrediti_mensili", 0.0))
+        - float(rules.get("trattenute_mensili", 0.0))
+        + buoni_pasto_total
+    )
+    live_month += monthly_adjustments
+    payslip_estimate = monthly_adjustments + current_base_full + prev_extras
 
     return {
         "live_month": live_month,
@@ -3207,6 +3420,11 @@ def compute_turni_dashboard(df_turni, rules):
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
         "ferie_days_total": ferie_days_total,
+        "monthly_adjustments": monthly_adjustments,
+        "buoni_pasto_total": buoni_pasto_total,
+        "sede_days_total": int(month_report.get("sede_days", 0)),
+        "sede_days_required": int(month_report.get("sede_required", 0)),
+        "sede_days_remaining": int(month_report.get("sede_remaining", 0)),
     }
 
 
@@ -3362,8 +3580,8 @@ def import_turni_from_calendar_ics(ical_url, selected_month, fixed_turno=""):
             "Data": data_str,
             "Turno": turno,
             "Festivo": "festivo" in summary.lower(),
-            "Straordinario feriale": 0.0,
-            "Straordinario festivo": 0.0,
+            "Straordinario minuti": 0,
+            "Sede": False,
         })
     return _normalize_turni_df(pd.DataFrame(rows, columns=TURNI_HEADERS))
 
@@ -3397,12 +3615,12 @@ def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
     month_key = selected_month.strftime("%Y-%m")
     existing_month = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
     if not existing_month.empty:
-        existing_extra = existing_month.set_index("Data")[["Straordinario feriale", "Straordinario festivo"]].to_dict("index")
+        existing_extra = existing_month.set_index("Data")[["Straordinario minuti", "Sede"]].to_dict("index")
         for idx, row in imported.iterrows():
             extra = existing_extra.get(row["Data"])
             if extra:
-                imported.at[idx, "Straordinario feriale"] = extra.get("Straordinario feriale", 0.0)
-                imported.at[idx, "Straordinario festivo"] = extra.get("Straordinario festivo", 0.0)
+                imported.at[idx, "Straordinario minuti"] = extra.get("Straordinario minuti", 0)
+                imported.at[idx, "Sede"] = extra.get("Sede", False)
     other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
     manual_festivi = df_turni[
         df_turni["Data"].str.startswith(month_key)
@@ -3802,25 +4020,24 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
     for _, r in month_df.iterrows():
         turno = r["Turno"]
         info = _turno_color_info(turno)
-        stra_feriale, stra_festivo = _turni_row_straordinari(r)
+        stra_minuti = _turni_row_straordinario_minuti(r)
+        sede = _turni_row_sede(r)
         calc = compute_turno(
             r["Data"],
             turno,
             bool(r["Festivo"]),
             rules,
             until=datetime.max.replace(tzinfo=None),
-            straordinario_feriale=stra_feriale,
-            straordinario_festivo=stra_festivo,
+            straordinario_minuti=stra_minuti,
         )
         seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
-        stra_txt = ""
-        if stra_feriale or stra_festivo:
-            parti_stra = []
-            if stra_feriale:
-                parti_stra.append(f"stra fer. {stra_feriale:g}h")
-            if stra_festivo:
-                parti_stra.append(f"stra fest. {stra_festivo:g}h")
-            stra_txt = f'<div class="meta">{html.escape(" · ".join(parti_stra))}</div>'
+        extra_notes = []
+        if stra_minuti:
+            extra_notes.append(f"Straord. {_format_minutes_label(stra_minuti)}")
+        if sede:
+            buono = " · buono pasto" if _is_sede_buono_pasto(r["Data"], turno, bool(r["Festivo"]), sede) else ""
+            extra_notes.append(f"Sede{buono}")
+        extra_txt = f'<div class="meta">{html.escape(" · ".join(extra_notes))}</div>' if extra_notes else ""
         data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
         festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
         focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
@@ -3830,7 +4047,7 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
             f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
             f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra {html.escape(_money_turni(calc["extra"]))}</div>'
-            f'{stra_txt}'
+            f'{extra_txt}'
             f'</div>'
         )
     cards.append("</div></div>")
@@ -3840,65 +4057,165 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
 def _existing_turni_row_values(df_turni, day_str):
     row = df_turni[df_turni["Data"] == day_str]
     if row.empty:
-        return "", False, 0.0, 0.0
+        return "", False, 0, False
     first = row.iloc[0]
     return (
         str(first.get("Turno", "")),
         bool(first.get("Festivo", False)),
-        _parse_float_turni(first.get("Straordinario feriale", 0.0)),
-        _parse_float_turni(first.get("Straordinario festivo", 0.0)),
+        _turni_row_straordinario_minuti(first),
+        _turni_row_sede(first),
     )
 
 
-def _render_straordinari_editor(df_turni, month_days, key_prefix):
-    if not month_days:
+def _render_mobile_turni_actions(df_turni, month_days, festivo_manual, straordinario_manual, sede_manual):
+    if not MOBILE_VIEW or not month_days or not (festivo_manual or straordinario_manual or sede_manual):
         return df_turni
-    st.markdown("##### Straordinari")
-    selected_day = st.selectbox(
-        "Giorno",
+    st.caption("Su telefono scegli il giorno qui sotto e salva la modifica.")
+    action_day = st.selectbox(
+        "Giorno da modificare",
         month_days,
         format_func=lambda value: pd.to_datetime(value).strftime("%d/%m/%Y"),
-        key=f"{key_prefix}_giorno",
+        key="turni_mobile_action_day",
     )
-    turno_esistente, festivo_esistente, stra_feriale_val, stra_festivo_val = _existing_turni_row_values(df_turni, selected_day)
-    c1, c2 = st.columns(2)
-    with c1:
-        ore_feriali = st.number_input(
-            "Ore feriali",
-            min_value=0.0,
-            step=0.5,
-            value=float(stra_feriale_val),
-            key=f"{key_prefix}_ore_feriali",
+    if straordinario_manual:
+        durata = st.selectbox(
+            "Durata straordinario",
+            [0, 30, 45, 60, 75, 90, 105, 120],
+            format_func=lambda value: "Nessuno" if value == 0 else _format_minutes_label(value),
+            key="turni_mobile_stra_minuti",
         )
-    with c2:
-        ore_festive = st.number_input(
-            "Ore festive",
-            min_value=0.0,
-            step=0.5,
-            value=float(stra_festivo_val),
-            key=f"{key_prefix}_ore_festive",
-        )
-    if st.button("Salva straordinari", use_container_width=True, key=f"{key_prefix}_salva"):
-        df_new = df_turni[df_turni["Data"] != selected_day].copy()
-        if turno_esistente not in TURNI_ORARI:
-            turno_esistente = ""
-        df_new = pd.concat([df_new, pd.DataFrame([{
-            "Data": selected_day,
-            "Turno": turno_esistente,
-            "Festivo": festivo_esistente,
-            "Straordinario feriale": ore_feriali,
-            "Straordinario festivo": ore_festive,
-        }])], ignore_index=True)
-        df_new = _normalize_turni_df(df_new)
-        st.session_state.turni_df_draft = df_new.copy()
-        if save_turni_data(df_new):
-            st.session_state.turni_dirty = False
-            st.success("Straordinari salvati.")
-            st.rerun()
-        st.session_state.turni_dirty = True
-        st.error("Straordinari aggiornati in bozza, ma non salvati su Google Sheets.")
-        return df_new
+        if st.button("Salva straordinario", use_container_width=True, key="turni_mobile_save_stra"):
+            df_new = _upsert_turni_day(df_turni, action_day, straordinario_minuti=durata)
+            return _save_turni_and_rerun(df_new, "Straordinario aggiornato in bozza, ma non salvato su Google Sheets.")
+    if festivo_manual and st.button("Inverti festivo manuale", use_container_width=True, key="turni_mobile_toggle_festivo"):
+        _, festivo_esistente, _, _ = _existing_turni_row_values(df_turni, action_day)
+        df_new = _upsert_turni_day(df_turni, action_day, festivo=not festivo_esistente)
+        return _save_turni_and_rerun(df_new, "Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+    if sede_manual and st.button("Inverti sede", use_container_width=True, key="turni_mobile_toggle_sede"):
+        _, _, _, sede_esistente = _existing_turni_row_values(df_turni, action_day)
+        df_new = _upsert_turni_day(df_turni, action_day, sede=not sede_esistente)
+        return _save_turni_and_rerun(df_new, "Sede aggiornata in bozza, ma non salvata su Google Sheets.")
     return df_turni
+
+
+def _render_turni_report(report):
+    def card(label, value, sub=""):
+        return (
+            '<div class="turni-report-card">'
+            f'<div class="turni-report-label">{html.escape(str(label))}</div>'
+            f'<div class="turni-report-value">{html.escape(str(value))}</div>'
+            f'<div class="turni-report-sub">{html.escape(str(sub))}</div>'
+            '</div>'
+        )
+
+    cards = [
+        card("Giorni lavorati", report.get("work_days", 0), "escluse ferie"),
+        card("Ferie", report.get("ferie_days", 0), "giorni base"),
+        card(
+            "Sedi",
+            f'{report.get("sede_days", 0)} / {report.get("sede_required", 0)}',
+            f'da fare {report.get("sede_remaining", 0)}',
+        ),
+        card(
+            "Buoni pasto",
+            f'{report.get("buoni_pasto_days", 0)}',
+            _money_turni(report.get("buoni_pasto_total", 0.0)),
+        ),
+        card(
+            "Straordinari",
+            _format_minutes_label(report.get("straordinario_minutes", 0)),
+            _money_turni(report.get("straordinario_total", 0.0)),
+        ),
+        card("Smart target", "15", "giorni/mese"),
+    ]
+    turn_counts = report.get("turn_counts", {})
+    turn_rows = "".join(
+        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
+        for name, value in turn_counts.items()
+        if value
+    ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
+    type_counts = report.get("turn_type_counts", {})
+    type_rows = "".join(
+        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
+        for name, value in sorted(type_counts.items())
+    ) or "<div><span>Nessun dettaglio</span><strong>0</strong></div>"
+    hours_rows = "".join(
+        f'<div><span>Magg. {float(pct):g}%</span><strong>{hours:.2f}h</strong></div>'
+        for pct, hours in sorted(report.get("hours_by_pct", {}).items())
+        if abs(hours) > 0.001
+    ) or "<div><span>Nessuna maggiorazione</span><strong>0h</strong></div>"
+    st.markdown(f"""
+    <style>
+      .turni-report-grid {{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+        margin: 4px 0 14px;
+      }}
+      .turni-report-card {{
+        background:rgba(255,255,255,.055);
+        border:0.5px solid rgba(255,255,255,.12);
+        border-radius:12px;
+        padding:10px 12px;
+      }}
+      .turni-report-label {{
+        color:rgba(255,255,255,.48);
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        font-weight:900;
+      }}
+      .turni-report-value {{
+        color:#f8fafc;
+        font-size:20px;
+        font-weight:900;
+        margin-top:5px;
+      }}
+      .turni-report-sub {{
+        color:rgba(255,255,255,.45);
+        font-size:11px;
+        margin-top:3px;
+      }}
+      .turni-report-lists {{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:12px;
+      }}
+      .turni-report-list {{
+        background:rgba(255,255,255,.035);
+        border:0.5px solid rgba(255,255,255,.10);
+        border-radius:12px;
+        padding:12px;
+      }}
+      .turni-report-list h4 {{
+        margin:0 0 8px;
+        color:rgba(255,255,255,.86);
+        font-size:14px;
+      }}
+      .turni-report-list div {{
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        padding:5px 0;
+        border-top:0.5px solid rgba(255,255,255,.07);
+        color:rgba(255,255,255,.62);
+        font-size:12px;
+      }}
+      .turni-report-list strong {{
+        color:#f8fafc;
+      }}
+      @media (max-width: 767px) {{
+        .turni-report-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
+        .turni-report-lists {{ grid-template-columns:1fr; }}
+      }}
+    </style>
+    <div class="turni-report-grid">{"".join(cards)}</div>
+    <div class="turni-report-lists">
+      <div class="turni-report-list"><h4>Turni</h4>{turn_rows}</div>
+      <div class="turni-report-list"><h4>Tipi turno</h4>{type_rows}</div>
+      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{hours_rows}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_turni_guadagni_section():
@@ -3941,12 +4258,24 @@ def render_turni_guadagni_section():
     mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, current_work_day) if MOBILE_VIEW else ""
     render_live_turni_kpis(stats, mobile_summary_html)
 
-    tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
+    tab_cal, tab_rules, tab_report = st.tabs(["📅 Turni", "⚙️ Regole", "📊 Riepilogo"])
 
     with tab_cal:
-        st.markdown('<div class="turni-compact-row">', unsafe_allow_html=True)
-        festivo_manual = st.checkbox("Modifica festivo manuale", key="turni_festivo_manual")
-        st.markdown('</div>', unsafe_allow_html=True)
+        mode_cols = st.columns(3)
+        with mode_cols[0]:
+            festivo_manual = st.checkbox("Festivo manuale", key="turni_festivo_manual")
+        with mode_cols[1]:
+            straordinario_manual = st.checkbox("Straordinario", key="turni_straordinario_manual")
+        with mode_cols[2]:
+            sede_manual = st.checkbox("Sede", key="turni_sede_manual")
+        desktop_stra_minuti = 0
+        if straordinario_manual and not MOBILE_VIEW:
+            desktop_stra_minuti = st.selectbox(
+                "Durata straordinario",
+                [0, 30, 45, 60, 75, 90, 105, 120],
+                format_func=lambda value: "Nessuno" if value == 0 else _format_minutes_label(value),
+                key="turni_desktop_stra_minuti",
+            )
 
         year, month = selected_month.year, selected_month.month
 
@@ -4000,6 +4329,13 @@ def render_turni_guadagni_section():
                         shift_html = ""
                         if turno_corrente in TURNI_ORARI and turno_corrente:
                             shift_html = f'<span class="shift" style="color:{info["color"]};">{html.escape(info["short"])}</span>'
+                        stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
+                        sede = False if row.empty else _turni_row_sede(row.iloc[0])
+                        markers_html = ""
+                        if stra_minuti:
+                            markers_html += '<span class="mobile-day-extra">+</span>'
+                        if sede:
+                            markers_html += '<span class="mobile-day-sede">S</span>'
                         day_is_festive = (
                             day.weekday() == 6
                             or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
@@ -4008,37 +4344,10 @@ def render_turni_guadagni_section():
                         day_class = "holiday" if day_is_festive else ""
                         today_dot = '<span class="today-dot">●</span>' if day_str == current_work_day else ""
                         calendar_cells.append(
-                            f'<div class="mobile-calendar-day">{today_dot}<span class="{day_class}">{day.day}</span>{shift_html}</div>'
+                            f'<div class="mobile-calendar-day">{today_dot}<span class="{day_class}">{day.day}</span>{shift_html}{markers_html}</div>'
                         )
                 calendar_cells.append("</div>")
                 st.markdown("".join(calendar_cells), unsafe_allow_html=True)
-                if festivo_manual:
-                    st.caption("Su telefono scegli il giorno da modificare qui sotto.")
-                    mobile_festivo_day = st.selectbox(
-                        "Giorno festivo manuale",
-                        month_days,
-                        format_func=lambda value: pd.to_datetime(value).strftime("%d/%m/%Y"),
-                        key="turni_mobile_festivo_day"
-                    )
-                    if st.button("Inverti festivo manuale", use_container_width=True, key="turni_mobile_toggle_festivo"):
-                        row = df_turni[df_turni["Data"] == mobile_festivo_day]
-                        df_new = df_turni[df_turni["Data"] != mobile_festivo_day].copy()
-                        turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                        nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
-                        df_new = pd.concat([df_new, pd.DataFrame([{
-                            "Data": mobile_festivo_day,
-                            "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
-                            "Festivo": nuovo_festivo,
-                            "Straordinario feriale": _parse_float_turni(row.iloc[0].get("Straordinario feriale", 0.0)) if not row.empty else 0.0,
-                            "Straordinario festivo": _parse_float_turni(row.iloc[0].get("Straordinario festivo", 0.0)) if not row.empty else 0.0,
-                        }])], ignore_index=True)
-                        df_new = _normalize_turni_df(df_new)
-                        st.session_state.turni_df_draft = df_new.copy()
-                        if save_turni_data(df_new):
-                            st.session_state.turni_dirty = False
-                            st.rerun()
-                        st.session_state.turni_dirty = True
-                        st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
             else:
                 cols = st.columns(7)
                 for c, wd in zip(cols, weekdays):
@@ -4054,10 +4363,18 @@ def render_turni_guadagni_section():
                         row = df_turni[df_turni["Data"] == day_str]
                         if row.empty:
                             current_label = ""
+                            stra_minuti = 0
+                            sede = False
                         else:
                             turno_corrente = row.iloc[0]["Turno"]
                             info = _turno_color_info(turno_corrente)
                             current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                            stra_minuti = _turni_row_straordinario_minuti(row.iloc[0])
+                            sede = _turni_row_sede(row.iloc[0])
+                        if stra_minuti:
+                            current_label += " :violet[**+**]"
+                        if sede:
+                            current_label += " :orange[**S**]"
                         day_is_festive = (
                             day.weekday() == 6
                             or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
@@ -4069,24 +4386,16 @@ def render_turni_guadagni_section():
                         clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                         if clicked_day:
                             if festivo_manual:
-                                df_new = df_turni[df_turni["Data"] != day_str].copy()
-                                turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                                nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
-                                df_new = pd.concat([df_new, pd.DataFrame([{
-                                    "Data": day_str,
-                                    "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
-                                    "Festivo": nuovo_festivo,
-                                    "Straordinario feriale": _parse_float_turni(row.iloc[0].get("Straordinario feriale", 0.0)) if not row.empty else 0.0,
-                                    "Straordinario festivo": _parse_float_turni(row.iloc[0].get("Straordinario festivo", 0.0)) if not row.empty else 0.0,
-                                }])], ignore_index=True)
-                                df_new = _normalize_turni_df(df_new)
-                                st.session_state.turni_df_draft = df_new.copy()
-                                if save_turni_data(df_new):
-                                    st.session_state.turni_dirty = False
-                                    st.rerun()
-                                else:
-                                    st.session_state.turni_dirty = True
-                                    st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+                                _, festivo_esistente, _, _ = _existing_turni_row_values(df_turni, day_str)
+                                df_new = _upsert_turni_day(df_turni, day_str, festivo=not festivo_esistente)
+                                df_turni = _save_turni_and_rerun(df_new, "Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+                            elif straordinario_manual:
+                                df_new = _upsert_turni_day(df_turni, day_str, straordinario_minuti=desktop_stra_minuti)
+                                df_turni = _save_turni_and_rerun(df_new, "Straordinario aggiornato in bozza, ma non salvato su Google Sheets.")
+                            elif sede_manual:
+                                _, _, _, sede_esistente = _existing_turni_row_values(df_turni, day_str)
+                                df_new = _upsert_turni_day(df_turni, day_str, sede=not sede_esistente)
+                                df_turni = _save_turni_and_rerun(df_new, "Sede aggiornata in bozza, ma non salvata su Google Sheets.")
 
             st.markdown("""
             <div class="mobile-calendar-legend">
@@ -4099,11 +4408,7 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-            df_turni = _render_straordinari_editor(
-                df_turni,
-                month_days,
-                "turni_mobile_straordinari" if MOBILE_VIEW else "turni_desktop_straordinari",
-            )
+            df_turni = _render_mobile_turni_actions(df_turni, month_days, festivo_manual, straordinario_manual, sede_manual)
 
         if summary_col is not None:
           with summary_col:
@@ -4124,25 +4429,24 @@ def render_turni_guadagni_section():
                 for _, r in month_df.iterrows():
                     turno = r["Turno"]
                     info = _turno_color_info(turno)
-                    stra_feriale, stra_festivo = _turni_row_straordinari(r)
+                    stra_minuti = _turni_row_straordinario_minuti(r)
+                    sede = _turni_row_sede(r)
                     calc = compute_turno(
                         r["Data"],
                         turno,
                         bool(r["Festivo"]),
                         rules,
                         until=datetime.max.replace(tzinfo=None),
-                        straordinario_feriale=stra_feriale,
-                        straordinario_festivo=stra_festivo,
+                        straordinario_minuti=stra_minuti,
                     )
                     seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
-                    stra_txt = ""
-                    if stra_feriale or stra_festivo:
-                        parti_stra = []
-                        if stra_feriale:
-                            parti_stra.append(f"stra fer. {stra_feriale:g}h")
-                        if stra_festivo:
-                            parti_stra.append(f"stra fest. {stra_festivo:g}h")
-                        stra_txt = f'<div class="meta">{" · ".join(parti_stra)}</div>'
+                    extra_notes = []
+                    if stra_minuti:
+                        extra_notes.append(f"Straord. {_format_minutes_label(stra_minuti)}")
+                    if sede:
+                        buono = " · buono pasto" if _is_sede_buono_pasto(r["Data"], turno, bool(r["Festivo"]), sede) else ""
+                        extra_notes.append(f"Sede{buono}")
+                    extra_txt = f'<div class="meta">{html.escape(" · ".join(extra_notes))}</div>' if extra_notes else ""
                     data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
                     festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
                     focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
@@ -4152,7 +4456,7 @@ def render_turni_guadagni_section():
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
                         f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
                         f'<div class="meta">Base {_money_turni(calc["base"])} · Extra {_money_turni(calc["extra"])}</div>'
-                        f'{stra_txt}'
+                        f'{extra_txt}'
                         f'</div>'
                     )
                 cards.append("</div>")
@@ -4210,7 +4514,7 @@ def render_turni_guadagni_section():
                 """, height=370)
 
         if st.session_state.get("turni_dirty", False):
-            st.warning("Festivo manuale modificato in bozza: Google Sheets non ha confermato il salvataggio.")
+            st.warning("Modifiche turni in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
         c1, c2 = st.columns(2)
@@ -4223,8 +4527,18 @@ def render_turni_guadagni_section():
             rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
             rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
-            rules["straordinario_feriale_pct"] = st.number_input("Straordinario feriale %", value=float(rules.get("straordinario_feriale_pct", 25.0)), step=1.0, key="turni_stra_feriale")
-            rules["straordinario_festivo_pct"] = st.number_input("Straordinario festivo %", value=float(rules.get("straordinario_festivo_pct", 50.0)), step=1.0, key="turni_stra_festivo")
+            st.markdown("##### Straordinari")
+            stra_cols = st.columns(2)
+            with stra_cols[0]:
+                rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
+                rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
+                rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
+                rules["stra_ferie_feriale_pct"] = st.number_input("Ferie feriale %", value=float(rules.get("stra_ferie_feriale_pct", 25.0)), step=1.0, key="turni_stra_f_feriale")
+            with stra_cols[1]:
+                rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
+                rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
+                rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
+                rules["stra_ferie_festivo_pct"] = st.number_input("Ferie festivo %", value=float(rules.get("stra_ferie_festivo_pct", 50.0)), step=1.0, key="turni_stra_f_festivo")
         with c2:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
@@ -4232,6 +4546,11 @@ def render_turni_guadagni_section():
             rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
             rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
             rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
+            st.markdown("##### Sede e mensile")
+            rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
+            rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
+            rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
+            rules["trattenute_mensili"] = st.number_input("Trattenute fisse mensili", value=float(rules.get("trattenute_mensili", 0.0)), step=1.0, key="turni_trattenute_mensili")
             st.markdown("""
             <div class="kpi-card">
                 <div class="kpi-label">Regole applicate</div>
@@ -4240,15 +4559,20 @@ def render_turni_guadagni_section():
                 P 14-18: 20% / 50% + 6€/15€<br>
                 P 18-22: 20% / 60%, senza seconda indennità<br>
                 N 22-06: 50% / 60% + 15€/25€<br>
-                Straordinari: feriale/festivo configurabili<br>
+                Straordinari: percentuali per turno e fer/fest<br>
                 Sabato feriale: nessuna indennità<br>
-                Ferie: 8 ore base
+                Ferie: 8 ore base<br>
+                Sede: buono pasto se non mattina feriale
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
         st.session_state.turni_rules = rules
         st.caption("Le regole sono salvate nella sessione Streamlit. I turni arrivano da Google Calendar; il festivo manuale viene salvato subito su Google Sheets quando lo modifichi.")
+
+    with tab_report:
+        month_report = compute_turni_month_report(df_turni, rules, month_key)
+        _render_turni_report(month_report)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
