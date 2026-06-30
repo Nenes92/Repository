@@ -6158,7 +6158,7 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
         st.error(f"Errore nel grafico: {e}")
 
 
-def crea_grafico_bollette_linea_continua(data_completa, order, media_mensile=None):
+def crea_grafico_bollette_linea_continua(data_completa, order):
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
     df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
@@ -6209,12 +6209,8 @@ def crea_grafico_bollette_linea_continua(data_completa, order, media_mensile=Non
         ["Mese", "Mese_str"], as_index=False
     )["Valore"].sum()
 
-    if media_mensile is None:
-        media_mensile = float(df_totali["Valore"].mean()) if not df_totali.empty else 0.0
-    df_media = pd.DataFrame({
-        "Mese_str": order,
-        "Media mensile bollette": [media_mensile] * len(order),
-    })
+    df_media = df_totali.sort_values("Mese").copy()
+    df_media["Media mensile bollette"] = df_media["Valore"].expanding().mean()
 
     linea_media = alt.Chart(df_media).mark_line(
         strokeWidth=2,
@@ -6899,7 +6895,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         st.markdown("---")
         st.markdown("### Storico Bollette")
         if not data_completa_bollette.empty:
-            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine, media_annua).properties(height=420), use_container_width=True)
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
             st.markdown(f"""
             <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;">
                 <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
@@ -7002,7 +6998,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
     
     with col_bol_chart:
         if not MOBILE_VIEW:
-            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine, media_annua).properties(height=500), use_container_width=True)
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
             st.markdown(f"""
             <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
