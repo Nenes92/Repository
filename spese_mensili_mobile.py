@@ -780,6 +780,65 @@ if MOBILE_VIEW:
         font-size: 11px !important;
         white-space: nowrap !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]),
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]) {
+        display: grid !important;
+        gap: 6px !important;
+        align-items: end !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]) {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]),
+    div[data-testid="stHorizontalBlock"]:has(.mobile-bollette-save-marker):has(.mobile-bollette-delete-marker) {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-bollette-save-marker):has(.mobile-bollette-delete-marker) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]) [data-testid="stNumberInput"] label,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]) [data-testid="stNumberInput"] label {
+        min-height: 18px !important;
+        font-size: 7.8px !important;
+        line-height: 1.05 !important;
+        white-space: normal !important;
+        letter-spacing: .15px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]) [data-testid="stNumberInput"] input,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]) [data-testid="stNumberInput"] input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 10.5px !important;
+        padding: 4px 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Elettricità (€)"]):has(input[aria-label="Gas (€)"]):has(input[aria-label="Acqua (€)"]) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Internet (€)"]):has(input[aria-label="Tari (€)"]) [data-testid="stNumberInput"] button {
+        min-width: 19px !important;
+        width: 19px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-bollette-save-marker):has(.mobile-bollette-delete-marker) {
+        display: grid !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-bollette-save-marker):has(.mobile-bollette-delete-marker) [data-testid="stButton"] button {
+        min-height: 34px !important;
+        padding: 0.35rem 0.45rem !important;
+        font-size: 11px !important;
+        white-space: nowrap !important;
+    }
     .mobile-salary-note-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6237,6 +6296,23 @@ def salva_budget_bollette_da_mese(budget_df, mese, importo):
     return save_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS, budget_df)
 
 
+def calcola_saldo_bollette(data, budget_df):
+    saldo_iniziale = 0
+    saldi = []
+    budget_mensili = []
+    data = data.sort_values("Mese").reset_index(drop=True).copy()
+    for _, row in data.iterrows():
+        budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
+        totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
+        saldo = saldo_iniziale + budget_mese - totale
+        saldi.append(saldo)
+        budget_mensili.append(budget_mese)
+        saldo_iniziale = saldo
+    data["Saldo"] = saldi
+    data["Budget bollette mensile"] = budget_mensili
+    return data
+
+
 if (not MOBILE_VIEW) or mobile_section == "Storico":
     #######################################
     # SEZIONE: Storico Stipendi e Risparmi
@@ -6605,7 +6681,11 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
     )
 
-    col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
+    if MOBILE_VIEW:
+        col_sx_bol = st.container()
+        col_dx_bol_chart = st.container()
+    else:
+        col_sx_bol, col_cx_bol_vuoto, col_dx_bol_chart = st.columns(LAYOUT_COLONNE["bollette_form_chart"])
 
     with col_sx_bol:
         with st.container():
@@ -6623,17 +6703,40 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
             tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
             st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
-        
-            col_bol_input1, col_bol_input2 = st.columns(2)
-            with col_bol_input1:
-                elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
-                gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
-                aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
-            with col_bol_input2:
-                acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
-                internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
-                tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
-                elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
+
+            if MOBILE_VIEW:
+                col_bol_input1, col_bol_input2, col_bol_input3 = st.columns(3)
+                with col_bol_input1:
+                    elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
+                with col_bol_input2:
+                    gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
+                with col_bol_input3:
+                    acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
+
+                col_bol_input4, col_bol_input5 = st.columns(2)
+                with col_bol_input4:
+                    internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
+                with col_bol_input5:
+                    tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
+
+                col_bol_btn1, col_bol_btn2 = st.columns(2)
+                with col_bol_btn1:
+                    st.markdown('<span class="mobile-bollette-save-marker"></span>', unsafe_allow_html=True)
+                    aggiungi_bollette = st.button("Salva mese", key="aggiorna_bollette", use_container_width=True)
+                with col_bol_btn2:
+                    st.markdown('<span class="mobile-bollette-delete-marker"></span>', unsafe_allow_html=True)
+                    elimina_bollette = st.button("Elimina mese", key="elimina_bollette", use_container_width=True)
+            else:
+                col_bol_input1, col_bol_input2 = st.columns(2)
+                with col_bol_input1:
+                    elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
+                    gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
+                    aggiungi_bollette = st.button("Aggiungi/Modifica Bollette", key="aggiorna_bollette")
+                with col_bol_input2:
+                    acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
+                    internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
+                    tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
+                    elimina_bollette = st.button(f"Elimina Record per {selected_mese_bol}", key="elimina_bollette")
 
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
@@ -6695,125 +6798,173 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                     time.sleep(3)
                     placeholder.empty()
 
-    with col_dx_bol_chart:
-        st.markdown("### Confronto Anno su Anno delle Bollette")
-        if not data_bollette.empty:
-            confronto_bollette_chart = crea_confronto_anno_su_anno_bollette(data_bollette)
-            st.altair_chart(confronto_bollette_chart, use_container_width=True)
+    if not MOBILE_VIEW:
+        with col_dx_bol_chart:
+            st.markdown("### Confronto Anno su Anno delle Bollette")
+            if not data_bollette.empty:
+                confronto_bollette_chart = crea_confronto_anno_su_anno_bollette(data_bollette)
+                st.altair_chart(confronto_bollette_chart, use_container_width=True)
+            else:
+                st.info("Nessun dato disponibile ancora.")
+
+    stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+    data_bollette = calcola_saldo_bollette(data_bollette, budget_bollette_df)
+    data_melted = data_bollette.melt(
+        id_vars=["Mese"],
+        value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+        var_name="Categoria",
+        value_name="Valore"
+    )
+    data_saldo = data_bollette[["Mese", "Saldo"]].copy()
+    data_saldo["Categoria"] = "Saldo"
+    data_saldo["Valore"] = data_saldo["Saldo"]
+    data_saldo.drop(columns=["Saldo"], inplace=True)
+    data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
+    data_completa_bollette["Mese"] = pd.to_datetime(data_completa_bollette["Mese"], errors="coerce")
+    current_month_start_bol = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    chart_years_bol = 1 if MOBILE_VIEW else 3
+    chart_start_bol = current_month_start_bol - pd.DateOffset(years=chart_years_bol)
+    data_completa_bollette = data_completa_bollette[
+        (data_completa_bollette["Mese"] >= chart_start_bol)
+        & (data_completa_bollette["Mese"] <= current_month_start_bol)
+    ].copy()
+    data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
+    ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
+
+    total_bollette = (stats_bollette["Elettricità"]["somma"] + stats_bollette["Gas"]["somma"] +
+                    stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
+    n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
+    media_annua = total_bollette / n_mesi
+    budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
+    saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
+    saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
+
+    if MOBILE_VIEW:
+        st.markdown("---")
+        st.markdown("### Storico Bollette")
+        if not data_completa_bollette.empty:
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
+            st.markdown(f"""
+            <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;">
+                <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+                <div style="line-height:1.55;">
+                    <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+                    <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.info("Nessun dato disponibile ancora.")
 
-    st.markdown("---")
-    st.subheader("Dati Storici Bollette")
-    col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
-    with col_bol_table:
-        df_bol = data_bollette.copy()
-        st.markdown(
-            _history_table_html(
-                df_bol,
-                ["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-                {
-                    "Elettricità": "#84B6F4",
-                    "Gas": "#FF6961",
-                    "Acqua": "#96DED1",
-                    "Internet": "#FFF5A1",
-                    "Tari": "#C19A6B",
-                },
-            ),
-            unsafe_allow_html=True,
-        )
-    
-        stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
         st.markdown(
             '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
             unsafe_allow_html=True
         )
-    
-        col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
+        col_bol_somme1, col_bol_somme2 = st.columns(2)
         with col_bol_somme1:
             st.markdown(f"""
             <div class="kpi-card" style="margin-bottom:8px;">
                 <div class="kpi-label">Somma Elettricità</div>
                 <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
             </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Gas</div>
-                <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
-            </div>""", unsafe_allow_html=True)
-        with col_bol_somme2:
-            st.markdown(f"""
             <div class="kpi-card" style="margin-bottom:8px;">
                 <div class="kpi-label">Somma Acqua</div>
                 <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Somma Tari</div>
-                <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
-            </div>""", unsafe_allow_html=True)
-        with col_bol_somme3:
-            st.markdown(f"""
-            <div class="kpi-card">
                 <div class="kpi-label">Somma Internet</div>
                 <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
             </div>""", unsafe_allow_html=True)
-    
-        def calcola_saldo(data, budget_df):
-            saldo_iniziale = 0
-            saldi = []
-            budget_mensili = []
-            data = data.sort_values("Mese").reset_index(drop=True).copy()
-            for _, row in data.iterrows():
-                budget_mese = budget_bollette_per_mese(budget_df, row["Mese"])
-                totale = row.get("Elettricità", 0) + row.get("Gas", 0) + row.get("Acqua", 0) + row.get("Internet", 0) + row.get("Tari", 0)
-                saldo = saldo_iniziale + budget_mese - totale
-                saldi.append(saldo)
-                budget_mensili.append(budget_mese)
-                saldo_iniziale = saldo
-            data["Saldo"] = saldi
-            data["Budget bollette mensile"] = budget_mensili
-            return data
-    
-        data_bollette = calcola_saldo(data_bollette, budget_bollette_df)
-    
-        data_melted = data_bollette.melt(
-            id_vars=["Mese"],
-            value_vars=["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
-            var_name="Categoria",
-            value_name="Valore"
+        with col_bol_somme2:
+            st.markdown(f"""
+            <div class="kpi-card" style="margin-bottom:8px;">
+                <div class="kpi-label">Somma Gas</div>
+                <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Somma Tari</div>
+                <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.subheader("Dati Storici Bollette")
+    if MOBILE_VIEW:
+        col_bol_table = st.container()
+        col_bol_chart = st.container()
+    else:
+        col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
+    with col_bol_table:
+        df_bol = data_bollette.copy()
+        bollette_colors = {
+            "Elettricità": "#84B6F4",
+            "Gas": "#FF6961",
+            "Acqua": "#96DED1",
+            "Internet": "#FFF5A1",
+            "Tari": "#C19A6B",
+        }
+        st.markdown(
+            (_mobile_history_table_html if MOBILE_VIEW else _history_table_html)(
+                df_bol,
+                ["Elettricità", "Gas", "Acqua", "Internet", "Tari"],
+                bollette_colors,
+            ),
+            unsafe_allow_html=True,
         )
-        data_saldo = data_bollette[["Mese", "Saldo"]].copy()
-        data_saldo["Categoria"] = "Saldo"
-        data_saldo["Valore"] = data_saldo["Saldo"]
-        data_saldo.drop(columns=["Saldo"], inplace=True)
-        data_completa_bollette = pd.concat([data_melted, data_saldo], ignore_index=True)
-        data_completa_bollette["Mese"] = pd.to_datetime(data_completa_bollette["Mese"], errors="coerce")
-        current_month_start_bol = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-        chart_start_bol = current_month_start_bol - pd.DateOffset(years=3)
-        data_completa_bollette = data_completa_bollette[
-            (data_completa_bollette["Mese"] >= chart_start_bol)
-            & (data_completa_bollette["Mese"] <= current_month_start_bol)
-        ].copy()
-        data_completa_bollette["Mese_str"] = data_completa_bollette["Mese"].dt.strftime("%b %Y")
-        ordine = data_completa_bollette.sort_values("Mese")["Mese_str"].unique().tolist()
+    
+        if not MOBILE_VIEW:
+            st.markdown(
+                '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+                unsafe_allow_html=True
+            )
+        
+            col_bol_somme1, col_bol_somme2, col_bol_somme3 = st.columns(3)
+            with col_bol_somme1:
+                st.markdown(f"""
+                <div class="kpi-card" style="margin-bottom:8px;">
+                    <div class="kpi-label">Somma Elettricità</div>
+                    <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Gas</div>
+                    <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+                </div>""", unsafe_allow_html=True)
+            with col_bol_somme2:
+                st.markdown(f"""
+                <div class="kpi-card" style="margin-bottom:8px;">
+                    <div class="kpi-label">Somma Acqua</div>
+                    <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Tari</div>
+                    <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+                </div>""", unsafe_allow_html=True)
+            with col_bol_somme3:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Internet</div>
+                    <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+                </div>""", unsafe_allow_html=True)
     
     with col_bol_chart:
-        st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+        if not MOBILE_VIEW:
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
 
-        total_bollette = (stats_bollette["Elettricità"]["somma"] + stats_bollette["Gas"]["somma"] +
-                        stats_bollette["Acqua"]["somma"] + stats_bollette["Internet"]["somma"] + stats_bollette["Tari"]["somma"])
-        n_mesi = data_bollette["Mese"].nunique() if data_bollette["Mese"].nunique() > 0 else 1
-        media_annua = total_bollette / n_mesi
-        budget_bollette_attuale = budget_bollette_per_mese(budget_bollette_df, current_month_start_bol)
-        saldo_bollette_attuale = float(data_bollette["Saldo"].iloc[-1]) if not data_bollette.empty and "Saldo" in data_bollette.columns else 0.0
-        saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
-        st.markdown(f"""
-        <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
-            <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
-            <div style="line-height:1.55;">
-                <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
-                <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+            st.markdown(f"""
+            <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
+                <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+                <div style="line-height:1.55;">
+                    <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+                    <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+
+    if MOBILE_VIEW:
+        st.markdown("---")
+        st.markdown("### Confronto Anno su Anno delle Bollette")
+        if not data_bollette.empty:
+            st.altair_chart(crea_confronto_anno_su_anno_bollette(data_bollette).properties(height=320), use_container_width=True)
+        else:
+            st.info("Nessun dato disponibile ancora.")
 
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
