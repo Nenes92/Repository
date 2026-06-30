@@ -731,6 +731,55 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio percepito"]):has(input[aria-label="Quota stip. scelta"]):has(input[aria-label="Risparmi mese prec."]) > div[data-testid="column"]:nth-child(3) [data-testid="stNumberInput"] label {
         color: rgba(253,224,71,.98) !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        align-items: end !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-stipendi-save-marker):has(.mobile-stipendi-delete-marker) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) [data-testid="stNumberInput"] label {
+        min-height: 18px !important;
+        font-size: 7.8px !important;
+        line-height: 1.05 !important;
+        white-space: normal !important;
+        letter-spacing: .15px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) [data-testid="stNumberInput"] input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 10.5px !important;
+        padding: 4px 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) [data-testid="stNumberInput"] button {
+        min-width: 19px !important;
+        width: 19px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-stipendi-save-marker):has(.mobile-stipendi-delete-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-stipendi-save-marker):has(.mobile-stipendi-delete-marker) [data-testid="stButton"] button {
+        min-height: 34px !important;
+        padding: 0.35rem 0.45rem !important;
+        font-size: 11px !important;
+        white-space: nowrap !important;
+    }
     .mobile-salary-note-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5888,7 +5937,7 @@ def crea_grafico_stipendi(data):
     return final_chart
 
 
-def render_grafico_stipendi_desktop_style(data_stipendi, height=430):
+def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3):
     if data_stipendi is None or data_stipendi.empty:
         st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
         return
@@ -5897,10 +5946,10 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430):
         chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
         chart_data = chart_data.dropna(subset=["Mese"])
         current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-        chart_start = current_month_start - pd.DateOffset(years=3)
+        chart_start = current_month_start - pd.DateOffset(years=years_back)
         chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
         if chart_data.empty:
-            st.info("Nessun dato disponibile negli ultimi tre anni.")
+            st.info("Nessun dato disponibile nel periodo selezionato.")
             return
         chart_data["Extra messi da parte"] = (
             pd.to_numeric(chart_data["Messi da parte Totali"], errors="coerce").fillna(0)
@@ -6235,8 +6284,10 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 messi_da_parte_mese_corrente = st.number_input("Messi da parte (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}", help="Messi da parte totali / risparmio su BNL")
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
+                st.markdown('<span class="mobile-stipendi-save-marker"></span>', unsafe_allow_html=True)
                 aggiungi_button = st.button("Salva mese", key="aggiorna_stipendi", use_container_width=True)
             with col_btn2:
+                st.markdown('<span class="mobile-stipendi-delete-marker"></span>', unsafe_allow_html=True)
                 elimina_button = st.button("Elimina mese", key="elimina_stipendi", use_container_width=True)
         else:
             st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
@@ -6294,7 +6345,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
     if MOBILE_VIEW:
         st.markdown("---")
         st.markdown("### Storico Stipendi e Risparmi")
-        render_grafico_stipendi_desktop_style(data_stipendi, height=430)
+        render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=1)
         _render_stipendi_kpi_cards(data_stipendi)
 
     if not MOBILE_VIEW:
@@ -6525,8 +6576,6 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         if not data_stipendi.empty:
             confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(height=320)
             st.altair_chart(confronto_chart, use_container_width=True)
-            with st.expander("Apri confronto grande / orizzontale", expanded=False):
-                st.altair_chart(crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(width=980, height=540), use_container_width=False)
         else:
             st.info("Nessun dato disponibile ancora.")
 
