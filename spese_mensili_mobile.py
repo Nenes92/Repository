@@ -881,6 +881,27 @@ if MOBILE_VIEW:
         font-size: 9px !important;
         line-height: 1.15 !important;
     }
+    .mobile-bollette-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        align-items: stretch;
+    }
+    .mobile-bollette-kpi-grid .kpi-card {
+        min-height: 74px !important;
+        margin: 0 !important;
+        padding: 10px 10px !important;
+    }
+    .mobile-bollette-kpi-grid .kpi-label {
+        font-size: 8.5px !important;
+        line-height: 1.12 !important;
+    }
+    .mobile-bollette-kpi-grid .kpi-value {
+        font-size: 15px !important;
+        line-height: 1.12 !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.mobile-budget-left-marker):has(.mobile-budget-right-marker) {
         display: grid !important;
         grid-template-columns: minmax(0, .98fr) minmax(0, 1.02fr) !important;
@@ -6137,7 +6158,7 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
         st.error(f"Errore nel grafico: {e}")
 
 
-def crea_grafico_bollette_linea_continua(data_completa, order):
+def crea_grafico_bollette_linea_continua(data_completa, order, media_mensile=None):
     df_bollette = data_completa[data_completa["Categoria"] != "Saldo"]
     order_mapping = {"Internet": 0, "Elettricità": 1, "Gas": 2, "Acqua": 3, "Tari": 4}
     df_bollette["stack_order"] = df_bollette["Categoria"].map(order_mapping)
@@ -6187,6 +6208,40 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     df_totali = data_completa[data_completa["Categoria"].isin(["Elettricità", "Gas", "Acqua", "Internet", "Tari"])].groupby(
         ["Mese", "Mese_str"], as_index=False
     )["Valore"].sum()
+
+    if media_mensile is None:
+        media_mensile = float(df_totali["Valore"].mean()) if not df_totali.empty else 0.0
+    df_media = pd.DataFrame({
+        "Mese_str": order,
+        "Media mensile bollette": [media_mensile] * len(order),
+    })
+
+    linea_media = alt.Chart(df_media).mark_line(
+        strokeWidth=2,
+        strokeDash=[5, 5],
+        color="#FFA500",
+        opacity=0.95,
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y=alt.Y("Media mensile bollette:Q"),
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Media mensile bollette:Q", title="Media mensile bollette", format=",.2f"),
+        ],
+    )
+
+    punti_media = alt.Chart(df_media).mark_point(
+        size=55,
+        filled=True,
+        color="#FFA500",
+    ).encode(
+        x=alt.X("Mese_str:N", sort=order),
+        y=alt.Y("Media mensile bollette:Q"),
+        tooltip=[
+            alt.Tooltip("Mese_str:N", title="Mese"),
+            alt.Tooltip("Media mensile bollette:Q", title="Media mensile bollette", format=",.2f"),
+        ],
+    )
     
     testo_totale = alt.Chart(df_totali).mark_text(
         align="center", baseline="bottom", dy=-5, fontSize=10, color="white"
@@ -6197,7 +6252,8 @@ def crea_grafico_bollette_linea_continua(data_completa, order):
     )
     
     linea_saldo = linea_saldo_unica + punti_saldo_color
-    grafico_finale = alt.layer(barre, linea_saldo, testo_totale)
+    linea_media_mensile = linea_media + punti_media
+    grafico_finale = alt.layer(barre, linea_saldo, linea_media_mensile, testo_totale)
     return grafico_finale
     
 def crea_confronto_anno_su_anno_stipendi(data):
@@ -6843,7 +6899,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         st.markdown("---")
         st.markdown("### Storico Bollette")
         if not data_completa_bollette.empty:
-            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine, media_annua).properties(height=420), use_container_width=True)
             st.markdown(f"""
             <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-top:8px;">
                 <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
@@ -6860,31 +6916,30 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
             unsafe_allow_html=True
         )
-        col_bol_somme1, col_bol_somme2 = st.columns(2)
-        with col_bol_somme1:
-            st.markdown(f"""
-            <div class="kpi-card" style="margin-bottom:8px;">
+        st.markdown(f"""
+        <div class="mobile-bollette-kpi-grid">
+            <div class="kpi-card">
                 <div class="kpi-label">Somma Elettricità</div>
                 <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
             </div>
-            <div class="kpi-card" style="margin-bottom:8px;">
-                <div class="kpi-label">Somma Acqua</div>
-                <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
-            </div>
             <div class="kpi-card">
-                <div class="kpi-label">Somma Internet</div>
-                <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
-            </div>""", unsafe_allow_html=True)
-        with col_bol_somme2:
-            st.markdown(f"""
-            <div class="kpi-card" style="margin-bottom:8px;">
                 <div class="kpi-label">Somma Gas</div>
                 <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
             </div>
             <div class="kpi-card">
+                <div class="kpi-label">Somma Acqua</div>
+                <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+            </div>
+            <div class="kpi-card">
                 <div class="kpi-label">Somma Tari</div>
                 <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Somma Internet</div>
+                <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Dati Storici Bollette")
@@ -6947,7 +7002,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
     
     with col_bol_chart:
         if not MOBILE_VIEW:
-            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=500), use_container_width=True)
+            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine, media_annua).properties(height=500), use_container_width=True)
 
             st.markdown(f"""
             <div style="display:inline-grid;grid-template-columns:max-content max-content;gap:34px;align-items:center;margin-top:8px;">
