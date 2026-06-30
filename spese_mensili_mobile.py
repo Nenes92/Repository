@@ -2821,6 +2821,26 @@ def get_turni_rules():
     return st.session_state.turni_rules
 
 
+def _apply_turni_rules_from_widgets(rules):
+    widget_to_rule = {
+        "turni_paga": "paga_oraria",
+        "turni_quota": "quota_fissa_mensile",
+        "turni_mp_feriale": "m_p_feriale_pct",
+        "turni_mp_festivo": "m_p_festivo_giorno_pct",
+        "turni_notte_feriale": "notte_feriale_pct",
+        "turni_festivo_notte": "festivo_sera_notte_pct",
+        "turni_ind_mp_f": "ind_m_p_feriale",
+        "turni_ind_n_f": "ind_notte_feriale",
+        "turni_ind_mp_fe": "ind_m_p_festivo",
+        "turni_ind_n_fe": "ind_notte_festiva",
+    }
+    for widget_key, rule_key in widget_to_rule.items():
+        if widget_key in st.session_state:
+            rules[rule_key] = float(st.session_state[widget_key])
+    st.session_state.turni_rules = rules
+    return rules
+
+
 def _dt_for_turno(data_str, time_str):
     return pd.to_datetime(f"{data_str} {time_str}").to_pydatetime()
 
@@ -3674,7 +3694,7 @@ def render_live_turni_kpis(stats, side_html=""):
     """, height=component_height)
 
 
-def _turni_month_summary_html(df_turni, month_key, rules):
+def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
     month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
     month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
     if month_df.empty:
@@ -3686,8 +3706,11 @@ def _turni_month_summary_html(df_turni, month_key, rules):
         """
     month_df = month_df.sort_values("Data")
     today_key = _now_italy().strftime("%Y-%m-%d")
-    focus_candidates = month_df[month_df["Data"] >= today_key]
-    focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
+    if current_work_day and current_work_day in set(month_df["Data"].astype(str)):
+        focus_date = current_work_day
+    else:
+        focus_candidates = month_df[month_df["Data"] >= today_key]
+        focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
     cards = ['<div class="turni-summary-compact"><div class="turni-summary-compact-title">Riepilogo turni</div><div class="turni-grid-scroll">']
     for _, r in month_df.iterrows():
         turno = r["Turno"]
@@ -3712,6 +3735,7 @@ def _turni_month_summary_html(df_turni, month_key, rules):
 def render_turni_guadagni_section():
     st.markdown('<div id="mobile-turni" class="mobile-anchor"></div><div class="section-pill">⏱️ Guadagni Turni</div>', unsafe_allow_html=True)
     rules = get_turni_rules()
+    rules = _apply_turni_rules_from_widgets(rules)
     if "turni_calendar_month" not in st.session_state:
         today_month = _now_italy().date()
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
@@ -3745,7 +3769,7 @@ def render_turni_guadagni_section():
         else _now_italy().strftime("%Y-%m-%d")
     )
 
-    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules) if MOBILE_VIEW else ""
+    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, current_work_day) if MOBILE_VIEW else ""
     render_live_turni_kpis(stats, mobile_summary_html)
 
     tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
@@ -3910,8 +3934,11 @@ def render_turni_guadagni_section():
             else:
                 month_df = month_df.sort_values("Data")
                 today_key = _now_italy().strftime("%Y-%m-%d")
-                focus_candidates = month_df[month_df["Data"] >= today_key]
-                focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
+                if current_work_day and current_work_day in set(month_df["Data"].astype(str)):
+                    focus_date = current_work_day
+                else:
+                    focus_candidates = month_df[month_df["Data"] >= today_key]
+                    focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
                 cards = ['<div class="turni-grid-scroll">']
                 for _, r in month_df.iterrows():
                     turno = r["Turno"]
