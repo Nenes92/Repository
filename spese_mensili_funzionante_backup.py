@@ -549,7 +549,7 @@ components.html(
 _view_param = st.query_params.get("view")
 if isinstance(_view_param, list):
     _view_param = _view_param[0] if _view_param else None
-_default_view = "Telefono" if _view_param == "mobile" else "Desktop"
+_default_view = "Desktop" if _view_param == "desktop" else "Telefono"
 
 st.markdown("""
 <style>
@@ -605,6 +605,13 @@ MOBILE_VIEW = VISTA_APP == "Telefono"
 MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Note", "Turni", "Storico", "Bollette"]
 
 if MOBILE_VIEW:
+    mobile_section_param = st.query_params.get("mobile_section")
+    if isinstance(mobile_section_param, list):
+        mobile_section_param = mobile_section_param[0] if mobile_section_param else None
+    if mobile_section_param == "Promemoria":
+        mobile_section_param = "Note"
+    if mobile_section_param in MOBILE_SECTIONS and "mobile_section_select" not in st.session_state:
+        st.session_state["mobile_section_select"] = mobile_section_param
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
     if pending_mobile_section == "Promemoria":
         pending_mobile_section = "Note"
@@ -623,6 +630,9 @@ if MOBILE_VIEW:
         padding: 0.75rem 0.85rem 4rem !important;
     }
     .mobile-compact-input-note {
+        display: block;
+        width: 100%;
+        text-align: center;
         font-size: 10px;
         color: rgba(255,255,255,.42);
         margin-top: 6px;
@@ -1020,6 +1030,10 @@ if MOBILE_VIEW:
     .other-income-actions-marker,
     .other-income-editor-marker,
     .other-income-new-marker,
+    .turni-mode-marker,
+    .turni-day-menu-marker,
+    .mobile-calendar-nav-marker,
+    .mobile-calendar-row-marker,
     .turni-rules-marker {
         display: none !important;
     }
@@ -1028,6 +1042,10 @@ if MOBILE_VIEW:
     div[data-testid="stMarkdown"]:has(.other-income-actions-marker),
     div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
     div[data-testid="stMarkdown"]:has(.other-income-new-marker),
+    div[data-testid="stMarkdown"]:has(.turni-mode-marker),
+    div[data-testid="stMarkdown"]:has(.turni-day-menu-marker),
+    div[data-testid="stMarkdown"]:has(.mobile-calendar-nav-marker),
+    div[data-testid="stMarkdown"]:has(.mobile-calendar-row-marker),
     div[data-testid="stMarkdown"]:has(.turni-rules-marker) {
         display: none !important;
         height: 0 !important;
@@ -1081,6 +1099,42 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: stretch !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: center !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-nav-marker) {
+        display: grid !important;
+        grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+        gap: 8px !important;
+        align-items: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: end !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) {
         display: grid !important;
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1097,6 +1151,10 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-nav-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
@@ -1116,6 +1174,7 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) label {
         min-height: 17px !important;
         font-size: 7.8px !important;
@@ -1123,10 +1182,24 @@ if MOBILE_VIEW:
         letter-spacing: .18px !important;
         white-space: normal !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) label {
+        min-height: 30px !important;
+        font-size: 9px !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) label {
+        min-height: 17px !important;
+        font-size: 8px !important;
+        line-height: 1.05 !important;
+        white-space: normal !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) input {
         height: 32px !important;
         min-height: 32px !important;
@@ -1137,6 +1210,7 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) [data-testid="stNumberInput"] button {
         min-width: 19px !important;
         width: 19px !important;
@@ -1146,9 +1220,11 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-baseweb="select"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-baseweb="select"],
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-baseweb="select"] {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-baseweb="select"] {
         min-width: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -1628,6 +1704,33 @@ if MOBILE_VIEW:
         font-size: 13px;
         font-weight: 800;
         line-height: 1;
+        text-decoration: none !important;
+    }
+    .mobile-calendar-day.selected {
+        border-color: rgba(125,211,252,.70);
+        box-shadow: 0 0 0 1px rgba(125,211,252,.44), 0 0 14px rgba(96,165,250,.16);
+    }
+    a.mobile-calendar-day:hover {
+        border-color: rgba(125,211,252,.62);
+        background: rgba(30,64,115,.82);
+        text-decoration: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) [data-testid="stButton"] button {
+        min-height: 42px !important;
+        height: 42px !important;
+        border-radius: 10px !important;
+        padding: 0 2px !important;
+        background: rgba(30,58,92,.70) !important;
+        border: 0.5px solid rgba(96,165,250,.36) !important;
+        color: #d1d5db !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) [data-testid="stButton"] button:hover {
+        border-color: rgba(125,211,252,.62) !important;
+        background: rgba(30,64,115,.82) !important;
     }
     .mobile-calendar-day.empty {
         background: transparent;
@@ -1645,6 +1748,29 @@ if MOBILE_VIEW:
         font-size: 14px;
         font-weight: 1000;
         text-shadow: 0 0 2px color-mix(in srgb, currentColor 35%, transparent);
+    }
+    .mobile-day-extra,
+    .mobile-day-sede {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 10px;
+        height: 10px;
+        border-radius: 4px;
+        margin-left: 1px;
+        font-size: 7px;
+        line-height: 1;
+        font-weight: 1000;
+    }
+    .mobile-day-extra {
+        color: #f5d0fe;
+        background: rgba(168,85,247,.24);
+        border: 0.5px solid rgba(216,180,254,.45);
+    }
+    .mobile-day-sede {
+        color: #fef3c7;
+        background: rgba(245,158,11,.20);
+        border: 0.5px solid rgba(251,191,36,.40);
     }
     .mobile-calendar-legend {
         display:flex;
@@ -1979,7 +2105,7 @@ SPESE = {
         "Trasporti": 165,
         "Sport": 70,
         "Psicologo": 100,
-        "Cane": 135,
+        "Amara": 135,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
@@ -1994,7 +2120,7 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0
     },
-    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Cane", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Amara", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
@@ -2029,7 +2155,7 @@ SPESA_FISSA_GRUPPI_VISIVI = [
     ("Casa", ["Mutuo", "Bollette", "Condominio", "Altro", "Cucina", "Pulizia Casa"]),
     ("Piani e personali", ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa", "Macchina", "Psicologo"]),
     ("Abbonamenti", ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]),
-    ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Cane"]),
+    ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Amara"]),
 ]
 SPESA_FISSA_GRUPPI_BASE = [nome for nome, _ in SPESA_FISSA_GRUPPI_VISIVI]
 SPESE_VARIABILI_CARTE = {
@@ -2046,7 +2172,7 @@ def _infer_spesa_fissa_categoria(voce):
         return "Investimenti"
     if voce in ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]:
         return "Abbonamenti"
-    if voce in ["Sport", "Psicologo", "Cane"]:
+    if voce in ["Sport", "Psicologo", "Amara"]:
         return "Salute"
     if voce in ["Trasporti", "Macchina"]:
         return "Macchina"
@@ -2303,7 +2429,7 @@ def _normalize_spese_fisse_df(df):
         if col not in df.columns:
             df[col] = ""
     df = df[SPESE_FISSE_HEADERS].copy()
-    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Cane"})
+    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Amara", "Cane": "Amara"})
     df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
     df["Categoria"] = df.apply(
         lambda row: row["Categoria"] if row["Categoria"] in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(row["Voce"]),
@@ -2470,7 +2596,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
-        "Cane": "#40E0D0",
+        "Amara": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
@@ -2677,7 +2803,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 # ─── MODULO CONTATORE GUADAGNI TURNI ─────────────────────────────────────────
-TURNI_HEADERS = ["Data", "Turno", "Festivo"]
+TURNI_HEADERS = ["Data", "Turno", "Festivo", "Straordinario minuti", "Sede"]
 TURNI_WORKSHEET = "TurniGuadagni"
 CALENDAR_ICAL_URL = ""
 CALENDAR_ICAL_URLS = {
@@ -2702,6 +2828,20 @@ DEFAULT_TURNI_RULES = {
     "m_p_festivo_giorno_pct": 50.0,
     "notte_feriale_pct": 50.0,
     "festivo_sera_notte_pct": 60.0,
+    "straordinario_feriale_pct": 25.0,
+    "straordinario_festivo_pct": 50.0,
+    "stra_mattina_feriale_pct": 25.0,
+    "stra_mattina_festivo_pct": 55.0,
+    "stra_pomeriggio_feriale_pct": 40.0,
+    "stra_pomeriggio_festivo_pct": 60.0,
+    "stra_notte_feriale_pct": 50.0,
+    "stra_notte_festivo_pct": 70.0,
+    "stra_ferie_feriale_pct": 25.0,
+    "stra_ferie_festivo_pct": 50.0,
+    "buono_pasto": 7.0,
+    "smart_target": 15.0,
+    "accrediti_mensili": 43.87,
+    "trattenute_mensili": 218.73,
     "ind_m_p_feriale": 6.0,
     "ind_notte_feriale": 15.0,
     "ind_m_p_festivo": 15.0,
@@ -2728,18 +2868,40 @@ def _parse_bool_turni(value):
     return str(value).strip().lower() in ["true", "1", "sì", "si", "yes", "festivo"]
 
 
+def _parse_float_turni(value):
+    try:
+        if pd.isna(value):
+            return 0.0
+    except Exception:
+        pass
+    if isinstance(value, str):
+        value = value.strip().replace("€", "").replace(".", "").replace(",", ".")
+    try:
+        return float(value)
+    except Exception:
+        return 0.0
+
+
 def _normalize_turni_df(df):
     if df.empty:
         return pd.DataFrame(columns=TURNI_HEADERS)
+    old_stra_cols = [col for col in ["Straordinario feriale", "Straordinario festivo"] if col in df.columns]
     for col in TURNI_HEADERS:
         if col not in df.columns:
             df[col] = ""
+    if "Straordinario minuti" in df.columns:
+        df["Straordinario minuti"] = df["Straordinario minuti"].apply(_parse_float_turni)
+    if old_stra_cols:
+        old_minutes = sum(df[col].apply(_parse_float_turni) for col in old_stra_cols) * 60
+        df["Straordinario minuti"] = df["Straordinario minuti"].where(df["Straordinario minuti"] > 0, old_minutes)
     df = df[TURNI_HEADERS].copy()
     df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
     df = df.dropna(subset=["Data"])
     df["Data"] = df["Data"].dt.strftime("%Y-%m-%d")
     df["Turno"] = df["Turno"].astype(str)
     df["Festivo"] = df["Festivo"].apply(_parse_bool_turni)
+    df["Straordinario minuti"] = df["Straordinario minuti"].apply(lambda value: int(round(max(0, _parse_float_turni(value)))))
+    df["Sede"] = df["Sede"].apply(_parse_bool_turni)
     return df.sort_values("Data").reset_index(drop=True)
 
 
@@ -2771,7 +2933,7 @@ def color_turni_google_sheet(df):
         if not worksheet:
             return
         formats = [{
-            "range": "A1:C1",
+            "range": "A1:E1",
             "format": {
             "backgroundColor": {"red": 0.05, "green": 0.10, "blue": 0.16},
             "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True}
@@ -2789,7 +2951,7 @@ def color_turni_google_sheet(df):
             color = colors.get(turno, {"red": 1, "green": 1, "blue": 1})
             text_color = {"red": 1, "green": 1, "blue": 1} if turno in ["Notte"] else {"red": 0, "green": 0, "blue": 0}
             formats.append({
-                "range": f"A{i+2}:C{i+2}",
+                "range": f"A{i+2}:E{i+2}",
                 "format": {
                     "backgroundColor": color,
                     "textFormat": {"foregroundColor": text_color}
@@ -2818,17 +2980,33 @@ def save_turni_data(df):
 def get_turni_rules():
     if "turni_rules" not in st.session_state:
         st.session_state.turni_rules = DEFAULT_TURNI_RULES.copy()
+    else:
+        for key, value in DEFAULT_TURNI_RULES.items():
+            st.session_state.turni_rules.setdefault(key, value)
     return st.session_state.turni_rules
 
 
 def _apply_turni_rules_from_widgets(rules):
     widget_to_rule = {
         "turni_paga": "paga_oraria",
-        "turni_quota": "quota_fissa_mensile",
         "turni_mp_feriale": "m_p_feriale_pct",
         "turni_mp_festivo": "m_p_festivo_giorno_pct",
         "turni_notte_feriale": "notte_feriale_pct",
         "turni_festivo_notte": "festivo_sera_notte_pct",
+        "turni_stra_feriale": "straordinario_feriale_pct",
+        "turni_stra_festivo": "straordinario_festivo_pct",
+        "turni_stra_m_feriale": "stra_mattina_feriale_pct",
+        "turni_stra_m_festivo": "stra_mattina_festivo_pct",
+        "turni_stra_p_feriale": "stra_pomeriggio_feriale_pct",
+        "turni_stra_p_festivo": "stra_pomeriggio_festivo_pct",
+        "turni_stra_n_feriale": "stra_notte_feriale_pct",
+        "turni_stra_n_festivo": "stra_notte_festivo_pct",
+        "turni_stra_f_feriale": "stra_ferie_feriale_pct",
+        "turni_stra_f_festivo": "stra_ferie_festivo_pct",
+        "turni_buono_pasto": "buono_pasto",
+        "turni_smart_target": "smart_target",
+        "turni_accrediti_mensili": "accrediti_mensili",
+        "turni_trattenute_mensili": "trattenute_mensili",
         "turni_ind_mp_f": "ind_m_p_feriale",
         "turni_ind_n_f": "ind_notte_feriale",
         "turni_ind_mp_fe": "ind_m_p_festivo",
@@ -2917,9 +3095,196 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
         return 0.0
     start, _ = _shift_bounds(data_str, turno)
     festive_at_start = _is_festive_at(start, forced_festivo)
+    if not festive_at_start and start.weekday() == 5:
+        return 0.0
     if turno == "Notte":
         return rules["ind_notte_festiva"] if festive_at_start else rules["ind_notte_feriale"]
     return rules["ind_m_p_festivo"] if festive_at_start else rules["ind_m_p_feriale"]
+
+
+def _turni_row_straordinario_minuti(row):
+    return int(round(max(0, _parse_float_turni(row.get("Straordinario minuti", 0)))))
+
+
+def _turni_row_sede(row):
+    return _parse_bool_turni(row.get("Sede", False))
+
+
+def _upsert_turni_day(df_turni, day_str, turno=None, festivo=None, straordinario_minuti=None, sede=None):
+    row = df_turni[df_turni["Data"] == day_str]
+    current = {
+        "Data": day_str,
+        "Turno": "" if row.empty else str(row.iloc[0].get("Turno", "")),
+        "Festivo": False if row.empty else _parse_bool_turni(row.iloc[0].get("Festivo", False)),
+        "Straordinario minuti": 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0]),
+        "Sede": False if row.empty else _turni_row_sede(row.iloc[0]),
+    }
+    if turno is not None:
+        current["Turno"] = turno if turno in TURNI_ORARI else ""
+    if festivo is not None:
+        current["Festivo"] = bool(festivo)
+    if straordinario_minuti is not None:
+        current["Straordinario minuti"] = int(round(max(0, _parse_float_turni(straordinario_minuti))))
+    if sede is not None:
+        current["Sede"] = bool(sede)
+    df_new = df_turni[df_turni["Data"] != day_str].copy()
+    return _normalize_turni_df(pd.concat([df_new, pd.DataFrame([current])], ignore_index=True))
+
+
+def _save_turni_and_rerun(df_new, error_message="Aggiornato in bozza, ma non salvato su Google Sheets."):
+    df_new = _normalize_turni_df(df_new)
+    st.session_state.turni_df_draft = df_new.copy()
+    if save_turni_data(df_new):
+        st.session_state.turni_dirty = False
+        st.rerun()
+    st.session_state.turni_dirty = True
+    st.error(error_message)
+    return df_new
+
+
+def _format_minutes_label(minutes):
+    minutes = int(round(max(0, _parse_float_turni(minutes))))
+    if minutes <= 0:
+        return "0m"
+    hours, mins = divmod(minutes, 60)
+    if hours and mins:
+        return f"{hours}h {mins:02d}m"
+    if hours:
+        return f"{hours}h"
+    return f"{mins}m"
+
+
+def _pct_for_straordinario(turno, dt_obj, forced_festivo, rules):
+    festive = _is_festive_at(dt_obj, forced_festivo)
+    fallback_key = "straordinario_festivo_pct" if festive else "straordinario_feriale_pct"
+    fallback = float(rules.get(fallback_key, 50.0 if festive else 25.0))
+    if turno == "Pomeriggio":
+        key = "stra_pomeriggio_festivo_pct" if festive else "stra_pomeriggio_feriale_pct"
+    elif turno == "Notte":
+        key = "stra_notte_festivo_pct" if festive else "stra_notte_feriale_pct"
+    elif turno == "Ferie":
+        key = "stra_ferie_festivo_pct" if festive else "stra_ferie_feriale_pct"
+    else:
+        key = "stra_mattina_festivo_pct" if festive else "stra_mattina_feriale_pct"
+    return float(rules.get(key, fallback))
+
+
+def _calc_straordinario_minuti(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_minuti=0):
+    minuti = int(round(max(0, _parse_float_turni(straordinario_minuti))))
+    if minuti <= 0 or turno in ["", "Riposo"]:
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "hours_by_pct": {}}
+    now = _now_italy() if until is None else until
+    _, shift_end = _shift_bounds(data_str, turno)
+    overtime_start = shift_end
+    overtime_end = overtime_start + timedelta(minutes=min(minuti, 120))
+    effective_end = overtime_end if now.year >= 9999 else min(overtime_end, now)
+
+    start = overtime_start
+    if only_day is not None:
+        day_start = _dt_for_turno(only_day, "00:00")
+        day_end = day_start + timedelta(days=1)
+        start = max(start, day_start)
+        effective_end = min(effective_end, day_end)
+    if effective_end <= start:
+        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "hours_by_pct": {}}
+
+    paga = float(rules["paga_oraria"])
+    base = 0.0
+    extra = 0.0
+    hours = 0.0
+    hours_by_pct = {}
+    t = start
+    while t < effective_end:
+        nxt = min(t + timedelta(minutes=1), effective_end)
+        h = (nxt - t).total_seconds() / 3600
+        pct = _pct_for_straordinario(turno, t, forced_festivo, rules)
+        base += paga * h
+        extra += paga * pct / 100 * h
+        hours += h
+        hours_by_pct[pct] = hours_by_pct.get(pct, 0.0) + h
+        t = nxt
+    return {"total": base + extra, "base": base, "extra": extra, "hours": hours, "hours_by_pct": hours_by_pct}
+
+
+def _is_sede_buono_pasto(data_str, turno, forced_festivo, sede):
+    if not sede or turno in ["", "Ferie", "Riposo"]:
+        return False
+    start, _ = _shift_bounds(data_str, turno)
+    return turno != "Mattina" or _is_festive_at(start, forced_festivo)
+
+
+def _calc_turno_hours_by_pct(data_str, turno, forced_festivo, rules):
+    if turno in ["", "Ferie", "Riposo"]:
+        return {}
+    start, end = _shift_bounds(data_str, turno)
+    hours_by_pct = {}
+    t = start
+    while t < end:
+        nxt = min(t + timedelta(minutes=1), end)
+        h = (nxt - t).total_seconds() / 3600
+        pct = _pct_for_turno(turno, t, forced_festivo, rules)
+        hours_by_pct[pct] = hours_by_pct.get(pct, 0.0) + h
+        t = nxt
+    return hours_by_pct
+
+
+def compute_turni_month_report(df_turni, rules, month_key):
+    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+    report = {
+        "work_days": 0,
+        "ferie_days": 0,
+        "turn_counts": {"Mattina": 0, "Pomeriggio": 0, "Notte": 0, "Ferie": 0},
+        "turn_type_counts": {},
+        "sede_days": 0,
+        "sede_required": 0,
+        "sede_remaining": 0,
+        "buoni_pasto_days": 0,
+        "buoni_pasto_total": 0.0,
+        "straordinario_minutes": 0,
+        "straordinario_total": 0.0,
+        "hours_by_pct": {},
+    }
+    for _, row in month_df.iterrows():
+        data = row["Data"]
+        turno = row["Turno"]
+        festivo = bool(row["Festivo"])
+        sede = _turni_row_sede(row)
+        stra_minuti = _turni_row_straordinario_minuti(row)
+        if turno == "Ferie":
+            report["ferie_days"] += 1
+            report["turn_counts"]["Ferie"] += 1
+        elif turno != "Riposo":
+            report["work_days"] += 1
+            report["turn_counts"][turno] = report["turn_counts"].get(turno, 0) + 1
+            start, _ = _shift_bounds(data, turno)
+            suffix = "festivo" if _is_festive_at(start, festivo) else "feriale"
+            key = f"{turno} {suffix}"
+            report["turn_type_counts"][key] = report["turn_type_counts"].get(key, 0) + 1
+            for pct, hours in _calc_turno_hours_by_pct(data, turno, festivo, rules).items():
+                report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
+        if sede:
+            report["sede_days"] += 1
+        if _is_sede_buono_pasto(data, turno, festivo, sede):
+            report["buoni_pasto_days"] += 1
+        if stra_minuti:
+            report["straordinario_minutes"] += stra_minuti
+            stra_calc = _calc_straordinario_minuti(
+                data,
+                turno,
+                festivo,
+                rules,
+                until=datetime.max.replace(tzinfo=None),
+                straordinario_minuti=stra_minuti,
+            )
+            report["straordinario_total"] += stra_calc["total"]
+            for pct, hours in stra_calc.get("hours_by_pct", {}).items():
+                report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
+    smart_target = int(round(max(0, _parse_float_turni(rules.get("smart_target", 15)))))
+    report["sede_required"] = max(0, report["work_days"] - smart_target)
+    report["sede_remaining"] = max(0, report["sede_required"] - report["sede_days"])
+    report["buoni_pasto_total"] = report["buoni_pasto_days"] * float(rules.get("buono_pasto", 7.0))
+    return report
 
 
 def _next_rate_checkpoint(now, end):
@@ -2934,17 +3299,26 @@ def _next_rate_checkpoint(now, end):
     return min(checkpoints) if checkpoints else None
 
 
-def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None):
+def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_minuti=0):
     now = _now_italy() if until is None else until
     paga = float(rules["paga_oraria"])
+    stra_calc = _calc_straordinario_minuti(
+        data_str,
+        turno,
+        forced_festivo,
+        rules,
+        until=until,
+        only_day=only_day,
+        straordinario_minuti=straordinario_minuti,
+    )
 
     if turno == "Riposo":
-        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+        return {**stra_calc, "rate_min": 0.0}
 
     if turno == "Ferie":
         start, end = _shift_bounds(data_str, turno)
         if only_day is not None and data_str != only_day:
-            return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+            return {"total": stra_calc["total"], "base": stra_calc["base"], "extra": stra_calc["extra"], "hours": stra_calc["hours"], "rate_min": 0.0}
         effective_end = min(end, now)
         if effective_end <= start:
             hours = 0.0
@@ -2952,7 +3326,13 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
             hours = min(8.0, (effective_end - start).total_seconds() / 3600)
         base = paga * hours
         rate_min = paga / 60 if start <= _now_italy() < end else 0.0
-        return {"total": base, "base": base, "extra": 0.0, "hours": hours, "rate_min": rate_min}
+        return {
+            "total": base + stra_calc["total"],
+            "base": base + stra_calc["base"],
+            "extra": stra_calc["extra"],
+            "hours": hours + stra_calc["hours"],
+            "rate_min": rate_min,
+        }
 
     start, end = _shift_bounds(data_str, turno)
     effective_end = min(end, now)
@@ -2964,7 +3344,7 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
         effective_end = min(effective_end, day_end)
 
     if effective_end <= start:
-        return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "rate_min": 0.0}
+        return {"total": stra_calc["total"], "base": stra_calc["base"], "extra": stra_calc["extra"], "hours": stra_calc["hours"], "rate_min": 0.0}
 
     base = 0.0
     extra = 0.0
@@ -2983,6 +3363,9 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
     if only_day is not None and data_str != only_day:
         allowance = 0.0
     extra += allowance
+    base += stra_calc["base"]
+    extra += stra_calc["extra"]
+    hours += stra_calc["hours"]
 
     rate_min = 0.0
     current_now = _now_italy()
@@ -3034,6 +3417,7 @@ def compute_turni_dashboard(df_turni, rules):
         data = row["Data"]
         turno = row["Turno"]
         festivo = bool(row["Festivo"])
+        stra_minuti = _turni_row_straordinario_minuti(row)
         has_turno = turno in TURNI_ORARI and turno != ""
 
         if has_turno and turno == "Ferie" and data[:7] == current_m:
@@ -3046,10 +3430,10 @@ def compute_turni_dashboard(df_turni, rules):
                 work_days_done += 1
 
         if has_turno and data[:7] == current_m:
-            calc_live = compute_turno(data, turno, festivo, rules, until=now)
+            calc_live = compute_turno(data, turno, festivo, rules, until=now, straordinario_minuti=stra_minuti)
             live_month += calc_live["total"]
             hours_live += calc_live["hours"]
-            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
+            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
             if turno == "Ferie" and start.strftime("%Y-%m-%d") == today:
@@ -3065,7 +3449,7 @@ def compute_turni_dashboard(df_turni, rules):
                     current_shift_end = end
                     current_rate_change_at = start if now < start else None
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
             elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
@@ -3076,10 +3460,10 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
 
         if has_turno and data[:7] == prev_m:
-            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))
+            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
             prev_extras += calc_prev["extra"]
 
         if not has_turno:
@@ -3088,22 +3472,30 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None))["total"]
+            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno != "Ferie" and current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
-            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today)["total"]
-            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today)["total"]
+            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today, straordinario_minuti=stra_minuti)["total"]
+            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_minuti=stra_minuti)["total"]
 
     if current_shift_end is None and not is_on_leave:
         live_today = last_shift_total
         expected_today = next_shift_total
         turno_kpi_label = "Ultimo / prossimo turno"
 
-    live_month += rules["quota_fissa_mensile"]
-    payslip_estimate = rules["quota_fissa_mensile"] + current_base_full + prev_extras
+    month_report = compute_turni_month_report(df_turni, rules, current_m)
+    buoni_pasto_total = float(month_report.get("buoni_pasto_total", 0.0))
+    monthly_adjustments = (
+        float(rules["quota_fissa_mensile"])
+        + float(rules.get("accrediti_mensili", 0.0))
+        - float(rules.get("trattenute_mensili", 0.0))
+        + buoni_pasto_total
+    )
+    live_month += monthly_adjustments
+    payslip_estimate = monthly_adjustments + current_base_full + prev_extras
 
     return {
         "live_month": live_month,
@@ -3130,6 +3522,11 @@ def compute_turni_dashboard(df_turni, rules):
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
         "ferie_days_total": ferie_days_total,
+        "monthly_adjustments": monthly_adjustments,
+        "buoni_pasto_total": buoni_pasto_total,
+        "sede_days_total": int(month_report.get("sede_days", 0)),
+        "sede_days_required": int(month_report.get("sede_required", 0)),
+        "sede_days_remaining": int(month_report.get("sede_remaining", 0)),
     }
 
 
@@ -3187,6 +3584,227 @@ def _turni_month_label(date_value):
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
     ]
     return f"{mesi[date_value.month - 1]} {date_value.year}"
+
+
+def _storico_stipendio_for_month(month_key):
+    headers = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
+    try:
+        data = load_data_gsheets("Stipendi", headers)
+    except Exception:
+        return None
+    if data is None or data.empty or "Mese" not in data.columns or "Stipendio" not in data.columns:
+        return None
+    data = data.copy()
+    data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce")
+    data = data.dropna(subset=["Mese"])
+    data["month_key"] = data["Mese"].dt.to_period("M").astype(str)
+    match = data[data["month_key"] == month_key]
+    if match.empty:
+        return None
+    return _parse_float_turni(match.iloc[-1].get("Stipendio", 0.0))
+
+
+def _turni_month_money_summary(df_turni, rules, month_key):
+    report = compute_turni_month_report(df_turni, rules, month_key)
+    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+    turni_total = 0.0
+    turni_base = 0.0
+    turni_extra = 0.0
+    for _, row in month_df.iterrows():
+        calc = compute_turno(
+            row["Data"],
+            row["Turno"],
+            bool(row["Festivo"]),
+            rules,
+            until=datetime.max.replace(tzinfo=None),
+            straordinario_minuti=_turni_row_straordinario_minuti(row),
+        )
+        turni_total += float(calc.get("total", 0.0))
+        turni_base += float(calc.get("base", 0.0))
+        turni_extra += float(calc.get("extra", 0.0))
+    monthly_adjustments = (
+        float(rules.get("quota_fissa_mensile", 0.0))
+        + float(rules.get("accrediti_mensili", 0.0))
+        - float(rules.get("trattenute_mensili", 0.0))
+        + float(report.get("buoni_pasto_total", 0.0))
+    )
+    return {
+        **report,
+        "turni_total": turni_total,
+        "turni_base": turni_base,
+        "turni_extra": turni_extra,
+        "monthly_adjustments": monthly_adjustments,
+        "month_total": turni_total + monthly_adjustments,
+    }
+
+
+def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
+    month_date = datetime.strptime(f"{month_key}-01", "%Y-%m-%d").date()
+    month_label = html.escape(_turni_month_label(month_date))
+    summary = _turni_month_money_summary(df_turni, rules, month_key)
+    storico_stipendio = _storico_stipendio_for_month(month_key)
+    actual_value = summary["month_total"] if storico_stipendio is None else storico_stipendio
+    actual_subline = (
+        "Guadagno effettivo da storico stipendi"
+        if storico_stipendio is not None
+        else "Storico assente: uso il calcolo dei turni"
+    )
+    work_days = int(summary.get("work_days", 0))
+    ferie_days = int(summary.get("ferie_days", 0))
+    total_days = work_days + ferie_days
+    sede_days = int(summary.get("sede_days", 0))
+    sede_required = int(summary.get("sede_required", 0))
+    buoni = float(summary.get("buoni_pasto_total", 0.0))
+    side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
+    shell_class = "turni-static-shell has-side" if side_html else "turni-static-shell"
+    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    components.html(f"""
+    <div class="{shell_class}">
+      <div class="turni-live-grid">
+        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+          <div class="kpi-label">{month_label} — storico stipendi</div>
+          <div class="kpi-value" style="color:#34d399;">{_money_turni(actual_value)}</div>
+          <div class="turni-subline">{html.escape(actual_subline)}</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
+          <div class="kpi-label">Giorni lavorati / ferie</div>
+          <div class="kpi-value" style="color:#60a5fa;">{work_days} / {total_days}</div>
+          <div class="turni-subline">{work_days} lavorati + {ferie_days} ferie = {total_days}</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
+          <div class="kpi-label">Turni calcolati</div>
+          <div class="kpi-value" style="color:#fef3c7;">{_money_turni(summary["month_total"])}</div>
+          <div class="turni-subline">Sedi {sede_days}/{sede_required} · buoni {_money_turni(buoni)}</div>
+        </div>
+      </div>
+      {side_block}
+    </div>
+    <style>
+      body {{
+        margin: 0;
+        background: transparent;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      .turni-live-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }}
+      .turni-static-shell.has-side {{
+        display: grid;
+        grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+        gap: 10px;
+        align-items: start;
+      }}
+      .kpi-card {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-height: 72px;
+        box-sizing: border-box;
+      }}
+      .kpi-label {{
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+      }}
+      .kpi-value {{
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 600;
+      }}
+      .turni-subline {{
+        font-size: 12px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 5px;
+      }}
+      .turni-live-side {{
+        min-width: 0;
+      }}
+      .turni-summary-compact-title {{
+        color: rgba(255,255,255,.88);
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 0 4px;
+      }}
+      .turni-grid-scroll {{
+        max-height: 236px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }}
+      .turni-card-small {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-left: 4px solid rgba(255,255,255,0.25);
+        border-radius: 10px;
+        padding: 6px 7px;
+        margin-bottom: 5px;
+      }}
+      #turni-focus-card {{
+        border-color: rgba(147,197,253,.55);
+        box-shadow: 0 0 0 1px rgba(147,197,253,.26), 0 0 13px rgba(96,165,250,.18);
+        background: rgba(96,165,250,.08);
+      }}
+      .turni-card-small .date {{
+        font-size: 10px;
+        color: rgba(255,255,255,0.58);
+      }}
+      .turni-card-small .title {{
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 1px;
+      }}
+      .turni-card-small .meta {{
+        font-size: 9px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 2px;
+      }}
+      .turni-mattina {{ border-left-color:#60a5fa; }}
+      .turni-pomeriggio {{ border-left-color:#fb923c; }}
+      .turni-notte {{ border-left-color:#64748b; }}
+      .turni-ferie {{ border-left-color:#34d399; }}
+      @media (max-width: 760px) {{
+        .turni-static-shell.has-side {{
+          grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+          gap: 7px;
+        }}
+        .turni-live-grid {{
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }}
+        .kpi-card {{
+          padding: 8px 9px;
+          min-height: auto;
+        }}
+        .kpi-label {{
+          font-size: 8px;
+          letter-spacing: .55px;
+          margin-bottom: 4px;
+        }}
+        .kpi-value {{
+          font-size: 14px;
+        }}
+        .turni-subline {{
+          font-size: 9px;
+          margin-top: 3px;
+        }}
+        .turni-grid-scroll {{
+          max-height: 199px;
+          padding-top: 2px;
+        }}
+        .turni-summary-compact-title {{
+          font-size: 11px;
+          margin: 0 0 7px;
+        }}
+      }}
+    </style>
+    """, height=component_height, scrolling=False)
 
 
 def _turni_short_date_label(dt_obj):
@@ -3285,6 +3903,8 @@ def import_turni_from_calendar_ics(ical_url, selected_month, fixed_turno=""):
             "Data": data_str,
             "Turno": turno,
             "Festivo": "festivo" in summary.lower(),
+            "Straordinario minuti": 0,
+            "Sede": False,
         })
     return _normalize_turni_df(pd.DataFrame(rows, columns=TURNI_HEADERS))
 
@@ -3316,6 +3936,14 @@ def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
     if imported.empty:
         return df_turni.copy(), 0, errors
     month_key = selected_month.strftime("%Y-%m")
+    existing_month = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    if not existing_month.empty:
+        existing_extra = existing_month.set_index("Data")[["Straordinario minuti", "Sede"]].to_dict("index")
+        for idx, row in imported.iterrows():
+            extra = existing_extra.get(row["Data"])
+            if extra:
+                imported.at[idx, "Straordinario minuti"] = extra.get("Straordinario minuti", 0)
+                imported.at[idx, "Sede"] = extra.get("Sede", False)
     other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
     manual_festivi = df_turni[
         df_turni["Data"].str.startswith(month_key)
@@ -3715,8 +4343,24 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
     for _, r in month_df.iterrows():
         turno = r["Turno"]
         info = _turno_color_info(turno)
-        calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
+        stra_minuti = _turni_row_straordinario_minuti(r)
+        sede = _turni_row_sede(r)
+        calc = compute_turno(
+            r["Data"],
+            turno,
+            bool(r["Festivo"]),
+            rules,
+            until=datetime.max.replace(tzinfo=None),
+            straordinario_minuti=stra_minuti,
+        )
         seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
+        extra_notes = []
+        if stra_minuti:
+            extra_notes.append(f"Straord. {_format_minutes_label(stra_minuti)}")
+        if sede:
+            buono = " · buono pasto" if _is_sede_buono_pasto(r["Data"], turno, bool(r["Festivo"]), sede) else ""
+            extra_notes.append(f"Sede{buono}")
+        extra_txt = f'<div class="meta">{html.escape(" · ".join(extra_notes))}</div>' if extra_notes else ""
         data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
         festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
         focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
@@ -3726,10 +4370,219 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
             f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
             f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra {html.escape(_money_turni(calc["extra"]))}</div>'
+            f'{extra_txt}'
             f'</div>'
         )
     cards.append("</div></div>")
     return "".join(cards)
+
+
+def _existing_turni_row_values(df_turni, day_str):
+    row = df_turni[df_turni["Data"] == day_str]
+    if row.empty:
+        return "", False, 0, False
+    first = row.iloc[0]
+    return (
+        str(first.get("Turno", "")),
+        bool(first.get("Festivo", False)),
+        _turni_row_straordinario_minuti(first),
+        _turni_row_sede(first),
+    )
+
+
+def _render_turni_day_action_menu(df_turni, month_days):
+    if not month_days:
+        return df_turni
+
+    action_day = st.session_state.get("turni_action_day")
+    if action_day not in month_days:
+        return df_turni
+
+    turno_esistente, festivo_esistente, stra_esistente, sede_esistente = _existing_turni_row_values(df_turni, action_day)
+    durata_options = [0, 30, 45, 60, 75, 90, 105, 120]
+    durata_default = min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
+    action_day_label = pd.to_datetime(action_day).strftime("%d/%m/%Y")
+    turno_label = f" · {turno_esistente}" if turno_esistente else ""
+
+    st.markdown(f"#### Modifica giorno · {action_day_label}{turno_label}")
+    with st.form(f"turni_day_action_form_{action_day}", clear_on_submit=False):
+        menu_cols = st.columns(3, gap="small")
+        with menu_cols[0]:
+            st.markdown('<span class="turni-day-menu-marker"></span>', unsafe_allow_html=True)
+            festivo_value = st.checkbox(
+                "Festivo",
+                value=bool(festivo_esistente),
+                key=f"turni_day_festivo_{action_day}",
+            )
+        with menu_cols[1]:
+            sede_value = st.checkbox(
+                "Sede",
+                value=bool(sede_esistente),
+                key=f"turni_day_sede_{action_day}",
+            )
+        with menu_cols[2]:
+            durata_value = st.selectbox(
+                "Straordinario",
+                durata_options,
+                index=durata_options.index(durata_default),
+                format_func=lambda value: "No" if value == 0 else _format_minutes_label(value),
+                key=f"turni_day_stra_{action_day}",
+            )
+
+        action_cols = st.columns(2, gap="small")
+        with action_cols[0]:
+            save_day = st.form_submit_button("Salva giorno", use_container_width=True)
+        with action_cols[1]:
+            close_day = st.form_submit_button("Chiudi", use_container_width=True)
+
+    if save_day:
+        df_new = _upsert_turni_day(
+            df_turni,
+            action_day,
+            festivo=festivo_value,
+            straordinario_minuti=durata_value,
+            sede=sede_value,
+        )
+        st.session_state.pop("turni_action_day", None)
+        if "turni_day" in st.query_params:
+            del st.query_params["turni_day"]
+        return _save_turni_and_rerun(df_new, "Giorno aggiornato in bozza, ma non salvato su Google Sheets.")
+    if close_day:
+        st.session_state.pop("turni_action_day", None)
+        if "turni_day" in st.query_params:
+            del st.query_params["turni_day"]
+        st.rerun()
+    return df_turni
+
+
+def _render_turni_report(report):
+    def card(label, value, sub="", accent="#f8fafc"):
+        return (
+            f'<div class="turni-report-card" style="--accent:{html.escape(str(accent))};">'
+            f'<div class="turni-report-label">{html.escape(str(label))}</div>'
+            f'<div class="turni-report-value">{html.escape(str(value))}</div>'
+            f'<div class="turni-report-sub">{html.escape(str(sub))}</div>'
+            '</div>'
+        )
+
+    cards = [
+        card("Giorni lavorati", report.get("work_days", 0), "escluse ferie", "#60a5fa"),
+        card("Ferie", report.get("ferie_days", 0), "giorni base", "#34d399"),
+        card(
+            "Sedi",
+            f'{report.get("sede_days", 0)} / {report.get("sede_required", 0)}',
+            f'da fare {report.get("sede_remaining", 0)}',
+            "#fb923c",
+        ),
+        card(
+            "Buoni pasto",
+            f'{report.get("buoni_pasto_days", 0)}',
+            _money_turni(report.get("buoni_pasto_total", 0.0)),
+            "#fde68a",
+        ),
+        card(
+            "Straordinari",
+            _format_minutes_label(report.get("straordinario_minutes", 0)),
+            _money_turni(report.get("straordinario_total", 0.0)),
+            "#c084fc",
+        ),
+        card("Smart target", "15", "giorni/mese", "#94a3b8"),
+    ]
+    turn_counts = report.get("turn_counts", {})
+    turn_rows = "".join(
+        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
+        for name, value in turn_counts.items()
+        if value
+    ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
+    type_counts = report.get("turn_type_counts", {})
+    type_rows = "".join(
+        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
+        for name, value in sorted(type_counts.items())
+    ) or "<div><span>Nessun dettaglio</span><strong>0</strong></div>"
+    hours_rows = "".join(
+        f'<div><span>Magg. {float(pct):g}%</span><strong>{hours:.2f}h</strong></div>'
+        for pct, hours in sorted(report.get("hours_by_pct", {}).items())
+        if abs(hours) > 0.001
+    ) or "<div><span>Nessuna maggiorazione</span><strong>0h</strong></div>"
+    st.markdown(f"""
+    <style>
+      .turni-report-grid {{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+        margin: 4px 0 14px;
+      }}
+      .turni-report-card {{
+        background:rgba(255,255,255,.055);
+        border:0.5px solid color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,.12));
+        border-radius:12px;
+        padding:10px 12px;
+      }}
+      .turni-report-label {{
+        color:var(--accent);
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        font-weight:900;
+      }}
+      .turni-report-value {{
+        color:var(--accent);
+        font-size:20px;
+        font-weight:900;
+        margin-top:5px;
+      }}
+      .turni-report-sub {{
+        color:rgba(255,255,255,.45);
+        font-size:11px;
+        margin-top:3px;
+      }}
+      .turni-report-lists {{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:12px;
+      }}
+      .turni-report-list {{
+        background:rgba(255,255,255,.035);
+        border:0.5px solid rgba(255,255,255,.10);
+        border-radius:12px;
+        padding:12px;
+      }}
+      .turni-report-list h4 {{
+        margin:0 0 8px;
+        color:#93c5fd;
+        font-size:14px;
+      }}
+      .turni-report-list div {{
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        padding:5px 0;
+        border-top:0.5px solid rgba(255,255,255,.07);
+        color:rgba(255,255,255,.62);
+        font-size:12px;
+      }}
+      .turni-report-list strong {{
+        color:#fef3c7;
+      }}
+      @media (max-width: 767px) {{
+        .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
+        .turni-report-card {{ padding:8px 7px; }}
+        .turni-report-label {{ font-size:8.5px; letter-spacing:.03em; }}
+        .turni-report-value {{ font-size:15px; }}
+        .turni-report-sub {{ font-size:8.5px; }}
+        .turni-report-lists {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
+        .turni-report-list {{ padding:8px 7px; }}
+        .turni-report-list h4 {{ font-size:11px; }}
+        .turni-report-list div {{ font-size:9px; gap:4px; }}
+      }}
+    </style>
+    <div class="turni-report-grid">{"".join(cards)}</div>
+    <div class="turni-report-lists">
+      <div class="turni-report-list"><h4>Turni</h4>{turn_rows}</div>
+      <div class="turni-report-list"><h4>Tipi turno</h4>{type_rows}</div>
+      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{hours_rows}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_turni_guadagni_section():
@@ -3739,13 +4592,15 @@ def render_turni_guadagni_section():
     if "turni_calendar_month" not in st.session_state:
         today_month = _now_italy().date()
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
-    turni_nav_delta = st.query_params.get("turni_nav")
-    if turni_nav_delta in ("-1", "1"):
-        st.session_state.turni_calendar_month = _add_months_turni(
-            st.session_state.turni_calendar_month,
-            int(turni_nav_delta),
-        )
-        del st.query_params["turni_nav"]
+    turni_month_param = st.query_params.get("turni_month")
+    if isinstance(turni_month_param, list):
+        turni_month_param = turni_month_param[0] if turni_month_param else None
+    if isinstance(turni_month_param, str):
+        try:
+            parsed_month = datetime.strptime(turni_month_param, "%Y-%m").date()
+            st.session_state.turni_calendar_month = datetime(parsed_month.year, parsed_month.month, 1).date()
+        except ValueError:
+            pass
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
 
@@ -3762,23 +4617,26 @@ def render_turni_guadagni_section():
         if calendar_errors:
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
+    today = _now_italy().date()
+    current_month_key = today.strftime("%Y-%m")
+    is_selected_current_month = month_key == current_month_key
     stats = compute_turni_dashboard(df_turni, rules)
     current_work_day = (
         stats.get("current_shift_start_date", "")
         if (stats.get("is_on_shift", False) or stats.get("is_on_leave", False))
-        else _now_italy().strftime("%Y-%m-%d")
+        else today.strftime("%Y-%m-%d")
     )
 
-    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, current_work_day) if MOBILE_VIEW else ""
-    render_live_turni_kpis(stats, mobile_summary_html)
+    summary_focus_day = current_work_day if is_selected_current_month else ""
+    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, summary_focus_day) if MOBILE_VIEW else ""
+    if is_selected_current_month:
+        render_live_turni_kpis(stats, mobile_summary_html)
+    else:
+        render_selected_month_turni_kpis(df_turni, rules, month_key, mobile_summary_html)
 
-    tab_cal, tab_rules = st.tabs(["📅 Turni", "⚙️ Regole"])
+    tab_cal, tab_rules, tab_report = st.tabs(["📅 Turni", "⚙️ Regole", "📊 Riepilogo"])
 
     with tab_cal:
-        st.markdown('<div class="turni-compact-row">', unsafe_allow_html=True)
-        festivo_manual = st.checkbox("Modifica festivo manuale", key="turni_festivo_manual")
-        st.markdown('</div>', unsafe_allow_html=True)
-
         year, month = selected_month.year, selected_month.month
 
         if MOBILE_VIEW:
@@ -3790,13 +4648,18 @@ def render_turni_guadagni_section():
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
             if MOBILE_VIEW:
-                st.markdown(f"""
-                <div class="mobile-calendar-navline">
-                    <a class="mobile-calendar-arrow" href="?turni_nav=-1#mobile-turni">←</a>
-                    <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
-                    <a class="mobile-calendar-arrow" href="?turni_nav=1#mobile-turni">→</a>
-                </div>
-                """, unsafe_allow_html=True)
+                prev_month = _add_months_turni(selected_month, -1).strftime("%Y-%m")
+                next_month = _add_months_turni(selected_month, 1).strftime("%Y-%m")
+                st.markdown(
+                    f"""
+                    <div class="mobile-calendar-navline">
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_month={prev_month}#mobile-turni" target="_self">←</a>
+                      <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_month={next_month}#mobile-turni" target="_self">→</a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
             else:
                 prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
                 with prev_col:
@@ -3811,61 +4674,59 @@ def render_turni_guadagni_section():
                         st.rerun()
             weekdays = ["L", "M", "M", "G", "V", "S", "D"]
             cal = calendar.Calendar(firstweekday=0)
+            month_days = [
+                datetime(year, month, day).strftime("%Y-%m-%d")
+                for day in range(1, calendar.monthrange(year, month)[1] + 1)
+            ]
             if MOBILE_VIEW:
+                turni_day_param = st.query_params.get("turni_day")
+                if isinstance(turni_day_param, list):
+                    turni_day_param = turni_day_param[0] if turni_day_param else None
+                if turni_day_param in month_days:
+                    st.session_state["turni_action_day"] = turni_day_param
+
                 calendar_cells = ['<div class="mobile-calendar-grid">']
                 for wd in weekdays:
-                    calendar_cells.append(f'<div class="mobile-calendar-head">{wd}</div>')
-                mobile_month_days = []
+                    calendar_cells.append(f'<div class="mobile-calendar-head">{html.escape(wd)}</div>')
+                selected_action_day = st.session_state.get("turni_action_day")
                 for week in cal.monthdatescalendar(year, month):
                     for day in week:
                         if day.month != month:
                             calendar_cells.append('<div class="mobile-calendar-day empty"></div>')
                             continue
                         day_str = day.strftime("%Y-%m-%d")
-                        mobile_month_days.append(day_str)
                         row = df_turni[df_turni["Data"] == day_str]
                         turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
                         info = _turno_color_info(turno_corrente)
                         shift_html = ""
                         if turno_corrente in TURNI_ORARI and turno_corrente:
-                            shift_html = f'<span class="shift" style="color:{info["color"]};">{html.escape(info["short"])}</span>'
+                            shift_html = (
+                                f'<span class="shift" style="color:{html.escape(info["color"])};">'
+                                f'{html.escape(info["short"])}</span>'
+                            )
+                        stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
+                        sede = False if row.empty else _turni_row_sede(row.iloc[0])
+                        markers_html = ""
+                        if stra_minuti:
+                            markers_html += '<span class="mobile-day-extra">+</span>'
+                        if sede:
+                            markers_html += '<span class="mobile-day-sede">S</span>'
                         day_is_festive = (
                             day.weekday() == 6
                             or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
                             or (not row.empty and bool(row.iloc[0]["Festivo"]))
                         )
-                        day_class = "holiday" if day_is_festive else ""
-                        today_dot = '<span class="today-dot">●</span>' if day_str == current_work_day else ""
+                        day_num_class = "holiday" if day_is_festive else ""
+                        today_dot = '<span class="today-dot">•</span>' if day_str == current_work_day else ""
+                        selected_class = " selected" if selected_action_day == day_str else ""
+                        href = f"?view=mobile&mobile_section=Turni&turni_month={month_key}&turni_day={day_str}#mobile-turni"
                         calendar_cells.append(
-                            f'<div class="mobile-calendar-day">{today_dot}<span class="{day_class}">{day.day}</span>{shift_html}</div>'
+                            f'<a href="{href}" target="_self" class="mobile-calendar-day{selected_class}">'
+                            f'{today_dot}<span class="{day_num_class}">{day.day}</span>{shift_html}{markers_html}'
+                            '</a>'
                         )
                 calendar_cells.append("</div>")
                 st.markdown("".join(calendar_cells), unsafe_allow_html=True)
-                if festivo_manual:
-                    st.caption("Su telefono scegli il giorno da modificare qui sotto.")
-                    mobile_festivo_day = st.selectbox(
-                        "Giorno festivo manuale",
-                        mobile_month_days,
-                        format_func=lambda value: pd.to_datetime(value).strftime("%d/%m/%Y"),
-                        key="turni_mobile_festivo_day"
-                    )
-                    if st.button("Inverti festivo manuale", use_container_width=True, key="turni_mobile_toggle_festivo"):
-                        row = df_turni[df_turni["Data"] == mobile_festivo_day]
-                        df_new = df_turni[df_turni["Data"] != mobile_festivo_day].copy()
-                        turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                        nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
-                        df_new = pd.concat([df_new, pd.DataFrame([{
-                            "Data": mobile_festivo_day,
-                            "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
-                            "Festivo": nuovo_festivo
-                        }])], ignore_index=True)
-                        df_new = _normalize_turni_df(df_new)
-                        st.session_state.turni_df_draft = df_new.copy()
-                        if save_turni_data(df_new):
-                            st.session_state.turni_dirty = False
-                            st.rerun()
-                        st.session_state.turni_dirty = True
-                        st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
             else:
                 cols = st.columns(7)
                 for c, wd in zip(cols, weekdays):
@@ -3881,10 +4742,18 @@ def render_turni_guadagni_section():
                         row = df_turni[df_turni["Data"] == day_str]
                         if row.empty:
                             current_label = ""
+                            stra_minuti = 0
+                            sede = False
                         else:
                             turno_corrente = row.iloc[0]["Turno"]
                             info = _turno_color_info(turno_corrente)
                             current_label = f" :{info['md_color']}[**{info['short']}**]" if turno_corrente in TURNI_ORARI and turno_corrente else ""
+                            stra_minuti = _turni_row_straordinario_minuti(row.iloc[0])
+                            sede = _turni_row_sede(row.iloc[0])
+                        if stra_minuti:
+                            current_label += " :violet[**+**]"
+                        if sede:
+                            current_label += " :orange[**S**]"
                         day_is_festive = (
                             day.weekday() == 6
                             or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
@@ -3895,23 +4764,8 @@ def render_turni_guadagni_section():
                             day_label = f":orange[•] {day_label}"
                         clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                         if clicked_day:
-                            if festivo_manual:
-                                df_new = df_turni[df_turni["Data"] != day_str].copy()
-                                turno_esistente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                                nuovo_festivo = not (not row.empty and bool(row.iloc[0].get("Festivo", False)))
-                                df_new = pd.concat([df_new, pd.DataFrame([{
-                                    "Data": day_str,
-                                    "Turno": turno_esistente if turno_esistente in TURNI_ORARI else "",
-                                    "Festivo": nuovo_festivo
-                                }])], ignore_index=True)
-                                df_new = _normalize_turni_df(df_new)
-                                st.session_state.turni_df_draft = df_new.copy()
-                                if save_turni_data(df_new):
-                                    st.session_state.turni_dirty = False
-                                    st.rerun()
-                                else:
-                                    st.session_state.turni_dirty = True
-                                    st.error("Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
+                            st.session_state["turni_action_day"] = day_str
+                            st.rerun()
 
             st.markdown("""
             <div class="mobile-calendar-legend">
@@ -3923,6 +4777,8 @@ def render_turni_guadagni_section():
             </div>
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
+            df_turni = _render_turni_day_action_menu(df_turni, month_days)
 
         if summary_col is not None:
           with summary_col:
@@ -3943,8 +4799,24 @@ def render_turni_guadagni_section():
                 for _, r in month_df.iterrows():
                     turno = r["Turno"]
                     info = _turno_color_info(turno)
-                    calc = compute_turno(r["Data"], turno, bool(r["Festivo"]), rules, until=datetime.max.replace(tzinfo=None))
+                    stra_minuti = _turni_row_straordinario_minuti(r)
+                    sede = _turni_row_sede(r)
+                    calc = compute_turno(
+                        r["Data"],
+                        turno,
+                        bool(r["Festivo"]),
+                        rules,
+                        until=datetime.max.replace(tzinfo=None),
+                        straordinario_minuti=stra_minuti,
+                    )
                     seg = _segmenti_turno(r["Data"], turno, bool(r["Festivo"]))
+                    extra_notes = []
+                    if stra_minuti:
+                        extra_notes.append(f"Straord. {_format_minutes_label(stra_minuti)}")
+                    if sede:
+                        buono = " · buono pasto" if _is_sede_buono_pasto(r["Data"], turno, bool(r["Festivo"]), sede) else ""
+                        extra_notes.append(f"Sede{buono}")
+                    extra_txt = f'<div class="meta">{html.escape(" · ".join(extra_notes))}</div>' if extra_notes else ""
                     data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
                     festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
                     focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
@@ -3954,6 +4826,7 @@ def render_turni_guadagni_section():
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
                         f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
                         f'<div class="meta">Base {_money_turni(calc["base"])} · Extra {_money_turni(calc["extra"])}</div>'
+                        f'{extra_txt}'
                         f'</div>'
                     )
                 cards.append("</div>")
@@ -4011,26 +4884,71 @@ def render_turni_guadagni_section():
                 """, height=370)
 
         if st.session_state.get("turni_dirty", False):
-            st.warning("Festivo manuale modificato in bozza: Google Sheets non ha confermato il salvataggio.")
+            st.warning("Modifiche turni in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
         c1, c2 = st.columns(2)
         with c1:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
-            rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga")
-            rules["quota_fissa_mensile"] = st.number_input("Quota fissa mensile opzionale", value=float(rules["quota_fissa_mensile"]), step=10.0, key="turni_quota")
+            st.markdown("""
+            <div style="margin:0 0 12px; padding-top:0;">
+              <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            <div style="
+                margin:0 0 6px;
+                color:#fef3c7;
+                font-size:13px;
+                font-weight:900;
+                letter-spacing:.2px;
+                text-shadow:0 0 12px rgba(250,204,21,.25);
+            ">Paga oraria base</div>
+            """, unsafe_allow_html=True)
+            rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga", label_visibility="collapsed")
+            rules["quota_fissa_mensile"] = 0.0
             rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
             rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
             rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#c084fc;">Straordinari</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            stra_cols = st.columns(2)
+            with stra_cols[0]:
+                rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
+                rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
+                rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
+                rules["stra_ferie_feriale_pct"] = st.number_input("Ferie feriale %", value=float(rules.get("stra_ferie_feriale_pct", 25.0)), step=1.0, key="turni_stra_f_feriale")
+            with stra_cols[1]:
+                rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
+                rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
+                rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
+                rules["stra_ferie_festivo_pct"] = st.number_input("Ferie festivo %", value=float(rules.get("stra_ferie_festivo_pct", 50.0)), step=1.0, key="turni_stra_f_festivo")
         with c2:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="margin:0 0 12px; padding-top:0;">
+              <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
+            </div>
+            """, unsafe_allow_html=True)
             rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
             rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
             rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
             rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#34d399;">Sede e mensile</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
+            rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
+            rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
+            rules["trattenute_mensili"] = st.number_input("Trattenute fisse mensili", value=float(rules.get("trattenute_mensili", 0.0)), step=1.0, key="turni_trattenute_mensili")
             st.markdown("""
             <div class="kpi-card">
                 <div class="kpi-label">Regole applicate</div>
@@ -4039,13 +4957,20 @@ def render_turni_guadagni_section():
                 P 14-18: 20% / 50% + 6€/15€<br>
                 P 18-22: 20% / 60%, senza seconda indennità<br>
                 N 22-06: 50% / 60% + 15€/25€<br>
-                Ferie: 8 ore base
+                Straordinari: percentuali per turno e fer/fest<br>
+                Sabato feriale: nessuna indennità<br>
+                Ferie: 8 ore base<br>
+                Sede: buono pasto se non mattina feriale
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
         st.session_state.turni_rules = rules
         st.caption("Le regole sono salvate nella sessione Streamlit. I turni arrivano da Google Calendar; il festivo manuale viene salvato subito su Google Sheets quando lo modifichi.")
+
+    with tab_report:
+        month_report = compute_turni_month_report(df_turni, rules, month_key)
+        _render_turni_report(month_report)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -5758,7 +6683,7 @@ textarea {
                         totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
                         colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Amara"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                         spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                         somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
                         row_html = _money_row_html(
@@ -6499,7 +7424,6 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
 
     if MOBILE_VIEW:
         st.markdown("---")
-        st.markdown("### Storico Stipendi e Risparmi")
         render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=1)
         _render_stipendi_kpi_cards(data_stipendi)
 
