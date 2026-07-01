@@ -1021,6 +1021,9 @@ if MOBILE_VIEW:
     .other-income-editor-marker,
     .other-income-new-marker,
     .turni-mode-marker,
+    .turni-day-menu-marker,
+    .mobile-calendar-nav-marker,
+    .mobile-calendar-row-marker,
     .turni-rules-marker {
         display: none !important;
     }
@@ -1030,6 +1033,9 @@ if MOBILE_VIEW:
     div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
     div[data-testid="stMarkdown"]:has(.other-income-new-marker),
     div[data-testid="stMarkdown"]:has(.turni-mode-marker),
+    div[data-testid="stMarkdown"]:has(.turni-day-menu-marker),
+    div[data-testid="stMarkdown"]:has(.mobile-calendar-nav-marker),
+    div[data-testid="stMarkdown"]:has(.mobile-calendar-row-marker),
     div[data-testid="stMarkdown"]:has(.turni-rules-marker) {
         display: none !important;
         height: 0 !important;
@@ -1092,6 +1098,33 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: center !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-nav-marker) {
+        display: grid !important;
+        grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+        gap: 8px !important;
+        align-items: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: end !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) {
         display: grid !important;
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1108,6 +1141,9 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-nav-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) > div[data-testid="column"] {
         width: auto !important;
@@ -1143,10 +1179,17 @@ if MOBILE_VIEW:
         display: flex !important;
         align-items: center !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) label {
+        min-height: 17px !important;
+        font-size: 8px !important;
+        line-height: 1.05 !important;
+        white-space: normal !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) input,
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) input {
         height: 32px !important;
         min-height: 32px !important;
@@ -1157,6 +1200,7 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) [data-testid="stNumberInput"] button,
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-testid="stNumberInput"] button,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) [data-testid="stNumberInput"] button {
         min-width: 19px !important;
         width: 19px !important;
@@ -1166,9 +1210,11 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-testid="stSelectbox"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-testid="stSelectbox"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-meta-marker) [data-baseweb="select"],
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) [data-baseweb="select"],
-    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-baseweb="select"] {
+    div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-day-menu-marker) [data-baseweb="select"] {
         min-width: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -1648,6 +1694,23 @@ if MOBILE_VIEW:
         font-size: 13px;
         font-weight: 800;
         line-height: 1;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) [data-testid="stButton"] button {
+        min-height: 42px !important;
+        height: 42px !important;
+        border-radius: 10px !important;
+        padding: 0 2px !important;
+        background: rgba(30,58,92,.70) !important;
+        border: 0.5px solid rgba(96,165,250,.36) !important;
+        color: #d1d5db !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) [data-testid="stButton"] button:hover {
+        border-color: rgba(125,211,252,.62) !important;
+        background: rgba(30,64,115,.82) !important;
     }
     .mobile-calendar-day.empty {
         background: transparent;
@@ -4086,34 +4149,64 @@ def _existing_turni_row_values(df_turni, day_str):
     )
 
 
-def _render_mobile_turni_actions(df_turni, month_days, festivo_manual, straordinario_manual, sede_manual):
-    if not MOBILE_VIEW or not month_days or not (festivo_manual or straordinario_manual or sede_manual):
+def _render_turni_day_action_menu(df_turni, month_days):
+    if not month_days:
         return df_turni
-    st.caption("Su telefono scegli il giorno qui sotto e salva la modifica.")
-    action_day = st.selectbox(
-        "Giorno da modificare",
-        month_days,
-        format_func=lambda value: pd.to_datetime(value).strftime("%d/%m/%Y"),
-        key="turni_mobile_action_day",
-    )
-    if straordinario_manual:
-        durata = st.selectbox(
-            "Durata straordinario",
-            [0, 30, 45, 60, 75, 90, 105, 120],
-            format_func=lambda value: "Nessuno" if value == 0 else _format_minutes_label(value),
-            key="turni_mobile_stra_minuti",
+
+    action_day = st.session_state.get("turni_action_day")
+    if action_day not in month_days:
+        return df_turni
+
+    turno_esistente, festivo_esistente, stra_esistente, sede_esistente = _existing_turni_row_values(df_turni, action_day)
+    durata_options = [0, 30, 45, 60, 75, 90, 105, 120]
+    durata_default = min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
+    action_day_label = pd.to_datetime(action_day).strftime("%d/%m/%Y")
+    turno_label = f" · {turno_esistente}" if turno_esistente else ""
+
+    st.markdown(f"#### Modifica giorno · {action_day_label}{turno_label}")
+    with st.form(f"turni_day_action_form_{action_day}", clear_on_submit=False):
+        menu_cols = st.columns(3, gap="small")
+        with menu_cols[0]:
+            st.markdown('<span class="turni-day-menu-marker"></span>', unsafe_allow_html=True)
+            festivo_value = st.checkbox(
+                "Festivo",
+                value=bool(festivo_esistente),
+                key=f"turni_day_festivo_{action_day}",
+            )
+        with menu_cols[1]:
+            sede_value = st.checkbox(
+                "Sede",
+                value=bool(sede_esistente),
+                key=f"turni_day_sede_{action_day}",
+            )
+        with menu_cols[2]:
+            durata_value = st.selectbox(
+                "Straordinario",
+                durata_options,
+                index=durata_options.index(durata_default),
+                format_func=lambda value: "No" if value == 0 else _format_minutes_label(value),
+                key=f"turni_day_stra_{action_day}",
+            )
+
+        action_cols = st.columns(2, gap="small")
+        with action_cols[0]:
+            save_day = st.form_submit_button("Salva giorno", use_container_width=True)
+        with action_cols[1]:
+            close_day = st.form_submit_button("Chiudi", use_container_width=True)
+
+    if save_day:
+        df_new = _upsert_turni_day(
+            df_turni,
+            action_day,
+            festivo=festivo_value,
+            straordinario_minuti=durata_value,
+            sede=sede_value,
         )
-        if st.button("Salva straordinario", use_container_width=True, key="turni_mobile_save_stra"):
-            df_new = _upsert_turni_day(df_turni, action_day, straordinario_minuti=durata)
-            return _save_turni_and_rerun(df_new, "Straordinario aggiornato in bozza, ma non salvato su Google Sheets.")
-    if festivo_manual and st.button("Inverti festivo manuale", use_container_width=True, key="turni_mobile_toggle_festivo"):
-        _, festivo_esistente, _, _ = _existing_turni_row_values(df_turni, action_day)
-        df_new = _upsert_turni_day(df_turni, action_day, festivo=not festivo_esistente)
-        return _save_turni_and_rerun(df_new, "Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
-    if sede_manual and st.button("Inverti sede", use_container_width=True, key="turni_mobile_toggle_sede"):
-        _, _, _, sede_esistente = _existing_turni_row_values(df_turni, action_day)
-        df_new = _upsert_turni_day(df_turni, action_day, sede=not sede_esistente)
-        return _save_turni_and_rerun(df_new, "Sede aggiornata in bozza, ma non salvata su Google Sheets.")
+        st.session_state.pop("turni_action_day", None)
+        return _save_turni_and_rerun(df_new, "Giorno aggiornato in bozza, ma non salvato su Google Sheets.")
+    if close_day:
+        st.session_state.pop("turni_action_day", None)
+        st.rerun()
     return df_turni
 
 
@@ -4292,24 +4385,6 @@ def render_turni_guadagni_section():
     tab_cal, tab_rules, tab_report = st.tabs(["📅 Turni", "⚙️ Regole", "📊 Riepilogo"])
 
     with tab_cal:
-        mode_cols = st.columns(3)
-        with mode_cols[0]:
-            if MOBILE_VIEW:
-                st.markdown('<span class="turni-mode-marker"></span>', unsafe_allow_html=True)
-            festivo_manual = st.checkbox("Festivo manuale", key="turni_festivo_manual")
-        with mode_cols[1]:
-            straordinario_manual = st.checkbox("Straordinario", key="turni_straordinario_manual")
-        with mode_cols[2]:
-            sede_manual = st.checkbox("Sede", key="turni_sede_manual")
-        desktop_stra_minuti = 0
-        if straordinario_manual and not MOBILE_VIEW:
-            desktop_stra_minuti = st.selectbox(
-                "Durata straordinario",
-                [0, 30, 45, 60, 75, 90, 105, 120],
-                format_func=lambda value: "Nessuno" if value == 0 else _format_minutes_label(value),
-                key="turni_desktop_stra_minuti",
-            )
-
         year, month = selected_month.year, selected_month.month
 
         if MOBILE_VIEW:
@@ -4323,6 +4398,7 @@ def render_turni_guadagni_section():
             if MOBILE_VIEW:
                 prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
                 with prev_col:
+                    st.markdown('<span class="mobile-calendar-nav-marker"></span>', unsafe_allow_html=True)
                     if st.button("←", key="turni_prev_month_mobile", use_container_width=True):
                         st.session_state["mobile_section_select"] = "Turni"
                         st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
@@ -4356,40 +4432,50 @@ def render_turni_guadagni_section():
                 for day in range(1, calendar.monthrange(year, month)[1] + 1)
             ]
             if MOBILE_VIEW:
-                calendar_cells = ['<div class="mobile-calendar-grid">']
-                for wd in weekdays:
-                    calendar_cells.append(f'<div class="mobile-calendar-head">{wd}</div>')
+                head_cols = st.columns(7, gap="small")
+                for idx, (c, wd) in enumerate(zip(head_cols, weekdays)):
+                    with c:
+                        if idx == 0:
+                            st.markdown('<span class="mobile-calendar-row-marker"></span>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="mobile-calendar-head">{wd}</div>', unsafe_allow_html=True)
                 for week in cal.monthdatescalendar(year, month):
-                    for day in week:
-                        if day.month != month:
-                            calendar_cells.append('<div class="mobile-calendar-day empty"></div>')
-                            continue
-                        day_str = day.strftime("%Y-%m-%d")
-                        row = df_turni[df_turni["Data"] == day_str]
-                        turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                        info = _turno_color_info(turno_corrente)
-                        shift_html = ""
-                        if turno_corrente in TURNI_ORARI and turno_corrente:
-                            shift_html = f'<span class="shift" style="color:{info["color"]};">{html.escape(info["short"])}</span>'
-                        stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
-                        sede = False if row.empty else _turni_row_sede(row.iloc[0])
-                        markers_html = ""
-                        if stra_minuti:
-                            markers_html += '<span class="mobile-day-extra">+</span>'
-                        if sede:
-                            markers_html += '<span class="mobile-day-sede">S</span>'
-                        day_is_festive = (
-                            day.weekday() == 6
-                            or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
-                            or (not row.empty and bool(row.iloc[0]["Festivo"]))
-                        )
-                        day_class = "holiday" if day_is_festive else ""
-                        today_dot = '<span class="today-dot">●</span>' if day_str == current_work_day else ""
-                        calendar_cells.append(
-                            f'<div class="mobile-calendar-day">{today_dot}<span class="{day_class}">{day.day}</span>{shift_html}{markers_html}</div>'
-                        )
-                calendar_cells.append("</div>")
-                st.markdown("".join(calendar_cells), unsafe_allow_html=True)
+                    week_cols = st.columns(7, gap="small")
+                    for idx, (c, day) in enumerate(zip(week_cols, week)):
+                        with c:
+                            if idx == 0:
+                                st.markdown('<span class="mobile-calendar-row-marker"></span>', unsafe_allow_html=True)
+                            if day.month != month:
+                                st.markdown('<div class="mobile-calendar-day empty"></div>', unsafe_allow_html=True)
+                                continue
+                            day_str = day.strftime("%Y-%m-%d")
+                            row = df_turni[df_turni["Data"] == day_str]
+                            turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                            info = _turno_color_info(turno_corrente)
+                            current_label = ""
+                            if turno_corrente in TURNI_ORARI and turno_corrente:
+                                current_label = f" :{info['md_color']}[**{info['short']}**]"
+                            stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
+                            sede = False if row.empty else _turni_row_sede(row.iloc[0])
+                            if stra_minuti:
+                                current_label += " :violet[**+**]"
+                            if sede:
+                                current_label += " :orange[**S**]"
+                            day_is_festive = (
+                                day.weekday() == 6
+                                or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                                or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                            )
+                            day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
+                            if day_str == current_work_day:
+                                day_label = f":orange[•] {day_label}"
+                            if st.button(
+                                f"{day_label}{current_label}",
+                                key=f"turno_mobile_day_{day_str}",
+                                use_container_width=True,
+                            ):
+                                st.session_state["mobile_section_select"] = "Turni"
+                                st.session_state["turni_action_day"] = day_str
+                                st.rerun()
             else:
                 cols = st.columns(7)
                 for c, wd in zip(cols, weekdays):
@@ -4427,17 +4513,8 @@ def render_turni_guadagni_section():
                             day_label = f":orange[•] {day_label}"
                         clicked_day = c.button(f"{day_label}{current_label}", key=f"turno_day_{day_str}", use_container_width=True)
                         if clicked_day:
-                            if festivo_manual:
-                                _, festivo_esistente, _, _ = _existing_turni_row_values(df_turni, day_str)
-                                df_new = _upsert_turni_day(df_turni, day_str, festivo=not festivo_esistente)
-                                df_turni = _save_turni_and_rerun(df_new, "Festivo manuale aggiornato in bozza, ma non salvato su Google Sheets.")
-                            elif straordinario_manual:
-                                df_new = _upsert_turni_day(df_turni, day_str, straordinario_minuti=desktop_stra_minuti)
-                                df_turni = _save_turni_and_rerun(df_new, "Straordinario aggiornato in bozza, ma non salvato su Google Sheets.")
-                            elif sede_manual:
-                                _, _, _, sede_esistente = _existing_turni_row_values(df_turni, day_str)
-                                df_new = _upsert_turni_day(df_turni, day_str, sede=not sede_esistente)
-                                df_turni = _save_turni_and_rerun(df_new, "Sede aggiornata in bozza, ma non salvata su Google Sheets.")
+                            st.session_state["turni_action_day"] = day_str
+                            st.rerun()
 
             st.markdown("""
             <div class="mobile-calendar-legend">
@@ -4450,7 +4527,7 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-            df_turni = _render_mobile_turni_actions(df_turni, month_days, festivo_manual, straordinario_manual, sede_manual)
+            df_turni = _render_turni_day_action_menu(df_turni, month_days)
 
         if summary_col is not None:
           with summary_col:
