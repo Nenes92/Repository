@@ -630,6 +630,9 @@ if MOBILE_VIEW:
         padding: 0.75rem 0.85rem 4rem !important;
     }
     .mobile-compact-input-note {
+        display: block;
+        width: 100%;
+        text-align: center;
         font-size: 10px;
         color: rgba(255,255,255,.42);
         margin-top: 6px;
@@ -4650,9 +4653,9 @@ def render_turni_guadagni_section():
                 st.markdown(
                     f"""
                     <div class="mobile-calendar-navline">
-                      <a class="mobile-calendar-arrow" href="?view=mobile&turni_month={prev_month}#mobile-turni" target="_self">←</a>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_month={prev_month}#mobile-turni" target="_self">←</a>
                       <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
-                      <a class="mobile-calendar-arrow" href="?view=mobile&turni_month={next_month}#mobile-turni" target="_self">→</a>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_month={next_month}#mobile-turni" target="_self">→</a>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -4716,7 +4719,7 @@ def render_turni_guadagni_section():
                         day_num_class = "holiday" if day_is_festive else ""
                         today_dot = '<span class="today-dot">•</span>' if day_str == current_work_day else ""
                         selected_class = " selected" if selected_action_day == day_str else ""
-                        href = f"?view=mobile&turni_month={month_key}&turni_day={day_str}#mobile-turni"
+                        href = f"?view=mobile&mobile_section=Turni&turni_month={month_key}&turni_day={day_str}#mobile-turni"
                         calendar_cells.append(
                             f'<a href="{href}" target="_self" class="mobile-calendar-day{selected_class}">'
                             f'{today_dot}<span class="{day_num_class}">{day.day}</span>{shift_html}{markers_html}'
