@@ -610,7 +610,7 @@ if MOBILE_VIEW:
         mobile_section_param = mobile_section_param[0] if mobile_section_param else None
     if mobile_section_param == "Promemoria":
         mobile_section_param = "Note"
-    if mobile_section_param in MOBILE_SECTIONS:
+    if mobile_section_param in MOBILE_SECTIONS and "mobile_section_select" not in st.session_state:
         st.session_state["mobile_section_select"] = mobile_section_param
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
     if pending_mobile_section == "Promemoria":
@@ -4589,13 +4589,15 @@ def render_turni_guadagni_section():
     if "turni_calendar_month" not in st.session_state:
         today_month = _now_italy().date()
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
-    turni_nav_delta = st.query_params.get("turni_nav")
-    if turni_nav_delta in ("-1", "1"):
-        st.session_state.turni_calendar_month = _add_months_turni(
-            st.session_state.turni_calendar_month,
-            int(turni_nav_delta),
-        )
-        del st.query_params["turni_nav"]
+    turni_month_param = st.query_params.get("turni_month")
+    if isinstance(turni_month_param, list):
+        turni_month_param = turni_month_param[0] if turni_month_param else None
+    if isinstance(turni_month_param, str):
+        try:
+            parsed_month = datetime.strptime(turni_month_param, "%Y-%m").date()
+            st.session_state.turni_calendar_month = datetime(parsed_month.year, parsed_month.month, 1).date()
+        except ValueError:
+            pass
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
 
@@ -4643,12 +4645,14 @@ def render_turni_guadagni_section():
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
             if MOBILE_VIEW:
+                prev_month = _add_months_turni(selected_month, -1).strftime("%Y-%m")
+                next_month = _add_months_turni(selected_month, 1).strftime("%Y-%m")
                 st.markdown(
                     f"""
                     <div class="mobile-calendar-navline">
-                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_nav=-1#mobile-turni" target="_self">←</a>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&turni_month={prev_month}#mobile-turni" target="_self">←</a>
                       <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
-                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_nav=1#mobile-turni" target="_self">→</a>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&turni_month={next_month}#mobile-turni" target="_self">→</a>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -4712,7 +4716,7 @@ def render_turni_guadagni_section():
                         day_num_class = "holiday" if day_is_festive else ""
                         today_dot = '<span class="today-dot">•</span>' if day_str == current_work_day else ""
                         selected_class = " selected" if selected_action_day == day_str else ""
-                        href = f"?view=mobile&mobile_section=Turni&turni_day={day_str}#mobile-turni"
+                        href = f"?view=mobile&turni_month={month_key}&turni_day={day_str}#mobile-turni"
                         calendar_cells.append(
                             f'<a href="{href}" target="_self" class="mobile-calendar-day{selected_class}">'
                             f'{today_dot}<span class="{day_num_class}">{day.day}</span>{shift_html}{markers_html}'
