@@ -4099,9 +4099,9 @@ def _render_mobile_turni_actions(df_turni, month_days, festivo_manual, straordin
 
 
 def _render_turni_report(report):
-    def card(label, value, sub=""):
+    def card(label, value, sub="", accent="#f8fafc"):
         return (
-            '<div class="turni-report-card">'
+            f'<div class="turni-report-card" style="--accent:{html.escape(str(accent))};">'
             f'<div class="turni-report-label">{html.escape(str(label))}</div>'
             f'<div class="turni-report-value">{html.escape(str(value))}</div>'
             f'<div class="turni-report-sub">{html.escape(str(sub))}</div>'
@@ -4109,24 +4109,27 @@ def _render_turni_report(report):
         )
 
     cards = [
-        card("Giorni lavorati", report.get("work_days", 0), "escluse ferie"),
-        card("Ferie", report.get("ferie_days", 0), "giorni base"),
+        card("Giorni lavorati", report.get("work_days", 0), "escluse ferie", "#60a5fa"),
+        card("Ferie", report.get("ferie_days", 0), "giorni base", "#34d399"),
         card(
             "Sedi",
             f'{report.get("sede_days", 0)} / {report.get("sede_required", 0)}',
             f'da fare {report.get("sede_remaining", 0)}',
+            "#fb923c",
         ),
         card(
             "Buoni pasto",
             f'{report.get("buoni_pasto_days", 0)}',
             _money_turni(report.get("buoni_pasto_total", 0.0)),
+            "#fde68a",
         ),
         card(
             "Straordinari",
             _format_minutes_label(report.get("straordinario_minutes", 0)),
             _money_turni(report.get("straordinario_total", 0.0)),
+            "#c084fc",
         ),
-        card("Smart target", "15", "giorni/mese"),
+        card("Smart target", "15", "giorni/mese", "#94a3b8"),
     ]
     turn_counts = report.get("turn_counts", {})
     turn_rows = "".join(
@@ -4154,19 +4157,19 @@ def _render_turni_report(report):
       }}
       .turni-report-card {{
         background:rgba(255,255,255,.055);
-        border:0.5px solid rgba(255,255,255,.12);
+        border:0.5px solid color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,.12));
         border-radius:12px;
         padding:10px 12px;
       }}
       .turni-report-label {{
-        color:rgba(255,255,255,.48);
+        color:var(--accent);
         font-size:11px;
         text-transform:uppercase;
         letter-spacing:.06em;
         font-weight:900;
       }}
       .turni-report-value {{
-        color:#f8fafc;
+        color:var(--accent);
         font-size:20px;
         font-weight:900;
         margin-top:5px;
@@ -4189,7 +4192,7 @@ def _render_turni_report(report):
       }}
       .turni-report-list h4 {{
         margin:0 0 8px;
-        color:rgba(255,255,255,.86);
+        color:#93c5fd;
         font-size:14px;
       }}
       .turni-report-list div {{
@@ -4202,11 +4205,18 @@ def _render_turni_report(report):
         font-size:12px;
       }}
       .turni-report-list strong {{
-        color:#f8fafc;
+        color:#fef3c7;
       }}
       @media (max-width: 767px) {{
-        .turni-report-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
-        .turni-report-lists {{ grid-template-columns:1fr; }}
+        .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
+        .turni-report-card {{ padding:8px 7px; }}
+        .turni-report-label {{ font-size:8.5px; letter-spacing:.03em; }}
+        .turni-report-value {{ font-size:15px; }}
+        .turni-report-sub {{ font-size:8.5px; }}
+        .turni-report-lists {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
+        .turni-report-list {{ padding:8px 7px; }}
+        .turni-report-list h4 {{ font-size:11px; }}
+        .turni-report-list div {{ font-size:9px; gap:4px; }}
       }}
     </style>
     <div class="turni-report-grid">{"".join(cards)}</div>
@@ -4521,13 +4531,22 @@ def render_turni_guadagni_section():
         with c1:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:4px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
+            </div>
+            """, unsafe_allow_html=True)
             rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga")
             rules["quota_fissa_mensile"] = st.number_input("Quota fissa mensile opzionale", value=float(rules["quota_fissa_mensile"]), step=10.0, key="turni_quota")
             rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
             rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
             rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
-            st.markdown("##### Straordinari")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#c084fc;">Straordinari</h5>
+            </div>
+            """, unsafe_allow_html=True)
             stra_cols = st.columns(2)
             with stra_cols[0]:
                 rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
@@ -4542,11 +4561,20 @@ def render_turni_guadagni_section():
         with c2:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:4px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
+            </div>
+            """, unsafe_allow_html=True)
             rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
             rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
             rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
             rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
-            st.markdown("##### Sede e mensile")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#34d399;">Sede e mensile</h5>
+            </div>
+            """, unsafe_allow_html=True)
             rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
             rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
