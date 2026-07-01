@@ -1020,6 +1020,7 @@ if MOBILE_VIEW:
     .other-income-actions-marker,
     .other-income-editor-marker,
     .other-income-new-marker,
+    .turni-mode-marker,
     .turni-rules-marker {
         display: none !important;
     }
@@ -1028,6 +1029,7 @@ if MOBILE_VIEW:
     div[data-testid="stMarkdown"]:has(.other-income-actions-marker),
     div[data-testid="stMarkdown"]:has(.other-income-editor-marker),
     div[data-testid="stMarkdown"]:has(.other-income-new-marker),
+    div[data-testid="stMarkdown"]:has(.turni-mode-marker),
     div[data-testid="stMarkdown"]:has(.turni-rules-marker) {
         display: none !important;
         height: 0 !important;
@@ -1081,6 +1083,15 @@ if MOBILE_VIEW:
         overflow: hidden !important;
         align-items: stretch !important;
     }
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        align-items: center !important;
+    }
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) {
         display: grid !important;
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1097,6 +1108,7 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.other-income-actions-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) > div[data-testid="column"],
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) > div[data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
@@ -1116,12 +1128,20 @@ if MOBILE_VIEW:
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.other-income-editor-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.other-income-new-marker) label,
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) label,
     div[data-testid="stHorizontalBlock"]:has(.turni-rules-marker) label {
         min-height: 17px !important;
         font-size: 7.8px !important;
         line-height: 1.05 !important;
         letter-spacing: .18px !important;
         white-space: normal !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.turni-mode-marker) label {
+        min-height: 30px !important;
+        font-size: 9px !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-add-main-marker) input,
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) input,
@@ -2886,7 +2906,6 @@ def get_turni_rules():
 def _apply_turni_rules_from_widgets(rules):
     widget_to_rule = {
         "turni_paga": "paga_oraria",
-        "turni_quota": "quota_fissa_mensile",
         "turni_mp_feriale": "m_p_feriale_pct",
         "turni_mp_festivo": "m_p_festivo_giorno_pct",
         "turni_notte_feriale": "notte_feriale_pct",
@@ -4273,6 +4292,8 @@ def render_turni_guadagni_section():
     with tab_cal:
         mode_cols = st.columns(3)
         with mode_cols[0]:
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-mode-marker"></span>', unsafe_allow_html=True)
             festivo_manual = st.checkbox("Festivo manuale", key="turni_festivo_manual")
         with mode_cols[1]:
             straordinario_manual = st.checkbox("Straordinario", key="turni_straordinario_manual")
@@ -4532,12 +4553,22 @@ def render_turni_guadagni_section():
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
             st.markdown("""
-            <div style="border-top:1px solid rgba(255,255,255,.14); margin:4px 0 12px; padding-top:10px;">
+            <div style="margin:0 0 12px; padding-top:0;">
               <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
             </div>
             """, unsafe_allow_html=True)
-            rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga")
-            rules["quota_fissa_mensile"] = st.number_input("Quota fissa mensile opzionale", value=float(rules["quota_fissa_mensile"]), step=10.0, key="turni_quota")
+            st.markdown("""
+            <div style="
+                margin:0 0 6px;
+                color:#fef3c7;
+                font-size:13px;
+                font-weight:900;
+                letter-spacing:.2px;
+                text-shadow:0 0 12px rgba(250,204,21,.25);
+            ">Paga oraria base</div>
+            """, unsafe_allow_html=True)
+            rules["paga_oraria"] = st.number_input("Paga oraria base", value=float(rules["paga_oraria"]), step=0.10, key="turni_paga", label_visibility="collapsed")
+            rules["quota_fissa_mensile"] = 0.0
             rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
             rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
@@ -4562,7 +4593,7 @@ def render_turni_guadagni_section():
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
             st.markdown("""
-            <div style="border-top:1px solid rgba(255,255,255,.14); margin:4px 0 12px; padding-top:10px;">
+            <div style="margin:0 0 12px; padding-top:0;">
               <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
             </div>
             """, unsafe_allow_html=True)
