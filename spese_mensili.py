@@ -2105,7 +2105,7 @@ SPESE = {
         "Trasporti": 165,
         "Sport": 70,
         "Psicologo": 100,
-        "Cane": 135,
+        "Amara": 135,
         "World Food Programme": 30,
         "Beneficienza": 10,
         "Netflix": 8.5,
@@ -2120,7 +2120,7 @@ SPESE = {
         "Da spendere": percentuale_limite_da_spendere,
         "Spese quotidiane": 0
     },
-    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Cane", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
+    "Revolut": ["Trasporti", "Sport", "Bollette", "Pulizia Casa", "Psicologo", "Amara", "Beneficienza", "Netflix", "Spotify", "Disney+", "Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"],
     "ING": ["Condominio", "Altro", "Cucina", "MoneyFarm - PAC 5", "Alleanza - PAC", "World Food Programme", "Macchina", "ING C.C."],
     "BNL": ["Mutuo", "BNL C.C."],
 }
@@ -2155,7 +2155,7 @@ SPESA_FISSA_GRUPPI_VISIVI = [
     ("Casa", ["Mutuo", "Bollette", "Condominio", "Altro", "Cucina", "Pulizia Casa"]),
     ("Piani e personali", ["MoneyFarm - PAC 5", "Alleanza - PAC", "Cometa", "Macchina", "Psicologo"]),
     ("Abbonamenti", ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]),
-    ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Cane"]),
+    ("Vita e cura", ["World Food Programme", "Beneficienza", "Trasporti", "Sport", "Amara"]),
 ]
 SPESA_FISSA_GRUPPI_BASE = [nome for nome, _ in SPESA_FISSA_GRUPPI_VISIVI]
 SPESE_VARIABILI_CARTE = {
@@ -2172,7 +2172,7 @@ def _infer_spesa_fissa_categoria(voce):
         return "Investimenti"
     if voce in ["Netflix", "Spotify", "Disney+", "BNL C.C.", "ING C.C."]:
         return "Abbonamenti"
-    if voce in ["Sport", "Psicologo", "Cane"]:
+    if voce in ["Sport", "Psicologo", "Amara"]:
         return "Salute"
     if voce in ["Trasporti", "Macchina"]:
         return "Macchina"
@@ -2429,7 +2429,7 @@ def _normalize_spese_fisse_df(df):
         if col not in df.columns:
             df[col] = ""
     df = df[SPESE_FISSE_HEADERS].copy()
-    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Cane"})
+    df["Voce"] = df["Voce"].astype(str).replace({"Altro/C": "Amara", "Cane": "Amara"})
     df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce").fillna(0.0)
     df["Categoria"] = df.apply(
         lambda row: row["Categoria"] if row["Categoria"] in SPESA_FISSA_CATEGORIE else _infer_spesa_fissa_categoria(row["Voce"]),
@@ -2596,7 +2596,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
         "Trasporti": "#D2B48C",
         "Sport": "#40E0D0",
         "Psicologo": "#40E0D0",
-        "Cane": "#40E0D0",
+        "Amara": "#40E0D0",
         "World Food Programme": "#B57EDC",
         "Beneficienza": "#B57EDC",
         "Netflix": "#D2691E",
@@ -6683,7 +6683,7 @@ textarea {
                         totale_carta = revolut_expenses  # Usa il valore modificato per Revolut
                         colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
-                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Cane"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
+                        somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Amara"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
                         spese_che_anticipo_per_un_giorno_di_disney_spotify=18
                         somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
                         row_html = _money_row_html(
