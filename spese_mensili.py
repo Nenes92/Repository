@@ -4256,6 +4256,8 @@ def render_turni_guadagni_section():
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
     turni_nav_delta = st.query_params.get("turni_nav")
     if turni_nav_delta in ("-1", "1"):
+        if MOBILE_VIEW:
+            st.session_state["mobile_section_select"] = "Turni"
         st.session_state.turni_calendar_month = _add_months_turni(
             st.session_state.turni_calendar_month,
             int(turni_nav_delta),
@@ -4319,13 +4321,22 @@ def render_turni_guadagni_section():
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
             if MOBILE_VIEW:
-                st.markdown(f"""
-                <div class="mobile-calendar-navline">
-                    <a class="mobile-calendar-arrow" href="?turni_nav=-1#mobile-turni">←</a>
-                    <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
-                    <a class="mobile-calendar-arrow" href="?turni_nav=1#mobile-turni">→</a>
-                </div>
-                """, unsafe_allow_html=True)
+                prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
+                with prev_col:
+                    if st.button("←", key="turni_prev_month_mobile", use_container_width=True):
+                        st.session_state["mobile_section_select"] = "Turni"
+                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
+                        st.rerun()
+                with title_col:
+                    st.markdown(
+                        f'<div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>',
+                        unsafe_allow_html=True,
+                    )
+                with next_col:
+                    if st.button("→", key="turni_next_month_mobile", use_container_width=True):
+                        st.session_state["mobile_section_select"] = "Turni"
+                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
+                        st.rerun()
             else:
                 prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
                 with prev_col:
