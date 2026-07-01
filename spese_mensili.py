@@ -605,6 +605,13 @@ MOBILE_VIEW = VISTA_APP == "Telefono"
 MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Note", "Turni", "Storico", "Bollette"]
 
 if MOBILE_VIEW:
+    mobile_section_param = st.query_params.get("mobile_section")
+    if isinstance(mobile_section_param, list):
+        mobile_section_param = mobile_section_param[0] if mobile_section_param else None
+    if mobile_section_param == "Promemoria":
+        mobile_section_param = "Note"
+    if mobile_section_param in MOBILE_SECTIONS:
+        st.session_state["mobile_section_select"] = mobile_section_param
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
     if pending_mobile_section == "Promemoria":
         pending_mobile_section = "Note"
@@ -1694,6 +1701,16 @@ if MOBILE_VIEW:
         font-size: 13px;
         font-weight: 800;
         line-height: 1;
+        text-decoration: none !important;
+    }
+    .mobile-calendar-day.selected {
+        border-color: rgba(125,211,252,.70);
+        box-shadow: 0 0 0 1px rgba(125,211,252,.44), 0 0 14px rgba(96,165,250,.16);
+    }
+    a.mobile-calendar-day:hover {
+        border-color: rgba(125,211,252,.62);
+        background: rgba(30,64,115,.82);
+        text-decoration: none !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-calendar-row-marker) [data-testid="stButton"] button {
         min-height: 42px !important;
@@ -4203,9 +4220,13 @@ def _render_turni_day_action_menu(df_turni, month_days):
             sede=sede_value,
         )
         st.session_state.pop("turni_action_day", None)
+        if "turni_day" in st.query_params:
+            del st.query_params["turni_day"]
         return _save_turni_and_rerun(df_new, "Giorno aggiornato in bozza, ma non salvato su Google Sheets.")
     if close_day:
         st.session_state.pop("turni_action_day", None)
+        if "turni_day" in st.query_params:
+            del st.query_params["turni_day"]
         st.rerun()
     return df_turni
 
@@ -4349,8 +4370,6 @@ def render_turni_guadagni_section():
         st.session_state.turni_calendar_month = datetime(today_month.year, today_month.month, 1).date()
     turni_nav_delta = st.query_params.get("turni_nav")
     if turni_nav_delta in ("-1", "1"):
-        if MOBILE_VIEW:
-            st.session_state["mobile_section_select"] = "Turni"
         st.session_state.turni_calendar_month = _add_months_turni(
             st.session_state.turni_calendar_month,
             int(turni_nav_delta),
@@ -4396,23 +4415,16 @@ def render_turni_guadagni_section():
         with cal_col:
             st.markdown('<div class="turni-calendar-wrap">', unsafe_allow_html=True)
             if MOBILE_VIEW:
-                prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
-                with prev_col:
-                    st.markdown('<span class="mobile-calendar-nav-marker"></span>', unsafe_allow_html=True)
-                    if st.button("←", key="turni_prev_month_mobile", use_container_width=True):
-                        st.session_state["mobile_section_select"] = "Turni"
-                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
-                        st.rerun()
-                with title_col:
-                    st.markdown(
-                        f'<div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>',
-                        unsafe_allow_html=True,
-                    )
-                with next_col:
-                    if st.button("→", key="turni_next_month_mobile", use_container_width=True):
-                        st.session_state["mobile_section_select"] = "Turni"
-                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
-                        st.rerun()
+                st.markdown(
+                    f"""
+                    <div class="mobile-calendar-navline">
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_nav=-1#mobile-turni" target="_self">←</a>
+                      <div class="mobile-calendar-title">📅 Calendario · {_turni_month_label(selected_month)}</div>
+                      <a class="mobile-calendar-arrow" href="?view=mobile&mobile_section=Turni&turni_nav=1#mobile-turni" target="_self">→</a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
             else:
                 prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
                 with prev_col:
@@ -4432,50 +4444,54 @@ def render_turni_guadagni_section():
                 for day in range(1, calendar.monthrange(year, month)[1] + 1)
             ]
             if MOBILE_VIEW:
-                head_cols = st.columns(7, gap="small")
-                for idx, (c, wd) in enumerate(zip(head_cols, weekdays)):
-                    with c:
-                        if idx == 0:
-                            st.markdown('<span class="mobile-calendar-row-marker"></span>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="mobile-calendar-head">{wd}</div>', unsafe_allow_html=True)
+                turni_day_param = st.query_params.get("turni_day")
+                if isinstance(turni_day_param, list):
+                    turni_day_param = turni_day_param[0] if turni_day_param else None
+                if turni_day_param in month_days:
+                    st.session_state["turni_action_day"] = turni_day_param
+
+                calendar_cells = ['<div class="mobile-calendar-grid">']
+                for wd in weekdays:
+                    calendar_cells.append(f'<div class="mobile-calendar-head">{html.escape(wd)}</div>')
+                selected_action_day = st.session_state.get("turni_action_day")
                 for week in cal.monthdatescalendar(year, month):
-                    week_cols = st.columns(7, gap="small")
-                    for idx, (c, day) in enumerate(zip(week_cols, week)):
-                        with c:
-                            if idx == 0:
-                                st.markdown('<span class="mobile-calendar-row-marker"></span>', unsafe_allow_html=True)
-                            if day.month != month:
-                                st.markdown('<div class="mobile-calendar-day empty"></div>', unsafe_allow_html=True)
-                                continue
-                            day_str = day.strftime("%Y-%m-%d")
-                            row = df_turni[df_turni["Data"] == day_str]
-                            turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                            info = _turno_color_info(turno_corrente)
-                            current_label = ""
-                            if turno_corrente in TURNI_ORARI and turno_corrente:
-                                current_label = f" :{info['md_color']}[**{info['short']}**]"
-                            stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
-                            sede = False if row.empty else _turni_row_sede(row.iloc[0])
-                            if stra_minuti:
-                                current_label += " :violet[**+**]"
-                            if sede:
-                                current_label += " :orange[**S**]"
-                            day_is_festive = (
-                                day.weekday() == 6
-                                or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
-                                or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                    for day in week:
+                        if day.month != month:
+                            calendar_cells.append('<div class="mobile-calendar-day empty"></div>')
+                            continue
+                        day_str = day.strftime("%Y-%m-%d")
+                        row = df_turni[df_turni["Data"] == day_str]
+                        turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
+                        info = _turno_color_info(turno_corrente)
+                        shift_html = ""
+                        if turno_corrente in TURNI_ORARI and turno_corrente:
+                            shift_html = (
+                                f'<span class="shift" style="color:{html.escape(info["color"])};">'
+                                f'{html.escape(info["short"])}</span>'
                             )
-                            day_label = f":red[{day.day}]" if day_is_festive else str(day.day)
-                            if day_str == current_work_day:
-                                day_label = f":orange[•] {day_label}"
-                            if st.button(
-                                f"{day_label}{current_label}",
-                                key=f"turno_mobile_day_{day_str}",
-                                use_container_width=True,
-                            ):
-                                st.session_state["mobile_section_select"] = "Turni"
-                                st.session_state["turni_action_day"] = day_str
-                                st.rerun()
+                        stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
+                        sede = False if row.empty else _turni_row_sede(row.iloc[0])
+                        markers_html = ""
+                        if stra_minuti:
+                            markers_html += '<span class="mobile-day-extra">+</span>'
+                        if sede:
+                            markers_html += '<span class="mobile-day-sede">S</span>'
+                        day_is_festive = (
+                            day.weekday() == 6
+                            or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
+                            or (not row.empty and bool(row.iloc[0]["Festivo"]))
+                        )
+                        day_num_class = "holiday" if day_is_festive else ""
+                        today_dot = '<span class="today-dot">•</span>' if day_str == current_work_day else ""
+                        selected_class = " selected" if selected_action_day == day_str else ""
+                        href = f"?view=mobile&mobile_section=Turni&turni_day={day_str}#mobile-turni"
+                        calendar_cells.append(
+                            f'<a href="{href}" target="_self" class="mobile-calendar-day{selected_class}">'
+                            f'{today_dot}<span class="{day_num_class}">{day.day}</span>{shift_html}{markers_html}'
+                            '</a>'
+                        )
+                calendar_cells.append("</div>")
+                st.markdown("".join(calendar_cells), unsafe_allow_html=True)
             else:
                 cols = st.columns(7)
                 for c, wd in zip(cols, weekdays):
