@@ -3583,6 +3583,227 @@ def _turni_month_label(date_value):
     return f"{mesi[date_value.month - 1]} {date_value.year}"
 
 
+def _storico_stipendio_for_month(month_key):
+    headers = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
+    try:
+        data = load_data_gsheets("Stipendi", headers)
+    except Exception:
+        return None
+    if data is None or data.empty or "Mese" not in data.columns or "Stipendio" not in data.columns:
+        return None
+    data = data.copy()
+    data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce")
+    data = data.dropna(subset=["Mese"])
+    data["month_key"] = data["Mese"].dt.to_period("M").astype(str)
+    match = data[data["month_key"] == month_key]
+    if match.empty:
+        return None
+    return _parse_float_turni(match.iloc[-1].get("Stipendio", 0.0))
+
+
+def _turni_month_money_summary(df_turni, rules, month_key):
+    report = compute_turni_month_report(df_turni, rules, month_key)
+    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
+    turni_total = 0.0
+    turni_base = 0.0
+    turni_extra = 0.0
+    for _, row in month_df.iterrows():
+        calc = compute_turno(
+            row["Data"],
+            row["Turno"],
+            bool(row["Festivo"]),
+            rules,
+            until=datetime.max.replace(tzinfo=None),
+            straordinario_minuti=_turni_row_straordinario_minuti(row),
+        )
+        turni_total += float(calc.get("total", 0.0))
+        turni_base += float(calc.get("base", 0.0))
+        turni_extra += float(calc.get("extra", 0.0))
+    monthly_adjustments = (
+        float(rules.get("quota_fissa_mensile", 0.0))
+        + float(rules.get("accrediti_mensili", 0.0))
+        - float(rules.get("trattenute_mensili", 0.0))
+        + float(report.get("buoni_pasto_total", 0.0))
+    )
+    return {
+        **report,
+        "turni_total": turni_total,
+        "turni_base": turni_base,
+        "turni_extra": turni_extra,
+        "monthly_adjustments": monthly_adjustments,
+        "month_total": turni_total + monthly_adjustments,
+    }
+
+
+def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
+    month_date = datetime.strptime(f"{month_key}-01", "%Y-%m-%d").date()
+    month_label = html.escape(_turni_month_label(month_date))
+    summary = _turni_month_money_summary(df_turni, rules, month_key)
+    storico_stipendio = _storico_stipendio_for_month(month_key)
+    actual_value = summary["month_total"] if storico_stipendio is None else storico_stipendio
+    actual_subline = (
+        "Guadagno effettivo da storico stipendi"
+        if storico_stipendio is not None
+        else "Storico assente: uso il calcolo dei turni"
+    )
+    work_days = int(summary.get("work_days", 0))
+    ferie_days = int(summary.get("ferie_days", 0))
+    total_days = work_days + ferie_days
+    sede_days = int(summary.get("sede_days", 0))
+    sede_required = int(summary.get("sede_required", 0))
+    buoni = float(summary.get("buoni_pasto_total", 0.0))
+    side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
+    shell_class = "turni-static-shell has-side" if side_html else "turni-static-shell"
+    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    components.html(f"""
+    <div class="{shell_class}">
+      <div class="turni-live-grid">
+        <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
+          <div class="kpi-label">{month_label} — storico stipendi</div>
+          <div class="kpi-value" style="color:#34d399;">{_money_turni(actual_value)}</div>
+          <div class="turni-subline">{html.escape(actual_subline)}</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
+          <div class="kpi-label">Giorni lavorati / ferie</div>
+          <div class="kpi-value" style="color:#60a5fa;">{work_days} / {total_days}</div>
+          <div class="turni-subline">{work_days} lavorati + {ferie_days} ferie = {total_days}</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
+          <div class="kpi-label">Turni calcolati</div>
+          <div class="kpi-value" style="color:#fef3c7;">{_money_turni(summary["month_total"])}</div>
+          <div class="turni-subline">Sedi {sede_days}/{sede_required} · buoni {_money_turni(buoni)}</div>
+        </div>
+      </div>
+      {side_block}
+    </div>
+    <style>
+      body {{
+        margin: 0;
+        background: transparent;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      .turni-live-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }}
+      .turni-static-shell.has-side {{
+        display: grid;
+        grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+        gap: 10px;
+        align-items: start;
+      }}
+      .kpi-card {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-height: 72px;
+        box-sizing: border-box;
+      }}
+      .kpi-label {{
+        font-size: 11px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+      }}
+      .kpi-value {{
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 600;
+      }}
+      .turni-subline {{
+        font-size: 12px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 5px;
+      }}
+      .turni-live-side {{
+        min-width: 0;
+      }}
+      .turni-summary-compact-title {{
+        color: rgba(255,255,255,.88);
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 0 4px;
+      }}
+      .turni-grid-scroll {{
+        max-height: 236px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }}
+      .turni-card-small {{
+        background: rgba(255,255,255,0.045);
+        border: 0.5px solid rgba(255,255,255,0.10);
+        border-left: 4px solid rgba(255,255,255,0.25);
+        border-radius: 10px;
+        padding: 6px 7px;
+        margin-bottom: 5px;
+      }}
+      #turni-focus-card {{
+        border-color: rgba(147,197,253,.55);
+        box-shadow: 0 0 0 1px rgba(147,197,253,.26), 0 0 13px rgba(96,165,250,.18);
+        background: rgba(96,165,250,.08);
+      }}
+      .turni-card-small .date {{
+        font-size: 10px;
+        color: rgba(255,255,255,0.58);
+      }}
+      .turni-card-small .title {{
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 1px;
+      }}
+      .turni-card-small .meta {{
+        font-size: 9px;
+        color: rgba(255,255,255,0.42);
+        margin-top: 2px;
+      }}
+      .turni-mattina {{ border-left-color:#60a5fa; }}
+      .turni-pomeriggio {{ border-left-color:#fb923c; }}
+      .turni-notte {{ border-left-color:#64748b; }}
+      .turni-ferie {{ border-left-color:#34d399; }}
+      @media (max-width: 760px) {{
+        .turni-static-shell.has-side {{
+          grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+          gap: 7px;
+        }}
+        .turni-live-grid {{
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }}
+        .kpi-card {{
+          padding: 8px 9px;
+          min-height: auto;
+        }}
+        .kpi-label {{
+          font-size: 8px;
+          letter-spacing: .55px;
+          margin-bottom: 4px;
+        }}
+        .kpi-value {{
+          font-size: 14px;
+        }}
+        .turni-subline {{
+          font-size: 9px;
+          margin-top: 3px;
+        }}
+        .turni-grid-scroll {{
+          max-height: 199px;
+          padding-top: 2px;
+        }}
+        .turni-summary-compact-title {{
+          font-size: 11px;
+          margin: 0 0 7px;
+        }}
+      }}
+    </style>
+    """, height=component_height, scrolling=False)
+
+
 def _turni_short_date_label(dt_obj):
     giorni = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
     mesi = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"]
@@ -4391,15 +4612,22 @@ def render_turni_guadagni_section():
         if calendar_errors:
             st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
+    today = _now_italy().date()
+    current_month_key = today.strftime("%Y-%m")
+    is_selected_current_month = month_key == current_month_key
     stats = compute_turni_dashboard(df_turni, rules)
     current_work_day = (
         stats.get("current_shift_start_date", "")
         if (stats.get("is_on_shift", False) or stats.get("is_on_leave", False))
-        else _now_italy().strftime("%Y-%m-%d")
+        else today.strftime("%Y-%m-%d")
     )
 
-    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, current_work_day) if MOBILE_VIEW else ""
-    render_live_turni_kpis(stats, mobile_summary_html)
+    summary_focus_day = current_work_day if is_selected_current_month else ""
+    mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, summary_focus_day) if MOBILE_VIEW else ""
+    if is_selected_current_month:
+        render_live_turni_kpis(stats, mobile_summary_html)
+    else:
+        render_selected_month_turni_kpis(df_turni, rules, month_key, mobile_summary_html)
 
     tab_cal, tab_rules, tab_report = st.tabs(["📅 Turni", "⚙️ Regole", "📊 Riepilogo"])
 
