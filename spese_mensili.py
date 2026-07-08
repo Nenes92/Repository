@@ -610,7 +610,7 @@ if MOBILE_VIEW:
         mobile_section_param = mobile_section_param[0] if mobile_section_param else None
     if mobile_section_param == "Promemoria":
         mobile_section_param = "Note"
-    if mobile_section_param in MOBILE_SECTIONS:
+    if mobile_section_param in MOBILE_SECTIONS and "mobile_section_select" not in st.session_state:
         st.session_state["mobile_section_select"] = mobile_section_param
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
     if pending_mobile_section == "Promemoria":
@@ -1477,45 +1477,79 @@ if MOBILE_VIEW:
         font-size: 11px;
         line-height: 1.25;
     }
-    .mobile-home-grid {
+    div[data-testid="stRadio"] [role="radiogroup"] {
         display: grid !important;
         grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
         gap: 8px 9px !important;
-        margin: 4px 0 18px !important;
         align-items: stretch !important;
+        justify-content: start !important;
     }
-    .mobile-home-grid .mobile-home-card {
+    div[data-testid="stRadio"] [role="radiogroup"] > label {
         min-width: 0 !important;
         width: 100% !important;
+        max-width: 100% !important;
         min-height: 38px !important;
+        margin: 0 !important;
+        padding: 6px 3px !important;
+        border-radius: 11px !important;
+        border: 0.5px solid color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 52%, rgba(255,255,255,.13)) !important;
+        border-bottom: 3px solid var(--mobile-radio-color, #60a5fa) !important;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
+        color: rgba(255,255,255,.90) !important;
+        box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         text-align: center !important;
-        padding: 6px 3px !important;
-        border-radius: 11px !important;
-        border-left: 0.5px solid color-mix(in srgb, var(--section-color) 52%, rgba(255,255,255,.13)) !important;
-        border-bottom: 3px solid var(--section-color) !important;
+        overflow: hidden !important;
     }
-    .mobile-home-grid .mobile-home-card strong {
+    div[data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, rgba(15,23,42,.88)), rgba(255,255,255,.08)) !important;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22) !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label input[type="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label svg,
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"] {
+        position: absolute !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
         margin: 0 !important;
-        font-size: 8.5px !important;
-        line-height: 1.05 !important;
-        font-weight: 900 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
     }
-    .mobile-home-grid .mobile-home-card span {
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child:not(:last-child),
+    div[data-testid="stRadio"] [role="radiogroup"] > label > span:first-child:not(:last-child) {
         display: none !important;
     }
-    .mobile-home-grid .mobile-home-card:nth-child(1) { grid-column: 1 / span 2; grid-row: 1; }
-    .mobile-home-grid .mobile-home-card:nth-child(2) { grid-column: 4; grid-row: 1; }
-    .mobile-home-grid .mobile-home-card:nth-child(3) { grid-column: 5; grid-row: 1; }
-    .mobile-home-grid .mobile-home-card:nth-child(4) { grid-column: 7; grid-row: 1; }
-    .mobile-home-grid .mobile-home-card:nth-child(5) { grid-column: 8; grid-row: 1; }
-    .mobile-home-grid .mobile-home-card:nth-child(6) { grid-column: 1; grid-row: 2; }
-    .mobile-home-grid .mobile-home-card:nth-child(7) { grid-column: 2; grid-row: 2; }
-    .mobile-home-grid .mobile-home-card:nth-child(8) { grid-column: 4 / span 2; grid-row: 2; }
-    .mobile-home-grid .mobile-home-card:nth-child(9) { grid-column: 7; grid-row: 2; }
-    .mobile-home-grid .mobile-home-card:nth-child(10) { grid-column: 8; grid-row: 2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label p,
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        text-align: center !important;
+        color: inherit !important;
+        font-size: 8.5px !important;
+        font-weight: 900 !important;
+        line-height: 1.05 !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { --mobile-radio-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { --mobile-radio-color:#f87171; grid-column:4; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { --mobile-radio-color:#4ade80; grid-column:5; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { --mobile-radio-color:#34d399; grid-column:7; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { --mobile-radio-color:#facc15; grid-column:8; grid-row:1; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { --mobile-radio-color:#89cff0; grid-column:1; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { --mobile-radio-color:#fde68a; grid-column:2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; grid-column:4 / span 2; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; grid-column:7; grid-row:2; }
+    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; grid-column:8; grid-row:2; }
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 34px !important;
         border-radius: 11px !important;
@@ -1953,16 +1987,14 @@ if MOBILE_VIEW:
         "Storico": "Storico stipendi",
         "Bollette": "Storico bollette",
     }
-    mobile_section = st.session_state.get("mobile_section_select", "Panoramica")
-    mobile_nav_items = []
-    for section, css_class, title, _subtitle in _mobile_cards:
-        active_class = " active" if section == mobile_section else ""
-        href = f"?view=mobile&mobile_section={section}"
-        label = mobile_section_labels.get(section, title)
-        mobile_nav_items.append(
-            f'<a class="mobile-home-card {css_class}{active_class}" href="{href}" target="_self"><strong>{label}</strong></a>'
-        )
-    st.markdown('<div class="mobile-home-grid">' + ''.join(mobile_nav_items) + '</div>', unsafe_allow_html=True)
+    mobile_section = st.radio(
+        "Sezione telefono",
+        MOBILE_SECTIONS,
+        key="mobile_section_select",
+        horizontal=True,
+        label_visibility="collapsed",
+        format_func=lambda section: mobile_section_labels.get(section, section)
+    )
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
