@@ -1500,8 +1500,22 @@ if MOBILE_VIEW:
         margin: 0 !important;
         padding: 0 !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child,
+    div[data-testid="stRadio"] [role="radiogroup"] > label input[type="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] + div,
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child > div:not([data-testid="stMarkdownContainer"]),
+    div[data-testid="stRadio"] [role="radiogroup"] > label svg,
+    div[data-testid="stRadio"] [role="radiogroup"] > label [role="radio"] {
         display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
