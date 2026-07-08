@@ -1477,25 +1477,16 @@ if MOBILE_VIEW:
         font-size: 11px;
         line-height: 1.25;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] {
-        display: grid !important;
-        grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
-        gap: 8px 9px !important;
-        align-items: stretch !important;
-        justify-content: start !important;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] > label {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-button-marker) [data-testid="stButton"] button {
+        --mobile-nav-color: #60a5fa;
         min-height: 38px !important;
-        margin: 0 !important;
-        padding: 6px 3px !important;
-        border-radius: 11px !important;
-        border: 0.5px solid color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 52%, rgba(255,255,255,.13)) !important;
-        border-bottom: 3px solid var(--mobile-radio-color, #60a5fa) !important;
-        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
-        color: rgba(255,255,255,.90) !important;
+        width: 100% !important;
+        padding: 7px 8px 6px !important;
+        border-radius: 12px !important;
+        border: 0.5px solid color-mix(in srgb, var(--mobile-nav-color) 52%, rgba(255,255,255,.13)) !important;
+        border-bottom: 3px solid var(--mobile-nav-color) !important;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-nav-color) 25%, rgba(15,23,42,.92)), rgba(255,255,255,.035)) !important;
+        color: rgba(255,255,255,.92) !important;
         box-shadow: 0 8px 18px rgba(0,0,0,.16) !important;
         display: flex !important;
         align-items: center !important;
@@ -1503,53 +1494,30 @@ if MOBILE_VIEW:
         text-align: center !important;
         overflow: hidden !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) {
-        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, rgba(15,23,42,.88)), rgba(255,255,255,.08)) !important;
-        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-radio-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22) !important;
-        color: #ffffff !important;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] > label input[type="radio"],
-    div[data-testid="stRadio"] [role="radiogroup"] > label svg,
-    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"] {
-        position: absolute !important;
-        width: 0 !important;
-        min-width: 0 !important;
-        height: 0 !important;
-        min-height: 0 !important;
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-button-marker) [data-testid="stButton"] button p {
         margin: 0 !important;
         padding: 0 !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        overflow: hidden !important;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child:not(:last-child),
-    div[data-testid="stRadio"] [role="radiogroup"] > label > span:first-child:not(:last-child) {
-        display: none !important;
-    }
-    div[data-testid="stRadio"] [role="radiogroup"] > label p,
-    div[data-testid="stRadio"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        text-align: center !important;
         color: inherit !important;
-        font-size: 8.5px !important;
+        font-size: 12px !important;
         font-weight: 900 !important;
         line-height: 1.05 !important;
+        white-space: normal !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(1) { --mobile-radio-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(2) { --mobile-radio-color:#f87171; grid-column:4; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(3) { --mobile-radio-color:#4ade80; grid-column:5; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(4) { --mobile-radio-color:#34d399; grid-column:7; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(5) { --mobile-radio-color:#facc15; grid-column:8; grid-row:1; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(6) { --mobile-radio-color:#89cff0; grid-column:1; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(7) { --mobile-radio-color:#fde68a; grid-column:2; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { --mobile-radio-color:#60a5fa; grid-column:4 / span 2; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { --mobile-radio-color:#a78bfa; grid-column:7; grid-row:2; }
-    div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { --mobile-radio-color:#fb923c; grid-column:8; grid-row:2; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-active) [data-testid="stButton"] button {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-nav-color) 48%, rgba(15,23,42,.88)), rgba(255,255,255,.08)) !important;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-nav-color) 48%, transparent), 0 10px 22px rgba(0,0,0,.22) !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-panoramica) [data-testid="stButton"] button { --mobile-nav-color:#38bdf8; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-spese) [data-testid="stButton"] button { --mobile-nav-color:#f87171; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-variabili) [data-testid="stButton"] button { --mobile-nav-color:#4ade80; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-entrate) [data-testid="stButton"] button { --mobile-nav-color:#34d399; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-risparmi) [data-testid="stButton"] button { --mobile-nav-color:#facc15; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-carte) [data-testid="stButton"] button { --mobile-nav-color:#89cff0; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-note) [data-testid="stButton"] button { --mobile-nav-color:#fde68a; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-turni) [data-testid="stButton"] button { --mobile-nav-color:#60a5fa; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-storico) [data-testid="stButton"] button { --mobile-nav-color:#a78bfa; }
+    div[data-testid="stVerticalBlock"]:has(.mobile-nav-bollette) [data-testid="stButton"] button { --mobile-nav-color:#fb923c; }
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 34px !important;
         border-radius: 11px !important;
@@ -1987,14 +1955,38 @@ if MOBILE_VIEW:
         "Storico": "Storico stipendi",
         "Bollette": "Storico bollette",
     }
-    mobile_section = st.radio(
-        "Sezione telefono",
-        MOBILE_SECTIONS,
-        key="mobile_section_select",
-        horizontal=True,
-        label_visibility="collapsed",
-        format_func=lambda section: mobile_section_labels.get(section, section)
-    )
+    mobile_section = st.session_state.get("mobile_section_select", "Panoramica")
+
+    def _set_mobile_section(section):
+        st.session_state["mobile_section_select"] = section
+
+    def _mobile_nav_button(container, section):
+        label = mobile_section_labels.get(section, section)
+        active_class = " mobile-nav-active" if mobile_section == section else ""
+        marker_class = f"mobile-nav-button-marker mobile-nav-{section.lower()}{active_class}"
+        container.markdown(f'<span class="{marker_class}"></span>', unsafe_allow_html=True)
+        container.button(
+            label,
+            key=f"mobile_nav_{section}",
+            use_container_width=True,
+            on_click=_set_mobile_section,
+            args=(section,),
+        )
+
+    nav_row_1 = st.columns([2, 0.34, 1, 1, 0.34, 1, 1], gap="small")
+    nav_row_2 = st.columns([1, 1, 0.34, 2, 0.34, 1, 1], gap="small")
+
+    _mobile_nav_button(nav_row_1[0], "Panoramica")
+    _mobile_nav_button(nav_row_1[2], "Spese")
+    _mobile_nav_button(nav_row_1[3], "Variabili")
+    _mobile_nav_button(nav_row_1[5], "Entrate")
+    _mobile_nav_button(nav_row_1[6], "Risparmi")
+
+    _mobile_nav_button(nav_row_2[0], "Carte")
+    _mobile_nav_button(nav_row_2[1], "Note")
+    _mobile_nav_button(nav_row_2[3], "Turni")
+    _mobile_nav_button(nav_row_2[5], "Storico")
+    _mobile_nav_button(nav_row_2[6], "Bollette")
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
