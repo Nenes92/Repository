@@ -1500,14 +1500,9 @@ if MOBILE_VIEW:
         margin: 0 !important;
         padding: 0 !important;
     }
-    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
-        display: none !important;
-    }
     div[data-testid="stRadio"] [role="radiogroup"] > label input[type="radio"],
     div[data-testid="stRadio"] [role="radiogroup"] > label [role="radio"],
-    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"],
-    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child *,
-    div[data-testid="stRadio"] [role="radiogroup"] > label > div > div:first-child:not([data-testid="stMarkdownContainer"]) {
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"] {
         position: absolute !important;
         width: 0 !important;
         min-width: 0 !important;
@@ -1518,6 +1513,10 @@ if MOBILE_VIEW:
         opacity: 0 !important;
         pointer-events: none !important;
         overflow: hidden !important;
+    }
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div {
+        width: 100% !important;
+        max-width: 100% !important;
     }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
