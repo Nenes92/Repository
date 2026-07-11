@@ -610,7 +610,7 @@ if MOBILE_VIEW:
         mobile_section_param = mobile_section_param[0] if mobile_section_param else None
     if mobile_section_param == "Promemoria":
         mobile_section_param = "Note"
-    if mobile_section_param in MOBILE_SECTIONS and "mobile_section_select" not in st.session_state:
+    if mobile_section_param in MOBILE_SECTIONS:
         st.session_state["mobile_section_select"] = mobile_section_param
     pending_mobile_section = st.session_state.pop("_pending_mobile_section", None)
     if pending_mobile_section == "Promemoria":
@@ -1570,6 +1570,50 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(8) { grid-column:4 / span 2; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(9) { grid-column:7; grid-row:2; }
     div[data-testid="stRadio"] [role="radiogroup"] > label:nth-child(10) { grid-column:8; grid-row:2; }
+    .mobile-section-grid {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        grid-template-rows: repeat(2, auto);
+        gap: 8px 9px;
+        align-items: stretch;
+        margin: 0 auto 26px;
+        width: 100%;
+    }
+    .mobile-section-link {
+        min-width: 0;
+        width: 100%;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 6px 3px;
+        border-radius: 11px;
+        border: 0.5px solid color-mix(in srgb, var(--mobile-section-color, #60a5fa) 52%, rgba(255,255,255,.13));
+        border-bottom: 3px solid var(--mobile-section-color, #60a5fa);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-section-color, #60a5fa) 26%, rgba(15,23,42,.92)), rgba(255,255,255,.035));
+        color: rgba(255,255,255,.90) !important;
+        font-size: 8.5px;
+        font-weight: 900;
+        line-height: 1.05;
+        text-decoration: none !important;
+        box-shadow: 0 8px 18px rgba(0,0,0,.16);
+    }
+    .mobile-section-link.active {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--mobile-section-color, #60a5fa) 48%, rgba(15,23,42,.88)), rgba(255,255,255,.08));
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-section-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22);
+        color: #ffffff !important;
+    }
+    .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
+    .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
+    .mobile-section-link.variabili { --mobile-section-color:#4ade80; grid-column:5; grid-row:1; }
+    .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
+    .mobile-section-link.risparmi { --mobile-section-color:#facc15; grid-column:8; grid-row:1; }
+    .mobile-section-link.carte { --mobile-section-color:#89cff0; grid-column:1; grid-row:2; }
+    .mobile-section-link.promemoria { --mobile-section-color:#fde68a; grid-column:2; grid-row:2; }
+    .mobile-section-link.turni { --mobile-section-color:#60a5fa; grid-column:4 / span 2; grid-row:2; }
+    .mobile-section-link.storico { --mobile-section-color:#a78bfa; grid-column:7; grid-row:2; }
+    .mobile-section-link.bollette { --mobile-section-color:#fb923c; grid-column:8; grid-row:2; }
     .mobile-panorama-budget-row [data-testid="column"] {
         min-width: 0 !important;
         width: 100% !important;
@@ -1998,14 +2042,18 @@ if MOBILE_VIEW:
         "Storico": "Storico stipendi",
         "Bollette": "Storico bollette",
     }
-    mobile_section = st.radio(
-        "Sezione telefono",
-        MOBILE_SECTIONS,
-        key="mobile_section_select",
-        horizontal=True,
-        label_visibility="collapsed",
-        format_func=lambda section: mobile_section_labels.get(section, section)
-    )
+    mobile_section = st.session_state.get("mobile_section_select", "Panoramica")
+    _mobile_nav_html = ['<div class="mobile-section-grid">']
+    for _section, _css_class, _fallback_label, _description in _mobile_cards:
+        _label = mobile_section_labels.get(_section, _fallback_label)
+        _active = " active" if _section == mobile_section else ""
+        _mobile_nav_html.append(
+            f'<a class="mobile-section-link {_css_class}{_active}" '
+            f'href="?view=mobile&mobile_section={html.escape(_section)}#mobile-top" '
+            f'target="_self">{html.escape(_label)}</a>'
+        )
+    _mobile_nav_html.append("</div>")
+    st.markdown("\n".join(_mobile_nav_html), unsafe_allow_html=True)
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
