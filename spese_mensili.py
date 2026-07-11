@@ -1503,6 +1503,22 @@ if MOBILE_VIEW:
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
+    div[data-testid="stRadio"] [role="radiogroup"] > label input[type="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label [role="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label [data-baseweb="radio"],
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div:first-child *,
+    div[data-testid="stRadio"] [role="radiogroup"] > label > div > div:first-child:not([data-testid="stMarkdownContainer"]) {
+        position: absolute !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+    }
     div[data-testid="stRadio"] [role="radiogroup"] > label > div:last-child {
         width: 100% !important;
         max-width: 100% !important;
@@ -2840,8 +2856,8 @@ DEFAULT_TURNI_RULES = {
     "stra_ferie_festivo_pct": 50.0,
     "buono_pasto": 7.0,
     "smart_target": 15.0,
-    "accrediti_mensili": 43.87,
-    "trattenute_mensili": 218.73,
+    "accrediti_mensili": 0.0,
+    "trattenute_mensili": 0.0,
     "ind_m_p_feriale": 6.0,
     "ind_notte_feriale": 15.0,
     "ind_m_p_festivo": 15.0,
@@ -7670,15 +7686,43 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
     st.title("Storico Bollette")
 
     BOLLETTE_HEADERS = ["Mese", "Elettricità", "Gas", "Acqua", "Internet", "Tari"]
-    data_bollette = load_data_gsheets("Bollette", BOLLETTE_HEADERS)
-    if data_bollette.empty:
-        data_bollette = pd.DataFrame(columns=BOLLETTE_HEADERS)
-    else:
-        data_bollette["Mese"] = pd.to_datetime(data_bollette["Mese"], errors="coerce")
-        data_bollette = data_bollette.dropna(subset=["Mese"])
-        data_bollette["Mese"] = data_bollette["Mese"].dt.to_period("M").dt.to_timestamp()
-        for col in ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]:
-            data_bollette[col] = pd.to_numeric(data_bollette[col], errors="coerce").fillna(0.0)
+    BOLLETTE_VALUE_COLUMNS = ["Elettricità", "Gas", "Acqua", "Internet", "Tari"]
+
+    def _parse_bolletta_amount(value):
+        try:
+            if pd.isna(value):
+                return 0.0
+        except Exception:
+            pass
+        if isinstance(value, str):
+            text = value.strip().replace("€", "").replace(" ", "")
+            if "," in text and "." in text:
+                if text.rfind(",") > text.rfind("."):
+                    text = text.replace(".", "").replace(",", ".")
+                else:
+                    text = text.replace(",", "")
+            elif "," in text:
+                text = text.replace(".", "").replace(",", ".")
+            value = text
+        parsed = pd.to_numeric(value, errors="coerce")
+        return 0.0 if pd.isna(parsed) else float(parsed)
+
+    def normalizza_data_bollette(data):
+        if data is None or data.empty:
+            return pd.DataFrame(columns=BOLLETTE_HEADERS)
+        df = data.copy()
+        for col in BOLLETTE_HEADERS:
+            if col not in df.columns:
+                df[col] = pd.NaT if col == "Mese" else 0.0
+        df = df[BOLLETTE_HEADERS].copy()
+        df["Mese"] = pd.to_datetime(df["Mese"], errors="coerce")
+        df = df.dropna(subset=["Mese"])
+        df["Mese"] = df["Mese"].dt.to_period("M").dt.to_timestamp()
+        for col in BOLLETTE_VALUE_COLUMNS:
+            df[col] = df[col].map(_parse_bolletta_amount).astype(float)
+        return df
+
+    data_bollette = normalizza_data_bollette(load_data_gsheets("Bollette", BOLLETTE_HEADERS))
 
     budget_bollette_df = normalizza_budget_bollette(
         load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
@@ -7761,25 +7805,31 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
 
             if aggiungi_bollette:
                 if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
-                    if not record_bol.empty:
-                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Elettricità"] = elettricita
-                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Gas"] = gas
-                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Acqua"] = acqua
-                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Internet"] = internet
-                        data_bollette.loc[data_bollette["Mese"] == mese_dt_bol, "Tari"] = tari
+                    valori_bollette = {
+                        "Elettricità": _parse_bolletta_amount(elettricita),
+                        "Gas": _parse_bolletta_amount(gas),
+                        "Acqua": _parse_bolletta_amount(acqua),
+                        "Internet": _parse_bolletta_amount(internet),
+                        "Tari": _parse_bolletta_amount(tari),
+                    }
+                    data_bollette = normalizza_data_bollette(data_bollette)
+                    mask_bol = data_bollette["Mese"] == mese_dt_bol
+                    if mask_bol.any():
+                        for col, value in valori_bollette.items():
+                            data_bollette.loc[mask_bol, col] = value
                         placeholder = st.empty()
                         placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
                         time.sleep(3)
                         placeholder.empty()
                     else:
-                        nuovo_record_bol = {"Mese": mese_dt_bol, "Elettricità": elettricita, "Gas": gas, "Acqua": acqua, "Internet": internet, "Tari": tari}
+                        nuovo_record_bol = {"Mese": mese_dt_bol, **valori_bollette}
                         data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
                         placeholder = st.empty()
                         placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
                         time.sleep(3)
                         placeholder.empty()
 
-                    data_bollette = data_bollette.sort_values(by="Mese").reset_index(drop=True)
+                    data_bollette = normalizza_data_bollette(data_bollette).sort_values(by="Mese").reset_index(drop=True)
                     save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
                 else:
                     placeholder = st.empty()
