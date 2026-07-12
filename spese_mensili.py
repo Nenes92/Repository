@@ -1477,6 +1477,58 @@ if MOBILE_VIEW:
         font-size: 11px;
         line-height: 1.25;
     }
+    .mobile-home-recap {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin: 18px 0 4px;
+    }
+    .mobile-home-recap-card {
+        min-width: 0;
+        min-height: 66px;
+        padding: 9px 10px;
+        border-radius: 13px;
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--recap-color) 17%, transparent), rgba(255,255,255,.035));
+        border: 0.5px solid color-mix(in srgb, var(--recap-color) 38%, rgba(255,255,255,.12));
+        border-left: 3px solid var(--recap-color);
+        box-shadow: 0 10px 22px rgba(0,0,0,.16);
+        overflow: hidden;
+    }
+    .mobile-home-recap-card.wide {
+        grid-column: span 2;
+    }
+    .mobile-home-recap-label {
+        color: rgba(255,255,255,.48);
+        font-size: 8.5px;
+        font-weight: 900;
+        letter-spacing: .7px;
+        text-transform: uppercase;
+        line-height: 1.15;
+        margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mobile-home-recap-value {
+        color: var(--recap-color);
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 1.05;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mobile-home-recap-sub {
+        color: rgba(255,255,255,.46);
+        font-size: 9px;
+        line-height: 1.2;
+        margin-top: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 34px !important;
         border-radius: 11px !important;
@@ -5497,6 +5549,69 @@ textarea {
     )
     revolut_expenses -= risparmi_mese_precedente
     risparmi_mensili += risparmi_mese_precedente
+
+    if MOBILE_VIEW and _mobile_show("Panoramica"):
+        spese_variabili_totali_home = sum(
+            SPESE["Variabili"].get(voce, 0)
+            for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"]
+        )
+
+        def _recap_card(label, value, color, sub="", wide=False):
+            wide_class = " wide" if wide else ""
+            return f"""
+            <div class="mobile-home-recap-card{wide_class}" style="--recap-color:{color};">
+                <div class="mobile-home-recap-label">{html.escape(str(label))}</div>
+                <div class="mobile-home-recap-value">{html.escape(str(value))}</div>
+                <div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>
+            </div>
+            """
+
+        turni_stats_home = None
+        try:
+            turni_df_home = st.session_state.get("turni_df_draft")
+            if turni_df_home is not None and not turni_df_home.empty:
+                turni_stats_home = compute_turni_dashboard(turni_df_home.copy(), get_turni_rules())
+        except Exception:
+            turni_stats_home = None
+
+        turno_label = "Turno"
+        turno_value = "Apri Turni"
+        turno_sub = "riepilogo e prossimo turno"
+        next_value = "—"
+        next_sub = "prossimo turno"
+        if turni_stats_home:
+            if turni_stats_home.get("is_on_shift"):
+                turno_label = "Turno in corso"
+                turno_value = turni_stats_home.get("current_turno") or "In turno"
+                turno_sub = (
+                    f"{turni_stats_home.get('current_shift_type', '')} · "
+                    f"{_money_turni(turni_stats_home.get('rate_min', 0) * 60)}/h"
+                ).strip(" ·")
+            elif turni_stats_home.get("is_on_leave"):
+                turno_label = "Oggi"
+                turno_value = "Ferie"
+                turno_sub = _money_turni(turni_stats_home.get("expected_today", 0))
+            else:
+                turno_label = "Stato turno"
+                turno_value = "Fuori turno"
+                turno_sub = turni_stats_home.get("next_shift_label") or "prossimo turno"
+
+            next_label = turni_stats_home.get("next_shift_label") or "—"
+            next_value = next_label
+            next_total = turni_stats_home.get("next_shift_total", 0)
+            next_sub = _money_turni(next_total) if next_total else "prossimo turno"
+
+        st.markdown(f"""
+        <div class="mobile-home-recap">
+            {_recap_card("Stipendio", _money_turni(stipendio_percepito), "#77DD77", "percepito")}
+            {_recap_card("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese")}
+            {_recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese")}
+            {_recap_card("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese")}
+            {_recap_card("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese")}
+            {_recap_card(turno_label, turno_value, "#60a5fa", turno_sub)}
+            {_recap_card("Prossimo", next_value, "#60a5fa", next_sub, wide=True)}
+        </div>
+        """, unsafe_allow_html=True)
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
