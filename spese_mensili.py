@@ -5558,13 +5558,13 @@ textarea {
 
         def _recap_card(label, value, color, sub="", wide=False):
             wide_class = " wide" if wide else ""
-            return f"""
-            <div class="mobile-home-recap-card{wide_class}" style="--recap-color:{color};">
-                <div class="mobile-home-recap-label">{html.escape(str(label))}</div>
-                <div class="mobile-home-recap-value">{html.escape(str(value))}</div>
-                <div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>
-            </div>
-            """
+            return (
+                f'<div class="mobile-home-recap-card{wide_class}" style="--recap-color:{color};">'
+                f'<div class="mobile-home-recap-label">{html.escape(str(label))}</div>'
+                f'<div class="mobile-home-recap-value">{html.escape(str(value))}</div>'
+                f'<div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>'
+                "</div>"
+            )
 
         turni_stats_home = None
         try:
@@ -5601,17 +5601,19 @@ textarea {
             next_total = turni_stats_home.get("next_shift_total", 0)
             next_sub = _money_turni(next_total) if next_total else "prossimo turno"
 
-        st.markdown(f"""
-        <div class="mobile-home-recap">
-            {_recap_card("Stipendio", _money_turni(stipendio_percepito), "#77DD77", "percepito")}
-            {_recap_card("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese")}
-            {_recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese")}
-            {_recap_card("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese")}
-            {_recap_card("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese")}
-            {_recap_card(turno_label, turno_value, "#60a5fa", turno_sub)}
-            {_recap_card("Prossimo", next_value, "#60a5fa", next_sub, wide=True)}
-        </div>
-        """, unsafe_allow_html=True)
+        home_recap_cards = [
+            _recap_card("Stipendio", _money_turni(stipendio_percepito), "#77DD77", "percepito"),
+            _recap_card("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese"),
+            _recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese"),
+            _recap_card("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese"),
+            _recap_card("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese"),
+            _recap_card(turno_label, turno_value, "#60a5fa", turno_sub),
+            _recap_card("Prossimo", next_value, "#60a5fa", next_sub, wide=True),
+        ]
+        st.markdown(
+            '<div class="mobile-home-recap">' + "".join(home_recap_cards) + "</div>",
+            unsafe_allow_html=True,
+        )
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
