@@ -5574,11 +5574,12 @@ textarea {
         except Exception:
             turni_stats_home = None
 
-        turno_label = "Turno"
-        turno_value = "Apri Turni"
-        turno_sub = "riepilogo e prossimo turno"
+        turno_label = "Turno oggi"
+        turno_value = "Dati non caricati"
+        turno_sub = "apri la sezione turni"
+        next_label = "Prossimo turno"
         next_value = "—"
-        next_sub = "prossimo turno"
+        next_sub = "nessun turno futuro"
         if turni_stats_home:
             if turni_stats_home.get("is_on_shift"):
                 turno_label = "Turno in corso"
@@ -5594,21 +5595,20 @@ textarea {
             else:
                 turno_label = "Stato turno"
                 turno_value = "Fuori turno"
-                turno_sub = turni_stats_home.get("next_shift_label") or "prossimo turno"
+                turno_sub = turni_stats_home.get("next_shift_label") or "nessun turno futuro"
 
-            next_label = turni_stats_home.get("next_shift_label") or "—"
-            next_value = next_label
+            next_value = turni_stats_home.get("next_shift_label") or "—"
             next_total = turni_stats_home.get("next_shift_total", 0)
-            next_sub = _money_turni(next_total) if next_total else "prossimo turno"
+            next_sub = _money_turni(next_total) if next_total else "nessun importo stimato"
 
         home_recap_cards = [
-            _recap_card("Stipendio", _money_turni(stipendio_percepito), "#77DD77", "percepito"),
+            _recap_card("Entrate mensili", _money_turni(entrate_mensili_totali), "#77DD77", "totale mese"),
             _recap_card("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese"),
-            _recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese"),
+            _recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese"),
             _recap_card("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese"),
             _recap_card("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese"),
             _recap_card(turno_label, turno_value, "#60a5fa", turno_sub),
-            _recap_card("Prossimo", next_value, "#60a5fa", next_sub, wide=True),
+            _recap_card(next_label, next_value, "#60a5fa", next_sub, wide=True),
         ]
         st.markdown(
             '<div class="mobile-home-recap">' + "".join(home_recap_cards) + "</div>",
