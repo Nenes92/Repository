@@ -1478,10 +1478,23 @@ if MOBILE_VIEW:
         line-height: 1.25;
     }
     .mobile-home-recap {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
         margin: 18px 0 4px;
+    }
+    .mobile-home-recap-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        align-items: stretch;
+    }
+    .mobile-home-recap-pair {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0, .96fr) minmax(0, .86fr);
+        gap: 6px;
+        align-items: stretch;
     }
     .mobile-home-recap-card {
         min-width: 0;
@@ -1497,6 +1510,49 @@ if MOBILE_VIEW:
     }
     .mobile-home-recap-card.wide {
         grid-column: span 2;
+    }
+    .mobile-home-carte-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+        gap: 8px;
+        align-items: stretch;
+    }
+    .mobile-home-carte-list {
+        min-width: 0;
+        padding: 9px 10px;
+        border-radius: 13px;
+        background:
+            linear-gradient(135deg, color-mix(in srgb, #7dd3fc 15%, transparent), rgba(255,255,255,.035));
+        border: 0.5px solid color-mix(in srgb, #7dd3fc 38%, rgba(255,255,255,.12));
+        border-left: 3px solid #7dd3fc;
+        box-shadow: 0 10px 22px rgba(0,0,0,.16);
+    }
+    .mobile-home-carte-title {
+        color: rgba(255,255,255,.90);
+        font-size: 10px;
+        font-weight: 900;
+        margin-bottom: 6px;
+    }
+    .mobile-home-carte-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: rgba(255,255,255,.70);
+        font-size: 8.5px;
+        line-height: 1.45;
+    }
+    .mobile-home-carte-item strong {
+        color: inherit;
+        font-family: "DM Mono", monospace;
+        font-size: 8.5px;
+        white-space: nowrap;
+    }
+    .mobile-home-turni-row {
+        width: min(78%, 420px);
+        margin: 2px auto 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
     }
     .mobile-home-recap-label {
         color: rgba(255,255,255,.48);
@@ -1528,6 +1584,48 @@ if MOBILE_VIEW:
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    .mobile-home-recap .mobile-donut-card {
+        min-height: 66px;
+        padding: 8px;
+        border-radius: 13px;
+    }
+    .mobile-home-recap .mobile-donut-title {
+        font-size: 8.5px;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mobile-home-recap .mobile-donut-body {
+        gap: 5px;
+        align-items: center;
+    }
+    .mobile-home-recap .mobile-donut-ring {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+    }
+    .mobile-home-recap .mobile-donut-hole {
+        width: 24px;
+        height: 24px;
+    }
+    .mobile-home-recap .mobile-donut-legend {
+        gap: 1px;
+    }
+    .mobile-home-recap .mobile-donut-legend-row {
+        font-size: 7px;
+        gap: 3px;
+    }
+    .mobile-home-recap .mobile-donut-dot {
+        width: 5px;
+        height: 5px;
+    }
+    .mobile-home-donut-empty {
+        color: rgba(255,255,255,.38);
+        font-size: 8px;
+        line-height: 1.25;
+        padding-top: 4px;
     }
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 34px !important;
@@ -5568,6 +5666,103 @@ textarea {
                 "</div>"
             )
 
+        def _donut_or_empty(title, labels, values, colors):
+            donut_html = _mobile_donut_html(title, labels, values, colors)
+            if donut_html:
+                return donut_html
+            return (
+                '<div class="mobile-donut-card">'
+                f'<div class="mobile-donut-title">{html.escape(title)}</div>'
+                '<div class="mobile-home-donut-empty">tutto a zero</div>'
+                '</div>'
+            )
+
+        def _recap_pair(label, value, color, sub, donut_html):
+            return (
+                '<div class="mobile-home-recap-pair">'
+                f'{_recap_card(label, value, color, sub)}'
+                f'{donut_html}'
+                '</div>'
+            )
+
+        def _time_until_label(iso_value):
+            if not iso_value:
+                return ""
+            try:
+                target = datetime.fromisoformat(str(iso_value))
+                minutes = max(0, int((target - _now_italy()).total_seconds() // 60))
+            except Exception:
+                return ""
+            days, rem = divmod(minutes, 60 * 24)
+            hours, mins = divmod(rem, 60)
+            if days:
+                return f"{days}g {hours}h"
+            if hours:
+                return f"{hours}h {mins:02d}m"
+            return f"{mins}m"
+
+        spese_meta_home = st.session_state.get("spese_fisse_metadata", {})
+        fisse_categoria_totali_home = {}
+        for voce, importo in SPESE["Fisse"].items():
+            categoria = spese_meta_home.get(voce, {}).get("Categoria") or _infer_spesa_fissa_categoria(voce)
+            fisse_categoria_totali_home[categoria] = fisse_categoria_totali_home.get(categoria, 0.0) + float(importo or 0)
+        fisse_donut_home = _donut_or_empty(
+            "Distribuzione",
+            list(fisse_categoria_totali_home.keys()),
+            list(fisse_categoria_totali_home.values()),
+            [SPESA_FISSA_CATEGORIA_COLORI.get(categoria, "#94a3b8") for categoria in fisse_categoria_totali_home],
+        )
+
+        variabili_labels_home = ["Emergenze/Compleanni", "Viaggi", "Da spendere", "Spese quotidiane"]
+        variabili_donut_home = _donut_or_empty(
+            "Distribuzione",
+            variabili_labels_home,
+            [SPESE["Variabili"].get(voce, 0) for voce in variabili_labels_home],
+            ["#4ade80", "#15803d", "#facc15", "#fb923c"],
+        )
+        altre_colors_base_home = ["#e6c48c", "#c4b5fd", "#7dd3fc", "#34d399", "#facc15"]
+        altre_colors_home = [
+            altre_colors_base_home[i % len(altre_colors_base_home)]
+            for i, _ in enumerate(ALTRE_ENTRATE)
+        ]
+        altre_donut_home = _donut_or_empty(
+            "Distribuzione",
+            list(ALTRE_ENTRATE.keys()),
+            list(ALTRE_ENTRATE.values()),
+            altre_colors_home,
+        )
+        risparmi_donut_home = _donut_or_empty(
+            "Distribuzione",
+            ["Da stipendio", "Mese prec.", "Da spendere", "Quotidiane"],
+            [risparmio_stipendi, risparmi_mese_precedente, risparmio_da_spendere, risparmio_spese_quotidiane],
+            ["#60a5fa", "#93c5fd", "#facc15", "#fb923c"],
+        )
+
+        ing_total_home = sum(
+            SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0)
+            for voce in SPESE["ING"]
+        )
+        revolut_total_home = revolut_expenses + risparmi_mese_precedente
+        bnl_total_home = sum(
+            SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0)
+            for voce in SPESE["BNL"]
+        )
+        carte_donut_home = _donut_or_empty(
+            "Distribuzione carte",
+            ["ING", "Revolut", "BNL", "Risparmi BNL"],
+            [ing_total_home, revolut_total_home, bnl_total_home, risparmi_mensili],
+            ["#d2691e", "#89cff0", "#2f8f46", "#77dd77"],
+        )
+        carte_list_home = (
+            '<div class="mobile-home-carte-list">'
+            '<div class="mobile-home-carte-title">Carte</div>'
+            f'<div class="mobile-home-carte-item"><span>ING</span><strong>{_money_turni(ing_total_home)}</strong></div>'
+            f'<div class="mobile-home-carte-item"><span>Revolut</span><strong>{_money_turni(revolut_total_home)}</strong></div>'
+            f'<div class="mobile-home-carte-item"><span>BNL</span><strong>{_money_turni(bnl_total_home)}</strong></div>'
+            f'<div class="mobile-home-carte-item"><span>Risparmio BNL</span><strong>{_money_turni(risparmi_mensili)}</strong></div>'
+            '</div>'
+        )
+
         turni_stats_home = None
         try:
             turni_df_home = st.session_state.get("turni_df_draft")
@@ -5588,9 +5783,11 @@ textarea {
             if turni_stats_home.get("is_on_shift"):
                 turno_label = "Turno in corso"
                 turno_value = turni_stats_home.get("current_turno") or "In turno"
+                turno_total = turni_stats_home.get("expected_today", 0)
                 turno_sub = (
                     f"{turni_stats_home.get('current_shift_type', '')} · "
-                    f"{_money_turni(turni_stats_home.get('rate_min', 0) * 60)}/h"
+                    f"{_money_turni(turni_stats_home.get('rate_min', 0) * 60)}/h · "
+                    f"tot {_money_turni(turno_total)}"
                 ).strip(" ·")
             elif turni_stats_home.get("is_on_leave"):
                 turno_label = "Oggi"
@@ -5603,19 +5800,38 @@ textarea {
 
             next_value = turni_stats_home.get("next_shift_label") or "—"
             next_total = turni_stats_home.get("next_shift_total", 0)
-            next_sub = _money_turni(next_total) if next_total else "nessun importo stimato"
+            wait_label = _time_until_label(turni_stats_home.get("next_shift_start", ""))
+            if next_total and wait_label:
+                next_sub = f"{_money_turni(next_total)} · tra {wait_label}"
+            elif next_total:
+                next_sub = _money_turni(next_total)
+            elif wait_label:
+                next_sub = f"tra {wait_label}"
+            else:
+                next_sub = "nessun importo stimato"
 
-        home_recap_cards = [
-            _recap_card("Entrate mensili", _money_turni(entrate_mensili_totali), "#77DD77", "totale mese"),
-            _recap_card("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese"),
-            _recap_card("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese"),
-            _recap_card("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese"),
-            _recap_card("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese"),
-            _recap_card(turno_label, turno_value, "#60a5fa", turno_sub),
-            _recap_card(next_label, next_value, "#60a5fa", next_sub, wide=True),
-        ]
+        home_recap_html = (
+            '<div class="mobile-home-recap">'
+            '<div class="mobile-home-recap-row">'
+            + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese", variabili_donut_home)
+            + '</div>'
+            '<div class="mobile-home-recap-row">'
+            + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
+            + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
+            + '</div>'
+            '<div class="mobile-home-carte-row">'
+            + carte_list_home
+            + carte_donut_home
+            + '</div>'
+            '<div class="mobile-home-turni-row">'
+            + _recap_card(turno_label, turno_value, "#60a5fa", turno_sub)
+            + _recap_card(next_label, next_value, "#60a5fa", next_sub)
+            + '</div>'
+            '</div>'
+        )
         st.markdown(
-            '<div class="mobile-home-recap">' + "".join(home_recap_cards) + "</div>",
+            home_recap_html,
             unsafe_allow_html=True,
         )
 
