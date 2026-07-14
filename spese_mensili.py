@@ -3634,6 +3634,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
         "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
         "next_shift_label": next_shift_label,
+        "next_shift_total": next_shift_total,
+        "last_shift_total": last_shift_total,
         "work_days_done": work_days_done,
         "work_days_total": work_days_total,
         "ferie_days_total": ferie_days_total,
@@ -5569,6 +5571,8 @@ textarea {
         turni_stats_home = None
         try:
             turni_df_home = st.session_state.get("turni_df_draft")
+            if turni_df_home is None or getattr(turni_df_home, "empty", True):
+                turni_df_home = load_turni_data()
             if turni_df_home is not None and not turni_df_home.empty:
                 turni_stats_home = compute_turni_dashboard(turni_df_home.copy(), get_turni_rules())
         except Exception:
