@@ -1537,7 +1537,7 @@ if MOBILE_VIEW:
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        color: rgba(255,255,255,.70);
+        color: var(--carte-color, rgba(255,255,255,.70));
         font-size: 8.5px;
         line-height: 1.45;
     }
@@ -1548,10 +1548,10 @@ if MOBILE_VIEW:
         white-space: nowrap;
     }
     .mobile-home-turni-row {
-        width: min(78%, 420px);
-        margin: 2px auto 0;
+        width: 100%;
+        margin: 2px 0 0;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
     }
     .mobile-home-recap-label {
@@ -5753,14 +5753,23 @@ textarea {
             [ing_total_home, revolut_total_home, bnl_total_home, risparmi_mensili],
             ["#d2691e", "#89cff0", "#2f8f46", "#77dd77"],
         )
+
+        def _carte_item(label, value, color):
+            return (
+                f'<div class="mobile-home-carte-item" style="--carte-color:{color};">'
+                f'<span>{html.escape(str(label))}</span>'
+                f'<strong>{html.escape(_money_turni(value))}</strong>'
+                '</div>'
+            )
+
         carte_list_home = (
             '<div class="mobile-home-carte-list">'
             '<div class="mobile-home-carte-title">Carte</div>'
-            f'<div class="mobile-home-carte-item"><span>ING</span><strong>{_money_turni(ing_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>Revolut</span><strong>{_money_turni(revolut_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>BNL</span><strong>{_money_turni(bnl_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>Risparmio BNL</span><strong>{_money_turni(risparmi_mensili)}</strong></div>'
-            '</div>'
+            + _carte_item("ING", ing_total_home, SPESA_FISSA_CARTA_COLORI.get("ING", "#D2691E"))
+            + _carte_item("Revolut", revolut_total_home, SPESA_FISSA_CARTA_COLORI.get("Revolut", "#89CFF0"))
+            + _carte_item("BNL", bnl_total_home, SPESA_FISSA_CARTA_COLORI.get("BNL", "#228B22"))
+            + _carte_item("Risparmio BNL", risparmi_mensili, "#77DD77")
+            + '</div>'
         )
 
         turni_stats_home = None
@@ -5773,42 +5782,63 @@ textarea {
         except Exception:
             turni_stats_home = None
 
-        turno_label = "Turno oggi"
-        turno_value = "Dati non caricati"
-        turno_sub = "apri la sezione turni"
-        next_label = "Prossimo turno"
-        next_value = "—"
-        next_sub = "nessun turno futuro"
+        turni_cards_home = (
+            _recap_card("Mese corrente — live / stimato cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
+            + _recap_card("Turno — live / totale turno", "—", "#60a5fa", "nessun dato")
+            + _recap_card("Stato turno", "—", "#fef3c7", "nessun dato")
+        )
         if turni_stats_home:
-            if turni_stats_home.get("is_on_shift"):
-                turno_label = "Turno in corso"
-                turno_value = turni_stats_home.get("current_turno") or "In turno"
-                turno_total = turni_stats_home.get("expected_today", 0)
-                turno_sub = (
-                    f"{turni_stats_home.get('current_shift_type', '')} · "
-                    f"{_money_turni(turni_stats_home.get('rate_min', 0) * 60)}/h · "
-                    f"tot {_money_turni(turno_total)}"
-                ).strip(" ·")
-            elif turni_stats_home.get("is_on_leave"):
-                turno_label = "Oggi"
-                turno_value = "Ferie"
-                turno_sub = _money_turni(turni_stats_home.get("expected_today", 0))
-            else:
-                turno_label = "Stato turno"
-                turno_value = "Fuori turno"
-                turno_sub = turni_stats_home.get("next_shift_label") or "nessun turno futuro"
+            work_days_done = int(turni_stats_home.get("work_days_done", 0))
+            work_days_total = int(turni_stats_home.get("work_days_total", 0))
+            ferie_days_total = int(turni_stats_home.get("ferie_days_total", 0))
+            month_days_total = work_days_total + ferie_days_total
+            ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
+            month_value_home = (
+                f"{_money_turni(turni_stats_home.get('live_month', 0))} / "
+                f"{_money_turni(turni_stats_home.get('payslip_estimate', 0))}"
+            )
+            month_sub_home = f"Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}"
 
-            next_value = turni_stats_home.get("next_shift_label") or "—"
-            next_total = turni_stats_home.get("next_shift_total", 0)
-            wait_label = _time_until_label(turni_stats_home.get("next_shift_start", ""))
-            if next_total and wait_label:
-                next_sub = f"{_money_turni(next_total)} · tra {wait_label}"
-            elif next_total:
-                next_sub = _money_turni(next_total)
-            elif wait_label:
-                next_sub = f"tra {wait_label}"
+            turno_label_home = turni_stats_home.get("turno_kpi_label", "Turno — live / totale turno")
+            turno_value_home = (
+                f"{_money_turni(turni_stats_home.get('live_today', 0))} / "
+                f"{_money_turni(turni_stats_home.get('expected_today', 0))}"
+            )
+            shift_type_home = str(turni_stats_home.get("current_shift_type", ""))
+            if turni_stats_home.get("is_on_shift") or turni_stats_home.get("is_on_leave"):
+                remaining_label = _time_until_label(turni_stats_home.get("current_shift_end", ""))
+                turno_sub_home = f"Ore mancanti: {remaining_label}" if remaining_label else shift_type_home
+                if shift_type_home and remaining_label:
+                    turno_sub_home = f"{turno_sub_home} · {shift_type_home}"
             else:
-                next_sub = "nessun importo stimato"
+                wait_label = _time_until_label(turni_stats_home.get("next_shift_start", ""))
+                next_total = turni_stats_home.get("next_shift_total", 0)
+                if wait_label and next_total:
+                    turno_sub_home = f"Prossimo tra {wait_label} · {_money_turni(next_total)}"
+                elif wait_label:
+                    turno_sub_home = f"Prossimo tra {wait_label}"
+                else:
+                    turno_sub_home = turni_stats_home.get("next_shift_label", "nessun turno futuro")
+
+            rate_min_home = float(turni_stats_home.get("rate_min", 0) or 0)
+            rate_hour_home = rate_min_home * 60
+            current_turno_home = turni_stats_home.get("current_turno") or ""
+            current_date_home = turni_stats_home.get("current_shift_date") or ""
+            if turni_stats_home.get("is_on_shift"):
+                status_value_home = f"In turno · {current_turno_home}"
+            elif turni_stats_home.get("is_on_leave"):
+                status_value_home = "Fuori turno · in ferie"
+            else:
+                status_value_home = "Fuori turno"
+            if current_date_home and status_value_home != "Fuori turno":
+                status_value_home = f"{status_value_home} · {current_date_home}"
+            status_sub_home = f"{rate_min_home:.2f} €/min · {rate_hour_home:.2f} €/h"
+
+            turni_cards_home = (
+                _recap_card("Mese corrente — live / stimato cedolino", month_value_home, "#34d399", month_sub_home)
+                + _recap_card(turno_label_home, turno_value_home, "#60a5fa", turno_sub_home)
+                + _recap_card("Stato turno", status_value_home, "#fef3c7", status_sub_home)
+            )
 
         home_recap_html = (
             '<div class="mobile-home-recap">'
@@ -5825,8 +5855,7 @@ textarea {
             + carte_donut_home
             + '</div>'
             '<div class="mobile-home-turni-row">'
-            + _recap_card(turno_label, turno_value, "#60a5fa", turno_sub)
-            + _recap_card(next_label, next_value, "#60a5fa", next_sub)
+            + turni_cards_home
             + '</div>'
             '</div>'
         )
