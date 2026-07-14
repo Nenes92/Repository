@@ -5256,6 +5256,38 @@ def main():
         for salary_key, salary_default in mobile_salary_defaults.items():
             st.session_state.setdefault(salary_key, salary_default)
 
+        def _sync_mobile_salary_from_widget(value_key, widget_key, default, max_value=None):
+            if widget_key in st.session_state:
+                st.session_state[value_key] = _parse_mobile_amount(
+                    st.session_state[widget_key],
+                    default,
+                    max_value=max_value
+                )
+            else:
+                st.session_state.setdefault(value_key, float(default))
+            if max_value is not None:
+                st.session_state[value_key] = min(
+                    float(st.session_state[value_key]),
+                    float(max_value)
+                )
+
+        _sync_mobile_salary_from_widget(
+            "mobile_salary_stipendio_percepito_value",
+            "mobile_salary_stipendio_percepito_num",
+            input_stipendio_percepito
+        )
+        _sync_mobile_salary_from_widget(
+            "mobile_salary_budget_da_stipendio_value",
+            "mobile_salary_budget_da_stipendio_num",
+            input_budget_da_stipendio,
+            max_value=st.session_state["mobile_salary_stipendio_percepito_value"]
+        )
+        _sync_mobile_salary_from_widget(
+            "mobile_salary_risparmi_mese_precedente_value",
+            "mobile_salary_risparmi_mese_precedente_num",
+            input_risparmi_mese_precedente
+        )
+
         if _mobile_show("Panoramica"):
             salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
             with salary_col1:
@@ -5850,25 +5882,39 @@ textarea {
             '<div class="mobile-home-recap">'
             '<div class="mobile-home-recap-row">'
             + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
-            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese", variabili_donut_home)
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese", variabili_donut_home)
             + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
             + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
             + '</div>'
-            '<div class="mobile-home-carte-row">'
-            '<div class="mobile-home-carte-stack">'
-            + carte_list_home
-            + carte_donut_home
-            + '</div>'
-            '<div class="mobile-home-turni-row">'
-            + turni_cards_home
-            + '</div>'
-            '</div>'
             '</div>'
         )
         st.markdown(
             home_recap_html,
             unsafe_allow_html=True,
         )
+        home_carte_col, home_turni_col = st.columns([1, 1.12], gap="small")
+        with home_carte_col:
+            st.markdown(
+                '<div class="mobile-home-recap">'
+                '<div class="mobile-home-carte-stack">'
+                + carte_list_home
+                + carte_donut_home
+                + '</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        with home_turni_col:
+            if turni_stats_home:
+                render_live_turni_kpis(turni_stats_home)
+            else:
+                st.markdown(
+                    '<div class="mobile-home-recap">'
+                    '<div class="mobile-home-turni-row">'
+                    + turni_cards_home
+                    + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
