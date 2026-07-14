@@ -1485,14 +1485,14 @@ if MOBILE_VIEW:
     }
     .mobile-home-recap-row {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
         align-items: stretch;
     }
     .mobile-home-recap-pair {
         min-width: 0;
-        display: grid;
-        grid-template-columns: minmax(0, .96fr) minmax(0, .86fr);
+        display: flex;
+        flex-direction: column;
         gap: 6px;
         align-items: stretch;
     }
@@ -1513,9 +1513,15 @@ if MOBILE_VIEW:
     }
     .mobile-home-carte-row {
         display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
         align-items: stretch;
+    }
+    .mobile-home-carte-stack {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
     .mobile-home-carte-list {
         min-width: 0;
@@ -1549,10 +1555,10 @@ if MOBILE_VIEW:
     }
     .mobile-home-turni-row {
         width: 100%;
-        margin: 2px 0 0;
+        margin: 0;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
     }
     .mobile-home-recap-label {
         color: rgba(255,255,255,.48);
@@ -5845,18 +5851,18 @@ textarea {
             '<div class="mobile-home-recap-row">'
             + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
             + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese", variabili_donut_home)
-            + '</div>'
-            '<div class="mobile-home-recap-row">'
             + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
             + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
             + '</div>'
             '<div class="mobile-home-carte-row">'
+            '<div class="mobile-home-carte-stack">'
             + carte_list_home
             + carte_donut_home
             + '</div>'
             '<div class="mobile-home-turni-row">'
             + turni_cards_home
             + '</div>'
+            '</div>'
             '</div>'
         )
         st.markdown(
