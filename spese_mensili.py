@@ -2312,6 +2312,7 @@ risparmio_mensile_desiderato = 200
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
+limite_emergenze_compleanni=90
 max_spese_quotidiane=370
 decisione_budget_bollette_mensili=180
 
@@ -2845,15 +2846,22 @@ def calcola_target_budget_dinamico(spese_fisse_totali):
     coeff_spese_quotidiane = base_dopo_quote * (1 - percentuale_limite_da_spendere)
 
     soglie = []
+    if emergenze_compleanni > 0:
+        soglie.append(limite_emergenze_compleanni / emergenze_compleanni)
     if coeff_da_spendere > 0:
         soglie.append(limite_da_spendere / coeff_da_spendere)
     if coeff_spese_quotidiane > 0:
         soglie.append(max_spese_quotidiane / coeff_spese_quotidiane)
 
     budget_dopo_spese_fisse_target = max(soglie) if soglie else 0
+    emergenze_reale = emergenze_compleanni * budget_dopo_spese_fisse_target
     da_spendere_reale = coeff_da_spendere * budget_dopo_spese_fisse_target
     spese_quotidiane_reali = coeff_spese_quotidiane * budget_dopo_spese_fisse_target
-    risparmio_auto_variabili = max(0, da_spendere_reale - limite_da_spendere) + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+    risparmio_auto_variabili = (
+        max(0, emergenze_reale - limite_emergenze_compleanni)
+        + max(0, da_spendere_reale - limite_da_spendere)
+        + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+    )
 
     return {
         "budget_disponibile_target": spese_fisse_totali + budget_dopo_spese_fisse_target,
@@ -5775,8 +5783,9 @@ textarea {
         risparmiabili = 0
 
     percentuali_variabili = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-    for voce, percentuale in percentuali_variabili.items():
-        SPESE["Variabili"][voce] = percentuale * risparmiabili
+    emergenze_senza_limite = emergenze_compleanni * risparmiabili
+    SPESE["Variabili"]["Emergenze/Compleanni"] = min(emergenze_senza_limite, limite_emergenze_compleanni)
+    SPESE["Variabili"]["Viaggi"] = viaggi * risparmiabili
 
     da_spendere_senza_limite = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
     SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, limite_da_spendere)
@@ -5794,8 +5803,11 @@ textarea {
     if da_spendere_senza_limite > limite_da_spendere:
         eccesso_da_spendere = da_spendere_senza_limite - limite_da_spendere
         risparmi_mensili += eccesso_da_spendere
+    if emergenze_senza_limite > limite_emergenze_compleanni:
+        risparmi_mensili += emergenze_senza_limite - limite_emergenze_compleanni
 
     risparmio_stipendi = stipendio_originale - stipendio_scelto
+    risparmio_emergenze_compleanni = emergenze_senza_limite - SPESE["Variabili"]["Emergenze/Compleanni"] if emergenze_senza_limite > limite_emergenze_compleanni else 0
     risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > limite_da_spendere else 0
     risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > max_spese_quotidiane else 0
 
@@ -6005,6 +6017,10 @@ textarea {
             + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
             + '</div>'
             '</div>'
+        )
+        st.markdown(
+            '<div style="height:1px;background:rgba(148,163,184,.22);margin:18px 0 14px;"></div>',
+            unsafe_allow_html=True,
         )
         st.markdown(
             home_recap_html,
@@ -6525,7 +6541,8 @@ textarea {
                     variabili_list_html = (
                         '<div class="mobile-variabili-list">'
                         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
-                        + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
+                        + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse, limite €{limite_emergenze_compleanni:.2f}")
+                        + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{emergenze_senza_limite:.2f} · risparmiati €{risparmio_emergenze_compleanni:.2f}</div>'
                         + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
                         + '<div style="height:1px;background:rgba(148,163,184,.22);margin:10px 0 8px;"></div>'
                         + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:0 0 4px;">Dopo le quote</div>'
@@ -6562,8 +6579,12 @@ textarea {
                                 "Emergenze/Compleanni",
                                 SPESE["Variabili"]["Emergenze/Compleanni"],
                                 "#4ADE80",
-                                f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
+                                f"{percentuale_emergenze:.2f}% del budget dopo spese fisse, limite €{limite_emergenze_compleanni:.2f}"
                             ),
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{emergenze_senza_limite:.2f} · risparmiati €{risparmio_emergenze_compleanni:.2f}</div>',
                             unsafe_allow_html=True
                         )
                         st.markdown(
@@ -6714,18 +6735,22 @@ textarea {
             # Recalculate risparmi variables for this section
             risparmi_mensili_calc = stipendio_originale - stipendio_scelto
             percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-            for voce, percentuale in percentuali_variabili_calc.items():
-                SPESE["Variabili"][voce] = percentuale * risparmiabili
+            emergenze_senza_limite_calc = emergenze_compleanni * risparmiabili
+            SPESE["Variabili"]["Emergenze/Compleanni"] = min(emergenze_senza_limite_calc, limite_emergenze_compleanni)
+            SPESE["Variabili"]["Viaggi"] = viaggi * risparmiabili
             da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
             SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
             spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
             SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
+            if emergenze_senza_limite_calc > limite_emergenze_compleanni:
+                risparmi_mensili_calc += emergenze_senza_limite_calc - limite_emergenze_compleanni
             if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
                 risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
             if da_spendere_senza_limite_calc > limite_da_spendere:
                 risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
             risparmi_mensili_calc += risparmi_mese_precedente
             risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
+            risparmio_emergenze_calc = emergenze_senza_limite_calc - min(emergenze_senza_limite_calc, limite_emergenze_compleanni) if emergenze_senza_limite_calc > limite_emergenze_compleanni else 0
             risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
             risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
 
