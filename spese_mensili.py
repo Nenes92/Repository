@@ -1115,7 +1115,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -1617,7 +1617,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
         display: grid !important;
-        grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr) !important;
+        grid-template-columns: minmax(0, .58fr) minmax(0, 1.74fr) !important;
         gap: 14px !important;
         align-items: start !important;
     }
@@ -6035,7 +6035,7 @@ textarea {
             home_recap_html,
             unsafe_allow_html=True,
         )
-        home_carte_col, home_turni_col = st.columns([1, 1.12], gap="small")
+        home_carte_col, home_turni_col = st.columns([0.58, 1.74], gap="small")
         with home_carte_col:
             st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
             st.markdown(
@@ -6176,7 +6176,7 @@ textarea {
                     unsafe_allow_html=True,
                 )
 
-                editor_cols = st.columns(3 if MOBILE_VIEW else 2)
+                editor_cols = st.columns(2)
                 editable_settings = {}
                 editable_metadata = {}
                 if MOBILE_VIEW:
