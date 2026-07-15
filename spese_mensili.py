@@ -1618,8 +1618,8 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) !important;
-        gap: 14px !important;
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, .62fr) minmax(0, 2.26fr) !important;
+        gap: 10px !important;
         align-items: start !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) > div[data-testid="column"] {
@@ -6036,7 +6036,7 @@ textarea {
             home_recap_html,
             unsafe_allow_html=True,
         )
-    home_carte_col, home_spacer_col, home_turni_col = st.columns([1, 1, 2], gap="small")
+    home_carte_col, home_spacer_col, home_turni_col = st.columns([1.12, 0.62, 2.26], gap="small")
     with home_carte_col:
         st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
         st.markdown(
