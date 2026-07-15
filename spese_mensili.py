@@ -1433,7 +1433,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.spese,
     .mobile-nav a.spese { --section-color:#f87171; }
     .mobile-home-card.variabili,
-    .mobile-card-caption.variabili { --section-color:#4ade80; }
+    .mobile-card-caption.variabili { --section-color:#facc15; }
     .mobile-home-card.entrate,
     .mobile-card-caption.entrate,
     .mobile-nav a.entrate { --section-color:#34d399; }
@@ -1454,7 +1454,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.bollette,
     .mobile-nav a.bollette { --section-color:#fb923c; }
     .mobile-nav a.panoramica { --section-color:#38bdf8; }
-    .mobile-nav a.variabili { --section-color:#4ade80; }
+    .mobile-nav a.variabili { --section-color:#facc15; }
     .mobile-nav a.carte { --section-color:#89cff0; }
     .mobile-home-card.active,
     .mobile-card-caption.active {
@@ -1559,6 +1559,24 @@ if MOBILE_VIEW:
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 6px;
+    }
+    .mobile-home-carte-live-left-marker,
+    .mobile-home-carte-live-right-marker {
+        display: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
+        display: grid !important;
+        grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr) !important;
+        gap: 14px !important;
+        align-items: start !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) > div[data-testid="column"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        flex: unset !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) .mobile-home-recap {
+        margin-top: 0 !important;
     }
     .mobile-home-recap-label {
         color: rgba(255,255,255,.48);
@@ -1762,7 +1780,7 @@ if MOBILE_VIEW:
     }
     .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
     .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
-    .mobile-section-link.variabili { --mobile-section-color:#4ade80; grid-column:5; grid-row:1; }
+    .mobile-section-link.variabili { --mobile-section-color:#facc15; grid-column:5; grid-row:1; }
     .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
     .mobile-section-link.risparmi { --mobile-section-color:#facc15; grid-column:8; grid-row:1; }
     .mobile-section-link.carte { --mobile-section-color:#89cff0; grid-column:1; grid-row:2; }
@@ -5271,24 +5289,46 @@ def main():
                     float(max_value)
                 )
 
-        _sync_mobile_salary_from_widget(
-            "mobile_salary_stipendio_percepito_value",
-            "mobile_salary_stipendio_percepito_num",
-            input_stipendio_percepito
-        )
-        _sync_mobile_salary_from_widget(
-            "mobile_salary_budget_da_stipendio_value",
-            "mobile_salary_budget_da_stipendio_num",
-            input_budget_da_stipendio,
-            max_value=st.session_state["mobile_salary_stipendio_percepito_value"]
-        )
-        _sync_mobile_salary_from_widget(
-            "mobile_salary_risparmi_mese_precedente_value",
-            "mobile_salary_risparmi_mese_precedente_num",
-            input_risparmi_mese_precedente
-        )
+        def _store_mobile_salary_widget(value_key, widget_key, default, max_value=None):
+            st.session_state[value_key] = _parse_mobile_amount(
+                st.session_state.get(widget_key, st.session_state.get(value_key, default)),
+                default,
+                max_value=max_value
+            )
+
+        def _prime_mobile_salary_widget(widget_key, value_key):
+            if widget_key not in st.session_state:
+                st.session_state[widget_key] = float(st.session_state[value_key])
 
         if _mobile_show("Panoramica"):
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_stipendio_percepito_value",
+                "mobile_salary_stipendio_percepito_num",
+                input_stipendio_percepito
+            )
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_budget_da_stipendio_value",
+                "mobile_salary_budget_da_stipendio_num",
+                input_budget_da_stipendio,
+                max_value=st.session_state["mobile_salary_stipendio_percepito_value"]
+            )
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_risparmi_mese_precedente_value",
+                "mobile_salary_risparmi_mese_precedente_num",
+                input_risparmi_mese_precedente
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_stipendio_percepito_num",
+                "mobile_salary_stipendio_percepito_value"
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_budget_da_stipendio_num",
+                "mobile_salary_budget_da_stipendio_value"
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_risparmi_mese_precedente_num",
+                "mobile_salary_risparmi_mese_precedente_value"
+            )
             salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
             with salary_col1:
                 st.markdown('<div class="mobile-salary-field-title green">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -5299,7 +5339,13 @@ def main():
                     step=50.0,
                     key="mobile_salary_stipendio_percepito_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_stipendio_percepito_value",
+                        "mobile_salary_stipendio_percepito_num",
+                        input_stipendio_percepito
+                    )
                 )
             if "mobile_salary_budget_da_stipendio_num" in st.session_state:
                 st.session_state["mobile_salary_budget_da_stipendio_num"] = min(
@@ -5316,7 +5362,14 @@ def main():
                     step=50.0,
                     key="mobile_salary_budget_da_stipendio_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_budget_da_stipendio_value",
+                        "mobile_salary_budget_da_stipendio_num",
+                        input_budget_da_stipendio,
+                        float(stipendio_percepito)
+                    )
                 )
             with salary_col3:
                 st.markdown('<div class="mobile-salary-field-title yellow">Risparmi mese prec.</div>', unsafe_allow_html=True)
@@ -5327,7 +5380,13 @@ def main():
                     step=50.0,
                     key="mobile_salary_risparmi_mese_precedente_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_risparmi_mese_precedente_value",
+                        "mobile_salary_risparmi_mese_precedente_num",
+                        input_risparmi_mese_precedente
+                    )
                 )
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
             st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
@@ -5894,6 +5953,7 @@ textarea {
         )
         home_carte_col, home_turni_col = st.columns([1, 1.12], gap="small")
         with home_carte_col:
+            st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
             st.markdown(
                 '<div class="mobile-home-recap">'
                 '<div class="mobile-home-carte-stack">'
@@ -5904,6 +5964,7 @@ textarea {
                 unsafe_allow_html=True,
             )
         with home_turni_col:
+            st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
             if turni_stats_home:
                 render_live_turni_kpis(turni_stats_home)
             else:
