@@ -1549,8 +1549,8 @@ if MOBILE_VIEW:
     }
     .mobile-home-recap-card {
         min-width: 0;
-        min-height: 66px;
-        padding: 9px 10px;
+        min-height: 52px;
+        padding: 8px 10px;
         border-radius: 13px;
         background:
             linear-gradient(135deg, color-mix(in srgb, var(--recap-color) 17%, transparent), rgba(255,255,255,.035));
@@ -1659,6 +1659,10 @@ if MOBILE_VIEW:
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    .mobile-home-recap-sub:empty {
+        display: none !important;
+        margin: 0 !important;
     }
     .mobile-home-recap .mobile-donut-card {
         min-height: 66px;
@@ -5826,11 +5830,16 @@ textarea {
 
         def _recap_card(label, value, color, sub="", wide=False):
             wide_class = " wide" if wide else ""
+            sub_html = (
+                f'<div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>'
+                if str(sub)
+                else ""
+            )
             return (
                 f'<div class="mobile-home-recap-card{wide_class}" style="--recap-color:{color};">'
                 f'<div class="mobile-home-recap-label">{html.escape(str(label))}</div>'
                 f'<div class="mobile-home-recap-value">{html.escape(str(value))}</div>'
-                f'<div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>'
+                f'{sub_html}'
                 "</div>"
             )
 
@@ -5916,7 +5925,7 @@ textarea {
             for voce in SPESE["BNL"]
         )
         carte_donut_home = _donut_or_empty(
-            "Distribuzione carte",
+            "Distribuzione",
             ["ING", "Revolut", "BNL", "Risparmi BNL"],
             [ing_total_home, revolut_total_home, bnl_total_home, risparmi_mensili],
             ["#d2691e", "#89cff0", "#2f8f46", "#77dd77"],
@@ -6442,7 +6451,7 @@ textarea {
             st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
             if MOBILE_VIEW:
                 fisse_donut_html = _mobile_donut_html(
-                    "Spese fisse",
+                    "Distribuzione",
                     df_fisse["Categoria"].tolist(),
                     df_fisse["Importo"].tolist(),
                     df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
@@ -7377,7 +7386,7 @@ textarea {
         
                     if MOBILE_VIEW:
                         carte_donut_html = _mobile_donut_html(
-                                "Distribuzione carte",
+                                "Distribuzione",
                                 df_carte["Carta"].tolist(),
                                 df_carte["Totale"].tolist(),
                                 ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
@@ -7417,7 +7426,7 @@ textarea {
                             alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                         ]
                         ).properties(
-                            title="💳 Distribuzione Carte",
+                            title="Distribuzione",
                             width=donut_width,
                             height=donut_height,
                         ).configure_title(
