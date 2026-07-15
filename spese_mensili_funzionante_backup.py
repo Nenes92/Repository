@@ -604,6 +604,31 @@ st.markdown(
 MOBILE_VIEW = VISTA_APP == "Telefono"
 MOBILE_SECTIONS = ["Panoramica", "Spese", "Variabili", "Entrate", "Risparmi", "Carte", "Note", "Turni", "Storico", "Bollette"]
 
+def _query_param_first(name):
+    value = st.query_params.get(name)
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
+
+def _query_param_float(name):
+    raw = _query_param_first(name)
+    if raw is None:
+        return None
+    text = str(raw).strip().replace("€", "").replace(" ", "")
+    if not text:
+        return None
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    try:
+        return max(0.0, float(text))
+    except ValueError:
+        return None
+
 if MOBILE_VIEW:
     mobile_section_param = st.query_params.get("mobile_section")
     if isinstance(mobile_section_param, list):
@@ -623,6 +648,32 @@ if MOBILE_VIEW:
         st.session_state["mobile_section_select"] = "Note"
     if st.session_state.get("mobile_section_select") not in MOBILE_SECTIONS:
         st.session_state["mobile_section_select"] = "Panoramica"
+    _mobile_salary_query_values = {
+        "mobile_salary_stipendio_percepito_value": _query_param_float("stip"),
+        "mobile_salary_budget_da_stipendio_value": _query_param_float("quota"),
+        "mobile_salary_risparmi_mese_precedente_value": _query_param_float("risp"),
+    }
+    _mobile_salary_query_signature = (
+        mobile_section_param,
+        _mobile_salary_query_values["mobile_salary_stipendio_percepito_value"],
+        _mobile_salary_query_values["mobile_salary_budget_da_stipendio_value"],
+        _mobile_salary_query_values["mobile_salary_risparmi_mese_precedente_value"],
+    )
+    if (
+        any(value is not None for value in _mobile_salary_query_values.values())
+        and st.session_state.get("_mobile_salary_query_signature_applied") != _mobile_salary_query_signature
+    ):
+        stipendio_query = _mobile_salary_query_values["mobile_salary_stipendio_percepito_value"]
+        quota_query = _mobile_salary_query_values["mobile_salary_budget_da_stipendio_value"]
+        risp_query = _mobile_salary_query_values["mobile_salary_risparmi_mese_precedente_value"]
+        if stipendio_query is not None:
+            st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_query
+        if quota_query is not None:
+            quota_max = st.session_state.get("mobile_salary_stipendio_percepito_value", stipendio_query or 2350.0)
+            st.session_state["mobile_salary_budget_da_stipendio_value"] = min(quota_query, float(quota_max))
+        if risp_query is not None:
+            st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risp_query
+        st.session_state["_mobile_salary_query_signature_applied"] = _mobile_salary_query_signature
     st.markdown("""
     <style>
     .block-container {
@@ -2217,13 +2268,21 @@ if MOBILE_VIEW:
         "Bollette": "Storico bollette",
     }
     mobile_section = st.session_state.get("mobile_section_select", "Panoramica")
+    def _mobile_nav_salary_params():
+        stipendio_nav = float(st.session_state.get("mobile_salary_stipendio_percepito_value", 2350.0))
+        quota_nav = float(st.session_state.get("mobile_salary_budget_da_stipendio_value", 2350.0))
+        risp_nav = float(st.session_state.get("mobile_salary_risparmi_mese_precedente_value", 0.0))
+        quota_nav = min(quota_nav, stipendio_nav)
+        return f"&stip={stipendio_nav:.2f}&quota={quota_nav:.2f}&risp={risp_nav:.2f}"
+
+    _salary_nav_params = _mobile_nav_salary_params()
     _mobile_nav_html = ['<div class="mobile-section-grid">']
     for _section, _css_class, _fallback_label, _description in _mobile_cards:
         _label = mobile_section_labels.get(_section, _fallback_label)
         _active = " active" if _section == mobile_section else ""
         _mobile_nav_html.append(
             f'<a class="mobile-section-link {_css_class}{_active}" '
-            f'href="?view=mobile&mobile_section={html.escape(_section)}#mobile-top" '
+            f'href="?view=mobile&mobile_section={html.escape(_section)}{_salary_nav_params}#mobile-top" '
             f'target="_self">{html.escape(_label)}</a>'
         )
     _mobile_nav_html.append("</div>")
