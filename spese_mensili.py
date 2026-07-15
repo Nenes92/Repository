@@ -1612,12 +1612,13 @@ if MOBILE_VIEW:
         gap: 6px;
     }
     .mobile-home-carte-live-left-marker,
+    .mobile-home-carte-live-spacer-marker,
     .mobile-home-carte-live-right-marker {
         display: none !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
         display: grid !important;
-        grid-template-columns: minmax(0, .58fr) minmax(0, 1.74fr) !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) !important;
         gap: 14px !important;
         align-items: start !important;
     }
@@ -6035,31 +6036,33 @@ textarea {
             home_recap_html,
             unsafe_allow_html=True,
         )
-        home_carte_col, home_turni_col = st.columns([0.58, 1.74], gap="small")
-        with home_carte_col:
-            st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div class="mobile-home-recap">'
-                '<div class="mobile-home-carte-stack">'
+    home_carte_col, home_spacer_col, home_turni_col = st.columns([1, 1, 2], gap="small")
+    with home_carte_col:
+        st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="mobile-home-recap">'
+            '<div class="mobile-home-carte-stack">'
                 + carte_list_home
                 + carte_donut_home
                 + '</div>'
                 '</div>',
+            unsafe_allow_html=True,
+        )
+    with home_spacer_col:
+        st.markdown('<div class="mobile-home-carte-live-spacer-marker"></div>', unsafe_allow_html=True)
+    with home_turni_col:
+        st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
+        if turni_stats_home:
+            render_live_turni_kpis(turni_stats_home)
+        else:
+            st.markdown(
+                '<div class="mobile-home-recap">'
+                '<div class="mobile-home-turni-row">'
+                + turni_cards_home
+                + '</div>'
+                '</div>',
                 unsafe_allow_html=True,
             )
-        with home_turni_col:
-            st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
-            if turni_stats_home:
-                render_live_turni_kpis(turni_stats_home)
-            else:
-                st.markdown(
-                    '<div class="mobile-home-recap">'
-                    '<div class="mobile-home-turni-row">'
-                    + turni_cards_home
-                    + '</div>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
