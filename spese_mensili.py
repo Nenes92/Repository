@@ -2962,7 +2962,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             alt.Tooltip(field="Percentuale", title="Percentuale")
         ]
     ).properties(
-        title="🏠 Distribuzione Spese Fisse",
+        title="Distribuzione",
         width=200,
         height=220
     ).configure_title(
@@ -6011,10 +6011,10 @@ textarea {
         home_recap_html = (
             '<div class="mobile-home-recap">'
             '<div class="mobile-home-recap-row">'
-            + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
-            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese", variabili_donut_home)
-            + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
-            + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
+            + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "", fisse_donut_home)
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "", variabili_donut_home)
+            + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "", altre_donut_home)
+            + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "", risparmi_donut_home)
             + '</div>'
             '</div>'
         )
@@ -6448,7 +6448,7 @@ textarea {
                     df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
                 )
                 entrate_donut_html = _mobile_donut_html(
-                    "Entrate",
+                    "Entrate mensili totali",
                     df_totale_clean["Component"].tolist(),
                     df_totale_clean["Value"].tolist(),
                     df_totale_clean["Component"].map({
@@ -6458,7 +6458,7 @@ textarea {
                     }).fillna("#94a3b8").tolist()
                 )
                 budget_donut_html = _mobile_donut_html(
-                    "Budget",
+                    "Budget mensile disponibile",
                     df_utilizzare_clean["Component"].tolist(),
                     df_utilizzare_clean["Value"].tolist(),
                     df_utilizzare_clean["Component"].map({
