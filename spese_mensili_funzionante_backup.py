@@ -1433,7 +1433,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.spese,
     .mobile-nav a.spese { --section-color:#f87171; }
     .mobile-home-card.variabili,
-    .mobile-card-caption.variabili { --section-color:#4ade80; }
+    .mobile-card-caption.variabili { --section-color:#facc15; }
     .mobile-home-card.entrate,
     .mobile-card-caption.entrate,
     .mobile-nav a.entrate { --section-color:#34d399; }
@@ -1454,7 +1454,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.bollette,
     .mobile-nav a.bollette { --section-color:#fb923c; }
     .mobile-nav a.panoramica { --section-color:#38bdf8; }
-    .mobile-nav a.variabili { --section-color:#4ade80; }
+    .mobile-nav a.variabili { --section-color:#facc15; }
     .mobile-nav a.carte { --section-color:#89cff0; }
     .mobile-home-card.active,
     .mobile-card-caption.active {
@@ -1485,14 +1485,14 @@ if MOBILE_VIEW:
     }
     .mobile-home-recap-row {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
         align-items: stretch;
     }
     .mobile-home-recap-pair {
         min-width: 0;
-        display: grid;
-        grid-template-columns: minmax(0, .96fr) minmax(0, .86fr);
+        display: flex;
+        flex-direction: column;
         gap: 6px;
         align-items: stretch;
     }
@@ -1513,9 +1513,15 @@ if MOBILE_VIEW:
     }
     .mobile-home-carte-row {
         display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
         align-items: stretch;
+    }
+    .mobile-home-carte-stack {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
     .mobile-home-carte-list {
         min-width: 0;
@@ -1537,7 +1543,7 @@ if MOBILE_VIEW:
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        color: rgba(255,255,255,.70);
+        color: var(--carte-color, rgba(255,255,255,.70));
         font-size: 8.5px;
         line-height: 1.45;
     }
@@ -1548,11 +1554,29 @@ if MOBILE_VIEW:
         white-space: nowrap;
     }
     .mobile-home-turni-row {
-        width: min(78%, 420px);
-        margin: 2px auto 0;
+        width: 100%;
+        margin: 0;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
+    .mobile-home-carte-live-left-marker,
+    .mobile-home-carte-live-right-marker {
+        display: none !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
+        display: grid !important;
+        grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr) !important;
+        gap: 14px !important;
+        align-items: start !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) > div[data-testid="column"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        flex: unset !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) .mobile-home-recap {
+        margin-top: 0 !important;
     }
     .mobile-home-recap-label {
         color: rgba(255,255,255,.48);
@@ -1756,7 +1780,7 @@ if MOBILE_VIEW:
     }
     .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
     .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
-    .mobile-section-link.variabili { --mobile-section-color:#4ade80; grid-column:5; grid-row:1; }
+    .mobile-section-link.variabili { --mobile-section-color:#facc15; grid-column:5; grid-row:1; }
     .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
     .mobile-section-link.risparmi { --mobile-section-color:#facc15; grid-column:8; grid-row:1; }
     .mobile-section-link.carte { --mobile-section-color:#89cff0; grid-column:1; grid-row:2; }
@@ -5250,7 +5274,61 @@ def main():
         for salary_key, salary_default in mobile_salary_defaults.items():
             st.session_state.setdefault(salary_key, salary_default)
 
+        def _sync_mobile_salary_from_widget(value_key, widget_key, default, max_value=None):
+            if widget_key in st.session_state:
+                st.session_state[value_key] = _parse_mobile_amount(
+                    st.session_state[widget_key],
+                    default,
+                    max_value=max_value
+                )
+            else:
+                st.session_state.setdefault(value_key, float(default))
+            if max_value is not None:
+                st.session_state[value_key] = min(
+                    float(st.session_state[value_key]),
+                    float(max_value)
+                )
+
+        def _store_mobile_salary_widget(value_key, widget_key, default, max_value=None):
+            st.session_state[value_key] = _parse_mobile_amount(
+                st.session_state.get(widget_key, st.session_state.get(value_key, default)),
+                default,
+                max_value=max_value
+            )
+
+        def _prime_mobile_salary_widget(widget_key, value_key):
+            if widget_key not in st.session_state:
+                st.session_state[widget_key] = float(st.session_state[value_key])
+
         if _mobile_show("Panoramica"):
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_stipendio_percepito_value",
+                "mobile_salary_stipendio_percepito_num",
+                input_stipendio_percepito
+            )
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_budget_da_stipendio_value",
+                "mobile_salary_budget_da_stipendio_num",
+                input_budget_da_stipendio,
+                max_value=st.session_state["mobile_salary_stipendio_percepito_value"]
+            )
+            _sync_mobile_salary_from_widget(
+                "mobile_salary_risparmi_mese_precedente_value",
+                "mobile_salary_risparmi_mese_precedente_num",
+                input_risparmi_mese_precedente
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_stipendio_percepito_num",
+                "mobile_salary_stipendio_percepito_value"
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_budget_da_stipendio_num",
+                "mobile_salary_budget_da_stipendio_value"
+            )
+            _prime_mobile_salary_widget(
+                "mobile_salary_risparmi_mese_precedente_num",
+                "mobile_salary_risparmi_mese_precedente_value"
+            )
             salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
             with salary_col1:
                 st.markdown('<div class="mobile-salary-field-title green">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -5261,7 +5339,13 @@ def main():
                     step=50.0,
                     key="mobile_salary_stipendio_percepito_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_stipendio_percepito_value",
+                        "mobile_salary_stipendio_percepito_num",
+                        input_stipendio_percepito
+                    )
                 )
             if "mobile_salary_budget_da_stipendio_num" in st.session_state:
                 st.session_state["mobile_salary_budget_da_stipendio_num"] = min(
@@ -5278,7 +5362,14 @@ def main():
                     step=50.0,
                     key="mobile_salary_budget_da_stipendio_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_budget_da_stipendio_value",
+                        "mobile_salary_budget_da_stipendio_num",
+                        input_budget_da_stipendio,
+                        float(stipendio_percepito)
+                    )
                 )
             with salary_col3:
                 st.markdown('<div class="mobile-salary-field-title yellow">Risparmi mese prec.</div>', unsafe_allow_html=True)
@@ -5289,7 +5380,13 @@ def main():
                     step=50.0,
                     key="mobile_salary_risparmi_mese_precedente_num",
                     label_visibility="collapsed",
-                    format="%.0f"
+                    format="%.0f",
+                    on_change=_store_mobile_salary_widget,
+                    args=(
+                        "mobile_salary_risparmi_mese_precedente_value",
+                        "mobile_salary_risparmi_mese_precedente_num",
+                        input_risparmi_mese_precedente
+                    )
                 )
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
             st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
@@ -5753,14 +5850,23 @@ textarea {
             [ing_total_home, revolut_total_home, bnl_total_home, risparmi_mensili],
             ["#d2691e", "#89cff0", "#2f8f46", "#77dd77"],
         )
+
+        def _carte_item(label, value, color):
+            return (
+                f'<div class="mobile-home-carte-item" style="--carte-color:{color};">'
+                f'<span>{html.escape(str(label))}</span>'
+                f'<strong>{html.escape(_money_turni(value))}</strong>'
+                '</div>'
+            )
+
         carte_list_home = (
             '<div class="mobile-home-carte-list">'
             '<div class="mobile-home-carte-title">Carte</div>'
-            f'<div class="mobile-home-carte-item"><span>ING</span><strong>{_money_turni(ing_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>Revolut</span><strong>{_money_turni(revolut_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>BNL</span><strong>{_money_turni(bnl_total_home)}</strong></div>'
-            f'<div class="mobile-home-carte-item"><span>Risparmio BNL</span><strong>{_money_turni(risparmi_mensili)}</strong></div>'
-            '</div>'
+            + _carte_item("ING", ing_total_home, SPESA_FISSA_CARTA_COLORI.get("ING", "#D2691E"))
+            + _carte_item("Revolut", revolut_total_home, SPESA_FISSA_CARTA_COLORI.get("Revolut", "#89CFF0"))
+            + _carte_item("BNL", bnl_total_home, SPESA_FISSA_CARTA_COLORI.get("BNL", "#228B22"))
+            + _carte_item("Risparmio BNL", risparmi_mensili, "#77DD77")
+            + '</div>'
         )
 
         turni_stats_home = None
@@ -5773,60 +5879,71 @@ textarea {
         except Exception:
             turni_stats_home = None
 
-        turno_label = "Turno oggi"
-        turno_value = "Dati non caricati"
-        turno_sub = "apri la sezione turni"
-        next_label = "Prossimo turno"
-        next_value = "—"
-        next_sub = "nessun turno futuro"
+        turni_cards_home = (
+            _recap_card("Mese corrente — live / stimato cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
+            + _recap_card("Turno — live / totale turno", "—", "#60a5fa", "nessun dato")
+            + _recap_card("Stato turno", "—", "#fef3c7", "nessun dato")
+        )
         if turni_stats_home:
-            if turni_stats_home.get("is_on_shift"):
-                turno_label = "Turno in corso"
-                turno_value = turni_stats_home.get("current_turno") or "In turno"
-                turno_total = turni_stats_home.get("expected_today", 0)
-                turno_sub = (
-                    f"{turni_stats_home.get('current_shift_type', '')} · "
-                    f"{_money_turni(turni_stats_home.get('rate_min', 0) * 60)}/h · "
-                    f"tot {_money_turni(turno_total)}"
-                ).strip(" ·")
-            elif turni_stats_home.get("is_on_leave"):
-                turno_label = "Oggi"
-                turno_value = "Ferie"
-                turno_sub = _money_turni(turni_stats_home.get("expected_today", 0))
-            else:
-                turno_label = "Stato turno"
-                turno_value = "Fuori turno"
-                turno_sub = turni_stats_home.get("next_shift_label") or "nessun turno futuro"
+            work_days_done = int(turni_stats_home.get("work_days_done", 0))
+            work_days_total = int(turni_stats_home.get("work_days_total", 0))
+            ferie_days_total = int(turni_stats_home.get("ferie_days_total", 0))
+            month_days_total = work_days_total + ferie_days_total
+            ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
+            month_value_home = (
+                f"{_money_turni(turni_stats_home.get('live_month', 0))} / "
+                f"{_money_turni(turni_stats_home.get('payslip_estimate', 0))}"
+            )
+            month_sub_home = f"Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}"
 
-            next_value = turni_stats_home.get("next_shift_label") or "—"
-            next_total = turni_stats_home.get("next_shift_total", 0)
-            wait_label = _time_until_label(turni_stats_home.get("next_shift_start", ""))
-            if next_total and wait_label:
-                next_sub = f"{_money_turni(next_total)} · tra {wait_label}"
-            elif next_total:
-                next_sub = _money_turni(next_total)
-            elif wait_label:
-                next_sub = f"tra {wait_label}"
+            turno_label_home = turni_stats_home.get("turno_kpi_label", "Turno — live / totale turno")
+            turno_value_home = (
+                f"{_money_turni(turni_stats_home.get('live_today', 0))} / "
+                f"{_money_turni(turni_stats_home.get('expected_today', 0))}"
+            )
+            shift_type_home = str(turni_stats_home.get("current_shift_type", ""))
+            if turni_stats_home.get("is_on_shift") or turni_stats_home.get("is_on_leave"):
+                remaining_label = _time_until_label(turni_stats_home.get("current_shift_end", ""))
+                turno_sub_home = f"Ore mancanti: {remaining_label}" if remaining_label else shift_type_home
+                if shift_type_home and remaining_label:
+                    turno_sub_home = f"{turno_sub_home} · {shift_type_home}"
             else:
-                next_sub = "nessun importo stimato"
+                wait_label = _time_until_label(turni_stats_home.get("next_shift_start", ""))
+                next_total = turni_stats_home.get("next_shift_total", 0)
+                if wait_label and next_total:
+                    turno_sub_home = f"Prossimo tra {wait_label} · {_money_turni(next_total)}"
+                elif wait_label:
+                    turno_sub_home = f"Prossimo tra {wait_label}"
+                else:
+                    turno_sub_home = turni_stats_home.get("next_shift_label", "nessun turno futuro")
+
+            rate_min_home = float(turni_stats_home.get("rate_min", 0) or 0)
+            rate_hour_home = rate_min_home * 60
+            current_turno_home = turni_stats_home.get("current_turno") or ""
+            current_date_home = turni_stats_home.get("current_shift_date") or ""
+            if turni_stats_home.get("is_on_shift"):
+                status_value_home = f"In turno · {current_turno_home}"
+            elif turni_stats_home.get("is_on_leave"):
+                status_value_home = "Fuori turno · in ferie"
+            else:
+                status_value_home = "Fuori turno"
+            if current_date_home and status_value_home != "Fuori turno":
+                status_value_home = f"{status_value_home} · {current_date_home}"
+            status_sub_home = f"{rate_min_home:.2f} €/min · {rate_hour_home:.2f} €/h"
+
+            turni_cards_home = (
+                _recap_card("Mese corrente — live / stimato cedolino", month_value_home, "#34d399", month_sub_home)
+                + _recap_card(turno_label_home, turno_value_home, "#60a5fa", turno_sub_home)
+                + _recap_card("Stato turno", status_value_home, "#fef3c7", status_sub_home)
+            )
 
         home_recap_html = (
             '<div class="mobile-home-recap">'
             '<div class="mobile-home-recap-row">'
             + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
-            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#34d399", "quote mese", variabili_donut_home)
-            + '</div>'
-            '<div class="mobile-home-recap-row">'
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese", variabili_donut_home)
             + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
             + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
-            + '</div>'
-            '<div class="mobile-home-carte-row">'
-            + carte_list_home
-            + carte_donut_home
-            + '</div>'
-            '<div class="mobile-home-turni-row">'
-            + _recap_card(turno_label, turno_value, "#60a5fa", turno_sub)
-            + _recap_card(next_label, next_value, "#60a5fa", next_sub)
             + '</div>'
             '</div>'
         )
@@ -5834,6 +5951,31 @@ textarea {
             home_recap_html,
             unsafe_allow_html=True,
         )
+        home_carte_col, home_turni_col = st.columns([1, 1.12], gap="small")
+        with home_carte_col:
+            st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="mobile-home-recap">'
+                '<div class="mobile-home-carte-stack">'
+                + carte_list_home
+                + carte_donut_home
+                + '</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        with home_turni_col:
+            st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
+            if turni_stats_home:
+                render_live_turni_kpis(turni_stats_home)
+            else:
+                st.markdown(
+                    '<div class="mobile-home-recap">'
+                    '<div class="mobile-home-turni-row">'
+                    + turni_cards_home
+                    + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
