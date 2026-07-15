@@ -5901,9 +5901,9 @@ textarea {
         )
         risparmi_donut_home = _donut_or_empty(
             "Distribuzione",
-            ["Da stipendio", "Mese prec.", "Da spendere", "Quotidiane"],
-            [risparmio_stipendi, risparmi_mese_precedente, risparmio_da_spendere, risparmio_spese_quotidiane],
-            ["#60a5fa", "#93c5fd", "#facc15", "#fb923c"],
+            ["Da stipendio", "Mese prec.", "Emerg./Compl.", "Da spendere", "Quotidiane"],
+            [risparmio_stipendi, risparmi_mese_precedente, risparmio_emergenze_compleanni, risparmio_da_spendere, risparmio_spese_quotidiane],
+            ["#60a5fa", "#93c5fd", "#4ade80", "#facc15", "#fb923c"],
         )
 
         ing_total_home = sum(
@@ -7168,14 +7168,17 @@ textarea {
                 # valori già calcolati
                 v1 = risparmio_stipendi_calc
                 v2 = risparmi_mese_precedente
-                v3 = risparmio_da_spendere_calc
-                v4 = risparmio_spese_quotidiane_calc
+                v3 = risparmio_emergenze_calc
+                v4 = risparmio_da_spendere_calc
+                v5 = risparmio_spese_quotidiane_calc
             
                 html_risparmi = ""
                 html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
                 html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
-                html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
-                html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
+                html_risparmi += '<div style="height:1px;background:rgba(148,163,184,0.24);margin:10px 0 8px;"></div>'
+                html_risparmi += _money_row_html("Da Emergenze/Compleanni", v3, "#4ade80", triangolino_verde_BNL, f"eccedenza oltre il limite €{limite_emergenze_compleanni:.2f}")
+                html_risparmi += _money_row_html("Dai 'Da Spendere'", v4, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
+                html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v5, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
                 if not MOBILE_VIEW:
                     st.markdown(html_risparmi, unsafe_allow_html=True)
                     st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
@@ -7201,11 +7204,11 @@ textarea {
                     if not MOBILE_VIEW:
                         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                         st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-                    savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                    savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
                     df_savings_raw = pd.DataFrame({
-                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                        'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                        'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     })
                     df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
                     totale = df_savings["Value"].sum()
@@ -7222,6 +7225,7 @@ textarea {
                                 df_savings["Component"].map({
                                     "Da Stipendi": "#9ca3af",
                                     "Da Mese Prec.": "#60a5fa",
+                                    "Emerg./Compl.": "#4ade80",
                                     "Da Spendere": "#fde047",
                                     "Quotidiane": "#FB923C",
                                 }).fillna("#94a3b8").tolist()
@@ -7258,8 +7262,8 @@ textarea {
                                 color=alt.Color(
                                     field="Component", type="nominal",
                                     scale=alt.Scale(
-                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                        range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                                        range=['#9ca3af', '#60a5fa', '#4ade80', '#fde047', '#FB923C']
                                     ),
                                     legend=alt.Legend(
                                         title=None,
