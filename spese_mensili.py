@@ -6036,33 +6036,33 @@ textarea {
             home_recap_html,
             unsafe_allow_html=True,
         )
-    home_carte_col, home_spacer_col, home_turni_col = st.columns([1.22, 0.52, 2.26], gap="small")
-    with home_carte_col:
-        st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="mobile-home-recap">'
-            '<div class="mobile-home-carte-stack">'
-                + carte_list_home
-                + carte_donut_home
-                + '</div>'
-                '</div>',
-            unsafe_allow_html=True,
-        )
-    with home_spacer_col:
-        st.markdown('<div class="mobile-home-carte-live-spacer-marker"></div>', unsafe_allow_html=True)
-    with home_turni_col:
-        st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
-        if turni_stats_home:
-            render_live_turni_kpis(turni_stats_home)
-        else:
+        home_carte_col, home_spacer_col, home_turni_col = st.columns([1.22, 0.52, 2.26], gap="small")
+        with home_carte_col:
+            st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
             st.markdown(
                 '<div class="mobile-home-recap">'
-                '<div class="mobile-home-turni-row">'
-                + turni_cards_home
-                + '</div>'
-                '</div>',
+                '<div class="mobile-home-carte-stack">'
+                    + carte_list_home
+                    + carte_donut_home
+                    + '</div>'
+                    '</div>',
                 unsafe_allow_html=True,
             )
+        with home_spacer_col:
+            st.markdown('<div class="mobile-home-carte-live-spacer-marker"></div>', unsafe_allow_html=True)
+        with home_turni_col:
+            st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
+            if turni_stats_home:
+                render_live_turni_kpis(turni_stats_home)
+            else:
+                st.markdown(
+                    '<div class="mobile-home-recap">'
+                    '<div class="mobile-home-turni-row">'
+                    + turni_cards_home
+                    + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
 
     df_altre_entrate = pd.DataFrame.from_dict(ALTRE_ENTRATE, orient="index", columns=["Importo"]).reset_index().rename(columns={"index": "Categoria"})
 
