@@ -3122,7 +3122,7 @@ CALENDAR_ICAL_URLS = {
     "Ferie": "https://calendar.google.com/calendar/ical/c3406a4e631b5c206ccd07c267a9346b089f22a9fd7f4dc0cc7ff24140be54c0%40group.calendar.google.com/private-a8aaf23582ab3d900f656dc389edf856/basic.ics",
 }
 CALENDAR_SEDE_ICAL_URLS = {
-    "Sede": "https://calendar.google.com/calendar/ical/longheu.emanuele%40gmail.com/private-333ac2f2fdd3ea32caa001dde8755ab6/basic.ics",
+    "Sede": "https://calendar.google.com/calendar/ical/ff7imcief5ud32g9u3852njf94%40group.calendar.google.com/private-2a37c613b6ca1fc73b5691927398db4a/basic.ics",
 }
 
 TURNI_ORARI = {
