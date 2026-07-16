@@ -1484,7 +1484,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.spese,
     .mobile-nav a.spese { --section-color:#f87171; }
     .mobile-home-card.variabili,
-    .mobile-card-caption.variabili { --section-color:#facc15; }
+    .mobile-card-caption.variabili { --section-color:#f59e0b; }
     .mobile-home-card.entrate,
     .mobile-card-caption.entrate,
     .mobile-nav a.entrate { --section-color:#34d399; }
@@ -1505,7 +1505,7 @@ if MOBILE_VIEW:
     .mobile-card-caption.bollette,
     .mobile-nav a.bollette { --section-color:#fb923c; }
     .mobile-nav a.panoramica { --section-color:#38bdf8; }
-    .mobile-nav a.variabili { --section-color:#facc15; }
+    .mobile-nav a.variabili { --section-color:#f59e0b; }
     .mobile-nav a.carte { --section-color:#89cff0; }
     .mobile-home-card.active,
     .mobile-card-caption.active {
@@ -1836,7 +1836,7 @@ if MOBILE_VIEW:
     }
     .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
     .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
-    .mobile-section-link.variabili { --mobile-section-color:#facc15; grid-column:5; grid-row:1; }
+    .mobile-section-link.variabili { --mobile-section-color:#f59e0b; grid-column:5; grid-row:1; }
     .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
     .mobile-section-link.risparmi { --mobile-section-color:#facc15; grid-column:8; grid-row:1; }
     .mobile-section-link.carte { --mobile-section-color:#89cff0; grid-column:1; grid-row:2; }
@@ -1911,7 +1911,7 @@ if MOBILE_VIEW:
         padding-top: 10px;
     }
     #mobile-spese { border-top-color: rgba(248,113,113,.48); }
-    #mobile-variabili { border-top-color: rgba(74,222,128,.48); }
+    #mobile-variabili { border-top-color: rgba(245,158,11,.48); }
     #mobile-entrate { border-top-color: rgba(52,211,153,.48); }
     #mobile-risparmi { border-top-color: rgba(250,204,21,.48); }
     #mobile-carte { border-top-color: rgba(137,207,240,.48); }
@@ -5992,9 +5992,9 @@ textarea {
         )
         risparmi_donut_home = _donut_or_empty(
             "Distribuzione",
-            ["Da stipendio", "Mese prec.", "Emerg./Compl.", "Da spendere", "Quotidiane"],
+            ["Dal budget non usato", "Dal Mese Precedente", "Da Emergenze/Compleanni", "Dai 'Da Spendere'", "Dalle 'Spese Quotidiane'"],
             [risparmio_stipendi, risparmi_mese_precedente, risparmio_emergenze_compleanni, risparmio_da_spendere, risparmio_spese_quotidiane],
-            ["#60a5fa", "#93c5fd", "#4ade80", "#facc15", "#fb923c"],
+            ["#9ca3af", "#60a5fa", "#4ade80", "#fde047", "#FB923C"],
         )
 
         ing_total_home = sum(
@@ -6103,7 +6103,7 @@ textarea {
             '<div class="mobile-home-recap">'
             '<div class="mobile-home-recap-row">'
             + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "", fisse_donut_home)
-            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "", variabili_donut_home)
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#f59e0b", "", variabili_donut_home)
             + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "", altre_donut_home)
             + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "", risparmi_donut_home)
             + '</div>'
@@ -7300,7 +7300,7 @@ textarea {
                     savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
                     df_savings_raw = pd.DataFrame({
-                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                        'Component': ["Dal budget non usato", "Dal Mese Precedente", "Da Emergenze/Compleanni", "Dai 'Da Spendere'", "Dalle 'Spese Quotidiane'"],
                         'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     })
                     df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
@@ -7316,11 +7316,11 @@ textarea {
                                 df_savings["Component"].tolist(),
                                 df_savings["Value"].tolist(),
                                 df_savings["Component"].map({
-                                    "Da Stipendi": "#9ca3af",
-                                    "Da Mese Prec.": "#60a5fa",
-                                    "Emerg./Compl.": "#4ade80",
-                                    "Da Spendere": "#fde047",
-                                    "Quotidiane": "#FB923C",
+                                    "Dal budget non usato": "#9ca3af",
+                                    "Dal Mese Precedente": "#60a5fa",
+                                    "Da Emergenze/Compleanni": "#4ade80",
+                                    "Dai 'Da Spendere'": "#fde047",
+                                    "Dalle 'Spese Quotidiane'": "#FB923C",
                                 }).fillna("#94a3b8").tolist()
                             )
                         else:
@@ -7355,7 +7355,7 @@ textarea {
                                 color=alt.Color(
                                     field="Component", type="nominal",
                                     scale=alt.Scale(
-                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                                        domain=["Dal budget non usato", "Dal Mese Precedente", "Da Emergenze/Compleanni", "Dai 'Da Spendere'", "Dalle 'Spese Quotidiane'"],
                                         range=['#9ca3af', '#60a5fa', '#4ade80', '#fde047', '#FB923C']
                                     ),
                                     legend=alt.Legend(
