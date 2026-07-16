@@ -2330,11 +2330,11 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [1, 2.65, 1.85],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "dashboard_principale": [1, 2.6, 1.9],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
     "turni_calendario_riepilogo": [1.55, 0.50],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
-    "spese_fisse_lista": [1, 1.25],
+    "spese_fisse_lista": [1, 1.3],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
