@@ -3121,6 +3121,9 @@ CALENDAR_ICAL_URLS = {
     "Notte": "https://calendar.google.com/calendar/ical/bbe8a74b626dddc4b57dd69d6ab1e0f0760b971d95eb029ef7d525525c113250%40group.calendar.google.com/private-15677dcf429c1ce645b8e78d3687768a/basic.ics",
     "Ferie": "https://calendar.google.com/calendar/ical/c3406a4e631b5c206ccd07c267a9346b089f22a9fd7f4dc0cc7ff24140be54c0%40group.calendar.google.com/private-a8aaf23582ab3d900f656dc389edf856/basic.ics",
 }
+CALENDAR_SEDE_ICAL_URLS = {
+    "Sede": "https://calendar.google.com/calendar/ical/longheu.emanuele%40gmail.com/private-333ac2f2fdd3ea32caa001dde8755ab6/basic.ics",
+}
 
 TURNI_ORARI = {
     "Mattina": ("06:00", "14:00"),
@@ -4242,8 +4245,58 @@ def import_turni_from_calendar_sources(calendar_sources, selected_month):
     return _normalize_turni_df(df.drop(columns=["turno_priority"])), errors
 
 
-def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
+def import_sede_dates_from_calendar_ics(ical_url, selected_month):
+    ical_text = load_google_calendar_ics(ical_url)
+    events = []
+    current = None
+    for line in _unfold_ics_lines(ical_text):
+        if line == "BEGIN:VEVENT":
+            current = {}
+            continue
+        if line == "END:VEVENT":
+            if current:
+                events.append(current)
+            current = None
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.split(";", 1)[0].upper()
+        if key in ["SUMMARY", "DTSTART"]:
+            current[key] = value
+
+    month_key = selected_month.strftime("%Y-%m")
+    sede_dates = set()
+    for event in events:
+        summary = event.get("SUMMARY", "").strip().lower()
+        if "sede" not in summary:
+            continue
+        start = _parse_ics_datetime(event.get("DTSTART", ""))
+        if not start:
+            continue
+        data_str = start.strftime("%Y-%m-%d")
+        if data_str.startswith(month_key):
+            sede_dates.add(data_str)
+    return sede_dates
+
+
+def import_sede_dates_from_calendar_sources(calendar_sources, selected_month):
+    sede_dates = set()
+    errors = []
+    for source_name, ical_url in calendar_sources.items():
+        if not ical_url:
+            continue
+        try:
+            sede_dates.update(import_sede_dates_from_calendar_ics(ical_url, selected_month))
+        except Exception as e:
+            errors.append(f"{source_name}: {e}")
+    return sede_dates, errors
+
+
+def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month, sede_calendar_sources=None):
     imported, errors = import_turni_from_calendar_sources(calendar_sources, selected_month)
+    sede_dates, sede_errors = import_sede_dates_from_calendar_sources(sede_calendar_sources or {}, selected_month)
+    errors.extend(sede_errors)
     if imported.empty:
         return df_turni.copy(), 0, errors
     month_key = selected_month.strftime("%Y-%m")
@@ -4254,14 +4307,24 @@ def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
             extra = existing_extra.get(row["Data"])
             if extra:
                 imported.at[idx, "Straordinario minuti"] = extra.get("Straordinario minuti", 0)
-                imported.at[idx, "Sede"] = extra.get("Sede", False)
+                imported.at[idx, "Sede"] = bool(extra.get("Sede", False)) or row["Data"] in sede_dates
+            elif row["Data"] in sede_dates:
+                imported.at[idx, "Sede"] = True
+    if sede_dates:
+        imported.loc[imported["Data"].isin(sede_dates), "Sede"] = True
     other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
     manual_festivi = df_turni[
         df_turni["Data"].str.startswith(month_key)
         & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
         & (df_turni["Festivo"] == True)
     ].copy()
-    synced = pd.concat([other_months, manual_festivi, imported], ignore_index=True)
+    manual_sedi = df_turni[
+        df_turni["Data"].str.startswith(month_key)
+        & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
+        & (df_turni["Sede"] == True)
+    ].copy()
+    manual_sedi = manual_sedi[~manual_sedi["Data"].isin(imported["Data"])]
+    synced = pd.concat([other_months, manual_festivi, manual_sedi, imported], ignore_index=True)
     return _normalize_turni_df(synced), len(imported), errors
 
 
@@ -4286,6 +4349,22 @@ def _default_calendar_ical_urls():
     single_url = _default_calendar_ical_url()
     if single_url:
         urls["Auto"] = single_url
+    return urls
+
+
+def _default_sede_calendar_ical_urls():
+    urls = {source_name: url for source_name, url in CALENDAR_SEDE_ICAL_URLS.items() if url}
+    try:
+        secret_url = st.secrets.get("GOOGLE_CALENDAR_SEDE_ICAL_URL", "")
+        if secret_url:
+            urls["Sede"] = secret_url
+        secret_urls = st.secrets.get("GOOGLE_CALENDAR_SEDE_ICAL_URLS", {})
+        if hasattr(secret_urls, "items"):
+            for source_name, url in secret_urls.items():
+                if url:
+                    urls[str(source_name)] = url
+    except Exception:
+        pass
     return urls
 
 
@@ -4917,9 +4996,15 @@ def render_turni_guadagni_section():
 
     df_turni = load_turni_data()
     auto_calendar_sources = _default_calendar_ical_urls()
-    auto_sync_key = f"turni_calendar_autosync::{month_key}"
+    auto_sede_calendar_sources = _default_sede_calendar_ical_urls()
+    auto_sync_key = f"turni_calendar_autosync_sede_v1::{month_key}"
     if auto_calendar_sources and not st.session_state.get(auto_sync_key, False):
-        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(df_turni, auto_calendar_sources, selected_month)
+        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(
+            df_turni,
+            auto_calendar_sources,
+            selected_month,
+            auto_sede_calendar_sources,
+        )
         st.session_state[auto_sync_key] = True
         if imported_count > 0:
             st.session_state.turni_df_draft = synced_df.copy()
