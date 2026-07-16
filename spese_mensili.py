@@ -4788,7 +4788,7 @@ def _render_turni_day_action_menu(df_turni, month_days):
     if action_day not in month_days:
         return df_turni
 
-    turno_esistente, festivo_esistente, stra_esistente, sede_esistente = _existing_turni_row_values(df_turni, action_day)
+    turno_esistente, festivo_esistente, stra_esistente, _sede_esistente = _existing_turni_row_values(df_turni, action_day)
     durata_options = [0, 30, 45, 60, 75, 90, 105, 120]
     durata_default = min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
     action_day_label = pd.to_datetime(action_day).strftime("%d/%m/%Y")
@@ -4796,7 +4796,7 @@ def _render_turni_day_action_menu(df_turni, month_days):
 
     st.markdown(f"#### Modifica giorno · {action_day_label}{turno_label}")
     with st.form(f"turni_day_action_form_{action_day}", clear_on_submit=False):
-        menu_cols = st.columns(3, gap="small")
+        menu_cols = st.columns(2, gap="small")
         with menu_cols[0]:
             st.markdown('<span class="turni-day-menu-marker"></span>', unsafe_allow_html=True)
             festivo_value = st.checkbox(
@@ -4805,12 +4805,6 @@ def _render_turni_day_action_menu(df_turni, month_days):
                 key=f"turni_day_festivo_{action_day}",
             )
         with menu_cols[1]:
-            sede_value = st.checkbox(
-                "Sede",
-                value=bool(sede_esistente),
-                key=f"turni_day_sede_{action_day}",
-            )
-        with menu_cols[2]:
             durata_value = st.selectbox(
                 "Straordinario",
                 durata_options,
@@ -4831,7 +4825,6 @@ def _render_turni_day_action_menu(df_turni, month_days):
             action_day,
             festivo=festivo_value,
             straordinario_minuti=durata_value,
-            sede=sede_value,
         )
         st.session_state.pop("turni_action_day", None)
         if "turni_day" in st.query_params:
@@ -5167,11 +5160,14 @@ def render_turni_guadagni_section():
             <div class="mobile-calendar-legend">
               <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
               <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
-              <span style="border-bottom:4px solid #64748b;">Notte</span>
-              <span style="border-bottom:4px solid #34d399;">Ferie</span>
-              <span style="color:#ef4444;">Numero rosso = festivo</span>
-            </div>
-            """, unsafe_allow_html=True)
+  <span style="border-bottom:4px solid #64748b;">Notte</span>
+  <span style="border-bottom:4px solid #34d399;">Ferie</span>
+  <span style="color:#ef4444;">Numero rosso = festivo</span>
+  <span><span style="color:#fb923c;font-weight:900;">•</span> Giorno corrente</span>
+  <span><span class="mobile-day-sede">S</span> Sede</span>
+  <span><span class="mobile-day-extra">+</span> Straordinario</span>
+</div>
+""", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             df_turni = _render_turni_day_action_menu(df_turni, month_days)
