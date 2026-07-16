@@ -2063,38 +2063,11 @@ if MOBILE_VIEW:
     }
     .mobile-calendar-legend {
         display:flex;
-        gap:6px 10px;
+        gap:8px;
         flex-wrap:wrap;
         margin-top:10px;
-        font-size:11px;
-        line-height:1.35;
+        font-size:12px;
         color:rgba(255,255,255,.62);
-        align-items:center;
-    }
-    .mobile-calendar-legend .legend-item {
-        display:inline-flex;
-        align-items:center;
-        gap:4px;
-        white-space:nowrap;
-    }
-    .mobile-calendar-legend .legend-shift {
-        padding-bottom:2px;
-        border-bottom-width:3px !important;
-        border-bottom-style:solid;
-    }
-    .mobile-calendar-legend .legend-muted {
-        color:rgba(255,255,255,.72);
-    }
-    .mobile-calendar-legend .legend-sep {
-        width:1px;
-        height:13px;
-        background:rgba(255,255,255,.16);
-    }
-    .mobile-calendar-legend .legend-current {
-        color:#fb923c;
-        font-weight:1000;
-        font-size:13px;
-        line-height:1;
     }
     .mobile-donut-card {
         margin: 4px 0 10px;
@@ -2357,11 +2330,11 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [1, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
-    "turni_calendario_riepilogo": [1.68, 0.50],
+    "dashboard_principale": [1, 2.50, 1.9],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "turni_calendario_riepilogo": [1.55, 0.45],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
-    "spese_fisse_lista": [1, 1.1],
+    "spese_fisse_lista": [1, 1.3],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
@@ -4056,10 +4029,9 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
         margin-bottom: 6px;
       }}
       .kpi-value {{
-        font-size: 22px;
-        line-height: 1.08;
+        font-size: 23px;
+        line-height: 1.15;
         font-weight: 600;
-        white-space: nowrap;
       }}
       .turni-subline {{
         font-size: 12px;
@@ -4500,10 +4472,9 @@ def render_live_turni_kpis(stats, side_html=""):
         margin-bottom: 6px;
       }}
       .kpi-value {{
-        font-size: 22px;
-        line-height: 1.08;
+        font-size: 23px;
+        line-height: 1.15;
         font-weight: 600;
-        white-space: nowrap;
       }}
       .turni-status-row {{
         display: flex;
@@ -5187,17 +5158,16 @@ def render_turni_guadagni_section():
 
             st.markdown("""
             <div class="mobile-calendar-legend">
-              <span class="legend-item legend-shift" style="border-bottom-color:#60a5fa;">Mattina</span>
-              <span class="legend-item legend-shift" style="border-bottom-color:#fb923c;">Pomeriggio</span>
-              <span class="legend-item legend-shift" style="border-bottom-color:#64748b;">Notte</span>
-              <span class="legend-item legend-shift" style="border-bottom-color:#34d399;">Ferie</span>
-              <span class="legend-sep"></span>
-              <span class="legend-item legend-muted"><span style="color:#ef4444;font-weight:900;">Numero rosso</span> = festivo</span>
-              <span class="legend-item legend-muted"><span class="legend-current">•</span> Giorno corrente</span>
-              <span class="legend-item legend-muted"><span class="mobile-day-sede">S</span> Sede</span>
-              <span class="legend-item legend-muted"><span class="mobile-day-extra">+</span> Straordinario</span>
-            </div>
-            """, unsafe_allow_html=True)
+              <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
+              <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
+  <span style="border-bottom:4px solid #64748b;">Notte</span>
+  <span style="border-bottom:4px solid #34d399;">Ferie</span>
+  <span style="color:#ef4444;">Numero rosso = festivo</span>
+  <span><span style="color:#fb923c;font-weight:900;">•</span> Giorno corrente</span>
+  <span><span class="mobile-day-sede">S</span> Sede</span>
+  <span><span class="mobile-day-extra">+</span> Straordinario</span>
+</div>
+""", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             df_turni = _render_turni_day_action_menu(df_turni, month_days)
