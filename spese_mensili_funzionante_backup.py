@@ -1115,7 +1115,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -1549,8 +1549,8 @@ if MOBILE_VIEW:
     }
     .mobile-home-recap-card {
         min-width: 0;
-        min-height: 66px;
-        padding: 9px 10px;
+        min-height: 52px;
+        padding: 8px 10px;
         border-radius: 13px;
         background:
             linear-gradient(135deg, color-mix(in srgb, var(--recap-color) 17%, transparent), rgba(255,255,255,.035));
@@ -1612,13 +1612,14 @@ if MOBILE_VIEW:
         gap: 6px;
     }
     .mobile-home-carte-live-left-marker,
+    .mobile-home-carte-live-spacer-marker,
     .mobile-home-carte-live-right-marker {
         display: none !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) {
         display: grid !important;
-        grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr) !important;
-        gap: 14px !important;
+        grid-template-columns: minmax(0, 1.22fr) minmax(0, .52fr) minmax(0, 2.26fr) !important;
+        gap: 10px !important;
         align-items: start !important;
     }
     div[data-testid="stHorizontalBlock"]:has(.mobile-home-carte-live-left-marker):has(.mobile-home-carte-live-right-marker) > div[data-testid="column"] {
@@ -1659,6 +1660,10 @@ if MOBILE_VIEW:
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    .mobile-home-recap-sub:empty {
+        display: none !important;
+        margin: 0 !important;
     }
     .mobile-home-recap .mobile-donut-card {
         min-height: 66px;
@@ -2312,6 +2317,7 @@ risparmio_mensile_desiderato = 200
 
 percentuale_limite_da_spendere=0.15
 limite_da_spendere=80
+limite_emergenze_compleanni=90
 max_spese_quotidiane=370
 decisione_budget_bollette_mensili=180
 
@@ -2845,15 +2851,22 @@ def calcola_target_budget_dinamico(spese_fisse_totali):
     coeff_spese_quotidiane = base_dopo_quote * (1 - percentuale_limite_da_spendere)
 
     soglie = []
+    if emergenze_compleanni > 0:
+        soglie.append(limite_emergenze_compleanni / emergenze_compleanni)
     if coeff_da_spendere > 0:
         soglie.append(limite_da_spendere / coeff_da_spendere)
     if coeff_spese_quotidiane > 0:
         soglie.append(max_spese_quotidiane / coeff_spese_quotidiane)
 
     budget_dopo_spese_fisse_target = max(soglie) if soglie else 0
+    emergenze_reale = emergenze_compleanni * budget_dopo_spese_fisse_target
     da_spendere_reale = coeff_da_spendere * budget_dopo_spese_fisse_target
     spese_quotidiane_reali = coeff_spese_quotidiane * budget_dopo_spese_fisse_target
-    risparmio_auto_variabili = max(0, da_spendere_reale - limite_da_spendere) + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+    risparmio_auto_variabili = (
+        max(0, emergenze_reale - limite_emergenze_compleanni)
+        + max(0, da_spendere_reale - limite_da_spendere)
+        + max(0, spese_quotidiane_reali - max_spese_quotidiane)
+    )
 
     return {
         "budget_disponibile_target": spese_fisse_totali + budget_dopo_spese_fisse_target,
@@ -2954,7 +2967,7 @@ def create_charts(stipendio_scelto, risparmiabili, df_altre_entrate):
             alt.Tooltip(field="Percentuale", title="Percentuale")
         ]
     ).properties(
-        title="🏠 Distribuzione Spese Fisse",
+        title="Distribuzione",
         width=200,
         height=220
     ).configure_title(
@@ -3107,6 +3120,9 @@ CALENDAR_ICAL_URLS = {
     "Pomeriggio": "https://calendar.google.com/calendar/ical/5583372b5741bf9b7015849d7b23349d7151cd2d0763c83144a65071404b7e04%40group.calendar.google.com/private-18967b67ddc0bedbe98b08c2ccd3af9c/basic.ics",
     "Notte": "https://calendar.google.com/calendar/ical/bbe8a74b626dddc4b57dd69d6ab1e0f0760b971d95eb029ef7d525525c113250%40group.calendar.google.com/private-15677dcf429c1ce645b8e78d3687768a/basic.ics",
     "Ferie": "https://calendar.google.com/calendar/ical/c3406a4e631b5c206ccd07c267a9346b089f22a9fd7f4dc0cc7ff24140be54c0%40group.calendar.google.com/private-a8aaf23582ab3d900f656dc389edf856/basic.ics",
+}
+CALENDAR_SEDE_ICAL_URLS = {
+    "Sede": "https://calendar.google.com/calendar/ical/ff7imcief5ud32g9u3852njf94%40group.calendar.google.com/private-2a37c613b6ca1fc73b5691927398db4a/basic.ics",
 }
 
 TURNI_ORARI = {
@@ -4229,8 +4245,58 @@ def import_turni_from_calendar_sources(calendar_sources, selected_month):
     return _normalize_turni_df(df.drop(columns=["turno_priority"])), errors
 
 
-def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
+def import_sede_dates_from_calendar_ics(ical_url, selected_month):
+    ical_text = load_google_calendar_ics(ical_url)
+    events = []
+    current = None
+    for line in _unfold_ics_lines(ical_text):
+        if line == "BEGIN:VEVENT":
+            current = {}
+            continue
+        if line == "END:VEVENT":
+            if current:
+                events.append(current)
+            current = None
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.split(";", 1)[0].upper()
+        if key in ["SUMMARY", "DTSTART"]:
+            current[key] = value
+
+    month_key = selected_month.strftime("%Y-%m")
+    sede_dates = set()
+    for event in events:
+        summary = event.get("SUMMARY", "").strip().lower()
+        if "sede" not in summary:
+            continue
+        start = _parse_ics_datetime(event.get("DTSTART", ""))
+        if not start:
+            continue
+        data_str = start.strftime("%Y-%m-%d")
+        if data_str.startswith(month_key):
+            sede_dates.add(data_str)
+    return sede_dates
+
+
+def import_sede_dates_from_calendar_sources(calendar_sources, selected_month):
+    sede_dates = set()
+    errors = []
+    for source_name, ical_url in calendar_sources.items():
+        if not ical_url:
+            continue
+        try:
+            sede_dates.update(import_sede_dates_from_calendar_ics(ical_url, selected_month))
+        except Exception as e:
+            errors.append(f"{source_name}: {e}")
+    return sede_dates, errors
+
+
+def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month, sede_calendar_sources=None):
     imported, errors = import_turni_from_calendar_sources(calendar_sources, selected_month)
+    sede_dates, sede_errors = import_sede_dates_from_calendar_sources(sede_calendar_sources or {}, selected_month)
+    errors.extend(sede_errors)
     if imported.empty:
         return df_turni.copy(), 0, errors
     month_key = selected_month.strftime("%Y-%m")
@@ -4241,14 +4307,24 @@ def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month):
             extra = existing_extra.get(row["Data"])
             if extra:
                 imported.at[idx, "Straordinario minuti"] = extra.get("Straordinario minuti", 0)
-                imported.at[idx, "Sede"] = extra.get("Sede", False)
+                imported.at[idx, "Sede"] = bool(extra.get("Sede", False)) or row["Data"] in sede_dates
+            elif row["Data"] in sede_dates:
+                imported.at[idx, "Sede"] = True
+    if sede_dates:
+        imported.loc[imported["Data"].isin(sede_dates), "Sede"] = True
     other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
     manual_festivi = df_turni[
         df_turni["Data"].str.startswith(month_key)
         & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
         & (df_turni["Festivo"] == True)
     ].copy()
-    synced = pd.concat([other_months, manual_festivi, imported], ignore_index=True)
+    manual_sedi = df_turni[
+        df_turni["Data"].str.startswith(month_key)
+        & (~df_turni["Turno"].isin(TURNI_ORARI.keys()) | (df_turni["Turno"] == ""))
+        & (df_turni["Sede"] == True)
+    ].copy()
+    manual_sedi = manual_sedi[~manual_sedi["Data"].isin(imported["Data"])]
+    synced = pd.concat([other_months, manual_festivi, manual_sedi, imported], ignore_index=True)
     return _normalize_turni_df(synced), len(imported), errors
 
 
@@ -4273,6 +4349,22 @@ def _default_calendar_ical_urls():
     single_url = _default_calendar_ical_url()
     if single_url:
         urls["Auto"] = single_url
+    return urls
+
+
+def _default_sede_calendar_ical_urls():
+    urls = {source_name: url for source_name, url in CALENDAR_SEDE_ICAL_URLS.items() if url}
+    try:
+        secret_url = st.secrets.get("GOOGLE_CALENDAR_SEDE_ICAL_URL", "")
+        if secret_url:
+            urls["Sede"] = secret_url
+        secret_urls = st.secrets.get("GOOGLE_CALENDAR_SEDE_ICAL_URLS", {})
+        if hasattr(secret_urls, "items"):
+            for source_name, url in secret_urls.items():
+                if url:
+                    urls[str(source_name)] = url
+    except Exception:
+        pass
     return urls
 
 
@@ -4696,7 +4788,7 @@ def _render_turni_day_action_menu(df_turni, month_days):
     if action_day not in month_days:
         return df_turni
 
-    turno_esistente, festivo_esistente, stra_esistente, sede_esistente = _existing_turni_row_values(df_turni, action_day)
+    turno_esistente, festivo_esistente, stra_esistente, _sede_esistente = _existing_turni_row_values(df_turni, action_day)
     durata_options = [0, 30, 45, 60, 75, 90, 105, 120]
     durata_default = min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
     action_day_label = pd.to_datetime(action_day).strftime("%d/%m/%Y")
@@ -4704,7 +4796,7 @@ def _render_turni_day_action_menu(df_turni, month_days):
 
     st.markdown(f"#### Modifica giorno · {action_day_label}{turno_label}")
     with st.form(f"turni_day_action_form_{action_day}", clear_on_submit=False):
-        menu_cols = st.columns(3, gap="small")
+        menu_cols = st.columns(2, gap="small")
         with menu_cols[0]:
             st.markdown('<span class="turni-day-menu-marker"></span>', unsafe_allow_html=True)
             festivo_value = st.checkbox(
@@ -4713,12 +4805,6 @@ def _render_turni_day_action_menu(df_turni, month_days):
                 key=f"turni_day_festivo_{action_day}",
             )
         with menu_cols[1]:
-            sede_value = st.checkbox(
-                "Sede",
-                value=bool(sede_esistente),
-                key=f"turni_day_sede_{action_day}",
-            )
-        with menu_cols[2]:
             durata_value = st.selectbox(
                 "Straordinario",
                 durata_options,
@@ -4739,7 +4825,6 @@ def _render_turni_day_action_menu(df_turni, month_days):
             action_day,
             festivo=festivo_value,
             straordinario_minuti=durata_value,
-            sede=sede_value,
         )
         st.session_state.pop("turni_action_day", None)
         if "turni_day" in st.query_params:
@@ -4904,9 +4989,15 @@ def render_turni_guadagni_section():
 
     df_turni = load_turni_data()
     auto_calendar_sources = _default_calendar_ical_urls()
-    auto_sync_key = f"turni_calendar_autosync::{month_key}"
+    auto_sede_calendar_sources = _default_sede_calendar_ical_urls()
+    auto_sync_key = f"turni_calendar_autosync_sede_v1::{month_key}"
     if auto_calendar_sources and not st.session_state.get(auto_sync_key, False):
-        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(df_turni, auto_calendar_sources, selected_month)
+        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(
+            df_turni,
+            auto_calendar_sources,
+            selected_month,
+            auto_sede_calendar_sources,
+        )
         st.session_state[auto_sync_key] = True
         if imported_count > 0:
             st.session_state.turni_df_draft = synced_df.copy()
@@ -5069,11 +5160,14 @@ def render_turni_guadagni_section():
             <div class="mobile-calendar-legend">
               <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
               <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
-              <span style="border-bottom:4px solid #64748b;">Notte</span>
-              <span style="border-bottom:4px solid #34d399;">Ferie</span>
-              <span style="color:#ef4444;">Numero rosso = festivo</span>
-            </div>
-            """, unsafe_allow_html=True)
+  <span style="border-bottom:4px solid #64748b;">Notte</span>
+  <span style="border-bottom:4px solid #34d399;">Ferie</span>
+  <span style="color:#ef4444;">Numero rosso = festivo</span>
+  <span><span style="color:#fb923c;font-weight:900;">•</span> Giorno corrente</span>
+  <span><span class="mobile-day-sede">S</span> Sede</span>
+  <span><span class="mobile-day-extra">+</span> Straordinario</span>
+</div>
+""", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             df_turni = _render_turni_day_action_menu(df_turni, month_days)
@@ -5775,8 +5869,9 @@ textarea {
         risparmiabili = 0
 
     percentuali_variabili = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-    for voce, percentuale in percentuali_variabili.items():
-        SPESE["Variabili"][voce] = percentuale * risparmiabili
+    emergenze_senza_limite = emergenze_compleanni * risparmiabili
+    SPESE["Variabili"]["Emergenze/Compleanni"] = min(emergenze_senza_limite, limite_emergenze_compleanni)
+    SPESE["Variabili"]["Viaggi"] = viaggi * risparmiabili
 
     da_spendere_senza_limite = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili.values()) * risparmiabili)
     SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite, limite_da_spendere)
@@ -5794,8 +5889,11 @@ textarea {
     if da_spendere_senza_limite > limite_da_spendere:
         eccesso_da_spendere = da_spendere_senza_limite - limite_da_spendere
         risparmi_mensili += eccesso_da_spendere
+    if emergenze_senza_limite > limite_emergenze_compleanni:
+        risparmi_mensili += emergenze_senza_limite - limite_emergenze_compleanni
 
     risparmio_stipendi = stipendio_originale - stipendio_scelto
+    risparmio_emergenze_compleanni = emergenze_senza_limite - SPESE["Variabili"]["Emergenze/Compleanni"] if emergenze_senza_limite > limite_emergenze_compleanni else 0
     risparmio_da_spendere = da_spendere_senza_limite - da_spendere if da_spendere_senza_limite > limite_da_spendere else 0
     risparmio_spese_quotidiane = spese_quotidiane_senza_limite - spese_quotidiane if spese_quotidiane_senza_limite > max_spese_quotidiane else 0
 
@@ -5814,11 +5912,16 @@ textarea {
 
         def _recap_card(label, value, color, sub="", wide=False):
             wide_class = " wide" if wide else ""
+            sub_html = (
+                f'<div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>'
+                if str(sub)
+                else ""
+            )
             return (
                 f'<div class="mobile-home-recap-card{wide_class}" style="--recap-color:{color};">'
                 f'<div class="mobile-home-recap-label">{html.escape(str(label))}</div>'
                 f'<div class="mobile-home-recap-value">{html.escape(str(value))}</div>'
-                f'<div class="mobile-home-recap-sub">{html.escape(str(sub))}</div>'
+                f'{sub_html}'
                 "</div>"
             )
 
@@ -5889,9 +5992,9 @@ textarea {
         )
         risparmi_donut_home = _donut_or_empty(
             "Distribuzione",
-            ["Da stipendio", "Mese prec.", "Da spendere", "Quotidiane"],
-            [risparmio_stipendi, risparmi_mese_precedente, risparmio_da_spendere, risparmio_spese_quotidiane],
-            ["#60a5fa", "#93c5fd", "#facc15", "#fb923c"],
+            ["Da stipendio", "Mese prec.", "Emerg./Compl.", "Da spendere", "Quotidiane"],
+            [risparmio_stipendi, risparmi_mese_precedente, risparmio_emergenze_compleanni, risparmio_da_spendere, risparmio_spese_quotidiane],
+            ["#60a5fa", "#93c5fd", "#4ade80", "#facc15", "#fb923c"],
         )
 
         ing_total_home = sum(
@@ -5904,7 +6007,7 @@ textarea {
             for voce in SPESE["BNL"]
         )
         carte_donut_home = _donut_or_empty(
-            "Distribuzione carte",
+            "Distribuzione",
             ["ING", "Revolut", "BNL", "Risparmi BNL"],
             [ing_total_home, revolut_total_home, bnl_total_home, risparmi_mensili],
             ["#d2691e", "#89cff0", "#2f8f46", "#77dd77"],
@@ -5999,29 +6102,35 @@ textarea {
         home_recap_html = (
             '<div class="mobile-home-recap">'
             '<div class="mobile-home-recap-row">'
-            + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "totale mese", fisse_donut_home)
-            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "quote mese", variabili_donut_home)
-            + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "extra mese", altre_donut_home)
-            + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "stimati mese", risparmi_donut_home)
+            + _recap_pair("Spese fisse", _money_turni(spese_fisse_totali), "#f87171", "", fisse_donut_home)
+            + _recap_pair("Spese variabili", _money_turni(spese_variabili_totali_home), "#facc15", "", variabili_donut_home)
+            + _recap_pair("Altre entrate", _money_turni(altre_entrate_totali), "#34d399", "", altre_donut_home)
+            + _recap_pair("Risparmi", _money_turni(risparmi_mensili), "#facc15", "", risparmi_donut_home)
             + '</div>'
             '</div>'
+        )
+        st.markdown(
+            '<div style="height:1px;background:rgba(148,163,184,.22);margin:18px 0 14px;"></div>',
+            unsafe_allow_html=True,
         )
         st.markdown(
             home_recap_html,
             unsafe_allow_html=True,
         )
-        home_carte_col, home_turni_col = st.columns([1, 1.12], gap="small")
+        home_carte_col, home_spacer_col, home_turni_col = st.columns([1.22, 0.52, 2.26], gap="small")
         with home_carte_col:
             st.markdown('<div class="mobile-home-carte-live-left-marker"></div>', unsafe_allow_html=True)
             st.markdown(
                 '<div class="mobile-home-recap">'
                 '<div class="mobile-home-carte-stack">'
-                + carte_list_home
-                + carte_donut_home
-                + '</div>'
-                '</div>',
+                    + carte_list_home
+                    + carte_donut_home
+                    + '</div>'
+                    '</div>',
                 unsafe_allow_html=True,
             )
+        with home_spacer_col:
+            st.markdown('<div class="mobile-home-carte-live-spacer-marker"></div>', unsafe_allow_html=True)
         with home_turni_col:
             st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
             if turni_stats_home:
@@ -6151,7 +6260,7 @@ textarea {
                     unsafe_allow_html=True,
                 )
 
-                editor_cols = st.columns(3 if MOBILE_VIEW else 2)
+                editor_cols = st.columns(2)
                 editable_settings = {}
                 editable_metadata = {}
                 if MOBILE_VIEW:
@@ -6426,13 +6535,13 @@ textarea {
             st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
             if MOBILE_VIEW:
                 fisse_donut_html = _mobile_donut_html(
-                    "Spese fisse",
+                    "Distribuzione",
                     df_fisse["Categoria"].tolist(),
                     df_fisse["Importo"].tolist(),
                     df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
                 )
                 entrate_donut_html = _mobile_donut_html(
-                    "Entrate",
+                    "Entrate mensili totali",
                     df_totale_clean["Component"].tolist(),
                     df_totale_clean["Value"].tolist(),
                     df_totale_clean["Component"].map({
@@ -6442,7 +6551,7 @@ textarea {
                     }).fillna("#94a3b8").tolist()
                 )
                 budget_donut_html = _mobile_donut_html(
-                    "Budget",
+                    "Budget mensile disponibile",
                     df_utilizzare_clean["Component"].tolist(),
                     df_utilizzare_clean["Value"].tolist(),
                     df_utilizzare_clean["Component"].map({
@@ -6525,7 +6634,8 @@ textarea {
                     variabili_list_html = (
                         '<div class="mobile-variabili-list">'
                         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:4px 0 4px;">Quote fisse</div>'
-                        + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse")
+                        + _spesa_variabile_row_html("Emergenze/Compleanni", SPESE["Variabili"]["Emergenze/Compleanni"], "#4ADE80", f"{percentuale_emergenze:.2f}% del budget dopo spese fisse, limite €{limite_emergenze_compleanni:.2f}")
+                        + f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{emergenze_senza_limite:.2f} · risparmiati €{risparmio_emergenze_compleanni:.2f}</div>'
                         + _spesa_variabile_row_html("Viaggi", SPESE["Variabili"]["Viaggi"], "#166534", f"{percentuale_viaggi:.2f}% del budget dopo spese fisse")
                         + '<div style="height:1px;background:rgba(148,163,184,.22);margin:10px 0 8px;"></div>'
                         + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:0 0 4px;">Dopo le quote</div>'
@@ -6562,8 +6672,12 @@ textarea {
                                 "Emergenze/Compleanni",
                                 SPESE["Variabili"]["Emergenze/Compleanni"],
                                 "#4ADE80",
-                                f"{percentuale_emergenze:.2f}% del budget dopo spese fisse"
+                                f"{percentuale_emergenze:.2f}% del budget dopo spese fisse, limite €{limite_emergenze_compleanni:.2f}"
                             ),
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:12px;color:rgba(255,255,255,.36);margin:-4px 0 7px 10px;">reale €{emergenze_senza_limite:.2f} · risparmiati €{risparmio_emergenze_compleanni:.2f}</div>',
                             unsafe_allow_html=True
                         )
                         st.markdown(
@@ -6714,18 +6828,22 @@ textarea {
             # Recalculate risparmi variables for this section
             risparmi_mensili_calc = stipendio_originale - stipendio_scelto
             percentuali_variabili_calc = {"Emergenze/Compleanni": emergenze_compleanni, "Viaggi": viaggi}
-            for voce, percentuale in percentuali_variabili_calc.items():
-                SPESE["Variabili"][voce] = percentuale * risparmiabili
+            emergenze_senza_limite_calc = emergenze_compleanni * risparmiabili
+            SPESE["Variabili"]["Emergenze/Compleanni"] = min(emergenze_senza_limite_calc, limite_emergenze_compleanni)
+            SPESE["Variabili"]["Viaggi"] = viaggi * risparmiabili
             da_spendere_senza_limite_calc = percentuale_limite_da_spendere * (risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili)
             SPESE["Variabili"]["Da spendere"] = min(da_spendere_senza_limite_calc, limite_da_spendere)
             spese_quotidiane_senza_limite_calc = risparmiabili - sum(percentuali_variabili_calc.values()) * risparmiabili - da_spendere_senza_limite_calc
             SPESE["Variabili"]["Spese quotidiane"] = min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane)
+            if emergenze_senza_limite_calc > limite_emergenze_compleanni:
+                risparmi_mensili_calc += emergenze_senza_limite_calc - limite_emergenze_compleanni
             if spese_quotidiane_senza_limite_calc > max_spese_quotidiane:
                 risparmi_mensili_calc += spese_quotidiane_senza_limite_calc - max_spese_quotidiane
             if da_spendere_senza_limite_calc > limite_da_spendere:
                 risparmi_mensili_calc += da_spendere_senza_limite_calc - limite_da_spendere
             risparmi_mensili_calc += risparmi_mese_precedente
             risparmio_stipendi_calc = stipendio_originale - stipendio_scelto
+            risparmio_emergenze_calc = emergenze_senza_limite_calc - min(emergenze_senza_limite_calc, limite_emergenze_compleanni) if emergenze_senza_limite_calc > limite_emergenze_compleanni else 0
             risparmio_da_spendere_calc = da_spendere_senza_limite_calc - min(da_spendere_senza_limite_calc, limite_da_spendere) if da_spendere_senza_limite_calc > limite_da_spendere else 0
             risparmio_spese_quotidiane_calc = spese_quotidiane_senza_limite_calc - min(spese_quotidiane_senza_limite_calc, max_spese_quotidiane) if spese_quotidiane_senza_limite_calc > max_spese_quotidiane else 0
 
@@ -7143,14 +7261,17 @@ textarea {
                 # valori già calcolati
                 v1 = risparmio_stipendi_calc
                 v2 = risparmi_mese_precedente
-                v3 = risparmio_da_spendere_calc
-                v4 = risparmio_spese_quotidiane_calc
+                v3 = risparmio_emergenze_calc
+                v4 = risparmio_da_spendere_calc
+                v5 = risparmio_spese_quotidiane_calc
             
                 html_risparmi = ""
                 html_risparmi += _money_row_html("Dal budget non usato", v1, "#9ca3af", triangolino_verde_BNL, "differenza tra stipendio percepito e quota stipendio scelta")
                 html_risparmi += _money_row_html("Dal Mese Precedente", v2, "#60a5fa", triangolino_verde_BNL, "risparmio riportato nel mese corrente")
-                html_risparmi += _money_row_html("Dai 'Da Spendere'", v3, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
-                html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v4, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
+                html_risparmi += '<div style="height:1px;background:rgba(148,163,184,0.24);margin:10px 0 8px;"></div>'
+                html_risparmi += _money_row_html("Da Emergenze/Compleanni", v3, "#4ade80", triangolino_verde_BNL, f"eccedenza oltre il limite €{limite_emergenze_compleanni:.2f}")
+                html_risparmi += _money_row_html("Dai 'Da Spendere'", v4, "#fde047", triangolino_verde_BNL, "differenza non usata sul budget da spendere")
+                html_risparmi += _money_row_html("Dalle 'Spese Quotidiane'", v5, "#FB923C", triangolino_verde_BNL, "differenza non usata sulle spese quotidiane")
                 if not MOBILE_VIEW:
                     st.markdown(html_risparmi, unsafe_allow_html=True)
                     st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
@@ -7176,11 +7297,11 @@ textarea {
                     if not MOBILE_VIEW:
                         st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
                         st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-                    savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                    savings_vals = [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     non_saved_calc = max(0, (stipendio_originale + sum(ALTRE_ENTRATE.values())) - sum(savings_vals))
                     df_savings_raw = pd.DataFrame({
-                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                        'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
+                        'Component': ['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                        'Value': [risparmio_stipendi_calc, risparmi_mese_precedente, risparmio_emergenze_calc, risparmio_da_spendere_calc, risparmio_spese_quotidiane_calc]
                     })
                     df_savings = df_savings_raw[df_savings_raw["Value"] > 0].copy()
                     totale = df_savings["Value"].sum()
@@ -7197,6 +7318,7 @@ textarea {
                                 df_savings["Component"].map({
                                     "Da Stipendi": "#9ca3af",
                                     "Da Mese Prec.": "#60a5fa",
+                                    "Emerg./Compl.": "#4ade80",
                                     "Da Spendere": "#fde047",
                                     "Quotidiane": "#FB923C",
                                 }).fillna("#94a3b8").tolist()
@@ -7233,8 +7355,8 @@ textarea {
                                 color=alt.Color(
                                     field="Component", type="nominal",
                                     scale=alt.Scale(
-                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Da Spendere', 'Quotidiane'],
-                                        range=['#9ca3af', '#60a5fa', '#fde047', '#FB923C']
+                                        domain=['Da Stipendi', 'Da Mese Prec.', 'Emerg./Compl.', 'Da Spendere', 'Quotidiane'],
+                                        range=['#9ca3af', '#60a5fa', '#4ade80', '#fde047', '#FB923C']
                                     ),
                                     legend=alt.Legend(
                                         title=None,
@@ -7348,7 +7470,7 @@ textarea {
         
                     if MOBILE_VIEW:
                         carte_donut_html = _mobile_donut_html(
-                                "Distribuzione carte",
+                                "Distribuzione",
                                 df_carte["Carta"].tolist(),
                                 df_carte["Totale"].tolist(),
                                 ['#D2691E', '#89CFF0', '#2E7D32', '#66BB6A']
@@ -7388,7 +7510,7 @@ textarea {
                             alt.Tooltip("Percentuale:Q", title="%", format=".1f")
                         ]
                         ).properties(
-                            title="💳 Distribuzione Carte",
+                            title="Distribuzione",
                             width=donut_width,
                             height=donut_height,
                         ).configure_title(
