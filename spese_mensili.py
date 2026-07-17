@@ -629,6 +629,74 @@ def _query_param_float(name):
     except ValueError:
         return None
 
+def _float_default(value, fallback=0.0):
+    try:
+        if pd.isna(value):
+            return float(fallback)
+        text = str(value).strip().replace("€", "").replace(" ", "")
+        if "," in text and "." in text:
+            if text.rfind(",") > text.rfind("."):
+                text = text.replace(".", "").replace(",", ".")
+            else:
+                text = text.replace(",", "")
+        elif "," in text:
+            text = text.replace(".", "").replace(",", ".")
+        return float(text)
+    except Exception:
+        return float(fallback)
+
+def _latest_salary_defaults_from_history():
+    fallback_stipendio = 2350.0
+    fallback_quota = 2350.0
+    fallback_risparmi = 0.0
+    headers = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
+    try:
+        data = load_data_gsheets("Stipendi", headers)
+        if data is None or data.empty or "Mese" not in data.columns:
+            return fallback_stipendio, fallback_quota, fallback_risparmi
+
+        storico = data.copy()
+        storico["_mese_dt"] = pd.to_datetime(storico["Mese"], errors="coerce")
+        storico = storico.dropna(subset=["_mese_dt"])
+        if storico.empty:
+            return fallback_stipendio, fallback_quota, fallback_risparmi
+
+        storico["_stipendio_default"] = storico.get(
+            "Stipendio", pd.Series([0] * len(storico), index=storico.index)
+        ).apply(lambda value: _float_default(value, 0.0))
+        storico["_risparmi_default"] = storico.get(
+            "Risparmi", pd.Series([0] * len(storico), index=storico.index)
+        ).apply(lambda value: _float_default(value, 0.0))
+        storico = storico[storico["_stipendio_default"] > 0].sort_values("_mese_dt")
+        if storico.empty:
+            return fallback_stipendio, fallback_quota, fallback_risparmi
+
+        ultimo_mese = storico.iloc[-1]
+        stipendio = float(ultimo_mese["_stipendio_default"])
+        quota_col = next(
+            (
+                col
+                for col in (
+                    "Quota stipendio scelta",
+                    "Quota scelta",
+                    "Budget da stipendio",
+                    "Quota Stipendio",
+                    "Quota",
+                )
+                if col in storico.columns
+            ),
+            None,
+        )
+        quota = _float_default(ultimo_mese.get(quota_col), stipendio) if quota_col else stipendio
+        risparmi = float(ultimo_mese["_risparmi_default"])
+        return stipendio, min(quota, stipendio), risparmi
+    except Exception:
+        return fallback_stipendio, fallback_quota, fallback_risparmi
+
+DEFAULT_STIPENDIO_PERCEPITO, DEFAULT_QUOTA_STIPENDIO, DEFAULT_RISPARMI_MESE_PRECEDENTE = (
+    _latest_salary_defaults_from_history()
+)
+
 if MOBILE_VIEW:
     mobile_section_param = st.query_params.get("mobile_section")
     if isinstance(mobile_section_param, list):
@@ -669,7 +737,10 @@ if MOBILE_VIEW:
         if stipendio_query is not None:
             st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_query
         if quota_query is not None:
-            quota_max = st.session_state.get("mobile_salary_stipendio_percepito_value", stipendio_query or 2350.0)
+            quota_max = st.session_state.get(
+                "mobile_salary_stipendio_percepito_value",
+                stipendio_query or DEFAULT_STIPENDIO_PERCEPITO,
+            )
             st.session_state["mobile_salary_budget_da_stipendio_value"] = min(quota_query, float(quota_max))
         if risp_query is not None:
             st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risp_query
@@ -2063,11 +2134,38 @@ if MOBILE_VIEW:
     }
     .mobile-calendar-legend {
         display:flex;
-        gap:8px;
+        gap:6px 10px;
         flex-wrap:wrap;
         margin-top:10px;
-        font-size:12px;
+        font-size:11px;
+        line-height:1.35;
         color:rgba(255,255,255,.62);
+        align-items:center;
+    }
+    .mobile-calendar-legend .legend-item {
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        white-space:nowrap;
+    }
+    .mobile-calendar-legend .legend-shift {
+        padding-bottom:2px;
+        border-bottom-width:3px !important;
+        border-bottom-style:solid;
+    }
+    .mobile-calendar-legend .legend-muted {
+        color:rgba(255,255,255,.72);
+    }
+    .mobile-calendar-legend .legend-sep {
+        width:1px;
+        height:13px;
+        background:rgba(255,255,255,.16);
+    }
+    .mobile-calendar-legend .legend-current {
+        color:#fb923c;
+        font-weight:1000;
+        font-size:13px;
+        line-height:1;
     }
     .mobile-donut-card {
         margin: 4px 0 10px;
@@ -2274,9 +2372,9 @@ if MOBILE_VIEW:
     }
     mobile_section = st.session_state.get("mobile_section_select", "Panoramica")
     def _mobile_nav_salary_params():
-        stipendio_nav = float(st.session_state.get("mobile_salary_stipendio_percepito_value", 2350.0))
-        quota_nav = float(st.session_state.get("mobile_salary_budget_da_stipendio_value", 2350.0))
-        risp_nav = float(st.session_state.get("mobile_salary_risparmi_mese_precedente_value", 0.0))
+        stipendio_nav = float(st.session_state.get("mobile_salary_stipendio_percepito_value", DEFAULT_STIPENDIO_PERCEPITO))
+        quota_nav = float(st.session_state.get("mobile_salary_budget_da_stipendio_value", DEFAULT_QUOTA_STIPENDIO))
+        risp_nav = float(st.session_state.get("mobile_salary_risparmi_mese_precedente_value", DEFAULT_RISPARMI_MESE_PRECEDENTE))
         quota_nav = min(quota_nav, stipendio_nav)
         return f"&stip={stipendio_nav:.2f}&quota={quota_nav:.2f}&risp={risp_nav:.2f}"
 
@@ -2305,9 +2403,9 @@ def set_page_config():
 
 # /////  
 # Variabili inizializzate
-input_stipendio_originale=2350
-input_risparmi_mese_precedente=0
-input_stipendio_scelto=2350
+input_stipendio_originale=DEFAULT_STIPENDIO_PERCEPITO
+input_risparmi_mese_precedente=DEFAULT_RISPARMI_MESE_PRECEDENTE
+input_stipendio_scelto=DEFAULT_QUOTA_STIPENDIO
 input_stipendio_percepito = input_stipendio_originale
 input_budget_da_stipendio = input_stipendio_scelto
 totale_entrate_target_oltre_lo_stipendio= 0.9
@@ -2330,11 +2428,11 @@ viaggi=0.07
 LAYOUT_COLONNE = {
     "titolo_dashboard": [1, 2, 1],
     "header_stipendi_note": [0.78, 0.78, 1.3, 2.15],
-    "dashboard_principale": [1, 2.50, 1.9],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
-    "turni_calendario_riepilogo": [1.55, 0.45],
+    "dashboard_principale": [1, 2.70, 1.78],  # Spese fisse | Variabili/Entrate | Risparmi/Carte/Turni
+    "turni_calendario_riepilogo": [1.68, 0.50],
     "turni_frecce_titolo": [0.16, 0.68, 0.16],
     "centrale_variabili_altre": [1.05, 0.95],
-    "spese_fisse_lista": [1, 1.3],
+    "spese_fisse_lista": [1, 1.1],
     "variabili_quote_budget": [1, 1],
     "variabili_kpi_grafico": [1.15, 2.05],
     "altre_entrate_obiettivo": [1.06, 1.04],
@@ -4029,9 +4127,10 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
         margin-bottom: 6px;
       }}
       .kpi-value {{
-        font-size: 23px;
-        line-height: 1.15;
+        font-size: 22px;
+        line-height: 1.08;
         font-weight: 600;
+        white-space: nowrap;
       }}
       .turni-subline {{
         font-size: 12px;
@@ -4472,9 +4571,10 @@ def render_live_turni_kpis(stats, side_html=""):
         margin-bottom: 6px;
       }}
       .kpi-value {{
-        font-size: 23px;
-        line-height: 1.15;
+        font-size: 22px;
+        line-height: 1.08;
         font-weight: 600;
+        white-space: nowrap;
       }}
       .turni-status-row {{
         display: flex;
@@ -5158,16 +5258,17 @@ def render_turni_guadagni_section():
 
             st.markdown("""
             <div class="mobile-calendar-legend">
-              <span style="border-bottom:4px solid #60a5fa;">Mattina</span>
-              <span style="border-bottom:4px solid #fb923c;">Pomeriggio</span>
-  <span style="border-bottom:4px solid #64748b;">Notte</span>
-  <span style="border-bottom:4px solid #34d399;">Ferie</span>
-  <span style="color:#ef4444;">Numero rosso = festivo</span>
-  <span><span style="color:#fb923c;font-weight:900;">•</span> Giorno corrente</span>
-  <span><span class="mobile-day-sede">S</span> Sede</span>
-  <span><span class="mobile-day-extra">+</span> Straordinario</span>
-</div>
-""", unsafe_allow_html=True)
+              <span class="legend-item legend-shift" style="border-bottom-color:#60a5fa;">Mattina</span>
+              <span class="legend-item legend-shift" style="border-bottom-color:#fb923c;">Pomeriggio</span>
+              <span class="legend-item legend-shift" style="border-bottom-color:#64748b;">Notte</span>
+              <span class="legend-item legend-shift" style="border-bottom-color:#34d399;">Ferie</span>
+              <span class="legend-sep"></span>
+              <span class="legend-item legend-muted"><span style="color:#ef4444;font-weight:900;">Numero rosso</span> = festivo</span>
+              <span class="legend-item legend-muted"><span class="legend-current">•</span> Giorno corrente</span>
+              <span class="legend-item legend-muted"><span class="mobile-day-sede">S</span> Sede</span>
+              <span class="legend-item legend-muted"><span class="mobile-day-extra">+</span> Straordinario</span>
+            </div>
+            """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             df_turni = _render_turni_day_action_menu(df_turni, month_days)
