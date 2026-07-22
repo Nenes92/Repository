@@ -5647,7 +5647,8 @@ def main():
             st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
             st.markdown(
                 '<div class="mobile-salary-note-grid">'
-                '<span></span><span></span>'
+                '<span class="mobile-compact-input-note">Stipendio mese precedente</span>'
+                '<span class="mobile-compact-input-note">Quota scelta mese precedente</span>'
                 '<span class="mobile-compact-input-note">Il resto andrà nei risparmi.</span>'
                 '</div>',
                 unsafe_allow_html=True
