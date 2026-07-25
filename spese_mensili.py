@@ -687,7 +687,9 @@ def _latest_salary_defaults_from_history():
             ),
             None,
         )
-        quota = _float_default(ultimo_mese.get(quota_col), stipendio) if quota_col else stipendio
+        # La quota scelta è indipendente dallo stipendio percepito: se lo
+        # storico non la contiene, manteniamo il valore iniziale previsto.
+        quota = _float_default(ultimo_mese.get(quota_col), fallback_quota) if quota_col else fallback_quota
         risparmi = float(ultimo_mese["_risparmi_default"])
         return stipendio, min(quota, stipendio), risparmi
     except Exception:
@@ -751,16 +753,17 @@ if MOBILE_VIEW:
         max-width: 760px !important;
         padding: 0.75rem 0.85rem 4rem !important;
     }
-    .mobile-compact-input-note {
-        display: block;
-        width: 100%;
-        text-align: center;
-        font-size: 10px;
-        color: rgba(255,255,255,.42);
-        margin-top: 6px;
-        margin-bottom: 18px;
-        line-height: 1.15;
-    }
+.mobile-compact-input-note {
+    display: block;
+    width: 100%;
+    text-align: center;
+    justify-self: center;
+    font-size: 10px;
+    color: rgba(255,255,255,.42);
+    margin-top: 0;
+    margin-bottom: 10px;
+    line-height: 1.1;
+}
     html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .block-container {
         max-width: 100vw !important;
         overflow-x: hidden !important;
@@ -971,14 +974,16 @@ if MOBILE_VIEW:
         font-size: 11px !important;
         white-space: nowrap !important;
     }
-    .mobile-salary-note-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-        width: 100%;
-        margin-top: 4px;
-        margin-bottom: 16px;
-    }
+.mobile-salary-note-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    justify-items: center;
+    align-items: start;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
     .mobile-salary-field-title {
         font-size: 12px;
         font-weight: 900;
@@ -4401,16 +4406,15 @@ def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month, s
     month_key = selected_month.strftime("%Y-%m")
     existing_month = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
     if not existing_month.empty:
-        existing_extra = existing_month.set_index("Data")[["Straordinario minuti", "Sede"]].to_dict("index")
+        existing_extra = existing_month.set_index("Data")[["Straordinario minuti"]].to_dict("index")
         for idx, row in imported.iterrows():
             extra = existing_extra.get(row["Data"])
             if extra:
                 imported.at[idx, "Straordinario minuti"] = extra.get("Straordinario minuti", 0)
-                imported.at[idx, "Sede"] = bool(extra.get("Sede", False)) or row["Data"] in sede_dates
-            elif row["Data"] in sede_dates:
-                imported.at[idx, "Sede"] = True
-    if sede_dates:
-        imported.loc[imported["Data"].isin(sede_dates), "Sede"] = True
+    # La sede deve riflettere esattamente il calendario a ogni sincronizzazione,
+    # incluse le rimozioni degli eventi. Conserviamo soltanto gli straordinari
+    # inseriti manualmente.
+    imported["Sede"] = imported["Data"].isin(sede_dates)
     other_months = df_turni[~df_turni["Data"].str.startswith(month_key)].copy()
     manual_festivi = df_turni[
         df_turni["Data"].str.startswith(month_key)
@@ -5090,7 +5094,7 @@ def render_turni_guadagni_section():
     df_turni = load_turni_data()
     auto_calendar_sources = _default_calendar_ical_urls()
     auto_sede_calendar_sources = _default_sede_calendar_ical_urls()
-    auto_sync_key = f"turni_calendar_autosync_sede_v1::{month_key}"
+    auto_sync_key = f"turni_calendar_autosync_sede_v2::{month_key}"
     if auto_calendar_sources and not st.session_state.get(auto_sync_key, False):
         synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(
             df_turni,
