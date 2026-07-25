@@ -7674,7 +7674,10 @@ textarea {
                             totale_carta,
                             colore,
                             _triangle_for_card(carta),
-                            f"Vedrai €{saldo_revolut_prima_accantonamenti:.2f}, di cui €{spese_variabili_accantonate:.2f} da destinare a emergenze, viaggi e ‘Da spendere’. Dopo: €{saldo_revolut_dopo_accantonamenti:.2f}; dopo rimborso €{anticipo_rimborsabile_revolut:.2f}: €{saldo_revolut_dopo_rimborso:.2f} per le spese quotidiane"
+                            f"Vedrai €{saldo_revolut_prima_accantonamenti:.2f}<br>"
+                            f"Di cui €{spese_variabili_accantonate:.2f} da destinare a emergenze, viaggi e ‘Da spendere’<br>"
+                            f"Dopo i trasferimenti: €{saldo_revolut_dopo_accantonamenti:.2f}<br>"
+                            f"Dopo il rimborso di €{anticipo_rimborsabile_revolut:.2f}: €{saldo_revolut_dopo_rimborso:.2f} per le spese quotidiane"
                         )
                         if MOBILE_VIEW:
                             html_carte += row_html
