@@ -587,16 +587,27 @@ st.markdown("""
     background: linear-gradient(135deg, rgba(56,189,248,.40), rgba(96,165,250,.22));
     box-shadow: 0 0 0 1px rgba(56,189,248,.30);
 }
+.main-view-switch a.sheet-link {
+    min-width: 24px;
+    justify-content: center;
+    padding: 4px 7px;
+    color: #86efac !important;
+}
+.main-view-switch a.sheet-link:hover {
+    background: rgba(134,239,172,.14);
+}
 </style>
 """, unsafe_allow_html=True)
 
 VISTA_APP = _default_view
 _desktop_active = "active" if VISTA_APP == "Desktop" else ""
 _mobile_active = "active" if VISTA_APP == "Telefono" else ""
+_sheet_url = html.escape(SHEET_URL, quote=True)
 st.markdown(
     f'<div class="main-view-switch">'
     f'<a class="{_desktop_active}" href="?view=desktop" target="_self">Desktop</a>'
     f'<a class="{_mobile_active}" href="?view=mobile" target="_self">Telefono</a>'
+    f'<a class="sheet-link" href="{_sheet_url}" target="_blank" rel="noopener noreferrer" title="Apri il foglio di riferimento" aria-label="Apri il foglio di riferimento">📊</a>'
     f'</div>',
     unsafe_allow_html=True
 )
