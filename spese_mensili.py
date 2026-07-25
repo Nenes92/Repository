@@ -4992,7 +4992,8 @@ def _render_turni_day_action_menu(df_turni, month_days):
     return df_turni
 
 
-def _render_turni_report(report):
+def _render_turni_report(report, previous_report=None):
+    previous_report = previous_report or {}
     def card(label, value, sub="", accent="#f8fafc"):
         return (
             f'<div class="turni-report-card" style="--accent:{html.escape(str(accent))};">'
@@ -5039,15 +5040,25 @@ def _render_turni_report(report):
         if value
     ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
     type_counts = report.get("turn_type_counts", {})
+    previous_type_counts = previous_report.get("turn_type_counts", {})
+    type_names = sorted(set(type_counts) | set(previous_type_counts))
+    compare_header = '<div class="turni-report-compare-head"><span></span><b>Corr.</b><b>Prec.</b></div>'
     type_rows = "".join(
-        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
-        for name, value in sorted(type_counts.items())
-    ) or "<div><span>Nessun dettaglio</span><strong>0</strong></div>"
+        f'<div class="turni-report-compare-row"><span>{html.escape(str(name))}</span>'
+        f'<strong>{int(type_counts.get(name, 0))}</strong>'
+        f'<strong>{int(previous_type_counts.get(name, 0))}</strong></div>'
+        for name in type_names
+    ) or '<div class="turni-report-compare-row"><span>Nessun dettaglio</span><strong>0</strong><strong>0</strong></div>'
+    hours_by_pct = report.get("hours_by_pct", {})
+    previous_hours_by_pct = previous_report.get("hours_by_pct", {})
+    hour_percentages = sorted(set(hours_by_pct) | set(previous_hours_by_pct))
     hours_rows = "".join(
-        f'<div><span>Magg. {float(pct):g}%</span><strong>{hours:.2f}h</strong></div>'
-        for pct, hours in sorted(report.get("hours_by_pct", {}).items())
-        if abs(hours) > 0.001
-    ) or "<div><span>Nessuna maggiorazione</span><strong>0h</strong></div>"
+        f'<div class="turni-report-compare-row"><span>Magg. {float(pct):g}%</span>'
+        f'<strong>{float(hours_by_pct.get(pct, 0.0)):.2f}h</strong>'
+        f'<strong>{float(previous_hours_by_pct.get(pct, 0.0)):.2f}h</strong></div>'
+        for pct in hour_percentages
+        if abs(float(hours_by_pct.get(pct, 0.0))) > 0.001 or abs(float(previous_hours_by_pct.get(pct, 0.0))) > 0.001
+    ) or '<div class="turni-report-compare-row"><span>Nessuna maggiorazione</span><strong>0h</strong><strong>0h</strong></div>'
     st.markdown(f"""
     <style>
       .turni-report-grid {{
@@ -5112,6 +5123,23 @@ def _render_turni_report(report):
       .turni-report-list div[style*="--turn-color"] strong {{
         color:var(--turn-color);
       }}
+      .turni-report-compare-head,
+      .turni-report-compare-row {{
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto auto;
+        align-items:center;
+        column-gap:9px;
+      }}
+      .turni-report-compare-head {{
+        padding:0 0 4px !important;
+        border-top:0 !important;
+        color:rgba(255,255,255,.40) !important;
+        font-size:9px !important;
+        text-transform:uppercase;
+      }}
+      .turni-report-compare-head b {{
+        font-weight:800;
+      }}
       @media (max-width: 767px) {{
         .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
         .turni-report-card {{ padding:8px 7px; }}
@@ -5127,8 +5155,8 @@ def _render_turni_report(report):
     <div class="turni-report-grid">{"".join(cards)}</div>
     <div class="turni-report-lists">
       <div class="turni-report-list"><h4>Turni</h4>{turn_rows}</div>
-      <div class="turni-report-list"><h4>Tipi turno</h4>{type_rows}</div>
-      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{hours_rows}</div>
+      <div class="turni-report-list"><h4>Tipi turno</h4>{compare_header}{type_rows}</div>
+      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{compare_header}{hours_rows}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -5536,7 +5564,9 @@ def render_turni_guadagni_section():
 
     with tab_report:
         month_report = compute_turni_month_report(df_turni, rules, month_key)
-        _render_turni_report(month_report)
+        previous_month_key = _add_months_turni(selected_month, -1).strftime("%Y-%m")
+        previous_month_report = compute_turni_month_report(df_turni, rules, previous_month_key)
+        _render_turni_report(month_report, previous_month_report)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
