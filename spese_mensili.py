@@ -645,13 +645,15 @@ def _float_default(value, fallback=0.0):
     except Exception:
         return float(fallback)
 
+STIPENDI_HEADERS = ["Mese", "Stipendio", "Quota stipendio scelta", "Risparmi", "Messi da parte Totali"]
+
+
 def _latest_salary_defaults_from_history():
     fallback_stipendio = 2350.0
     fallback_quota = 2350.0
     fallback_risparmi = 0.0
-    headers = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
     try:
-        data = load_data_gsheets("Stipendi", headers)
+        data = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
         if data is None or data.empty or "Mese" not in data.columns:
             return fallback_stipendio, fallback_quota, fallback_risparmi
 
@@ -694,6 +696,34 @@ def _latest_salary_defaults_from_history():
         return stipendio, min(quota, stipendio), risparmi
     except Exception:
         return fallback_stipendio, fallback_quota, fallback_risparmi
+
+
+def salva_stipendio_corrente(stipendio, quota_scelta, risparmi_precedenti, messi_da_parte):
+    """Crea o aggiorna nello storico il riepilogo del mese corrente."""
+    mese_corrente = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
+    data = load_data_gsheets("Stipendi", STIPENDI_HEADERS, force_reload=True)
+    if data is None or data.empty:
+        data = pd.DataFrame(columns=STIPENDI_HEADERS)
+    else:
+        data = data.copy()
+        for col in STIPENDI_HEADERS:
+            if col not in data.columns:
+                data[col] = ""
+        data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce").dt.to_period("M").dt.to_timestamp()
+        data = data.dropna(subset=["Mese"])
+
+    nuovo_record = {
+        "Mese": mese_corrente,
+        "Stipendio": float(stipendio),
+        "Quota stipendio scelta": float(quota_scelta),
+        "Risparmi": float(risparmi_precedenti),
+        "Messi da parte Totali": float(messi_da_parte),
+    }
+    data = data[data["Mese"] != mese_corrente]
+    data = pd.concat([data, pd.DataFrame([nuovo_record])], ignore_index=True)
+    data = data[STIPENDI_HEADERS].sort_values("Mese").reset_index(drop=True)
+    return save_data_gsheets("Stipendi", STIPENDI_HEADERS, data)
+
 
 DEFAULT_STIPENDIO_PERCEPITO, DEFAULT_QUOTA_STIPENDIO, DEFAULT_RISPARMI_MESE_PRECEDENTE = (
     _latest_salary_defaults_from_history()
@@ -3995,6 +4025,11 @@ def _add_months_turni(date_value, months):
     return datetime(year, month, 1).date()
 
 
+def _change_turni_calendar_month(months):
+    current_month = st.session_state.get("turni_calendar_month", _now_italy().date())
+    st.session_state.turni_calendar_month = _add_months_turni(current_month, months)
+
+
 def _turni_month_label(date_value):
     mesi = [
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -5156,15 +5191,23 @@ def render_turni_guadagni_section():
             else:
                 prev_col, title_col, next_col = st.columns(LAYOUT_COLONNE["turni_frecce_titolo"], gap="small")
                 with prev_col:
-                    if st.button("←", key="turni_prev_month", use_container_width=True):
-                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, -1)
-                        st.rerun()
+                    st.button(
+                        "←",
+                        key="turni_prev_month",
+                        use_container_width=True,
+                        on_click=_change_turni_calendar_month,
+                        args=(-1,),
+                    )
                 with title_col:
                     st.markdown(f"#### 📅 Calendario · {_turni_month_label(selected_month)}")
                 with next_col:
-                    if st.button("→", key="turni_next_month", use_container_width=True):
-                        st.session_state.turni_calendar_month = _add_months_turni(selected_month, 1)
-                        st.rerun()
+                    st.button(
+                        "→",
+                        key="turni_next_month",
+                        use_container_width=True,
+                        on_click=_change_turni_calendar_month,
+                        args=(1,),
+                    )
             weekdays = ["L", "M", "M", "G", "V", "S", "D"]
             cal = calendar.Calendar(firstweekday=0)
             month_days = [
@@ -5692,6 +5735,22 @@ def main():
                 label_visibility="collapsed"
             )
             st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
+
+    if MOBILE_VIEW:
+        salva_stipendio_home = st.button(
+            "✓ Salva riepilogo del mese",
+            key="salva_stipendio_home",
+            use_container_width=True,
+        ) if _mobile_show("Panoramica") else False
+    else:
+        with col_stip_inserimento2:
+            salva_stipendio_home = st.button(
+                "✓ Salva riepilogo del mese",
+                key="salva_stipendio_home",
+                use_container_width=True,
+            )
+    home_salary_save_feedback = st.empty()
+
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
     entrate_mensili_totali = stipendio_percepito + altre_entrate_totali
     budget_mensile_disponibile = budget_da_stipendio + altre_entrate_totali
@@ -6009,6 +6068,17 @@ textarea {
     )
     revolut_expenses -= risparmi_mese_precedente
     risparmi_mensili += risparmi_mese_precedente
+
+    if salva_stipendio_home:
+        if salva_stipendio_corrente(
+            stipendio_percepito,
+            budget_da_stipendio,
+            risparmi_mese_precedente,
+            risparmi_mensili,
+        ):
+            home_salary_save_feedback.success("Riepilogo del mese salvato nello Storico stipendi.")
+        else:
+            home_salary_save_feedback.error("Non sono riuscito a salvare il riepilogo del mese.")
 
     if MOBILE_VIEW and _mobile_show("Panoramica"):
         spese_variabili_totali_home = sum(
@@ -8154,15 +8224,17 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
     st.markdown('<div id="mobile-stipendi" class="mobile-anchor"></div><div class="section-pill">📈 Storico Stipendi</div>', unsafe_allow_html=True)
     st.title("Storico Stipendi e Risparmi")
 
-    STIPENDI_HEADERS = ["Mese", "Stipendio", "Risparmi", "Messi da parte Totali"]
     data_stipendi = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
     if data_stipendi.empty:
         data_stipendi = pd.DataFrame(columns=STIPENDI_HEADERS)
     else:
+        for col in STIPENDI_HEADERS:
+            if col not in data_stipendi.columns:
+                data_stipendi[col] = 0.0
         data_stipendi["Mese"] = pd.to_datetime(data_stipendi["Mese"], errors="coerce")
         data_stipendi = data_stipendi.dropna(subset=["Mese"])
         data_stipendi["Mese"] = data_stipendi["Mese"].dt.to_period("M").dt.to_timestamp()
-        for col in ["Stipendio", "Risparmi", "Messi da parte Totali"]:
+        for col in ["Stipendio", "Quota stipendio scelta", "Risparmi", "Messi da parte Totali"]:
             data_stipendi[col] = pd.to_numeric(data_stipendi[col], errors="coerce").fillna(0.0)
 
     if MOBILE_VIEW:
@@ -8180,16 +8252,19 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
 
         record_esistente = data_stipendi[data_stipendi["Mese"] == mese_dt] if not data_stipendi.empty else pd.DataFrame()
         stipendio_val = float(record_esistente["Stipendio"].iloc[0]) if not record_esistente.empty else 0.0
+        quota_stipendio_val = float(record_esistente["Quota stipendio scelta"].iloc[0]) if not record_esistente.empty else 0.0
         risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
         messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
         if MOBILE_VIEW:
             st.caption("Valori salvati per il mese selezionato; se il mese non esiste viene creato al salvataggio.")
-            col_input1, col_input2, col_input3 = st.columns(3)
+            col_input1, col_input2, col_input3, col_input4 = st.columns(4)
             with col_input1:
                 stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
             with col_input2:
-                risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+                quota_stipendio = st.number_input("Quota scelta (€)", min_value=0.0, max_value=stipendio, step=100.0, value=min(quota_stipendio_val, stipendio), key=f"quota_stipendio_input_{selected_mese}")
             with col_input3:
+                risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+            with col_input4:
                 messi_da_parte_mese_corrente = st.number_input("Messi da parte (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}", help="Messi da parte totali / risparmio su BNL")
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
@@ -8203,6 +8278,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
             col_input1, col_input2 = st.columns(2)
             with col_input1:
                 stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
+                quota_stipendio = st.number_input("Quota stipendio scelta (€)", min_value=0.0, max_value=stipendio, step=100.0, value=min(quota_stipendio_val, stipendio), key=f"quota_stipendio_input_{selected_mese}")
                 aggiungi_button = st.button("Aggiungi/Modifica Dati", key="aggiorna_stipendi")
             with col_input2:
                 risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
@@ -8210,9 +8286,10 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
         if aggiungi_button:
-            if stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
+            if stipendio > 0 or quota_stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
                 if not record_esistente.empty:
                     data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Quota stipendio scelta"] = quota_stipendio
                     data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
                     data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Messi da parte Totali"] = messi_da_parte_mese_corrente
                     placeholder = st.empty()
@@ -8220,7 +8297,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     time.sleep(3)
                     placeholder.empty()
                 else:
-                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
+                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Quota stipendio scelta": quota_stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
                     data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
                     placeholder = st.empty()
                     placeholder.success(f"Dati per {selected_mese} aggiunti!")
