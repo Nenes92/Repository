@@ -2778,6 +2778,8 @@ def _mobile_history_table_html(df, columns, colors):
 def _render_stipendi_kpi_cards(data_stipendi):
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
     stats_stip = calcola_statistiche(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
+    if "Media Stipendio" in data_stipendi.columns and data_stipendi["Media Stipendio"].notna().any():
+        stats_stip["Stipendio"]["media"] = float(data_stipendi["Media Stipendio"].dropna().iloc[-1])
     st.markdown(
         '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
         unsafe_allow_html=True
@@ -7834,12 +7836,25 @@ def calcola_medie(data, colonne):
         return data
     data = data.copy()
     data["Mese"] = pd.to_datetime(data["Mese"], errors="coerce")
+    # I primi tre record dello storico sono mesi di avvio con presenza parziale:
+    # non devono abbassare le medie degli stipendi, ma restano visibili nei dati.
+    salary_excluded_indexes = set(
+        data.loc[data["Mese"].notna()]
+        .sort_values("Mese")
+        .head(3)
+        .index
+    )
     for col in colonne:
         if col in data.columns:
             data[col] = pd.to_numeric(data[col], errors="coerce").fillna(0)
-            data[f"Media {col}"] = data[col].expanding().mean().round(2)
             if col == "Stipendio":
-                data[f"Media {col} NO 13°/PDR"] = data[col].where(~data["Mese"].dt.month.isin([7, 12])).expanding().mean().round(2)
+                stipendio_per_media = data[col].where(~data.index.isin(salary_excluded_indexes))
+                data[f"Media {col}"] = stipendio_per_media.expanding().mean().round(2)
+                data[f"Media {col} NO 13°/PDR"] = stipendio_per_media.where(
+                    ~data["Mese"].dt.month.isin([7, 12])
+                ).expanding().mean().round(2)
+            else:
+                data[f"Media {col}"] = data[col].expanding().mean().round(2)
     return data
     
 def crea_grafico_stipendi(data):
