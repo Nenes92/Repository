@@ -5982,12 +5982,12 @@ textarea {
                     <div class="budget-memory-card">
                         <div class="budget-memory-title">Budget desiderato</div>
                         <div class="budget-memory-row">
-                            <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
-                            <div class="budget-memory-value" style="color:#60a5fa;">{budget_status}</div>
-                        </div>
-                        <div class="budget-memory-row">
                             <div class="budget-memory-label">Entrate mensili totali desiderate<br><span style="color:rgba(255,255,255,.42);">target €{entrate_totali_target:,.0f} · per risparmiare €{risparmio_desiderato_corrente:,.0f}</span></div>
                             <div class="budget-memory-value" style="color:#77dd77;">{entrate_status}</div>
+                        </div>
+                        <div class="budget-memory-row">
+                            <div class="budget-memory-label">Budget mensile desiderato<br><span style="color:rgba(255,255,255,.42);">target €{budget_disponibile_target:,.0f} per coprire spese fisse + variabili</span></div>
+                            <div class="budget-memory-value" style="color:#60a5fa;">{budget_status}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
