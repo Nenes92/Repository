@@ -3296,8 +3296,8 @@ DEFAULT_TURNI_RULES = {
     "stra_ferie_festivo_pct": 50.0,
     "buono_pasto": 7.0,
     "smart_target": 15.0,
-    "accrediti_mensili": 0.0,
-    "trattenute_mensili": 0.0,
+    "accrediti_mensili": 43.87,
+    "trattenute_mensili": 218.73,
     "ind_m_p_feriale": 6.0,
     "ind_notte_feriale": 15.0,
     "ind_m_p_festivo": 15.0,
@@ -3952,7 +3952,9 @@ def compute_turni_dashboard(df_turni, rules):
         - float(rules.get("trattenute_mensili", 0.0))
         + buoni_pasto_total
     )
-    live_month += monthly_adjustments
+    # Durante il mese il valore live rappresenta solo quanto maturato con i
+    # turni. Competenze, trattenute e buoni restano nello stimato cedolino,
+    # così il confronto mostra chiaramente la differenza di fine mese.
     payslip_estimate = monthly_adjustments + current_base_full + prev_extras
 
     return {
@@ -5024,8 +5026,15 @@ def _render_turni_report(report):
         card("Smart target", "15", "giorni/mese", "#94a3b8"),
     ]
     turn_counts = report.get("turn_counts", {})
+    turn_colors = {
+        "Mattina": "#60a5fa",
+        "Pomeriggio": "#fb923c",
+        "Notte": "#64748b",
+        "Ferie": "#34d399",
+    }
     turn_rows = "".join(
-        f'<div><span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
+        f'<div style="--turn-color:{turn_colors.get(str(name), "#fef3c7")};">'
+        f'<span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
         for name, value in turn_counts.items()
         if value
     ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
@@ -5098,6 +5107,10 @@ def _render_turni_report(report):
       }}
       .turni-report-list strong {{
         color:#fef3c7;
+      }}
+      .turni-report-list div[style*="--turn-color"] span,
+      .turni-report-list div[style*="--turn-color"] strong {{
+        color:var(--turn-color);
       }}
       @media (max-width: 767px) {{
         .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
