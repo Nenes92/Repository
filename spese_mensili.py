@@ -7659,20 +7659,22 @@ textarea {
                             for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere"]
                         )
                         anticipo_rimborsabile_revolut = 21.50
-                        saldo_revolut_subito = (
+                        saldo_revolut_prima_accantonamenti = (
                             risparmi_mese_precedente
                             + totale_carta
                             - somma_spese_programmate_immediate
-                            - spese_variabili_accantonate
                             - anticipo_rimborsabile_revolut
                         )
-                        saldo_revolut_dopo_rimborso = saldo_revolut_subito + anticipo_rimborsabile_revolut
+                        saldo_revolut_dopo_accantonamenti = (
+                            saldo_revolut_prima_accantonamenti - spese_variabili_accantonate
+                        )
+                        saldo_revolut_dopo_rimborso = saldo_revolut_dopo_accantonamenti + anticipo_rimborsabile_revolut
                         row_html = _money_row_html(
                             f"Da {testo} su {carta}",
                             totale_carta,
                             colore,
                             _triangle_for_card(carta),
-                            f"Dopo spese fisse e accantonamenti: €{saldo_revolut_subito:.2f}; dopo il rimborso di €{anticipo_rimborsabile_revolut:.2f}: €{saldo_revolut_dopo_rimborso:.2f} per le spese quotidiane"
+                            f"Vedrai €{saldo_revolut_prima_accantonamenti:.2f}, di cui €{spese_variabili_accantonate:.2f} da destinare a emergenze, viaggi e ‘Da spendere’. Dopo: €{saldo_revolut_dopo_accantonamenti:.2f}; dopo rimborso €{anticipo_rimborsabile_revolut:.2f}: €{saldo_revolut_dopo_rimborso:.2f} per le spese quotidiane"
                         )
                         if MOBILE_VIEW:
                             html_carte += row_html
