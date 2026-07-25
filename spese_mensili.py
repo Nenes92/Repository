@@ -5126,9 +5126,9 @@ def _render_turni_report(report, previous_report=None):
       .turni-report-compare-head,
       .turni-report-compare-row {{
         display:grid !important;
-        grid-template-columns:minmax(0,1fr) auto auto;
+        grid-template-columns:minmax(0,1fr) 36px 36px;
         align-items:center;
-        column-gap:9px;
+        column-gap:0;
       }}
       .turni-report-compare-head {{
         padding:0 0 4px !important;
@@ -5139,6 +5139,19 @@ def _render_turni_report(report, previous_report=None):
       }}
       .turni-report-compare-head b {{
         font-weight:800;
+        text-align:center;
+        white-space:nowrap;
+      }}
+      .turni-report-compare-row span {{
+        padding-right:5px;
+      }}
+      .turni-report-compare-row strong {{
+        text-align:center;
+        white-space:nowrap;
+      }}
+      .turni-report-compare-head b:nth-child(3),
+      .turni-report-compare-row strong:nth-child(3) {{
+        border-left:1px solid rgba(148,163,184,.32);
       }}
       @media (max-width: 767px) {{
         .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
