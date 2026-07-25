@@ -7654,14 +7654,25 @@ textarea {
                         colore = "#89CFF0"  # Azzurro
                         testo = "trasferire"
                         somma_spese_programmate_immediate = SPESE["Fisse"]["Psicologo"] + SPESE["Fisse"]["Sport"] + SPESE["Fisse"]["Amara"] + SPESE["Fisse"]["Trasporti"] + SPESE["Fisse"]["Bollette"] + SPESE["Fisse"]["Beneficienza"] + SPESE["Fisse"]["Pulizia Casa"] + SPESE["Fisse"]["Disney+"] + SPESE["Fisse"]["Netflix"] + SPESE["Fisse"]["Spotify"]
-                        spese_che_anticipo_per_un_giorno_di_disney_spotify=18
-                        somma_valori = risparmi_mese_precedente - somma_spese_programmate_immediate - spese_che_anticipo_per_un_giorno_di_disney_spotify + totale_carta
+                        spese_variabili_accantonate = sum(
+                            SPESE["Variabili"].get(voce, 0.0)
+                            for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere"]
+                        )
+                        anticipo_rimborsabile_revolut = 21.50
+                        saldo_revolut_subito = (
+                            risparmi_mese_precedente
+                            + totale_carta
+                            - somma_spese_programmate_immediate
+                            - spese_variabili_accantonate
+                            - anticipo_rimborsabile_revolut
+                        )
+                        saldo_revolut_dopo_rimborso = saldo_revolut_subito + anticipo_rimborsabile_revolut
                         row_html = _money_row_html(
                             f"Da {testo} su {carta}",
                             totale_carta,
                             colore,
                             _triangle_for_card(carta),
-                            f"+ €{risparmi_mese_precedente:.2f} dai risparmi - (€{somma_spese_programmate_immediate:.2f} - €{spese_che_anticipo_per_un_giorno_di_disney_spotify:.2f}) -> vedrai €{somma_valori:.2f}"
+                            f"Dopo spese fisse e accantonamenti: €{saldo_revolut_subito:.2f}; dopo il rimborso di €{anticipo_rimborsabile_revolut:.2f}: €{saldo_revolut_dopo_rimborso:.2f} per le spese quotidiane"
                         )
                         if MOBILE_VIEW:
                             html_carte += row_html
