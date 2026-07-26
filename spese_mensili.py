@@ -4200,7 +4200,7 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
     buoni = float(summary.get("buoni_pasto_total", 0.0))
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-static-shell has-side" if side_html else "turni-static-shell"
-    component_height = 302 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -4275,7 +4275,7 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
         color: rgba(255,255,255,.88);
         font-size: 13px;
         font-weight: 800;
-        margin: 0;
+        margin: 0 0 4px;
       }}
       .turni-grid-scroll {{
         max-height: 236px;
@@ -4636,7 +4636,7 @@ def render_live_turni_kpis(stats, side_html=""):
     ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
-    component_height = 302 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -4781,8 +4781,6 @@ def render_live_turni_kpis(stats, side_html=""):
         .turni-live-shell.has-side {{
           grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
           gap: 7px;
-          padding-top: 16px;
-          box-sizing: border-box;
         }}
         .turni-live-side {{
           margin-top: 0;
@@ -4816,14 +4814,13 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 231px;
+          max-height: 199px;
           padding-top: 2px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
-          position: absolute;
-          top: -16px;
-          left: 0;
+          position: static;
+          margin: 0 0 7px;
         }}
       }}
     </style>
