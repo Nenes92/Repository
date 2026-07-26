@@ -5060,7 +5060,14 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
     ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
     type_counts = report.get("allowance_turn_type_counts", {})
     previous_type_counts = previous_report.get("allowance_turn_type_counts", {})
-    type_names = sorted(set(type_counts) | set(previous_type_counts))
+    allowance_order = [
+        "Mattina feriale", "Mattina festivo",
+        "Pomeriggio feriale", "Pomeriggio festivo",
+        "Notte feriale", "Notte festivo",
+    ]
+    present_type_names = set(type_counts) | set(previous_type_counts)
+    type_names = [name for name in allowance_order if name in present_type_names]
+    type_names.extend(sorted(present_type_names - set(allowance_order)))
     compare_header = (
         '<div class="turni-report-compare-head"><span></span>'
         f'<b>{html.escape(str(current_month_label))}</b>'
@@ -5192,7 +5199,7 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
     <div class="turni-report-grid">{"".join(cards)}</div>
     <div class="turni-report-lists">
       <div class="turni-report-list"><h4>Turni</h4>{turn_rows}</div>
-      <div class="turni-report-list"><h4>Tipi turno</h4>{compare_header}{type_rows}</div>
+      <div class="turni-report-list"><h4>Indennità</h4>{compare_header}{type_rows}</div>
       <div class="turni-report-list"><h4>Ore maggiorazione</h4>{compare_header}{hours_rows}</div>
     </div>
     """, unsafe_allow_html=True)
