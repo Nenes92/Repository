@@ -4988,8 +4988,7 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             f'<div class="date">{html.escape(str(r["Data"]))}{festivo_txt}</div>'
             f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
             f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
-            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))}</div>'
-            f'<div class="meta">Extra: maggiorazione {html.escape(_money_turni(calc.get("maggiorazione", 0)))} + indennità {html.escape(_money_turni(calc.get("indennita", 0)))} = {html.escape(_money_turni(calc["extra"]))}</div>'
+            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra: Magg. {html.escape(_money_turni(calc.get("maggiorazione", 0)))} + indennità {html.escape(_money_turni(calc.get("indennita", 0)))} = {html.escape(_money_turni(calc["extra"]))}</div>'
             f'{extra_txt}'
             f'</div>'
         )
@@ -5543,8 +5542,7 @@ def render_turni_guadagni_section():
                         f'<div class="date">{r["Data"]}{festivo_txt}</div>'
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
                         f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
-                        f'<div class="meta">Base {_money_turni(calc["base"])}</div>'
-                        f'<div class="meta">Extra: maggiorazione {_money_turni(calc.get("maggiorazione", 0))} + indennità {_money_turni(calc.get("indennita", 0))} = {_money_turni(calc["extra"])}</div>'
+                        f'<div class="meta">Base {_money_turni(calc["base"])} · Extra: Magg. {_money_turni(calc.get("maggiorazione", 0))} + indennità {_money_turni(calc.get("indennita", 0))} = {_money_turni(calc["extra"])}</div>'
                         f'{extra_txt}'
                         f'</div>'
                     )
