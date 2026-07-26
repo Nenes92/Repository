@@ -3567,9 +3567,13 @@ def _allowance_for_turno(data_str, turno, forced_festivo, rules):
         return 0.0
     start, _ = _shift_bounds(data_str, turno)
     festive_at_start = _is_festive_at(start, forced_festivo)
-    # Il sabato feriale non prevede indennità per mattina e pomeriggio,
-    # ma il turno di notte mantiene l'indennità notturna feriale.
-    if turno != "Notte" and not festive_at_start and start.weekday() == 5:
+    is_saturday = start.weekday() == 5
+
+    # Le indennità maturano solo di sabato, domenica e nei festivi. Il sabato
+    # mattina è sempre escluso, anche quando il giorno coincide con un festivo.
+    if not festive_at_start and not is_saturday:
+        return 0.0
+    if turno == "Mattina" and is_saturday:
         return 0.0
     if turno == "Notte":
         return rules["ind_notte_festiva"] if festive_at_start else rules["ind_notte_feriale"]
@@ -5596,7 +5600,7 @@ def render_turni_guadagni_section():
                 P 18-22: 20% / 60%, senza seconda indennità<br>
                 N 22-06: 50% / 60% + 15€/25€<br>
                 Straordinari: percentuali per turno e fer/fest<br>
-                Sabato feriale: M/P senza indennità, notte con indennità feriale<br>
+                Indennità: solo sabato, domenica e festivi; sabato mattina escluso<br>
                 Ferie: 8 ore base<br>
                 Sede: buono pasto se non mattina feriale
                 </div>
