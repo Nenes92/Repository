@@ -7642,6 +7642,101 @@ textarea {
                 if not MOBILE_VIEW:
                     st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
                 st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
+                tab_carte_trasferimenti, tab_carte_riepilogo = st.tabs(["💳 Trasferimenti", "📋 Riepilogo carte"])
+
+                with tab_carte_trasferimenti:
+                    st.subheader("Trasferimenti sulle Carte:")
+                    for carta in ["ING", "Revolut", "BNL"]:
+                        spese_carta = {
+                            voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0)
+                            for voce in SPESE[carta]
+                        }
+                        totale_carta = sum(spese_carta.values())
+                        if carta == "Revolut":
+                            totale_carta = revolut_expenses
+                            colore = "#89CFF0"
+                            testo = "trasferire"
+                            spese_fisse_revolut = sum(
+                                SPESE["Fisse"].get(voce, 0.0)
+                                for voce in SPESE["Revolut"]
+                            )
+                            accantonamenti_revolut = sum(
+                                SPESE["Variabili"].get(voce, 0.0)
+                                for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere"]
+                            )
+                            anticipo_rimborsabile_revolut = 21.50
+                            saldo_prima_accantonamenti = (
+                                risparmi_mese_precedente + totale_carta
+                                - spese_fisse_revolut - anticipo_rimborsabile_revolut
+                            )
+                            saldo_dopo_accantonamenti = saldo_prima_accantonamenti - accantonamenti_revolut
+                            saldo_dopo_rimborso = saldo_dopo_accantonamenti + anticipo_rimborsabile_revolut
+                            didascalia = (
+                                f"Vedrai €{saldo_prima_accantonamenti:.2f}<br>"
+                                f"Di cui €{accantonamenti_revolut:.2f} da destinare a emergenze, viaggi e ‘Da spendere’<br>"
+                                f"Dopo i trasferimenti: €{saldo_dopo_accantonamenti:.2f}<br>"
+                                f"Dopo il rimborso di €{anticipo_rimborsabile_revolut:.2f}: €{saldo_dopo_rimborso:.2f} per le spese quotidiane"
+                            )
+                        elif carta == "ING":
+                            colore = "#D2691E"
+                            testo = "trasferire"
+                            didascalia = "totale delle spese previste su questa carta"
+                        else:
+                            colore = "#77DD77"
+                            testo = "mantenere"
+                            didascalia = "totale delle spese previste su questa carta"
+                        st.markdown(
+                            _money_row_html(
+                                f"Da {testo} su {carta}",
+                                totale_carta,
+                                colore,
+                                _triangle_for_card(carta),
+                                didascalia,
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown(
+                        _money_row_html(
+                            "Totale risparmiato su BNL",
+                            risparmi_mensili,
+                            "#77DD77",
+                            _triangle_for_card("BNL"),
+                            "quota da lasciare come risparmio",
+                        ),
+                        unsafe_allow_html=True,
+                    )
+
+                with tab_carte_riepilogo:
+                    st.subheader("Spese di riferimento per carta")
+                    for carta in ["ING", "Revolut", "BNL"]:
+                        colore = SPESA_FISSA_CARTA_COLORI.get(carta, "#94a3b8")
+                        righe = []
+                        totale_carta = 0.0
+                        for voce in SPESE[carta]:
+                            importo = float(SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0))
+                            if abs(importo) < 0.001:
+                                continue
+                            totale_carta += importo
+                            righe.append(
+                                '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);">'
+                                f'<span style="color:rgba(255,255,255,.72);">{html.escape(str(voce))}</span>'
+                                f'<strong style="color:{colore};white-space:nowrap;">€{importo:,.2f}</strong>'
+                                '</div>'
+                            )
+                        dettaglio = "".join(righe) or '<div style="color:rgba(255,255,255,.45);">Nessuna spesa assegnata</div>'
+                        st.markdown(
+                            f'<div class="kpi-card" style="margin:0 0 10px;border-color:{colore}55;">'
+                            f'<div class="kpi-label" style="color:{colore};">{html.escape(carta)}</div>'
+                            f'{dettaglio}'
+                            f'<div style="display:flex;justify-content:space-between;border-top:1px solid {colore}55;margin-top:6px;padding-top:7px;">'
+                            f'<strong>Totale</strong><strong style="color:{colore};">€{totale_carta:,.2f}</strong></div></div>',
+                            unsafe_allow_html=True,
+                        )
+
+            if False and _mobile_show("Carte"):
+                if not MOBILE_VIEW:
+                    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div id="mobile-carte" class="mobile-anchor"></div><div class="section-pill">💳 Trasferimenti Carte</div>', unsafe_allow_html=True)
                 st.subheader("Trasferimenti sulle Carte:")
         
                 html_carte = ""
