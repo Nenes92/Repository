@@ -3710,6 +3710,7 @@ def compute_turni_month_report(df_turni, rules, month_key):
         "ferie_days": 0,
         "turn_counts": {"Mattina": 0, "Pomeriggio": 0, "Notte": 0, "Ferie": 0},
         "turn_type_counts": {},
+        "allowance_turn_type_counts": {},
         "sede_days": 0,
         "sede_required": 0,
         "sede_remaining": 0,
@@ -3735,6 +3736,8 @@ def compute_turni_month_report(df_turni, rules, month_key):
             suffix = "festivo" if _is_festive_at(start, festivo) else "feriale"
             key = f"{turno} {suffix}"
             report["turn_type_counts"][key] = report["turn_type_counts"].get(key, 0) + 1
+            if _allowance_for_turno(data, turno, festivo, rules) != 0:
+                report["allowance_turn_type_counts"][key] = report["allowance_turn_type_counts"].get(key, 0) + 1
             for pct, hours in _calc_turno_hours_by_pct(data, turno, festivo, rules).items():
                 report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
         if sede:
@@ -5008,7 +5011,7 @@ def _render_turni_day_action_menu(df_turni, month_days):
     return df_turni
 
 
-def _render_turni_report(report, previous_report=None):
+def _render_turni_report(report, previous_report=None, current_month_label="Corr.", previous_month_label="Prec."):
     previous_report = previous_report or {}
     def card(label, value, sub="", accent="#f8fafc"):
         return (
@@ -5055,10 +5058,14 @@ def _render_turni_report(report, previous_report=None):
         for name, value in turn_counts.items()
         if value
     ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
-    type_counts = report.get("turn_type_counts", {})
-    previous_type_counts = previous_report.get("turn_type_counts", {})
+    type_counts = report.get("allowance_turn_type_counts", {})
+    previous_type_counts = previous_report.get("allowance_turn_type_counts", {})
     type_names = sorted(set(type_counts) | set(previous_type_counts))
-    compare_header = '<div class="turni-report-compare-head"><span></span><b>Corr.</b><b>Prec.</b></div>'
+    compare_header = (
+        '<div class="turni-report-compare-head"><span></span>'
+        f'<b>{html.escape(str(current_month_label))}</b>'
+        f'<b>{html.escape(str(previous_month_label))}</b></div>'
+    )
     type_rows = "".join(
         f'<div class="turni-report-compare-row"><span>{html.escape(str(name))}</span>'
         f'<strong>{int(type_counts.get(name, 0))}</strong>'
@@ -5142,7 +5149,7 @@ def _render_turni_report(report, previous_report=None):
       .turni-report-compare-head,
       .turni-report-compare-row {{
         display:grid !important;
-        grid-template-columns:minmax(0,1fr) 36px 36px;
+        grid-template-columns:minmax(0,1fr) 44px 44px;
         align-items:center;
         column-gap:0;
       }}
@@ -5156,7 +5163,8 @@ def _render_turni_report(report, previous_report=None):
       .turni-report-compare-head b {{
         font-weight:800;
         text-align:center;
-        white-space:nowrap;
+        white-space:normal;
+        line-height:1.1;
       }}
       .turni-report-compare-row span {{
         padding-right:5px;
@@ -5595,7 +5603,9 @@ def render_turni_guadagni_section():
         month_report = compute_turni_month_report(df_turni, rules, month_key)
         previous_month_key = _add_months_turni(selected_month, -1).strftime("%Y-%m")
         previous_month_report = compute_turni_month_report(df_turni, rules, previous_month_key)
-        _render_turni_report(month_report, previous_month_report)
+        current_month_label = f"{_turni_month_label(selected_month).split()[0]} corr."
+        previous_month_label = f"{_turni_month_label(_add_months_turni(selected_month, -1)).split()[0]} prec."
+        _render_turni_report(month_report, previous_month_report, current_month_label, previous_month_label)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
