@@ -3720,6 +3720,7 @@ def compute_turni_month_report(df_turni, rules, month_key):
         "straordinario_minutes": 0,
         "straordinario_total": 0.0,
         "hours_by_pct": {},
+        "straordinario_hours_by_pct": {},
     }
     for _, row in month_df.iterrows():
         data = row["Data"]
@@ -3757,7 +3758,9 @@ def compute_turni_month_report(df_turni, rules, month_key):
             )
             report["straordinario_total"] += stra_calc["total"]
             for pct, hours in stra_calc.get("hours_by_pct", {}).items():
-                report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
+                report["straordinario_hours_by_pct"][pct] = (
+                    report["straordinario_hours_by_pct"].get(pct, 0.0) + hours
+                )
     smart_target = int(round(max(0, _parse_float_turni(rules.get("smart_target", 15)))))
     report["sede_required"] = max(0, report["work_days"] - smart_target)
     report["sede_remaining"] = max(0, report["sede_required"] - report["sede_days"])
@@ -5053,12 +5056,7 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         "Notte": "#64748b",
         "Ferie": "#34d399",
     }
-    turn_rows = "".join(
-        f'<div style="--turn-color:{turn_colors.get(str(name), "#fef3c7")};">'
-        f'<span>{html.escape(str(name))}</span><strong>{int(value)}</strong></div>'
-        for name, value in turn_counts.items()
-        if value
-    ) or "<div><span>Nessun turno</span><strong>0</strong></div>"
+    previous_turn_counts = previous_report.get("turn_counts", {})
     type_counts = report.get("allowance_turn_type_counts", {})
     previous_type_counts = previous_report.get("allowance_turn_type_counts", {})
     allowance_order = [
@@ -5074,6 +5072,17 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         f'<b>{html.escape(str(current_month_label))}</b>'
         f'<b>{html.escape(str(previous_month_label))}</b></div>'
     )
+    turn_order = ["Mattina", "Pomeriggio", "Notte", "Ferie"]
+    present_turn_names = set(turn_counts) | set(previous_turn_counts)
+    turn_names = [name for name in turn_order if name in present_turn_names]
+    turn_names.extend(sorted(present_turn_names - set(turn_order)))
+    turn_rows = "".join(
+        f'<div class="turni-report-compare-row" style="--turn-color:{turn_colors.get(str(name), "#fef3c7")};">'
+        f'<span>{html.escape(str(name))}</span>'
+        f'<strong>{int(turn_counts.get(name, 0))}</strong>'
+        f'<strong>{int(previous_turn_counts.get(name, 0))}</strong></div>'
+        for name in turn_names
+    ) or '<div class="turni-report-compare-row"><span>Nessun turno</span><strong>0</strong><strong>0</strong></div>'
     type_rows = "".join(
         f'<div class="turni-report-compare-row"><span>{html.escape(str(name))}</span>'
         f'<strong>{int(type_counts.get(name, 0))}</strong>'
@@ -5090,6 +5099,16 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         for pct in hour_percentages
         if abs(float(hours_by_pct.get(pct, 0.0))) > 0.001 or abs(float(previous_hours_by_pct.get(pct, 0.0))) > 0.001
     ) or '<div class="turni-report-compare-row"><span>Nessuna maggiorazione</span><strong>0h</strong><strong>0h</strong></div>'
+    straordinario_hours_by_pct = report.get("straordinario_hours_by_pct", {})
+    previous_straordinario_hours_by_pct = previous_report.get("straordinario_hours_by_pct", {})
+    straordinario_percentages = sorted(set(straordinario_hours_by_pct) | set(previous_straordinario_hours_by_pct))
+    straordinario_rows = "".join(
+        f'<div class="turni-report-compare-row turni-report-straordinario"><span>Straord. {float(pct):g}%</span>'
+        f'<strong>{float(straordinario_hours_by_pct.get(pct, 0.0)):.2f}h</strong>'
+        f'<strong>{float(previous_straordinario_hours_by_pct.get(pct, 0.0)):.2f}h</strong></div>'
+        for pct in straordinario_percentages
+        if abs(float(straordinario_hours_by_pct.get(pct, 0.0))) > 0.001 or abs(float(previous_straordinario_hours_by_pct.get(pct, 0.0))) > 0.001
+    )
     st.markdown(f"""
     <style>
       .turni-report-grid {{
@@ -5147,6 +5166,9 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         color:rgba(255,255,255,.62);
         font-size:12px;
       }}
+      .turni-report-list h4 + div {{
+        border-top:0 !important;
+      }}
       .turni-report-list strong {{
         color:#fef3c7;
       }}
@@ -5185,6 +5207,10 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
       .turni-report-compare-row strong:nth-child(3) {{
         border-left:1px solid rgba(148,163,184,.32);
       }}
+      .turni-report-straordinario span,
+      .turni-report-straordinario strong {{
+        color:#c084fc !important;
+      }}
       @media (max-width: 767px) {{
         .turni-report-grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
         .turni-report-card {{ padding:8px 7px; }}
@@ -5199,9 +5225,9 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
     </style>
     <div class="turni-report-grid">{"".join(cards)}</div>
     <div class="turni-report-lists">
-      <div class="turni-report-list"><h4>Turni</h4>{turn_rows}</div>
+      <div class="turni-report-list"><h4>Turni</h4>{compare_header}{turn_rows}</div>
       <div class="turni-report-list"><h4>Indennità</h4>{compare_header}{type_rows}</div>
-      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{compare_header}{hours_rows}</div>
+      <div class="turni-report-list"><h4>Ore maggiorazione</h4>{compare_header}{hours_rows}{straordinario_rows}</div>
     </div>
     """, unsafe_allow_html=True)
 
