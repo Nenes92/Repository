@@ -3549,8 +3549,13 @@ def _is_festive_at(dt_obj, forced_festivo=False):
 
 
 def _pct_for_turno(turno, dt_obj, forced_festivo, rules):
-    festive = _is_festive_at(dt_obj, forced_festivo)
     minutes = dt_obj.hour * 60 + dt_obj.minute
+    # Il sabato tra le 06:00 e le 18:00 matura l'indennità prevista,
+    # ma non la maggiorazione oraria. Dalle 18:00 si torna alla regola
+    # ordinaria del turno (per il pomeriggio: 18:00-22:00).
+    if dt_obj.weekday() == 5 and 6 * 60 <= minutes < 18 * 60:
+        return 0.0
+    festive = _is_festive_at(dt_obj, forced_festivo)
     if turno == "Mattina":
         return rules["m_p_festivo_giorno_pct"] if festive else rules["m_p_feriale_pct"]
     if turno == "Pomeriggio":
@@ -3741,6 +3746,8 @@ def compute_turni_month_report(df_turni, rules, month_key):
             if _allowance_for_turno(data, turno, festivo, rules) != 0:
                 report["allowance_turn_type_counts"][key] = report["allowance_turn_type_counts"].get(key, 0) + 1
             for pct, hours in _calc_turno_hours_by_pct(data, turno, festivo, rules).items():
+                if abs(float(pct)) < 0.001:
+                    continue
                 report["hours_by_pct"][pct] = report["hours_by_pct"].get(pct, 0.0) + hours
         if sede:
             report["sede_days"] += 1
