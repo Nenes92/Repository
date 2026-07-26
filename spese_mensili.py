@@ -7705,33 +7705,79 @@ textarea {
                         ),
                         unsafe_allow_html=True,
                     )
+                    ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
+                    revolut_total = revolut_expenses + risparmi_mese_precedente
+                    bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
+                    if MOBILE_VIEW:
+                        st.markdown(
+                            _mobile_donut_html(
+                                "Distribuzione carte",
+                                ["ING", "Revolut", "BNL", "Risparmi BNL"],
+                                [ing_total, revolut_total, bnl_total, risparmi_mensili],
+                                ["#D2691E", "#89CFF0", "#2E7D32", "#77DD77"],
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        df_carte = pd.DataFrame({
+                            "Carta": ["ING", "Revolut", "BNL", "Risparmi BNL"],
+                            "Totale": [ing_total, revolut_total, bnl_total, risparmi_mensili],
+                        })
+                        chart_carte = alt.Chart(df_carte).mark_arc(innerRadius=42, outerRadius=68).encode(
+                            theta=alt.Theta("Totale:Q"),
+                            color=alt.Color(
+                                "Carta:N",
+                                scale=alt.Scale(
+                                    domain=["ING", "Revolut", "BNL", "Risparmi BNL"],
+                                    range=["#D2691E", "#89CFF0", "#2E7D32", "#77DD77"],
+                                ),
+                                legend=alt.Legend(title=None, orient="right"),
+                            ),
+                            tooltip=[alt.Tooltip("Carta:N"), alt.Tooltip("Totale:Q", format=".2f")],
+                        ).properties(title="Distribuzione carte", height=210)
+                        st.altair_chart(chart_carte, use_container_width=True)
 
                 with tab_carte_riepilogo:
                     st.subheader("Spese di riferimento per carta")
-                    for carta in ["ING", "Revolut", "BNL"]:
-                        colore = SPESA_FISSA_CARTA_COLORI.get(carta, "#94a3b8")
+                    def render_riepilogo_carta(carta, colore, risparmi_bnl=False):
+                        titolo_carta = "Risparmi BNL" if risparmi_bnl else carta
                         righe = []
                         totale_carta = 0.0
-                        for voce in SPESE[carta]:
-                            importo = float(SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0))
-                            if abs(importo) < 0.001:
-                                continue
-                            totale_carta += importo
+                        if risparmi_bnl:
+                            totale_carta = float(risparmi_mensili)
                             righe.append(
                                 '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);">'
-                                f'<span style="color:rgba(255,255,255,.72);">{html.escape(str(voce))}</span>'
-                                f'<strong style="color:{colore};white-space:nowrap;">€{importo:,.2f}</strong>'
-                                '</div>'
+                                '<span style="color:rgba(255,255,255,.72);">Quota da lasciare</span>'
+                                f'<strong style="color:{colore};white-space:nowrap;">€{totale_carta:,.2f}</strong></div>'
                             )
+                        else:
+                            for voce in SPESE[carta]:
+                                importo = float(SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0))
+                                if abs(importo) < 0.001:
+                                    continue
+                                totale_carta += importo
+                                righe.append(
+                                    '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);">'
+                                    f'<span style="color:rgba(255,255,255,.72);">{html.escape(str(voce))}</span>'
+                                    f'<strong style="color:{colore};white-space:nowrap;">€{importo:,.2f}</strong>'
+                                    '</div>'
+                                )
                         dettaglio = "".join(righe) or '<div style="color:rgba(255,255,255,.45);">Nessuna spesa assegnata</div>'
                         st.markdown(
                             f'<div class="kpi-card" style="margin:0 0 10px;border-color:{colore}55;">'
-                            f'<div class="kpi-label" style="color:{colore};">{html.escape(carta)}</div>'
+                            f'<div class="kpi-label" style="color:{colore};">{html.escape(titolo_carta)}</div>'
                             f'{dettaglio}'
                             f'<div style="display:flex;justify-content:space-between;border-top:1px solid {colore}55;margin-top:6px;padding-top:7px;">'
                             f'<strong>Totale</strong><strong style="color:{colore};">€{totale_carta:,.2f}</strong></div></div>',
                             unsafe_allow_html=True,
                         )
+                    riepilogo_col1, riepilogo_col2 = st.columns(2, gap="small")
+                    with riepilogo_col1:
+                        render_riepilogo_carta("ING", "#D2691E")
+                        render_riepilogo_carta("BNL", "#2E7D32")
+                    with riepilogo_col2:
+                        render_riepilogo_carta("Revolut", "#89CFF0")
+                        render_riepilogo_carta("BNL", "#77DD77", risparmi_bnl=True)
 
             if False and _mobile_show("Carte"):
                 if not MOBILE_VIEW:
