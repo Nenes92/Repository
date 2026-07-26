@@ -4269,12 +4269,13 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
       }}
       .turni-live-side {{
         min-width: 0;
+        position: relative;
       }}
       .turni-summary-compact-title {{
         color: rgba(255,255,255,.88);
         font-size: 13px;
         font-weight: 800;
-        margin: 0 0 4px;
+        margin: 0;
       }}
       .turni-grid-scroll {{
         max-height: 236px;
@@ -4813,12 +4814,14 @@ def render_live_turni_kpis(stats, side_html=""):
           gap: 5px;
         }}
         .turni-grid-scroll {{
-          max-height: 199px;
+          max-height: 231px;
           padding-top: 2px;
         }}
         .turni-summary-compact-title {{
           font-size: 11px;
-          margin: 0 0 7px;
+          position: absolute;
+          top: -16px;
+          left: 0;
         }}
       }}
     </style>
