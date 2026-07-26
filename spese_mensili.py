@@ -7754,6 +7754,12 @@ textarea {
                     st.subheader("Spese di riferimento per carta")
                     def render_riepilogo_carta(carta, colore, risparmi_bnl=False):
                         titolo_carta = "Risparmi BNL" if risparmi_bnl else carta
+                        colori_variabili = {
+                            "Emergenze/Compleanni": "#4ADE80",
+                            "Viaggi": "#166534",
+                            "Da spendere": "#FACC15",
+                            "Spese quotidiane": "#FB923C",
+                        }
                         righe = []
                         totale_carta = 0.0
                         if risparmi_bnl:
@@ -7769,9 +7775,10 @@ textarea {
                                 if abs(importo) < 0.001:
                                     continue
                                 totale_carta += importo
+                                colore_voce = colori_variabili.get(voce, "rgba(255,255,255,.72)")
                                 righe.append(
                                     '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07);">'
-                                    f'<span style="color:rgba(255,255,255,.72);">{html.escape(str(voce))}</span>'
+                                    f'<span style="color:{colore_voce};">{html.escape(str(voce))}</span>'
                                     f'<strong style="color:{colore};white-space:nowrap;">€{importo:,.2f}</strong>'
                                     '</div>'
                                 )
