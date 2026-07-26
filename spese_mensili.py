@@ -3319,6 +3319,8 @@ DEFAULT_TURNI_RULES = {
     "ind_m_p_festivo": 15.0,
     "ind_notte_festiva": 25.0,
 }
+TURNI_RULES_WORKSHEET = "Regole Turni"
+TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
 
 
 def _money_turni(value):
@@ -3451,11 +3453,35 @@ def save_turni_data(df):
 
 def get_turni_rules():
     if "turni_rules" not in st.session_state:
-        st.session_state.turni_rules = DEFAULT_TURNI_RULES.copy()
+        rules = DEFAULT_TURNI_RULES.copy()
+        try:
+            saved_rules = load_data_gsheets(TURNI_RULES_WORKSHEET, TURNI_RULES_HEADERS)
+            if saved_rules is not None and not saved_rules.empty:
+                saved_row = saved_rules.iloc[-1]
+                for key, default_value in DEFAULT_TURNI_RULES.items():
+                    if key in saved_row and pd.notna(saved_row[key]):
+                        rules[key] = _parse_float_turni(saved_row[key])
+        except Exception:
+            # Senza collegamento a Google Sheets rimangono valide le regole locali.
+            pass
+        st.session_state.turni_rules = rules
     else:
         for key, value in DEFAULT_TURNI_RULES.items():
             st.session_state.turni_rules.setdefault(key, value)
     return st.session_state.turni_rules
+
+
+def save_turni_rules(rules):
+    """Salva l'ultima configurazione delle regole in un foglio dedicato."""
+    row = {
+        key: float(rules.get(key, default_value))
+        for key, default_value in DEFAULT_TURNI_RULES.items()
+    }
+    return save_data_gsheets(
+        TURNI_RULES_WORKSHEET,
+        TURNI_RULES_HEADERS,
+        pd.DataFrame([row], columns=TURNI_RULES_HEADERS),
+    )
 
 
 def _apply_turni_rules_from_widgets(rules):
@@ -5621,24 +5647,31 @@ def render_turni_guadagni_section():
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
             rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
             rules["trattenute_mensili"] = st.number_input("Trattenute fisse mensili", value=float(rules.get("trattenute_mensili", 0.0)), step=1.0, key="turni_trattenute_mensili")
-            st.markdown("""
+            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Regole applicate</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.5;">
-                M 06-14: 20% / 50% + 6€/15€<br>
-                P 14-18: 20% / 50% + 6€/15€<br>
-                P 18-22: 20% / 60%, senza seconda indennità<br>
-                N 22-06: 50% / 60% + 15€/25€<br>
-                Straordinari: percentuali per turno e fer/fest<br>
-                Indennità: solo sabato, domenica e festivi<br>
-                Ferie: 8 ore base<br>
-                Sede: buono pasto se non mattina feriale
+                <div style="font-size:12px;color:rgba(255,255,255,0.72);line-height:1.55;">
+                <b style="color:#fef3c7;">Paga base:</b> {_money_turni(rules['paga_oraria'])}/h<br>
+                <b style="color:#93c5fd;">Mattina 06–14:</b> feriale {rules['m_p_feriale_pct']:g}%, festivo {rules['m_p_festivo_giorno_pct']:g}%. Sabato: nessuna maggiorazione.<br>
+                <b style="color:#fb923c;">Pomeriggio 14–22:</b> feriale {rules['m_p_feriale_pct']:g}%; festivo 14–18 {rules['m_p_festivo_giorno_pct']:g}% e 18–22 {rules['festivo_sera_notte_pct']:g}%. Sabato: 14–18 senza maggiorazione, 18–22 {rules['m_p_feriale_pct']:g}%.<br>
+                <b style="color:#94a3b8;">Notte 22–06:</b> {rules['notte_feriale_pct']:g}% feriale e {rules['festivo_sera_notte_pct']:g}% festivo; le ore sono attribuite al giorno effettivo, anche dopo mezzanotte.<br>
+                <b style="color:#fef3c7;">Indennità:</b> solo sabato, domenica e festivi. M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
+                <b style="color:#c084fc;">Straordinari:</b> massimo 2 ore dopo il turno. M {rules['stra_mattina_feriale_pct']:g}%/{rules['stra_mattina_festivo_pct']:g}%, P {rules['stra_pomeriggio_feriale_pct']:g}%/{rules['stra_pomeriggio_festivo_pct']:g}%, N {rules['stra_notte_feriale_pct']:g}%/{rules['stra_notte_festivo_pct']:g}% (feriale/festivo).<br>
+                <b style="color:#34d399;">Ferie:</b> 8 ore base. <b style="color:#fde68a;">Buono pasto:</b> {_money_turni(rules['buono_pasto'])}, se in sede e non mattina feriale.<br>
+                <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.<br>
+                <b style="color:#60a5fa;">Cedolino:</b> competenze fisse {_money_turni(rules['accrediti_mensili'])}, trattenute fisse {_money_turni(rules['trattenute_mensili'])}.
                 </div>
             </div>
             """, unsafe_allow_html=True)
+            if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+                rules = _apply_turni_rules_from_widgets(rules)
+                if save_turni_rules(rules):
+                    st.success("Regole salvate nel foglio Google “Regole Turni”.")
+                else:
+                    st.error("Non sono riuscito a salvare le regole su Google Sheets.")
 
         st.session_state.turni_rules = rules
-        st.caption("Le regole sono salvate nella sessione Streamlit. I turni arrivano da Google Calendar; il festivo manuale viene salvato subito su Google Sheets quando lo modifichi.")
+        st.caption("Le regole restano attive subito nella sessione. Con “Salva regole su Google” vengono conservate nel foglio “Regole Turni” e ricaricate al prossimo accesso.")
 
     with tab_report:
         month_report = compute_turni_month_report(df_turni, rules, month_key)
