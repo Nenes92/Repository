@@ -26,6 +26,9 @@ except ImportError:
 
 # ─── GOOGLE SHEETS CONFIG ───────────────────────────────────────────────────
 SHEET_URL = st.secrets["SHEET_URL"]
+# Cartella Drive dedicata ai cedolini: l'icona in alto apre la cartella Google
+# nativa, dove è possibile caricare, consultare e scaricare tutti i PDF.
+CEDOLINI_DRIVE_URL = "https://drive.google.com/drive/folders/1Uq9SGfCKy5vNJN2FOw4imrtbI32nHdvj"
 
 CREDENTIALS_INFO = {
     "type": st.secrets["gcp_service_account"]["type"],
@@ -596,6 +599,15 @@ st.markdown("""
 .main-view-switch a.sheet-link:hover {
     background: rgba(134,239,172,.14);
 }
+.main-view-switch a.payslip-link {
+    min-width: 24px;
+    justify-content: center;
+    padding: 4px 7px;
+    color: #fbbf24 !important;
+}
+.main-view-switch a.payslip-link:hover {
+    background: rgba(251,191,36,.14);
+}
 @media (max-width: 767px) {
     div[data-testid="stHorizontalBlock"]:has(.carte-summary-mobile-marker) {
         display: grid !important;
@@ -617,11 +629,13 @@ VISTA_APP = _default_view
 _desktop_active = "active" if VISTA_APP == "Desktop" else ""
 _mobile_active = "active" if VISTA_APP == "Telefono" else ""
 _sheet_url = html.escape(SHEET_URL, quote=True)
+_cedolini_drive_url = html.escape(CEDOLINI_DRIVE_URL, quote=True)
 st.markdown(
     f'<div class="main-view-switch">'
     f'<a class="{_desktop_active}" href="?view=desktop" target="_self">Desktop</a>'
     f'<a class="{_mobile_active}" href="?view=mobile" target="_self">Telefono</a>'
     f'<a class="sheet-link" href="{_sheet_url}" target="_blank" rel="noopener noreferrer" title="Apri il foglio di riferimento" aria-label="Apri il foglio di riferimento">📊</a>'
+    f'<a class="payslip-link" href="{_cedolini_drive_url}" target="_blank" rel="noopener noreferrer" title="Apri archivio cedolini PDF" aria-label="Apri archivio cedolini PDF">📄</a>'
     f'</div>',
     unsafe_allow_html=True
 )
