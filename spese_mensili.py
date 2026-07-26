@@ -5805,9 +5805,9 @@ def main():
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
-            stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=input_stipendio_percepito, step=50, label_visibility="collapsed")
+            stipendio_percepito = st.number_input("Inserisci lo stipendio effettivamente percepito:", min_value=float(input_stipendio_percepito), value=float(input_stipendio_percepito), step=50.0, label_visibility="collapsed")
             st.markdown('<div style="height:10px;"></div><div class="salary-input-label">Risparmio mese prec.</div>', unsafe_allow_html=True)
-            risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=input_risparmi_mese_precedente, step=50, label_visibility="collapsed")
+            risparmi_mese_precedente = st.number_input("Inserisci quanto hai risparmiato nel mese precedente:", min_value=float(input_risparmi_mese_precedente), value=float(input_risparmi_mese_precedente), step=50.0, label_visibility="collapsed")
         with col_stip_inserimento2:
             st.markdown('<div class="salary-input-label">Quota stipendio scelta</div>', unsafe_allow_html=True)
             budget_da_stipendio_default = min(float(input_budget_da_stipendio), float(stipendio_percepito))
@@ -7697,7 +7697,7 @@ textarea {
                             testo = "trasferire"
                             didascalia = "totale delle spese previste su questa carta"
                         else:
-                            colore = "#77DD77"
+                            colore = "#2E7D32"
                             testo = "mantenere"
                             didascalia = "totale delle spese previste su questa carta"
                         transfer_row_html = _money_row_html(
@@ -7789,10 +7789,10 @@ textarea {
                         st.markdown('<span class="carte-summary-mobile-marker"></span>', unsafe_allow_html=True)
                         render_riepilogo_carta("ING", "#D2691E")
                         render_riepilogo_carta("BNL", "#2E7D32")
+                        render_riepilogo_carta("BNL", "#77DD77", risparmi_bnl=True)
                     with riepilogo_col2:
                         st.markdown('<span class="carte-summary-mobile-marker"></span>', unsafe_allow_html=True)
                         render_riepilogo_carta("Revolut", "#89CFF0")
-                        render_riepilogo_carta("BNL", "#77DD77", risparmi_bnl=True)
 
             if False and _mobile_show("Carte"):
                 if not MOBILE_VIEW:
