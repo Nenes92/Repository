@@ -596,6 +596,20 @@ st.markdown("""
 .main-view-switch a.sheet-link:hover {
     background: rgba(134,239,172,.14);
 }
+@media (max-width: 767px) {
+    div[data-testid="stHorizontalBlock"]:has(.carte-summary-mobile-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.carte-summary-mobile-marker) > div[data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -7646,6 +7660,7 @@ textarea {
 
                 with tab_carte_trasferimenti:
                     st.subheader("Trasferimenti sulle Carte:")
+                    mobile_transfer_rows = []
                     for carta in ["ING", "Revolut", "BNL"]:
                         spese_carta = {
                             voce: SPESE["Fisse"].get(voce, 0) + SPESE["Variabili"].get(voce, 0)
@@ -7685,37 +7700,35 @@ textarea {
                             colore = "#77DD77"
                             testo = "mantenere"
                             didascalia = "totale delle spese previste su questa carta"
-                        st.markdown(
-                            _money_row_html(
-                                f"Da {testo} su {carta}",
-                                totale_carta,
-                                colore,
-                                _triangle_for_card(carta),
-                                didascalia,
-                            ),
-                            unsafe_allow_html=True,
+                        transfer_row_html = _money_row_html(
+                            f"Da {testo} su {carta}", totale_carta, colore,
+                            _triangle_for_card(carta), didascalia,
                         )
-                    st.markdown(
-                        _money_row_html(
-                            "Totale risparmiato su BNL",
-                            risparmi_mensili,
-                            "#77DD77",
-                            _triangle_for_card("BNL"),
-                            "quota da lasciare come risparmio",
-                        ),
-                        unsafe_allow_html=True,
+                        if MOBILE_VIEW:
+                            mobile_transfer_rows.append(transfer_row_html)
+                        else:
+                            st.markdown(transfer_row_html, unsafe_allow_html=True)
+                    risparmi_bnl_row_html = _money_row_html(
+                        "Totale risparmiato su BNL", risparmi_mensili, "#77DD77",
+                        _triangle_for_card("BNL"), "quota da lasciare come risparmio",
                     )
+                    if MOBILE_VIEW:
+                        mobile_transfer_rows.append(risparmi_bnl_row_html)
+                    else:
+                        st.markdown(risparmi_bnl_row_html, unsafe_allow_html=True)
                     ing_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["ING"])
                     revolut_total = revolut_expenses + risparmi_mese_precedente
                     bnl_total = sum(SPESE["Fisse"].get(v, 0) + SPESE["Variabili"].get(v, 0) for v in SPESE["BNL"])
                     if MOBILE_VIEW:
+                        carte_donut_html = _mobile_donut_html(
+                            "Distribuzione carte",
+                            ["ING", "Revolut", "BNL", "Risparmi BNL"],
+                            [ing_total, revolut_total, bnl_total, risparmi_mensili],
+                            ["#D2691E", "#89CFF0", "#2E7D32", "#77DD77"],
+                        )
                         st.markdown(
-                            _mobile_donut_html(
-                                "Distribuzione carte",
-                                ["ING", "Revolut", "BNL", "Risparmi BNL"],
-                                [ing_total, revolut_total, bnl_total, risparmi_mensili],
-                                ["#D2691E", "#89CFF0", "#2E7D32", "#77DD77"],
-                            ),
+                            '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:8px;align-items:start;">'
+                            f'<div>{"".join(mobile_transfer_rows)}</div><div>{carte_donut_html}</div></div>',
                             unsafe_allow_html=True,
                         )
                     else:
@@ -7773,9 +7786,11 @@ textarea {
                         )
                     riepilogo_col1, riepilogo_col2 = st.columns(2, gap="small")
                     with riepilogo_col1:
+                        st.markdown('<span class="carte-summary-mobile-marker"></span>', unsafe_allow_html=True)
                         render_riepilogo_carta("ING", "#D2691E")
                         render_riepilogo_carta("BNL", "#2E7D32")
                     with riepilogo_col2:
+                        st.markdown('<span class="carte-summary-mobile-marker"></span>', unsafe_allow_html=True)
                         render_riepilogo_carta("Revolut", "#89CFF0")
                         render_riepilogo_carta("BNL", "#77DD77", risparmi_bnl=True)
 
