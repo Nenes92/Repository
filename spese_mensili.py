@@ -3827,12 +3827,21 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
     )
 
     if turno == "Riposo":
-        return {**stra_calc, "rate_min": 0.0}
+        return {
+            **stra_calc,
+            "maggiorazione": stra_calc["extra"],
+            "indennita": 0.0,
+            "rate_min": 0.0,
+        }
 
     if turno == "Ferie":
         start, end = _shift_bounds(data_str, turno)
         if only_day is not None and data_str != only_day:
-            return {"total": stra_calc["total"], "base": stra_calc["base"], "extra": stra_calc["extra"], "hours": stra_calc["hours"], "rate_min": 0.0}
+            return {
+                "total": stra_calc["total"], "base": stra_calc["base"],
+                "extra": stra_calc["extra"], "maggiorazione": stra_calc["extra"],
+                "indennita": 0.0, "hours": stra_calc["hours"], "rate_min": 0.0,
+            }
         effective_end = min(end, now)
         if effective_end <= start:
             hours = 0.0
@@ -3844,6 +3853,8 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
             "total": base + stra_calc["total"],
             "base": base + stra_calc["base"],
             "extra": stra_calc["extra"],
+            "maggiorazione": stra_calc["extra"],
+            "indennita": 0.0,
             "hours": hours + stra_calc["hours"],
             "rate_min": rate_min,
         }
@@ -3858,10 +3869,14 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
         effective_end = min(effective_end, day_end)
 
     if effective_end <= start:
-        return {"total": stra_calc["total"], "base": stra_calc["base"], "extra": stra_calc["extra"], "hours": stra_calc["hours"], "rate_min": 0.0}
+        return {
+            "total": stra_calc["total"], "base": stra_calc["base"],
+            "extra": stra_calc["extra"], "maggiorazione": stra_calc["extra"],
+            "indennita": 0.0, "hours": stra_calc["hours"], "rate_min": 0.0,
+        }
 
     base = 0.0
-    extra = 0.0
+    maggiorazione = 0.0
     hours = 0.0
     t = start
     while t < effective_end:
@@ -3869,24 +3884,28 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
         h = (nxt - t).total_seconds() / 3600
         pct = _pct_for_turno(turno, t, forced_festivo, rules)
         base += paga * h
-        extra += paga * pct / 100 * h
+        maggiorazione += paga * pct / 100 * h
         hours += h
         t = nxt
 
     allowance = _allowance_for_turno(data_str, turno, forced_festivo, rules)
     if only_day is not None and data_str != only_day:
         allowance = 0.0
-    extra += allowance
     base += stra_calc["base"]
-    extra += stra_calc["extra"]
+    maggiorazione += stra_calc["extra"]
     hours += stra_calc["hours"]
+    extra = maggiorazione + allowance
 
     rate_min = 0.0
     current_now = _now_italy()
     if start <= current_now <= end:
         rate_min = paga * (1 + _pct_for_turno(turno, current_now, forced_festivo, rules) / 100) / 60
 
-    return {"total": base + extra, "base": base, "extra": extra, "hours": hours, "rate_min": rate_min}
+    return {
+        "total": base + extra, "base": base, "extra": extra,
+        "maggiorazione": maggiorazione, "indennita": allowance,
+        "hours": hours, "rate_min": rate_min,
+    }
 
 
 def _turni_current_prev_months():
@@ -4969,7 +4988,8 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             f'<div class="date">{html.escape(str(r["Data"]))}{festivo_txt}</div>'
             f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
             f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
-            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra {html.escape(_money_turni(calc["extra"]))}</div>'
+            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))}</div>'
+            f'<div class="meta">Extra: maggiorazione {html.escape(_money_turni(calc.get("maggiorazione", 0)))} + indennità {html.escape(_money_turni(calc.get("indennita", 0)))} = {html.escape(_money_turni(calc["extra"]))}</div>'
             f'{extra_txt}'
             f'</div>'
         )
@@ -5523,7 +5543,8 @@ def render_turni_guadagni_section():
                         f'<div class="date">{r["Data"]}{festivo_txt}</div>'
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
                         f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
-                        f'<div class="meta">Base {_money_turni(calc["base"])} · Extra {_money_turni(calc["extra"])}</div>'
+                        f'<div class="meta">Base {_money_turni(calc["base"])}</div>'
+                        f'<div class="meta">Extra: maggiorazione {_money_turni(calc.get("maggiorazione", 0))} + indennità {_money_turni(calc.get("indennita", 0))} = {_money_turni(calc["extra"])}</div>'
                         f'{extra_txt}'
                         f'</div>'
                     )
