@@ -5175,12 +5175,10 @@ def render_payroll_v2_details(estimate):
         ),
     ]
     cards_html = "".join(
-        f"""
-        <div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">
-          <div class="payroll-v2-label">{html.escape(label)}</div>
-          <div class="payroll-v2-value">{html.escape(value)}</div>
-        </div>
-        """
+        f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
+        f'<div class="payroll-v2-label">{html.escape(label)}</div>'
+        f'<div class="payroll-v2-value">{html.escape(value)}</div>'
+        '</div>'
         for label, value, color, rgb in cards
     )
     st.markdown(f"""
@@ -6139,12 +6137,10 @@ def render_turni_guadagni_section():
                 ("Mesi variabili disponibili", str(len(variables_by_month)), "#a78bfa", "139,92,246"),
             ]
             status_html = "".join(
-                f"""
-                <div class="calibration-status-card" style="--cal-color:{color};--cal-rgb:{rgb};">
-                  <div class="calibration-status-label">{html.escape(label)}</div>
-                  <div class="calibration-status-value">{html.escape(value)}</div>
-                </div>
-                """
+                f'<div class="calibration-status-card" style="--cal-color:{color};--cal-rgb:{rgb};">'
+                f'<div class="calibration-status-label">{html.escape(label)}</div>'
+                f'<div class="calibration-status-value">{html.escape(value)}</div>'
+                '</div>'
                 for label, value, color, rgb in status_cards
             )
             st.markdown(f"""
@@ -6241,12 +6237,10 @@ def render_turni_guadagni_section():
                 ("Fascia prudenziale 95%", f"± {_money_turni(confidence_margin)}", "#f472b6", "219,39,119"),
             ]
             result_html = "".join(
-                f"""
-                <div class="calibration-result-card" style="--cal-color:{color};--cal-rgb:{rgb};">
-                  <div class="calibration-result-label">{html.escape(label)}</div>
-                  <div class="calibration-result-value">{html.escape(value)}</div>
-                </div>
-                """
+                f'<div class="calibration-result-card" style="--cal-color:{color};--cal-rgb:{rgb};">'
+                f'<div class="calibration-result-label">{html.escape(label)}</div>'
+                f'<div class="calibration-result-value">{html.escape(value)}</div>'
+                '</div>'
                 for label, value, color, rgb in result_cards
             )
             st.markdown(
