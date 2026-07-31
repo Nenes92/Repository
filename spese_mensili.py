@@ -5136,7 +5136,7 @@ def render_payroll_v2_details(estimate):
     }
     </style>
     """, unsafe_allow_html=True)
-    st.markdown("#### 🧾 Previsione cedolino V2")
+    st.markdown("#### 🧾 Previsione cedolino")
     cols = st.columns(4)
     with cols[0]:
         st.markdown('<span class="payroll-v2-grid-marker"></span>', unsafe_allow_html=True)
@@ -5829,7 +5829,7 @@ def render_turni_guadagni_section():
             st.warning("Modifiche turni in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
-        # I parametri che governano il cedolino V2 sono raggruppati qui,
+        # I parametri che governano il cedolino sono raggruppati qui,
         # prima delle regole tecniche dei turni, per essere immediatamente
         # individuabili anche da smartphone.
         if float(rules.get("paga_oraria_lorda", 0.0)) <= 0:
@@ -5845,7 +5845,7 @@ def render_turni_guadagni_section():
             border-radius:14px;
             background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(59,130,246,.08));
         ">
-          <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino V2</div>
+          <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino</div>
           <div style="font-size:11px;color:rgba(255,255,255,.58);margin-top:4px;">
             Questi cinque valori determinano la previsione. Le percentuali dei turni sono configurate più sotto.
           </div>
@@ -5900,6 +5900,13 @@ def render_turni_guadagni_section():
         st.caption(
             "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
             "2.200 €, coefficiente 0,60, rettifica 0 €, ritardo 1 mese."
+        )
+        st.info(
+            "Rettifiche: inserisci qui un importo positivo per premi/arretrati "
+            "o negativo per 730 e trattenute del cedolino che stai prevedendo. "
+            "Nella Calibrazione, invece, togli la spunta “Includi” ai mesi che "
+            "contengono queste voci straordinarie: non devono insegnare al modello "
+            "quale sia un mese ordinario."
         )
         st.markdown("---")
 
