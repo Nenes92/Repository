@@ -6118,20 +6118,9 @@ def render_turni_guadagni_section():
                     key="turni_excel_history_upload",
                     help="Legge i fogli mensili e unisce lo storico senza sovrascrivere le date già presenti su Google.",
                 )
-                assisted_turni_data = st.text_area(
-                    "Importazione assistita (TSV)",
-                    key="turni_excel_assisted_tsv",
-                    height=80,
-                    placeholder="Data, turno, festivo, straordinario e sede",
-                    help="Canale alternativo per importazioni assistite; puoi lasciarlo vuoto usando il file Excel.",
-                )
                 imported_history = None
                 if uploaded_turni_excel is not None:
                     imported_history = read_turni_excel(uploaded_turni_excel)
-                elif assisted_turni_data.strip():
-                    imported_history = _normalize_turni_df(
-                        pd.read_csv(io.StringIO(assisted_turni_data), sep="\t")
-                    )
                 if imported_history is not None:
                     existing_dates = set(_normalize_turni_df(df_turni)["Data"].astype(str))
                     imported_dates = set(imported_history["Data"].astype(str))
