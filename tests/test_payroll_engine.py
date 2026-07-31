@@ -49,6 +49,11 @@ def test_leave_has_no_variable_pay(rules):
     assert result.variables_gross == 0
 
 
+def test_day_shift_from_legacy_excel_has_no_variable_pay(rules):
+    result = calculate_shift_variables(Shift(date(2026, 1, 9), "Giornata"), rules)
+    assert result.variables_gross == 0
+
+
 def test_variables_are_paid_next_month(rules):
     june = VariableBreakdown(premiums_gross=100)
     estimate = estimate_payslip("2026-07", {"2026-06": june}, rules)

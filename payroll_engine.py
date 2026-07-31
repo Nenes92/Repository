@@ -46,6 +46,7 @@ SHIFT_TIMES: dict[str, tuple[time, time]] = {
     "Mattina": (time(6), time(14)),
     "Pomeriggio": (time(14), time(22)),
     "Notte": (time(22), time(6)),
+    "Giornata": (time(9), time(17)),
     "Ferie": (time(9), time(17)),
     "Riposo": (time(0), time(0)),
 }
@@ -183,7 +184,7 @@ def premium_percentage(kind: str, moment: datetime, forced: bool, rules: Mapping
 
 
 def shift_allowance(shift: Shift, rules: Mapping[str, float]) -> float:
-    if shift.kind in {"Ferie", "Riposo"}:
+    if shift.kind in {"Ferie", "Riposo", "Giornata"}:
         return 0.0
     start, _ = _bounds(shift)
     festive = is_holiday(start, shift.forced_holiday)

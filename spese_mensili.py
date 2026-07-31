@@ -22,6 +22,7 @@ from payroll_engine import (
     estimate_payslip,
     migrate_rules as migrate_payroll_rules,
 )
+from turni_excel_import import merge_turni_history, read_turni_excel
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -3319,6 +3320,7 @@ st.markdown("""
 .turni-mattina { border-left-color:#60a5fa; }
 .turni-pomeriggio { border-left-color:#fb923c; }
 .turni-notte { border-left-color:#64748b; }
+.turni-giornata { border-left-color:#c084fc; }
 .turni-ferie { border-left-color:#34d399; }
 .turni-riposo { border-left-color:#cbd5e1; }
 </style>
@@ -3341,6 +3343,7 @@ TURNI_ORARI = {
     "Mattina": ("06:00", "14:00"),
     "Pomeriggio": ("14:00", "22:00"),
     "Notte": ("22:00", "06:00"),
+    "Giornata": ("09:00", "17:00"),
     "Ferie": ("09:00", "17:00"),
     "Riposo": ("00:00", "00:00"),
 }
@@ -3476,6 +3479,7 @@ def color_turni_google_sheet(df):
             "Mattina": {"red": 0.18, "green": 0.46, "blue": 0.75},
             "Pomeriggio": {"red": 0.95, "green": 0.52, "blue": 0.22},
             "Notte": {"red": 0.25, "green": 0.28, "blue": 0.34},
+            "Giornata": {"red": 0.55, "green": 0.36, "blue": 0.96},
             "Ferie": {"red": 0.20, "green": 0.62, "blue": 0.35},
         }
         df_norm = _normalize_turni_df(df)
@@ -3719,7 +3723,7 @@ def _pct_for_turno(turno, dt_obj, forced_festivo, rules):
 
 
 def _allowance_for_turno(data_str, turno, forced_festivo, rules):
-    if turno in ["Ferie", "Riposo"]:
+    if turno in ["Ferie", "Riposo", "Giornata"]:
         return 0.0
     start, _ = _shift_bounds(data_str, turno)
     festive_at_start = _is_festive_at(start, forced_festivo)
@@ -3865,7 +3869,7 @@ def compute_turni_month_report(df_turni, rules, month_key):
     report = {
         "work_days": 0,
         "ferie_days": 0,
-        "turn_counts": {"Mattina": 0, "Pomeriggio": 0, "Notte": 0, "Ferie": 0},
+        "turn_counts": {"Mattina": 0, "Pomeriggio": 0, "Notte": 0, "Giornata": 0, "Ferie": 0},
         "turn_type_counts": {},
         "allowance_turn_type_counts": {},
         "sede_days": 0,
@@ -4037,7 +4041,7 @@ def _live_net_hourly_base(df_turni, rules, month_key):
     """Distribuisce il fisso netto sulle ore ordinarie pianificate del mese."""
     month_df = _normalize_turni_df(df_turni)
     month_df = month_df[month_df["Data"].str.startswith(month_key)]
-    paid_days = month_df[month_df["Turno"].isin(["Mattina", "Pomeriggio", "Notte", "Ferie"])]
+    paid_days = month_df[month_df["Turno"].isin(["Mattina", "Pomeriggio", "Notte", "Giornata", "Ferie"])]
     planned_hours = float(len(paid_days) * 8)
     # Se il calendario del mese non è ancora completo, evitiamo una paga oraria
     # artificiosamente alta usando un riferimento prudente di 20 giornate.
@@ -4288,6 +4292,7 @@ def _turno_color_info(turno):
         "Mattina": {"emoji": "🔵", "short": "M", "class": "turni-mattina", "color": "#60a5fa", "md_color": "blue"},
         "Pomeriggio": {"emoji": "🟠", "short": "P", "class": "turni-pomeriggio", "color": "#fb923c", "md_color": "orange"},
         "Notte": {"emoji": "⚫", "short": "N", "class": "turni-notte", "color": "#64748b", "md_color": "grey"},
+        "Giornata": {"emoji": "🟣", "short": "G", "class": "turni-giornata", "color": "#c084fc", "md_color": "violet"},
         "Ferie": {"emoji": "🟢", "short": "F", "class": "turni-ferie", "color": "#34d399", "md_color": "green"},
         "Riposo": {"emoji": "⚪", "short": "R", "class": "turni-riposo", "color": "#cbd5e1", "md_color": "gray"},
     }
@@ -4526,6 +4531,7 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
       .turni-mattina {{ border-left-color:#60a5fa; }}
       .turni-pomeriggio {{ border-left-color:#fb923c; }}
       .turni-notte {{ border-left-color:#64748b; }}
+      .turni-giornata {{ border-left-color:#c084fc; }}
       .turni-ferie {{ border-left-color:#34d399; }}
       @media (max-width: 760px) {{
         .turni-static-shell.has-side {{
@@ -4684,7 +4690,7 @@ def import_turni_from_calendar_sources(calendar_sources, selected_month):
     if not frames:
         return pd.DataFrame(columns=TURNI_HEADERS), errors
     df = pd.concat(frames, ignore_index=True)
-    df["turno_priority"] = df["Turno"].map({"Mattina": 1, "Pomeriggio": 2, "Notte": 3, "Ferie": 4}).fillna(9)
+    df["turno_priority"] = df["Turno"].map({"Mattina": 1, "Pomeriggio": 2, "Notte": 3, "Giornata": 4, "Ferie": 5}).fillna(9)
     df = df.sort_values(["Data", "turno_priority"]).drop_duplicates(subset=["Data"], keep="first")
     return _normalize_turni_df(df.drop(columns=["turno_priority"])), errors
 
@@ -4991,6 +4997,7 @@ def render_live_turni_kpis(stats, side_html=""):
       .turni-mattina {{ border-left-color:#60a5fa; }}
       .turni-pomeriggio {{ border-left-color:#fb923c; }}
       .turni-notte {{ border-left-color:#64748b; }}
+      .turni-giornata {{ border-left-color:#c084fc; }}
       .turni-ferie {{ border-left-color:#34d399; }}
       @media (max-width: 760px) {{
         .turni-live-shell.has-side {{
@@ -5390,6 +5397,7 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         "Mattina": "#60a5fa",
         "Pomeriggio": "#fb923c",
         "Notte": "#64748b",
+        "Giornata": "#c084fc",
         "Ferie": "#34d399",
     }
     previous_turn_counts = previous_report.get("turn_counts", {})
@@ -5408,7 +5416,7 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         f'<b>{html.escape(str(current_month_label))}</b>'
         f'<b>{html.escape(str(previous_month_label))}</b></div>'
     )
-    turn_order = ["Mattina", "Pomeriggio", "Notte", "Ferie"]
+    turn_order = ["Mattina", "Pomeriggio", "Notte", "Giornata", "Ferie"]
     present_turn_names = set(turn_counts) | set(previous_turn_counts)
     turn_names = [name for name in turn_order if name in present_turn_names]
     turn_names.extend(sorted(present_turn_names - set(turn_order)))
@@ -5773,6 +5781,7 @@ def render_turni_guadagni_section():
               <span class="legend-item legend-shift" style="border-bottom-color:#60a5fa;">Mattina</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#fb923c;">Pomeriggio</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#64748b;">Notte</span>
+              <span class="legend-item legend-shift" style="border-bottom-color:#c084fc;">Giornata</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#34d399;">Ferie</span>
               <span class="legend-sep"></span>
               <span class="legend-item legend-muted"><span style="color:#ef4444;font-weight:900;">Numero rosso</span> = festivo</span>
@@ -5872,6 +5881,7 @@ def render_turni_guadagni_section():
                   .turni-mattina {{ border-left-color:#60a5fa; }}
                   .turni-pomeriggio {{ border-left-color:#fb923c; }}
                   .turni-notte {{ border-left-color:#64748b; }}
+                  .turni-giornata {{ border-left-color:#c084fc; }}
                   .turni-ferie {{ border-left-color:#34d399; }}
                   #turni-focus-card {{
                     outline: 1px solid rgba(96,165,250,0.45);
@@ -6101,6 +6111,41 @@ def render_turni_guadagni_section():
             "sono esclusi automaticamente; la colonna “Includi” consente di correggere la scelta."
         )
         try:
+            with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
+                uploaded_turni_excel = st.file_uploader(
+                    "File Turni guadagni.xlsx",
+                    type=["xlsx"],
+                    key="turni_excel_history_upload",
+                    help="Legge i fogli mensili e unisce lo storico senza sovrascrivere le date già presenti su Google.",
+                )
+                if uploaded_turni_excel is not None:
+                    imported_history = read_turni_excel(uploaded_turni_excel)
+                    existing_dates = set(_normalize_turni_df(df_turni)["Data"].astype(str))
+                    imported_dates = set(imported_history["Data"].astype(str))
+                    new_dates = imported_dates - existing_dates
+                    imported_months = sorted(imported_history["Data"].str[:7].unique()) if not imported_history.empty else []
+                    st.info(
+                        f"Rilevati {len(imported_history)} turni in {len(imported_months)} mesi "
+                        f"({imported_months[0] if imported_months else '—'} → {imported_months[-1] if imported_months else '—'}). "
+                        f"Nuove date da aggiungere: {len(new_dates)}."
+                    )
+                    if st.button(
+                        "✅ Unisci e salva lo storico su Google",
+                        key="save_imported_turni_history",
+                        use_container_width=True,
+                        disabled=imported_history.empty,
+                    ):
+                        fresh_existing = load_turni_data(force_reload=True)
+                        merged_history = merge_turni_history(fresh_existing, imported_history)
+                        if save_turni_data(merged_history):
+                            st.session_state.pop("payroll_calibration_editor", None)
+                            st.success(
+                                f"Storico importato: {len(merged_history)} giornate complessive; "
+                                "le date già presenti su Google sono state conservate."
+                            )
+                            st.rerun()
+                        else:
+                            st.error("Importazione pronta, ma il salvataggio su Google Sheets non è riuscito.")
             refresh_calibration = st.button(
                 "🔄 Aggiorna cedolini e turni da Google",
                 key="refresh_payroll_calibration",
