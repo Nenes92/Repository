@@ -3556,6 +3556,8 @@ def _payroll_v2_rules(rules):
     migrated["paga_oraria_lorda"] = float(
         rules.get("paga_oraria_lorda", migrated["paga_oraria_lorda"])
     )
+    if migrated["paga_oraria_lorda"] <= 0:
+        migrated["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
     return migrated
 
 
@@ -5827,6 +5829,80 @@ def render_turni_guadagni_section():
             st.warning("Modifiche turni in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
+        # I parametri che governano il cedolino V2 sono raggruppati qui,
+        # prima delle regole tecniche dei turni, per essere immediatamente
+        # individuabili anche da smartphone.
+        if float(rules.get("paga_oraria_lorda", 0.0)) <= 0:
+            rules["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
+            rules["paga_oraria"] = rules["paga_oraria_lorda"]
+            if "turni_paga_lorda" in st.session_state:
+                st.session_state["turni_paga_lorda"] = rules["paga_oraria_lorda"]
+        st.markdown("""
+        <div style="
+            margin:0 0 12px;
+            padding:12px 14px;
+            border:1px solid rgba(52,211,153,.30);
+            border-radius:14px;
+            background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(59,130,246,.08));
+        ">
+          <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino V2</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.58);margin-top:4px;">
+            Questi cinque valori determinano la previsione. Le percentuali dei turni sono configurate più sotto.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        v2_col_1, v2_col_2 = st.columns(2)
+        with v2_col_1:
+            rules["paga_oraria_lorda"] = st.number_input(
+                "Paga oraria lorda contrattuale",
+                min_value=0.01,
+                value=float(rules.get("paga_oraria_lorda", 18.01988)),
+                step=0.01,
+                format="%.5f",
+                key="turni_paga_lorda",
+                help="Serve solo a calcolare maggiorazioni, indennità e straordinari lordi.",
+            )
+            rules["netto_fisso_mensile"] = st.number_input(
+                "Netto fisso mensile",
+                min_value=0.0,
+                value=float(rules.get("netto_fisso_mensile", 2200.0)),
+                step=10.0,
+                key="turni_netto_fisso",
+                help="La parte ordinaria netta che non dipende dalle ore del mese.",
+            )
+            rules["coefficiente_netto_variabili"] = st.number_input(
+                "Coefficiente netto variabili",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(rules.get("coefficiente_netto_variabili", 0.60)),
+                step=0.01,
+                key="turni_coeff_variabili",
+                help="Trasforma le variabili lorde in una stima netta.",
+            )
+        with v2_col_2:
+            rules["rettifica_mensile"] = st.number_input(
+                "Rettifica mensile (+/-)",
+                value=float(rules.get("rettifica_mensile", 0.0)),
+                step=10.0,
+                key="turni_rettifica",
+                help="730, premi, arretrati o trattenute non ricorrenti.",
+            )
+            rules["ritardo_competenze_mesi"] = st.number_input(
+                "Ritardo competenze (mesi)",
+                min_value=0,
+                max_value=3,
+                value=int(round(rules.get("ritardo_competenze_mesi", 1))),
+                step=1,
+                key="turni_ritardo_competenze",
+                help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
+            )
+        rules["paga_oraria"] = rules["paga_oraria_lorda"]
+        st.caption(
+            "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
+            "2.200 €, coefficiente 0,60, rettifica 0 €, ritardo 1 mese."
+        )
+        st.markdown("---")
+
         c1, c2 = st.columns(2)
         with c1:
             if MOBILE_VIEW:
@@ -5836,35 +5912,7 @@ def render_turni_guadagni_section():
               <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
             </div>
             """, unsafe_allow_html=True)
-            st.markdown("""
-            <div style="
-                margin:0 0 6px;
-                color:#fef3c7;
-                font-size:13px;
-                font-weight:900;
-                letter-spacing:.2px;
-                text-shadow:0 0 12px rgba(250,204,21,.25);
-            ">Paga oraria base</div>
-            """, unsafe_allow_html=True)
-            rules["paga_oraria_lorda"] = st.number_input(
-                "Paga oraria lorda contrattuale",
-                value=float(rules.get("paga_oraria_lorda", 18.01988)),
-                step=0.01,
-                format="%.5f",
-                key="turni_paga_lorda",
-                label_visibility="collapsed",
-            )
-            rules["paga_oraria"] = rules["paga_oraria_lorda"]
             rules["quota_fissa_mensile"] = 0.0
-            rules["netto_fisso_mensile"] = st.number_input(
-                "Netto fisso mensile", value=float(rules.get("netto_fisso_mensile", 2200.0)),
-                step=10.0, key="turni_netto_fisso",
-            )
-            rules["coefficiente_netto_variabili"] = st.number_input(
-                "Coefficiente netto variabili", min_value=0.0, max_value=1.0,
-                value=float(rules.get("coefficiente_netto_variabili", 0.60)),
-                step=0.01, key="turni_coeff_variabili",
-            )
             rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
             rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
             rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
@@ -5906,16 +5954,6 @@ def render_turni_guadagni_section():
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
             rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
             rules["trattenute_mensili"] = st.number_input("Trattenute fisse mensili", value=float(rules.get("trattenute_mensili", 0.0)), step=1.0, key="turni_trattenute_mensili")
-            rules["rettifica_mensile"] = st.number_input(
-                "Rettifica mensile (+/-)", value=float(rules.get("rettifica_mensile", 0.0)),
-                step=10.0, key="turni_rettifica",
-                help="730, premi, arretrati o trattenute non ricorrenti.",
-            )
-            rules["ritardo_competenze_mesi"] = st.number_input(
-                "Ritardo competenze (mesi)", min_value=0, max_value=3,
-                value=int(round(rules.get("ritardo_competenze_mesi", 1))),
-                step=1, key="turni_ritardo_competenze",
-            )
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Regole applicate</div>
@@ -5925,7 +5963,7 @@ def render_turni_guadagni_section():
                 <b style="color:#93c5fd;">Mattina 06–14:</b> feriale {rules['m_p_feriale_pct']:g}%, festivo {rules['m_p_festivo_giorno_pct']:g}%. Sabato: nessuna maggiorazione.<br>
                 <b style="color:#fb923c;">Pomeriggio 14–22:</b> feriale {rules['m_p_feriale_pct']:g}%; festivo 14–18 {rules['m_p_festivo_giorno_pct']:g}% e 18–22 {rules['festivo_sera_notte_pct']:g}%. Sabato: 14–18 senza maggiorazione, 18–22 {rules['m_p_feriale_pct']:g}%.<br>
                 <b style="color:#94a3b8;">Notte 22–06:</b> {rules['notte_feriale_pct']:g}% feriale e {rules['festivo_sera_notte_pct']:g}% festivo; le ore sono attribuite al giorno effettivo, anche dopo mezzanotte.<br>
-                <b style="color:#fef3c7;">Indennità:</b> solo sabato, domenica e festivi. M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
+                <b style="color:#fef3c7;">Indennità V2:</b> M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
                 <b style="color:#c084fc;">Straordinari:</b> massimo 2 ore dopo il turno. M {rules['stra_mattina_feriale_pct']:g}%/{rules['stra_mattina_festivo_pct']:g}%, P {rules['stra_pomeriggio_feriale_pct']:g}%/{rules['stra_pomeriggio_festivo_pct']:g}%, N {rules['stra_notte_feriale_pct']:g}%/{rules['stra_notte_festivo_pct']:g}% (feriale/festivo).<br>
                 <b style="color:#34d399;">Ferie:</b> 8 ore base. <b style="color:#fde68a;">Buono pasto:</b> {_money_turni(rules['buono_pasto'])}, se in sede e non mattina feriale.<br>
                 <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.<br>
