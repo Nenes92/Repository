@@ -5071,14 +5071,81 @@ def render_live_turni_kpis(stats, side_html=""):
 
 
 def render_payroll_v2_details(estimate):
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker) {
+        gap: 10px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+      > div[data-testid="stColumn"] [data-testid="stMetric"] {
+        min-height: 118px;
+        border-width: 1px;
+        box-shadow: 0 10px 24px rgba(0,0,0,.16);
+    }
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+      > div[data-testid="stColumn"]:nth-child(1) [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(16,185,129,.16), rgba(15,23,42,.82));
+        border-color: rgba(52,211,153,.34);
+    }
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+      > div[data-testid="stColumn"]:nth-child(2) [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(15,23,42,.82));
+        border-color: rgba(96,165,250,.34);
+    }
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+      > div[data-testid="stColumn"]:nth-child(3) [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(245,158,11,.15), rgba(15,23,42,.82));
+        border-color: rgba(251,191,36,.32);
+    }
+    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+      > div[data-testid="stColumn"]:nth-child(4) [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(139,92,246,.16), rgba(15,23,42,.82));
+        border-color: rgba(167,139,250,.34);
+    }
+    @media (max-width: 767px) {
+      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+        > div[data-testid="stColumn"] {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: initial !important;
+      }
+      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+        > div[data-testid="stColumn"] [data-testid="stMetric"] {
+        min-height: 104px;
+        padding: 11px 10px;
+      }
+      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+        [data-testid="stMetricValue"] {
+        font-size: 16px !important;
+        white-space: normal !important;
+        line-height: 1.2 !important;
+      }
+      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
+        [data-testid="stMetricLabel"] {
+        min-height: 30px;
+      }
+    }
+    </style>
+    """, unsafe_allow_html=True)
     st.markdown("#### 🧾 Previsione cedolino V2")
     cols = st.columns(4)
-    cols[0].metric("Netto cedolino stimato", _money_turni(estimate.credited_net))
+    with cols[0]:
+        st.markdown('<span class="payroll-v2-grid-marker"></span>', unsafe_allow_html=True)
+        st.metric("Netto cedolino stimato", _money_turni(estimate.credited_net))
     cols[1].metric("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}")
     cols[2].metric("Fisso netto", _money_turni(estimate.fixed_net))
     cols[3].metric("Buoni pasto separati", _money_turni(estimate.meal_vouchers))
     cols = st.columns(4)
-    cols[0].metric(f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross))
+    with cols[0]:
+        st.markdown('<span class="payroll-v2-grid-marker"></span>', unsafe_allow_html=True)
+        st.metric(f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross))
     cols[1].metric("Variabili nette stimate", _money_turni(estimate.variables_net))
     cols[2].metric("Rettifiche", _money_turni(estimate.adjustment))
     cols[3].metric("Maggiorazioni / indennità / straord.", (
@@ -5937,10 +6004,29 @@ def render_turni_guadagni_section():
             result_cols = st.columns(4)
             result_cols[0].metric("Netto fisso ottimale", _money_turni(calibrated.fixed_net))
             result_cols[1].metric("Coeff. variabili ottimale", f"{calibrated.variable_coefficient:.3f}")
-            result_cols[2].metric("Errore medio assoluto", _money_turni(calibrated.mean_absolute_error))
+            result_cols[2].metric(
+                "Errore medio tipico",
+                _money_turni(calibrated.mean_absolute_error),
+                help="Scarto medio tra netto stimato e netto reale nei mesi inclusi.",
+            )
+            confidence_margin = max(
+                0.0,
+                (float(calibrated.confidence_high) - float(calibrated.confidence_low)) / 2,
+            )
             result_cols[3].metric(
-                "Intervallo di confidenza",
-                f"{_money_turni(calibrated.confidence_low)} – {_money_turni(calibrated.confidence_high)}",
+                "Fascia prudenziale 95%",
+                f"± {_money_turni(confidence_margin)}",
+                help=(
+                    "Quanto può discostarsi una previsione in uno scenario prudente. "
+                    "Non è denaro da sommare al cedolino."
+                ),
+            )
+            st.info(
+                "Come leggerla: l’errore medio tipico descrive lo scarto che il modello "
+                "ha avuto normalmente sullo storico. La fascia 95% è più larga perché "
+                "copre anche mesi poco favorevoli. Se è enorme, di solito ci sono pochi "
+                "mesi ordinari, rettifiche non registrate oppure variabili poco coerenti "
+                "con i cedolini; controlla la colonna “Includi” prima di applicare."
             )
             if st.button("✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True):
                 rules["netto_fisso_mensile"] = float(calibrated.fixed_net)
