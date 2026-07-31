@@ -292,6 +292,25 @@ def estimate_payslip(
     )
 
 
+def estimate_live_net_accrual(
+    ordinary_hours: float,
+    ordinary_net_hourly: float,
+    variable_gross: float,
+    variable_coefficient: float,
+) -> float:
+    """Estimate the net amount accrued while working a shift.
+
+    The fixed monthly net is distributed over the ordinary scheduled hours;
+    premiums, allowances and overtime remain gross inputs and are converted
+    with the calibrated gross-to-net coefficient.
+    """
+    hours = max(0.0, float(ordinary_hours))
+    hourly = max(0.0, float(ordinary_net_hourly))
+    variables = max(0.0, float(variable_gross))
+    coefficient = min(1.0, max(0.0, float(variable_coefficient)))
+    return hours * hourly + variables * coefficient
+
+
 def calibrate(
     salaries: Mapping[str, float],
     variables_by_month: Mapping[str, VariableBreakdown],

@@ -15,8 +15,10 @@ from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
     Shift as PayrollShift,
     VariableBreakdown,
+    add_months as add_payroll_months,
     calculate_month_variables,
     calibrate as calibrate_payroll,
+    estimate_live_net_accrual,
     estimate_payslip,
     migrate_rules as migrate_payroll_rules,
 )
@@ -4031,6 +4033,80 @@ def compute_turno(data_str, turno, forced_festivo, rules, until=None, only_day=N
     }
 
 
+def _live_net_hourly_base(df_turni, rules, month_key):
+    """Distribuisce il fisso netto sulle ore ordinarie pianificate del mese."""
+    month_df = _normalize_turni_df(df_turni)
+    month_df = month_df[month_df["Data"].str.startswith(month_key)]
+    paid_days = month_df[month_df["Turno"].isin(["Mattina", "Pomeriggio", "Notte", "Ferie"])]
+    planned_hours = float(len(paid_days) * 8)
+    # Se il calendario del mese non è ancora completo, evitiamo una paga oraria
+    # artificiosamente alta usando un riferimento prudente di 20 giornate.
+    denominator = planned_hours if planned_hours >= 120.0 else 160.0
+    return max(0.0, float(rules.get("netto_fisso_mensile", 0.0))) / denominator
+
+
+def compute_turno_net_estimate(
+    data_str,
+    turno,
+    forced_festivo,
+    rules,
+    ordinary_net_hourly,
+    until=None,
+    only_day=None,
+    straordinario_minuti=0,
+):
+    """Versione netta stimata del contatore live, senza alterare i calcoli lordi."""
+    gross = compute_turno(
+        data_str,
+        turno,
+        forced_festivo,
+        rules,
+        until=until,
+        only_day=only_day,
+        straordinario_minuti=straordinario_minuti,
+    )
+    overtime = _calc_straordinario_minuti(
+        data_str,
+        turno,
+        forced_festivo,
+        rules,
+        until=until,
+        only_day=only_day,
+        straordinario_minuti=straordinario_minuti,
+    )
+    regular_hours = max(0.0, float(gross.get("hours", 0.0)) - float(overtime.get("hours", 0.0)))
+    regular_premium_gross = max(
+        0.0,
+        float(gross.get("maggiorazione", 0.0)) - float(overtime.get("extra", 0.0)),
+    )
+    variable_gross = (
+        regular_premium_gross
+        + float(gross.get("indennita", 0.0))
+        + float(overtime.get("total", 0.0))
+    )
+    coefficient = float(rules.get("coefficiente_netto_variabili", 0.60))
+    total_net = estimate_live_net_accrual(
+        regular_hours,
+        ordinary_net_hourly,
+        variable_gross,
+        coefficient,
+    )
+    rate_min = 0.0
+    gross_rate_min = float(gross.get("rate_min", 0.0))
+    if gross_rate_min > 0:
+        gross_hourly = max(0.0, float(rules.get("paga_oraria_lorda", rules.get("paga_oraria", 0.0))))
+        premium_gross_hourly = max(0.0, gross_rate_min * 60.0 - gross_hourly)
+        rate_min = (ordinary_net_hourly + premium_gross_hourly * coefficient) / 60.0
+    return {
+        **gross,
+        "total": total_net,
+        "base": regular_hours * ordinary_net_hourly,
+        "extra": variable_gross * coefficient,
+        "rate_min": rate_min,
+        "variable_gross": variable_gross,
+    }
+
+
 def _turni_current_prev_months():
     now = _now_italy()
     current = now.strftime("%Y-%m")
@@ -4064,10 +4140,11 @@ def compute_turni_dashboard(df_turni, rules):
     last_shift_end = None
     last_shift_label = "—"
     last_shift_total = 0.0
-    turno_kpi_label = "Turno — live / totale turno"
+    turno_kpi_label = "Turno — netto live / totale netto"
     work_days_done = 0
     work_days_total = 0
     ferie_days_total = 0
+    live_net_hourly = _live_net_hourly_base(df_turni, rules, current_m)
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
@@ -4086,10 +4163,16 @@ def compute_turni_dashboard(df_turni, rules):
                 work_days_done += 1
 
         if has_turno and data[:7] == current_m:
-            calc_live = compute_turno(data, turno, festivo, rules, until=now, straordinario_minuti=stra_minuti)
+            calc_live = compute_turno_net_estimate(
+                data, turno, festivo, rules, live_net_hourly,
+                until=now, straordinario_minuti=stra_minuti,
+            )
             live_month += calc_live["total"]
             hours_live += calc_live["hours"]
-            calc_full = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
+            calc_full = compute_turno_net_estimate(
+                data, turno, festivo, rules, live_net_hourly,
+                until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti,
+            )
             current_base_full += calc_full["base"]
             start, end = _shift_bounds(data, turno)
             if turno == "Ferie" and start.strftime("%Y-%m-%d") == today:
@@ -4097,7 +4180,7 @@ def compute_turni_dashboard(df_turni, rules):
                 rate_min = calc_live["rate_min"]
                 current_shift = f"Ferie {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
                 current_shift_type = "Ferie · base 8h"
-                turno_kpi_label = "Ferie — live / totale giornata"
+                turno_kpi_label = "Ferie — netto live / totale giornata"
                 current_turno = "Ferie"
                 current_shift_date = _turni_short_date_label(start)
                 current_shift_start_date = data
@@ -4105,7 +4188,7 @@ def compute_turni_dashboard(df_turni, rules):
                     current_shift_end = end
                     current_rate_change_at = start if now < start else None
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
+                expected_today = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
             elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
@@ -4116,10 +4199,11 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 live_today = calc_live["total"]
-                expected_today = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
+                expected_today = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
 
         if has_turno and data[:7] == prev_m:
-            calc_prev = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
+            prev_live_net_hourly = _live_net_hourly_base(df_turni, rules, prev_m)
+            calc_prev = compute_turno_net_estimate(data, turno, festivo, rules, prev_live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)
             prev_extras += calc_prev["extra"]
 
         if not has_turno:
@@ -4128,14 +4212,14 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            next_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
+            next_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            last_shift_total = compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
+            last_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno != "Ferie" and current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
-            live_today += compute_turno(data, turno, festivo, rules, until=now, only_day=today, straordinario_minuti=stra_minuti)["total"]
-            expected_today += compute_turno(data, turno, festivo, rules, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_minuti=stra_minuti)["total"]
+            live_today += compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=now, only_day=today, straordinario_minuti=stra_minuti)["total"]
+            expected_today += compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_minuti=stra_minuti)["total"]
 
     if current_shift_end is None and not is_on_leave:
         live_today = last_shift_total
@@ -4160,6 +4244,7 @@ def compute_turni_dashboard(df_turni, rules):
         "prev_extras": prev_extras,
         "hours_live": hours_live,
         "rate_min": rate_min,
+        "live_net_hourly_base": live_net_hourly,
         "current_shift": current_shift,
         "current_shift_type": current_shift_type,
         "current_turno": current_turno,
@@ -4738,7 +4823,7 @@ def render_live_turni_kpis(stats, side_html=""):
     current_shift_type = str(stats.get("current_shift_type", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_turno = str(stats.get("current_turno", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_date = str(stats.get("current_shift_date", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — live / totale turno")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    turno_kpi_label = str(stats.get("turno_kpi_label", "Turno — netto live / totale netto")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     is_on_shift = bool(stats.get("is_on_shift", False))
     is_on_leave = bool(stats.get("is_on_leave", False))
     is_live_accrual = is_on_shift or (is_on_leave and bool(stats.get("current_shift_end", "")))
@@ -4770,7 +4855,7 @@ def render_live_turni_kpis(stats, side_html=""):
     <div class="{shell_class}">
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-          <div class="kpi-label">Mese corrente — live / stimato cedolino</div>
+          <div class="kpi-label">Mese corrente — netto maturato / cedolino stimato</div>
           <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month"></span> / {payslip_estimate}</div>
           <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
         </div>
@@ -4790,6 +4875,7 @@ def render_live_turni_kpis(stats, side_html=""):
             <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
             <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
           </div>
+          <div class="turni-subline">Valori netti stimati da fisso e maggiorazioni</div>
           <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
         </div>
       </div>
@@ -5073,88 +5159,67 @@ def render_live_turni_kpis(stats, side_html=""):
 
 
 def render_payroll_v2_details(estimate):
-    st.markdown("""
+    cards = [
+        ("Netto cedolino stimato", _money_turni(estimate.credited_net), "#34d399", "16,185,129"),
+        (f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross), "#60a5fa", "59,130,246"),
+        ("Fisso netto", _money_turni(estimate.fixed_net), "#a78bfa", "139,92,246"),
+        ("Rettifiche", _money_turni(estimate.adjustment), "#fb923c", "249,115,22"),
+        ("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}", "#22d3ee", "6,182,212"),
+        ("Variabili nette stimate", _money_turni(estimate.variables_net), "#2dd4bf", "20,184,166"),
+        ("Buoni pasto separati", _money_turni(estimate.meal_vouchers), "#facc15", "234,179,8"),
+        (
+            "Mag. / indenn. / straord.",
+            f"{_money_turni(estimate.breakdown.premiums_gross)} / {_money_turni(estimate.breakdown.allowances_gross)} / {_money_turni(estimate.breakdown.overtime_gross)}",
+            "#f472b6",
+            "219,39,119",
+        ),
+    ]
+    cards_html = "".join(
+        f"""
+        <div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">
+          <div class="payroll-v2-label">{html.escape(label)}</div>
+          <div class="payroll-v2-value">{html.escape(value)}</div>
+        </div>
+        """
+        for label, value, color, rgb in cards
+    )
+    st.markdown(f"""
     <style>
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker) {
-        gap: 10px !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-      > div[data-testid="stColumn"] [data-testid="stMetric"] {
-        min-height: 118px;
-        border-width: 1px;
-        box-shadow: 0 10px 24px rgba(0,0,0,.16);
-    }
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-      > div[data-testid="stColumn"]:nth-child(1) [data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(16,185,129,.16), rgba(15,23,42,.82));
-        border-color: rgba(52,211,153,.34);
-    }
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-      > div[data-testid="stColumn"]:nth-child(2) [data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(59,130,246,.16), rgba(15,23,42,.82));
-        border-color: rgba(96,165,250,.34);
-    }
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-      > div[data-testid="stColumn"]:nth-child(3) [data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(245,158,11,.15), rgba(15,23,42,.82));
-        border-color: rgba(251,191,36,.32);
-    }
-    div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-      > div[data-testid="stColumn"]:nth-child(4) [data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(139,92,246,.16), rgba(15,23,42,.82));
-        border-color: rgba(167,139,250,.34);
-    }
-    @media (max-width: 767px) {
-      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker) {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-        width: 100% !important;
-      }
-      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-        > div[data-testid="stColumn"] {
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        flex: initial !important;
-      }
-      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-        > div[data-testid="stColumn"] [data-testid="stMetric"] {
-        min-height: 104px;
-        padding: 11px 10px;
-      }
-      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-        [data-testid="stMetricValue"] {
-        font-size: 16px !important;
-        white-space: normal !important;
-        line-height: 1.2 !important;
-      }
-      div[data-testid="stHorizontalBlock"]:has(.payroll-v2-grid-marker)
-        [data-testid="stMetricLabel"] {
-        min-height: 30px;
-      }
-    }
+      .payroll-v2-heading {{
+        width:100%; margin:2px 0 10px; font-size:18px; font-weight:850;
+        color:rgba(255,255,255,.92);
+      }}
+      .payroll-v2-grid {{
+        display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:10px; width:100%; align-items:stretch;
+      }}
+      .payroll-v2-card {{
+        min-width:0; min-height:112px; box-sizing:border-box;
+        display:flex; flex-direction:column; justify-content:center;
+        padding:13px 14px; border-radius:13px;
+        border:1px solid rgba(var(--card-rgb),.34);
+        background:linear-gradient(145deg,rgba(var(--card-rgb),.16),rgba(15,23,42,.84));
+        box-shadow:0 10px 24px rgba(0,0,0,.16);
+      }}
+      .payroll-v2-label {{
+        min-height:30px; color:rgba(255,255,255,.58); font-size:11px;
+        font-weight:750; letter-spacing:.45px; line-height:1.28;
+        text-transform:uppercase;
+      }}
+      .payroll-v2-value {{
+        color:var(--card-color); font-size:20px; line-height:1.18;
+        font-weight:750; overflow-wrap:anywhere;
+      }}
+      @media (max-width:767px) {{
+        .payroll-v2-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }}
+        .payroll-v2-card {{ min-height:102px; padding:10px 9px; }}
+        .payroll-v2-label {{ min-height:29px; font-size:9px; letter-spacing:.3px; }}
+        .payroll-v2-value {{ font-size:15px; }}
+      }}
     </style>
+    <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
+    <div class="payroll-v2-grid">{cards_html}</div>
     """, unsafe_allow_html=True)
-    st.markdown("#### 🧾 Previsione cedolino")
-    cols = st.columns(4)
-    with cols[0]:
-        st.markdown('<span class="payroll-v2-grid-marker"></span>', unsafe_allow_html=True)
-        st.metric("Netto cedolino stimato", _money_turni(estimate.credited_net))
-    cols[1].metric("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}")
-    cols[2].metric("Fisso netto", _money_turni(estimate.fixed_net))
-    cols[3].metric("Buoni pasto separati", _money_turni(estimate.meal_vouchers))
-    cols = st.columns(4)
-    with cols[0]:
-        st.markdown('<span class="payroll-v2-grid-marker"></span>', unsafe_allow_html=True)
-        st.metric(f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross))
-    cols[1].metric("Variabili nette stimate", _money_turni(estimate.variables_net))
-    cols[2].metric("Rettifiche", _money_turni(estimate.adjustment))
-    cols[3].metric("Maggiorazioni / indennità / straord.", (
-        f"{_money_turni(estimate.breakdown.premiums_gross)} / "
-        f"{_money_turni(estimate.breakdown.allowances_gross)} / "
-        f"{_money_turni(estimate.breakdown.overtime_gross)}"
-    ))
     st.caption(
         "Formula: fisso netto + (maggiorazioni, indennità e straordinari lordi "
         "del mese di competenza × coefficiente netto variabili) + rettifica. "
@@ -5851,8 +5916,33 @@ def render_turni_guadagni_section():
           </div>
         </div>
         """, unsafe_allow_html=True)
-        v2_col_1, v2_col_2 = st.columns(2)
-        with v2_col_1:
+        st.markdown("""
+        <style>
+        div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) {
+          display:grid !important;
+          grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+          gap:8px !important;
+          align-items:start !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+          > div[data-testid="stColumn"] {
+          width:auto !important; min-width:0 !important; max-width:100% !important;
+          flex:initial !important;
+        }
+        div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {
+          display:none !important;
+        }
+        @media (max-width:767px) {
+          div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+            [data-testid="stNumberInput"] label p { font-size:10px !important; }
+          div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+            [data-testid="stNumberInput"] input { font-size:13px !important; }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        v2_row_1 = st.columns(2)
+        with v2_row_1[0]:
+            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             rules["paga_oraria_lorda"] = st.number_input(
                 "Paga oraria lorda contrattuale",
                 min_value=0.01,
@@ -5862,6 +5952,7 @@ def render_turni_guadagni_section():
                 key="turni_paga_lorda",
                 help="Serve solo a calcolare maggiorazioni, indennità e straordinari lordi.",
             )
+        with v2_row_1[1]:
             rules["netto_fisso_mensile"] = st.number_input(
                 "Netto fisso mensile",
                 min_value=0.0,
@@ -5870,6 +5961,9 @@ def render_turni_guadagni_section():
                 key="turni_netto_fisso",
                 help="La parte ordinaria netta che non dipende dalle ore del mese.",
             )
+        v2_row_2 = st.columns(2)
+        with v2_row_2[0]:
+            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             rules["coefficiente_netto_variabili"] = st.number_input(
                 "Coefficiente netto variabili",
                 min_value=0.0,
@@ -5879,7 +5973,7 @@ def render_turni_guadagni_section():
                 key="turni_coeff_variabili",
                 help="Trasforma le variabili lorde in una stima netta.",
             )
-        with v2_col_2:
+        with v2_row_2[1]:
             rules["rettifica_mensile"] = st.number_input(
                 "Rettifica mensile (+/-)",
                 value=float(rules.get("rettifica_mensile", 0.0)),
@@ -5887,6 +5981,9 @@ def render_turni_guadagni_section():
                 key="turni_rettifica",
                 help="730, premi, arretrati o trattenute non ricorrenti.",
             )
+        v2_row_3 = st.columns(2)
+        with v2_row_3[0]:
+            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             rules["ritardo_competenze_mesi"] = st.number_input(
                 "Ritardo competenze (mesi)",
                 min_value=0,
@@ -5896,6 +5993,8 @@ def render_turni_guadagni_section():
                 key="turni_ritardo_competenze",
                 help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
             )
+        with v2_row_3[1]:
+            st.caption("Il contatore live usa questi parametri per mostrare €/h e €/min netti stimati.")
         rules["paga_oraria"] = rules["paga_oraria_lorda"]
         st.caption(
             "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
@@ -6004,7 +6103,20 @@ def render_turni_guadagni_section():
             "sono esclusi automaticamente; la colonna “Includi” consente di correggere la scelta."
         )
         try:
-            salary_df = load_data_gsheets("Stipendi", STIPENDI_HEADERS)
+            refresh_calibration = st.button(
+                "🔄 Aggiorna cedolini e turni da Google",
+                key="refresh_payroll_calibration",
+                use_container_width=True,
+                help="Forza una nuova lettura del foglio Stipendi e del foglio TurniGuadagni.",
+            )
+            salary_df = load_data_gsheets(
+                "Stipendi",
+                STIPENDI_HEADERS,
+                force_reload=refresh_calibration,
+            )
+            calibration_turni_df = (
+                load_turni_data(force_reload=True) if refresh_calibration else df_turni
+            )
             salaries = {}
             if salary_df is not None and not salary_df.empty:
                 for _, salary_row in salary_df.iterrows():
@@ -6012,11 +6124,83 @@ def render_turni_guadagni_section():
                     salary_value = _parse_float_turni(salary_row.get("Stipendio", 0.0))
                     if pd.notna(salary_month) and salary_value > 0:
                         salaries[salary_month.strftime("%Y-%m")] = salary_value
-            variables_by_month = _payroll_variables_by_month(df_turni, rules)
+            variables_by_month = _payroll_variables_by_month(calibration_turni_df, rules)
+            delay_months = int(round(rules.get("ritardo_competenze_mesi", 1)))
+            matched_salary_months = {
+                month
+                for month in salaries
+                if add_payroll_months(month, -delay_months) in variables_by_month
+            }
+            missing_salary_months = sorted(set(salaries) - matched_salary_months)
+            status_cards = [
+                ("Cedolini letti", str(len(salaries)), "#60a5fa", "59,130,246"),
+                ("Cedolini abbinati", str(len(matched_salary_months)), "#34d399", "16,185,129"),
+                ("Senza turni precedenti", str(len(missing_salary_months)), "#fb923c", "249,115,22"),
+                ("Mesi variabili disponibili", str(len(variables_by_month)), "#a78bfa", "139,92,246"),
+            ]
+            status_html = "".join(
+                f"""
+                <div class="calibration-status-card" style="--cal-color:{color};--cal-rgb:{rgb};">
+                  <div class="calibration-status-label">{html.escape(label)}</div>
+                  <div class="calibration-status-value">{html.escape(value)}</div>
+                </div>
+                """
+                for label, value, color, rgb in status_cards
+            )
+            st.markdown(f"""
+            <style>
+              .calibration-status-grid,.calibration-result-grid {{
+                display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+                gap:8px; width:100%; margin:8px 0 12px;
+              }}
+              .calibration-status-card,.calibration-result-card {{
+                min-width:0; min-height:92px; box-sizing:border-box;
+                display:flex; flex-direction:column; justify-content:center;
+                padding:11px 12px; border-radius:13px;
+                border:1px solid rgba(var(--cal-rgb),.33);
+                background:linear-gradient(145deg,rgba(var(--cal-rgb),.15),rgba(15,23,42,.84));
+              }}
+              .calibration-status-label,.calibration-result-label {{
+                min-height:27px; color:rgba(255,255,255,.58); font-size:10px;
+                font-weight:750; letter-spacing:.4px; line-height:1.25;
+                text-transform:uppercase;
+              }}
+              .calibration-status-value,.calibration-result-value {{
+                color:var(--cal-color); font-size:20px; font-weight:780; line-height:1.15;
+                overflow-wrap:anywhere;
+              }}
+              @media (max-width:767px) {{
+                .calibration-status-card,.calibration-result-card {{ min-height:86px; padding:9px; }}
+                .calibration-status-label,.calibration-result-label {{ font-size:9px; }}
+                .calibration-status-value,.calibration-result-value {{ font-size:16px; }}
+              }}
+            </style>
+            <div class="calibration-status-grid">{status_html}</div>
+            """, unsafe_allow_html=True)
+            if refresh_calibration:
+                st.success("Cedolini e turni riletti da Google Sheets.")
+            if missing_salary_months:
+                missing_rows = pd.DataFrame([
+                    {
+                        "Mese cedolino": month,
+                        "Netto reale": salaries[month],
+                        "Servono i turni di": add_payroll_months(month, -delay_months),
+                    }
+                    for month in missing_salary_months
+                ])
+                with st.expander(
+                    f"Cedolini letti ma non calibrabili ({len(missing_salary_months)})",
+                    expanded=False,
+                ):
+                    st.dataframe(missing_rows, hide_index=True, use_container_width=True)
+                    st.caption(
+                        "Questi cedolini sono stati letti correttamente. Per usarli nella calibrazione "
+                        "devi aggiungere o importare i turni del mese indicato in TurniGuadagni."
+                    )
             automatic = calibrate_payroll(
                 salaries,
                 variables_by_month,
-                delay=int(round(rules.get("ritardo_competenze_mesi", 1))),
+                delay=delay_months,
             )
             calibration_df = pd.DataFrame([{
                 "Mese cedolino": row.month,
@@ -6043,28 +6227,31 @@ def render_turni_guadagni_section():
             calibrated = calibrate_payroll(
                 salaries,
                 variables_by_month,
-                delay=int(round(rules.get("ritardo_competenze_mesi", 1))),
+                delay=delay_months,
                 manual_included=manual,
-            )
-            result_cols = st.columns(4)
-            result_cols[0].metric("Netto fisso ottimale", _money_turni(calibrated.fixed_net))
-            result_cols[1].metric("Coeff. variabili ottimale", f"{calibrated.variable_coefficient:.3f}")
-            result_cols[2].metric(
-                "Errore medio tipico",
-                _money_turni(calibrated.mean_absolute_error),
-                help="Scarto medio tra netto stimato e netto reale nei mesi inclusi.",
             )
             confidence_margin = max(
                 0.0,
                 (float(calibrated.confidence_high) - float(calibrated.confidence_low)) / 2,
             )
-            result_cols[3].metric(
-                "Fascia prudenziale 95%",
-                f"± {_money_turni(confidence_margin)}",
-                help=(
-                    "Quanto può discostarsi una previsione in uno scenario prudente. "
-                    "Non è denaro da sommare al cedolino."
-                ),
+            result_cards = [
+                ("Netto fisso ottimale", _money_turni(calibrated.fixed_net), "#34d399", "16,185,129"),
+                ("Coeff. variabili ottimale", f"{calibrated.variable_coefficient:.3f}", "#60a5fa", "59,130,246"),
+                ("Errore medio tipico", _money_turni(calibrated.mean_absolute_error), "#facc15", "234,179,8"),
+                ("Fascia prudenziale 95%", f"± {_money_turni(confidence_margin)}", "#f472b6", "219,39,119"),
+            ]
+            result_html = "".join(
+                f"""
+                <div class="calibration-result-card" style="--cal-color:{color};--cal-rgb:{rgb};">
+                  <div class="calibration-result-label">{html.escape(label)}</div>
+                  <div class="calibration-result-value">{html.escape(value)}</div>
+                </div>
+                """
+                for label, value, color, rgb in result_cards
+            )
+            st.markdown(
+                f'<div class="calibration-result-grid">{result_html}</div>',
+                unsafe_allow_html=True,
             )
             st.info(
                 "Come leggerla: l’errore medio tipico descrive lo scarto che il modello "
@@ -6794,8 +6981,8 @@ textarea {
             turni_stats_home = None
 
         turni_cards_home = (
-            _recap_card("Mese corrente — live / stimato cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
-            + _recap_card("Turno — live / totale turno", "—", "#60a5fa", "nessun dato")
+            _recap_card("Mese corrente — netto maturato / cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
+            + _recap_card("Turno — netto live / totale netto", "—", "#60a5fa", "nessun dato")
             + _recap_card("Stato turno", "—", "#fef3c7", "nessun dato")
         )
         if turni_stats_home:
@@ -6810,7 +6997,7 @@ textarea {
             )
             month_sub_home = f"Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}"
 
-            turno_label_home = turni_stats_home.get("turno_kpi_label", "Turno — live / totale turno")
+            turno_label_home = turni_stats_home.get("turno_kpi_label", "Turno — netto live / totale netto")
             turno_value_home = (
                 f"{_money_turni(turni_stats_home.get('live_today', 0))} / "
                 f"{_money_turni(turni_stats_home.get('expected_today', 0))}"
@@ -6846,7 +7033,7 @@ textarea {
             status_sub_home = f"{rate_min_home:.2f} €/min · {rate_hour_home:.2f} €/h"
 
             turni_cards_home = (
-                _recap_card("Mese corrente — live / stimato cedolino", month_value_home, "#34d399", month_sub_home)
+                _recap_card("Mese corrente — netto maturato / cedolino", month_value_home, "#34d399", month_sub_home)
                 + _recap_card(turno_label_home, turno_value_home, "#60a5fa", turno_sub_home)
                 + _recap_card("Stato turno", status_value_home, "#fef3c7", status_sub_home)
             )

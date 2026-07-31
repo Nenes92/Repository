@@ -9,6 +9,7 @@ from payroll_engine import (
     calculate_month_variables,
     calculate_shift_variables,
     calibrate,
+    estimate_live_net_accrual,
     estimate_payslip,
     migrate_rules,
 )
@@ -92,3 +93,23 @@ def test_calibration_excludes_thirteenth_and_730_outliers():
     result = calibrate(salaries, variables)
     excluded = {row.month for row in result.rows if not row.included}
     assert {"2026-05", "2026-07"} <= excluded
+
+
+def test_live_counter_converts_only_variables_with_calibrated_coefficient():
+    value = estimate_live_net_accrual(
+        ordinary_hours=8,
+        ordinary_net_hourly=13.0,
+        variable_gross=30.0,
+        variable_coefficient=0.60,
+    )
+    assert value == pytest.approx(122.0)
+
+
+def test_live_counter_clamps_invalid_inputs():
+    value = estimate_live_net_accrual(
+        ordinary_hours=-2,
+        ordinary_net_hourly=13.0,
+        variable_gross=10.0,
+        variable_coefficient=2.0,
+    )
+    assert value == pytest.approx(10.0)
