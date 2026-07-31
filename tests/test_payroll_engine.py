@@ -70,7 +70,7 @@ def test_positive_and_negative_adjustments(rules, adjustment, expected):
 
 def test_old_rules_are_migrated_without_losing_values():
     migrated = migrate_rules({"paga_oraria": "12,60", "m_p_feriale_pct": 22})
-    assert migrated["paga_oraria_lorda"] == 12.60
+    assert migrated["paga_oraria_lorda"] == 18.01988
     assert migrated["m_p_feriale_pct"] == 22
     assert migrated["netto_fisso_mensile"] == 2200
 

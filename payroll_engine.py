@@ -119,13 +119,14 @@ def migrate_rules(
     """Add V2 fields without discarding values from an old rules row."""
     result = dict(defaults)
     saved = saved or {}
-    aliases = {"paga_oraria": "paga_oraria_lorda", "quota_fissa_mensile": "netto_fisso_mensile"}
     for key, raw in saved.items():
-        target = aliases.get(key, key)
-        if target not in result or raw in (None, ""):
+        # Le vecchie paga_oraria/quota_fissa descrivevano un modello diverso:
+        # restano nel foglio per compatibilità, ma non devono sovrascrivere i
+        # nuovi valori lordi/netti contrattuali.
+        if key not in result or raw in (None, ""):
             continue
         try:
-            result[target] = float(str(raw).replace(",", "."))
+            result[key] = float(str(raw).replace(",", "."))
         except (TypeError, ValueError):
             continue
     return result

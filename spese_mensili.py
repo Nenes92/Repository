@@ -3517,7 +3517,12 @@ def get_turni_rules():
                 saved_row = saved_rules.iloc[-1].to_dict()
                 migrated = migrate_payroll_rules(saved_row, PAYROLL_V2_DEFAULTS)
                 for key, default_value in DEFAULT_TURNI_RULES.items():
-                    if key in saved_row and pd.notna(saved_row[key]):
+                    saved_value = saved_row.get(key)
+                    if (
+                        key in saved_row
+                        and pd.notna(saved_value)
+                        and str(saved_value).strip() != ""
+                    ):
                         rules[key] = _parse_float_turni(saved_row[key])
                     elif key in migrated:
                         rules[key] = float(migrated[key])
