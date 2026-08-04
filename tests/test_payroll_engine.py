@@ -74,6 +74,16 @@ def test_positive_and_negative_adjustments(rules, adjustment, expected):
     assert estimate_payslip("2026-07", {}, rules).credited_net == expected
 
 
+def test_adjustment_is_applied_only_to_its_payslip_month(rules):
+    adjustments = {"2026-07": 245.0}
+    july = estimate_payslip("2026-07", {}, rules, adjustments=adjustments)
+    august = estimate_payslip("2026-08", {}, rules, adjustments=adjustments)
+    assert july.adjustment == 245.0
+    assert july.credited_net == 2445.0
+    assert august.adjustment == 0.0
+    assert august.credited_net == 2200.0
+
+
 def test_old_rules_are_migrated_without_losing_values():
     migrated = migrate_rules({"paga_oraria": "12,60", "m_p_feriale_pct": 22})
     assert migrated["paga_oraria_lorda"] == 18.01988
@@ -98,6 +108,28 @@ def test_calibration_excludes_thirteenth_and_730_outliers():
     result = calibrate(salaries, variables)
     excluded = {row.month for row in result.rows if not row.included}
     assert {"2026-05", "2026-07"} <= excluded
+
+
+def test_registered_adjustment_keeps_month_usable_for_calibration():
+    variables = {
+        f"2026-0{month}": VariableBreakdown(premiums_gross=month * 100)
+        for month in range(1, 7)
+    }
+    salaries = {
+        f"2026-0{month + 1}": 2100 + month * 65
+        for month in range(1, 7)
+    }
+    salaries["2026-07"] += 280
+    result = calibrate(
+        salaries,
+        variables,
+        adjustments={"2026-07": 280},
+    )
+    july = next(row for row in result.rows if row.month == "2026-07")
+    assert july.included
+    assert july.adjustment == 280
+    assert result.fixed_net == pytest.approx(2100)
+    assert result.variable_coefficient == pytest.approx(0.65)
 
 
 def test_live_counter_converts_only_variables_with_calibrated_coefficient():

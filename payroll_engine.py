@@ -95,6 +95,7 @@ class CalibrationRow:
     month: str
     variables_month: str
     actual_net: float
+    adjustment: float
     variables_gross: float
     estimated_net: float
     absolute_error: float
@@ -268,13 +269,18 @@ def estimate_payslip(
     variables_by_month: Mapping[str, VariableBreakdown],
     rules: Mapping[str, float],
     uncertainty: float = 0.0,
+    adjustments: Mapping[str, float] | None = None,
 ) -> PayslipEstimate:
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
     competence_month = add_months(month, -delay)
     breakdown = variables_by_month.get(competence_month, VariableBreakdown())
     fixed = float(rules["netto_fisso_mensile"])
     coefficient = float(rules["coefficiente_netto_variabili"])
-    adjustment = float(rules.get("rettifica_mensile", 0.0))
+    adjustment = float(
+        adjustments.get(month, 0.0)
+        if adjustments is not None
+        else rules.get("rettifica_mensile", 0.0)
+    )
     variables_net = breakdown.variables_gross * coefficient
     credited = fixed + variables_net + adjustment
     spread = max(0.0, float(uncertainty))
@@ -317,35 +323,44 @@ def calibrate(
     variables_by_month: Mapping[str, VariableBreakdown],
     delay: int = 1,
     manual_included: Mapping[str, bool] | None = None,
+    adjustments: Mapping[str, float] | None = None,
 ) -> CalibrationResult:
-    """Fit actual_net = fixed_net + coefficient * previous variables.
+    """Fit actual_net - adjustment = fixed_net + coefficient * previous variables.
 
     Obvious exceptional months are excluded with a robust median/MAD rule.
     Manual choices always override the automatic classification.
     """
-    candidates: list[tuple[str, str, float, float]] = []
+    candidates: list[tuple[str, str, float, float, float]] = []
     for month, actual in sorted(salaries.items()):
         variables_month = add_months(month, -delay)
         if variables_month in variables_by_month and float(actual) > 0:
-            candidates.append((month, variables_month, float(actual), variables_by_month[variables_month].variables_gross))
+            adjustment = float((adjustments or {}).get(month, 0.0))
+            candidates.append((
+                month,
+                variables_month,
+                float(actual),
+                adjustment,
+                variables_by_month[variables_month].variables_gross,
+            ))
     if len(candidates) < 2:
         raise ValueError("Servono almeno due mensilità abbinate per calibrare il modello.")
-    actuals = sorted(item[2] for item in candidates)
+    actuals = sorted(item[2] - item[3] for item in candidates)
     median = actuals[len(actuals) // 2]
     deviations = sorted(abs(value - median) for value in actuals)
     mad = deviations[len(deviations) // 2] or max(1.0, median * 0.05)
     included_flags: list[bool] = []
     reasons: list[str] = []
-    for month, _, actual, _ in candidates:
-        automatic = abs(actual - median) <= max(3.5 * mad, median * 0.25)
+    for month, _, actual, adjustment, _ in candidates:
+        normalized_actual = actual - adjustment
+        automatic = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
         manual = (manual_included or {}).get(month)
         included_flags.append(automatic if manual is None else bool(manual))
         reasons.append("" if automatic else "Mensilità straordinaria/anomala")
     selected = [row for row, flag in zip(candidates, included_flags) if flag]
     if len(selected) < 2:
         raise ValueError("Servono almeno due mensilità incluse per calibrare il modello.")
-    xs = [row[3] for row in selected]
-    ys = [row[2] for row in selected]
+    xs = [row[4] for row in selected]
+    ys = [row[2] - row[3] for row in selected]
     x_mean, y_mean = mean(xs), mean(ys)
     denominator = sum((x - x_mean) ** 2 for x in xs)
     coefficient = 0.60 if denominator <= 1e-12 else sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / denominator
@@ -360,13 +375,14 @@ def calibrate(
             month=month,
             variables_month=variables_month,
             actual_net=actual,
+            adjustment=adjustment,
             variables_gross=variables,
-            estimated_net=fixed + coefficient * variables,
-            absolute_error=abs(actual - (fixed + coefficient * variables)),
-            percentage_error=(abs(actual - (fixed + coefficient * variables)) / actual * 100) if actual else None,
+            estimated_net=fixed + coefficient * variables + adjustment,
+            absolute_error=abs(actual - (fixed + coefficient * variables + adjustment)),
+            percentage_error=(abs(actual - (fixed + coefficient * variables + adjustment)) / actual * 100) if actual else None,
             included=included,
             exclusion_reason="" if included else reason,
         )
-        for (month, variables_month, actual, variables), included, reason in zip(candidates, included_flags, reasons)
+        for (month, variables_month, actual, adjustment, variables), included, reason in zip(candidates, included_flags, reasons)
     )
     return CalibrationResult(fixed, coefficient, mae, fixed - margin, fixed + margin, rows)
