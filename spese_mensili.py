@@ -3356,6 +3356,7 @@ DEFAULT_TURNI_RULES = {
     "paga_oraria_lorda": 18.01988,
     "netto_fisso_mensile": 2200.0,
     "coefficiente_netto_variabili": 0.60,
+    "errore_medio_calibrazione": 0.0,
     "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
     "m_p_feriale_pct": 20.0,
@@ -3681,7 +3682,10 @@ def _payroll_variables_by_month(df_turni, rules):
 
 
 def _payroll_estimate_for_month(df_turni, rules, month_key):
-    uncertainty = float(st.session_state.get("payroll_calibration_mae", 0.0))
+    uncertainty = float(st.session_state.get(
+        "payroll_calibration_mae",
+        rules.get("errore_medio_calibrazione", 0.0),
+    ))
     adjustment_rows = load_payroll_adjustments()
     adjustments = {
         month: float(values.get("amount", 0.0))
@@ -6511,9 +6515,14 @@ def render_turni_guadagni_section():
             if st.button("✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True):
                 rules["netto_fisso_mensile"] = float(calibrated.fixed_net)
                 rules["coefficiente_netto_variabili"] = float(calibrated.variable_coefficient)
+                rules["errore_medio_calibrazione"] = float(calibrated.mean_absolute_error)
                 st.session_state.turni_rules = rules
                 st.session_state.payroll_calibration_mae = float(calibrated.mean_absolute_error)
                 if save_turni_rules(rules):
+                    # I widget della scheda Regole conservano il valore precedente:
+                    # rimuoverli forza il ricaricamento dei parametri calibrati.
+                    st.session_state.pop("turni_netto_fisso", None)
+                    st.session_state.pop("turni_coeff_variabili", None)
                     st.success("Calibrazione applicata e salvata su Google Sheets.")
                     st.rerun()
                 else:
