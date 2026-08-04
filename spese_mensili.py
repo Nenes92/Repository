@@ -3356,7 +3356,7 @@ DEFAULT_TURNI_RULES = {
     "paga_oraria_lorda": 18.01988,
     "netto_fisso_mensile": 2200.0,
     "coefficiente_netto_variabili": 0.60,
-    "rettifica_mensile": 0.0,
+    "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
     "m_p_feriale_pct": 20.0,
     "m_p_festivo_giorno_pct": 50.0,
@@ -3385,6 +3385,8 @@ TURNI_RULES_WORKSHEET = "Regole Turni"
 TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
 PAYROLL_ADJUSTMENTS_WORKSHEET = "Rettifiche Cedolino"
 PAYROLL_ADJUSTMENTS_HEADERS = ["Mese", "Importo", "Descrizione"]
+DEFAULT_PAYROLL_ADJUSTMENT = -63.0
+DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION = "Solite trattenute + accrediti + trattenute"
 
 
 def _money_turni(value):
@@ -3621,6 +3623,23 @@ def save_payroll_adjustment(month_key, amount, description=""):
     )
 
 
+def payroll_adjustment_for_month(month_key, adjustment_rows=None):
+    """Restituisce la rettifica esplicita o il valore netto medio predefinito."""
+    rows = load_payroll_adjustments() if adjustment_rows is None else adjustment_rows
+    saved = rows.get(month_key)
+    if saved is None:
+        return {
+            "amount": DEFAULT_PAYROLL_ADJUSTMENT,
+            "description": DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION,
+            "is_default": True,
+        }
+    return {
+        "amount": float(saved.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
+        "description": str(saved.get("description", "") or "").strip(),
+        "is_default": False,
+    }
+
+
 def _payroll_v2_rules(rules):
     migrated = migrate_payroll_rules(rules, PAYROLL_V2_DEFAULTS)
     migrated["paga_oraria_lorda"] = float(
@@ -3668,6 +3687,7 @@ def _payroll_estimate_for_month(df_turni, rules, month_key):
         month: float(values.get("amount", 0.0))
         for month, values in adjustment_rows.items()
     }
+    adjustments.setdefault(month_key, DEFAULT_PAYROLL_ADJUSTMENT)
     return estimate_payslip(
         month_key,
         _payroll_variables_by_month(df_turni, rules),
@@ -3696,8 +3716,6 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_stra_p_festivo": "stra_pomeriggio_festivo_pct",
         "turni_stra_n_feriale": "stra_notte_feriale_pct",
         "turni_stra_n_festivo": "stra_notte_festivo_pct",
-        "turni_stra_f_feriale": "stra_ferie_feriale_pct",
-        "turni_stra_f_festivo": "stra_ferie_festivo_pct",
         "turni_buono_pasto": "buono_pasto",
         "turni_smart_target": "smart_target",
         "turni_ind_mp_f": "ind_m_p_feriale",
@@ -3864,8 +3882,6 @@ def _pct_for_straordinario(turno, dt_obj, forced_festivo, rules):
         key = "stra_pomeriggio_festivo_pct" if festive else "stra_pomeriggio_feriale_pct"
     elif turno == "Notte":
         key = "stra_notte_festivo_pct" if festive else "stra_notte_feriale_pct"
-    elif turno == "Ferie":
-        key = "stra_ferie_festivo_pct" if festive else "stra_ferie_feriale_pct"
     else:
         key = "stra_mattina_festivo_pct" if festive else "stra_mattina_feriale_pct"
     return float(rules.get(key, fallback))
@@ -3873,7 +3889,7 @@ def _pct_for_straordinario(turno, dt_obj, forced_festivo, rules):
 
 def _calc_straordinario_minuti(data_str, turno, forced_festivo, rules, until=None, only_day=None, straordinario_minuti=0):
     minuti = int(round(max(0, _parse_float_turni(straordinario_minuti))))
-    if minuti <= 0 or turno in ["", "Riposo"]:
+    if minuti <= 0 or turno in ["", "Ferie", "Riposo"]:
         return {"total": 0.0, "base": 0.0, "extra": 0.0, "hours": 0.0, "hours_by_pct": {}}
     now = _now_italy() if until is None else until
     _, shift_end = _shift_bounds(data_str, turno)
@@ -3975,7 +3991,7 @@ def compute_turni_month_report(df_turni, rules, month_key):
             report["sede_days"] += 1
         if _is_sede_buono_pasto(data, turno, festivo, sede):
             report["buoni_pasto_days"] += 1
-        if stra_minuti:
+        if stra_minuti and turno not in {"Ferie", "Riposo"}:
             report["straordinario_minutes"] += stra_minuti
             stra_calc = _calc_straordinario_minuti(
                 data,
@@ -5465,8 +5481,13 @@ def _render_turni_day_action_menu(df_turni, month_days):
         return df_turni
 
     turno_esistente, festivo_esistente, stra_esistente, _sede_esistente = _existing_turni_row_values(df_turni, action_day)
+    overtime_allowed = turno_esistente not in {"", "Ferie", "Riposo"}
     durata_options = [0, 30, 45, 60, 75, 90, 105, 120]
-    durata_default = min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
+    durata_default = (
+        min(durata_options, key=lambda value: abs(value - int(stra_esistente or 0)))
+        if overtime_allowed
+        else 0
+    )
     action_day_label = pd.to_datetime(action_day).strftime("%d/%m/%Y")
     turno_label = f" · {turno_esistente}" if turno_esistente else ""
 
@@ -5487,6 +5508,8 @@ def _render_turni_day_action_menu(df_turni, month_days):
                 index=durata_options.index(durata_default),
                 format_func=lambda value: "No" if value == 0 else _format_minutes_label(value),
                 key=f"turni_day_stra_{action_day}",
+                disabled=not overtime_allowed,
+                help="Lo straordinario non è previsto durante ferie o riposo.",
             )
 
         action_cols = st.columns(2, gap="small")
@@ -5768,8 +5791,9 @@ def render_turni_guadagni_section():
     summary_focus_day = current_work_day if is_selected_current_month else ""
     mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, summary_focus_day) if MOBILE_VIEW else ""
     selected_payroll_estimate = _payroll_estimate_for_month(df_turni, rules, month_key)
-    selected_adjustment_description = str(
-        load_payroll_adjustments().get(month_key, {}).get("description", "")
+    selected_adjustment_description = payroll_adjustment_for_month(month_key).get(
+        "description",
+        "",
     )
     if is_selected_current_month:
         render_live_turni_kpis(stats, mobile_summary_html)
@@ -6147,22 +6171,22 @@ def render_turni_guadagni_section():
                 help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
             )
         adjustment_rows = load_payroll_adjustments()
-        selected_adjustment = adjustment_rows.get(month_key, {})
+        selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
         st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
         v2_row_3 = st.columns(2)
         with v2_row_3[0]:
             st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             monthly_adjustment = st.number_input(
-                "Importo (+ rimborso / − trattenuta)",
-                value=float(selected_adjustment.get("amount", 0.0)),
+                "Importo netto (+ rimborso / − trattenuta)",
+                value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
                 step=10.0,
                 key=f"turni_rettifica_mese::{month_key}",
-                help="730, premi, arretrati o trattenute del mese selezionato.",
+                help="Importo netto: 730, premi, arretrati o trattenute del mese selezionato.",
             )
         with v2_row_3[1]:
             monthly_adjustment_note = st.text_input(
                 "Descrizione",
-                value=str(selected_adjustment.get("description", "")),
+                value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
                 key=f"turni_rettifica_nota::{month_key}",
                 placeholder="es. rimborso 730",
             )
@@ -6213,12 +6237,10 @@ def render_turni_guadagni_section():
                 rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
                 rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
                 rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
-                rules["stra_ferie_feriale_pct"] = st.number_input("Ferie feriale %", value=float(rules.get("stra_ferie_feriale_pct", 25.0)), step=1.0, key="turni_stra_f_feriale")
             with stra_cols[1]:
                 rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
                 rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
                 rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
-                rules["stra_ferie_festivo_pct"] = st.number_input("Ferie festivo %", value=float(rules.get("stra_ferie_festivo_pct", 50.0)), step=1.0, key="turni_stra_f_festivo")
         with c2:
             if MOBILE_VIEW:
                 st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
@@ -6347,6 +6369,11 @@ def render_turni_guadagni_section():
                 month: float(values.get("amount", 0.0))
                 for month, values in calibration_adjustment_rows.items()
             }
+            for salary_month in salaries:
+                calibration_adjustments.setdefault(
+                    salary_month,
+                    DEFAULT_PAYROLL_ADJUSTMENT,
+                )
             delay_months = int(round(rules.get("ritardo_competenze_mesi", 1)))
             matched_salary_months = {
                 month

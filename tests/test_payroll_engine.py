@@ -45,8 +45,12 @@ def test_overtime_contains_base_and_premium(rules):
 
 
 def test_leave_has_no_variable_pay(rules):
-    result = calculate_shift_variables(Shift(date(2026, 6, 8), "Ferie"), rules)
+    result = calculate_shift_variables(
+        Shift(date(2026, 6, 8), "Ferie", overtime_minutes=120),
+        rules,
+    )
     assert result.variables_gross == 0
+    assert result.overtime_gross == 0
 
 
 def test_day_shift_from_legacy_excel_has_no_variable_pay(rules):
@@ -64,8 +68,14 @@ def test_variables_are_paid_next_month(rules):
 def test_meal_vouchers_are_not_credited_net(rules):
     june = VariableBreakdown(premiums_gross=100, meal_vouchers=70)
     estimate = estimate_payslip("2026-07", {"2026-06": june}, rules)
-    assert estimate.credited_net == 2260
+    assert estimate.credited_net == 2197
     assert estimate.meal_vouchers == 70
+
+
+def test_default_adjustment_is_sixty_three_euro_net_deduction(rules):
+    estimate = estimate_payslip("2026-07", {}, rules)
+    assert estimate.adjustment == -63
+    assert estimate.credited_net == 2137
 
 
 @pytest.mark.parametrize(("adjustment", "expected"), [(150, 2350), (-150, 2050)])

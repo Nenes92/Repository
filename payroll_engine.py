@@ -18,7 +18,7 @@ DEFAULT_RULES: dict[str, float] = {
     "paga_oraria_lorda": 18.01988,
     "netto_fisso_mensile": 2200.0,
     "coefficiente_netto_variabili": 0.60,
-    "rettifica_mensile": 0.0,
+    "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
     "m_p_feriale_pct": 20.0,
     "m_p_festivo_giorno_pct": 50.0,
@@ -222,7 +222,7 @@ def calculate_shift_variables(shift: Shift, rules: Mapping[str, float]) -> Varia
             cursor = nxt
     overtime = 0.0
     overtime_hours: dict[float, float] = {}
-    if shift.kind != "Riposo" and shift.overtime_minutes > 0:
+    if shift.kind not in {"Ferie", "Riposo"} and shift.overtime_minutes > 0:
         _, cursor = _bounds(shift)
         overtime_end = cursor + timedelta(minutes=min(120, max(0, shift.overtime_minutes)))
         while cursor < overtime_end:
