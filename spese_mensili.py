@@ -251,9 +251,9 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
         return pd.DataFrame(columns=headers)
 
 def save_data_gsheets(worksheet_name, headers, data):
-    if _is_gsheets_in_backoff():
-        _show_gsheets_warning_once(f"Google Sheets e in pausa temporanea per quota letture. Riprova il salvataggio tra {GSHEETS_BACKOFF_LABEL}.")
-        return False
+    # Le quote Google per letture e scritture sono indipendenti: una lettura in
+    # backoff non deve impedire un salvataggio che può ancora andare a buon fine.
+    # Gli effettivi errori di scrittura restano gestiti dal blocco try/except.
     client = get_gsheet_client()
     if not client:
         return False
