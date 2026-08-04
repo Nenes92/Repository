@@ -6,3 +6,4 @@ google-auth-oauthlib
 google-api-python-client
 gspread
 mysql-connector-python
+openpyxl>=3.1
