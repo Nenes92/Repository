@@ -3357,6 +3357,7 @@ DEFAULT_TURNI_RULES = {
     "netto_fisso_mensile": 2200.0,
     "coefficiente_netto_variabili": 0.60,
     "errore_medio_calibrazione": 0.0,
+    "finestra_calibrazione_mesi": 12.0,
     "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
     "m_p_feriale_pct": 20.0,
@@ -3707,6 +3708,7 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_paga_lorda": "paga_oraria_lorda",
         "turni_netto_fisso": "netto_fisso_mensile",
         "turni_coeff_variabili": "coefficiente_netto_variabili",
+        "turni_finestra_calibrazione": "finestra_calibrazione_mesi",
         "turni_ritardo_competenze": "ritardo_competenze_mesi",
         "turni_mp_feriale": "m_p_feriale_pct",
         "turni_mp_festivo": "m_p_festivo_giorno_pct",
@@ -5760,7 +5762,6 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
 
 
 def render_turni_guadagni_section():
-    st.markdown('<div id="mobile-turni" class="mobile-anchor"></div><div class="section-pill">⏱️ Guadagni Turni</div>', unsafe_allow_html=True)
     rules = get_turni_rules()
     rules = _apply_turni_rules_from_widgets(rules)
     if "turni_calendar_month" not in st.session_state:
@@ -5777,6 +5778,16 @@ def render_turni_guadagni_section():
             pass
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
+    st.markdown(
+        f"""
+        <div id="mobile-turni" class="mobile-anchor"></div>
+        <div style="margin:0 0 14px;text-align:center;font-size:25px;font-weight:900;color:rgba(255,255,255,.94);">
+          {_turni_month_label(selected_month)}
+        </div>
+        <div class="section-pill">⏱️ Guadagni Turni</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     df_turni, calendar_errors = ensure_turni_month_synced(selected_month)
     if calendar_errors:
@@ -6152,7 +6163,7 @@ def render_turni_guadagni_section():
                 key="turni_netto_fisso",
                 help="La parte ordinaria netta che non dipende dalle ore del mese.",
             )
-        v2_row_2 = st.columns(2)
+        v2_row_2 = st.columns(3)
         with v2_row_2[0]:
             st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             rules["coefficiente_netto_variabili"] = st.number_input(
@@ -6173,6 +6184,16 @@ def render_turni_guadagni_section():
                 step=1,
                 key="turni_ritardo_competenze",
                 help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
+            )
+        with v2_row_2[2]:
+            rules["finestra_calibrazione_mesi"] = st.number_input(
+                "Finestra calibrazione (mesi)",
+                min_value=3,
+                max_value=36,
+                value=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                step=1,
+                key="turni_finestra_calibrazione",
+                help="Dà priorità al livello retributivo recente: i mesi più vecchi restano visibili ma sono esclusi automaticamente dal fit.",
             )
         adjustment_rows = load_payroll_adjustments()
         selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
@@ -6303,8 +6324,9 @@ def render_turni_guadagni_section():
         st.caption(
             "Ogni cedolino viene abbinato alle variabili maturate nel mese precedente. "
             "Le rettifiche mensili registrate vengono neutralizzate prima del calcolo. "
-            "Gli altri outlier compatibili con tredicesima, premi elevati o anomalie "
-            "sono esclusi automaticamente; la colonna “Includi” consente di correggere la scelta."
+            f"Il modello usa automaticamente gli ultimi {int(round(rules.get('finestra_calibrazione_mesi', 12)))} mesi, "
+            "così gli aumenti recenti pesano più dello storico remoto. Tredicesima, premi elevati e anomalie "
+            "sono esclusi; la colonna “Includi” consente comunque di correggere ogni scelta."
         )
         try:
             with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
@@ -6453,6 +6475,7 @@ def render_turni_guadagni_section():
                 variables_by_month,
                 delay=delay_months,
                 adjustments=calibration_adjustments,
+                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
             )
             calibration_df = pd.DataFrame([{
                 "Mese cedolino": row.month,
@@ -6461,6 +6484,7 @@ def render_turni_guadagni_section():
                 "Rettifica": row.adjustment,
                 "Variabili lorde": row.variables_gross,
                 "Netto stimato": row.estimated_net,
+                "Scarto reale − stima": row.actual_net - row.estimated_net,
                 "Errore assoluto": row.absolute_error,
                 "Errore %": row.percentage_error,
                 "Includi": row.included,
@@ -6475,6 +6499,7 @@ def render_turni_guadagni_section():
                     "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
                     "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
                     "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
+                    "Scarto reale − stima": st.column_config.NumberColumn(format="€ %.1f"),
                     "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
                     "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
                 },
@@ -6491,6 +6516,7 @@ def render_turni_guadagni_section():
                 delay=delay_months,
                 manual_included=manual,
                 adjustments=calibration_adjustments,
+                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
             )
             confidence_margin = max(
                 0.0,

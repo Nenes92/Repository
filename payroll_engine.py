@@ -324,11 +324,14 @@ def calibrate(
     delay: int = 1,
     manual_included: Mapping[str, bool] | None = None,
     adjustments: Mapping[str, float] | None = None,
+    recency_months: int | None = 12,
 ) -> CalibrationResult:
     """Fit actual_net - adjustment = fixed_net + coefficient * previous variables.
 
-    Obvious exceptional months are excluded with a robust median/MAD rule.
-    Manual choices always override the automatic classification.
+    Obvious exceptional months are excluded with a robust median/MAD rule. By
+    default only the latest 12 calendar months are fitted, so contractual pay
+    growth is not diluted by older salary levels. Older rows remain visible and
+    can still be included manually.
     """
     candidates: list[tuple[str, str, float, float, float]] = []
     for month, actual in sorted(salaries.items()):
@@ -348,14 +351,27 @@ def calibrate(
     median = actuals[len(actuals) // 2]
     deviations = sorted(abs(value - median) for value in actuals)
     mad = deviations[len(deviations) // 2] or max(1.0, median * 0.05)
+    window_months = max(2, int(recency_months or 0)) if recency_months else 0
+    latest_month = max(item[0] for item in candidates)
+    window_start = add_months(latest_month, -(window_months - 1)) if window_months else ""
+    recent_candidates = [item for item in candidates if not window_months or item[0] >= window_start]
+    use_recency_window = window_months > 0 and len(recent_candidates) >= 2
     included_flags: list[bool] = []
     reasons: list[str] = []
     for month, _, actual, adjustment, _ in candidates:
         normalized_actual = actual - adjustment
-        automatic = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
+        ordinary = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
+        recent = not use_recency_window or month >= window_start
+        automatic = ordinary and recent
         manual = (manual_included or {}).get(month)
         included_flags.append(automatic if manual is None else bool(manual))
-        reasons.append("" if automatic else "Mensilità straordinaria/anomala")
+        if not ordinary:
+            reason = "Mensilità straordinaria/anomala"
+        elif not recent:
+            reason = f"Fuori finestra recente ({window_months} mesi)"
+        else:
+            reason = ""
+        reasons.append(reason)
     selected = [row for row, flag in zip(candidates, included_flags) if flag]
     if len(selected) < 2:
         raise ValueError("Servono almeno due mensilità incluse per calibrare il modello.")

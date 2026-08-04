@@ -9,6 +9,7 @@ from payroll_engine import (
     calculate_month_variables,
     calculate_shift_variables,
     calibrate,
+    add_months,
     estimate_live_net_accrual,
     estimate_payslip,
     migrate_rules,
@@ -140,6 +141,26 @@ def test_registered_adjustment_keeps_month_usable_for_calibration():
     assert july.adjustment == 280
     assert result.fixed_net == pytest.approx(2100)
     assert result.variable_coefficient == pytest.approx(0.65)
+
+
+def test_calibration_uses_latest_twelve_months_for_current_salary_level():
+    variables = {}
+    salaries = {}
+    for index in range(30):
+        variables_month = add_months("2024-01", index)
+        salary_month = add_months(variables_month, 1)
+        gross = 100.0 + (index % 5) * 50.0
+        variables[variables_month] = VariableBreakdown(premiums_gross=gross)
+        fixed = 2300.0 if salary_month >= "2025-08" else 2000.0
+        salaries[salary_month] = fixed + gross * 0.60
+
+    result = calibrate(salaries, variables, recency_months=12)
+
+    assert result.fixed_net == pytest.approx(2300.0)
+    assert result.variable_coefficient == pytest.approx(0.60)
+    old_row = next(row for row in result.rows if row.month == "2025-07")
+    assert not old_row.included
+    assert old_row.exclusion_reason == "Fuori finestra recente (12 mesi)"
 
 
 def test_live_counter_converts_only_variables_with_calibrated_coefficient():
