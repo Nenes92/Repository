@@ -10,6 +10,7 @@ import calendar
 import time
 import io
 import html
+import re
 import urllib.request
 from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
@@ -23,6 +24,12 @@ from payroll_engine import (
     migrate_rules as migrate_payroll_rules,
 )
 from turni_excel_import import merge_turni_history, read_turni_excel
+from payslip_parser import (
+    extract_payslip_month,
+    extract_pdf_text,
+    find_adjustment_candidates,
+    label_signature,
+)
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -3387,6 +3394,15 @@ TURNI_RULES_WORKSHEET = "Regole Turni"
 TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
 PAYROLL_ADJUSTMENTS_WORKSHEET = "Rettifiche Cedolino"
 PAYROLL_ADJUSTMENTS_HEADERS = ["Mese", "Importo", "Descrizione"]
+PAYSLIP_ALIASES_WORKSHEET = "Voci Cedolino"
+PAYSLIP_ALIASES_HEADERS = [
+    "Voce",
+    "Segno",
+    "Includi",
+    "Categoria",
+    "Ultimo mese",
+    "Ultimo importo",
+]
 DEFAULT_PAYROLL_ADJUSTMENT = -63.0
 DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION = "Solite trattenute + accrediti + trattenute"
 
@@ -3625,6 +3641,74 @@ def save_payroll_adjustment(month_key, amount, description=""):
     )
 
 
+def load_payslip_aliases(force_reload=False):
+    """Carica le decisioni confermate senza confonderle con le rettifiche mensili."""
+    data = load_data_gsheets(
+        PAYSLIP_ALIASES_WORKSHEET,
+        PAYSLIP_ALIASES_HEADERS,
+        force_reload=force_reload,
+    )
+    aliases = {}
+    if data is None or data.empty:
+        return aliases
+    for _, row in data.iterrows():
+        label = str(row.get("Voce", "") or "").strip()
+        if not label:
+            continue
+        aliases[label] = {
+            "sign": 1 if _parse_float_turni(row.get("Segno", 1)) >= 0 else -1,
+            "include": _parse_bool_turni(row.get("Includi", True)),
+            "category": str(row.get("Categoria", "Voce già confermata") or "").strip(),
+        }
+    return aliases
+
+
+def save_payslip_aliases(reviewed_rows, month_key):
+    """Aggiorna la memoria delle voci revisionate preservando quelle precedenti."""
+    data = load_data_gsheets(
+        PAYSLIP_ALIASES_WORKSHEET,
+        PAYSLIP_ALIASES_HEADERS,
+        force_reload=True,
+    )
+    if data is None:
+        data = pd.DataFrame(columns=PAYSLIP_ALIASES_HEADERS)
+    data = data.copy()
+    for column in PAYSLIP_ALIASES_HEADERS:
+        if column not in data.columns:
+            data[column] = ""
+    existing_by_signature = {
+        label_signature(row.get("Voce", "")): index
+        for index, row in data.iterrows()
+        if label_signature(row.get("Voce", ""))
+    }
+    for row in reviewed_rows:
+        label = str(row.get("Voce", "") or "").strip()
+        signature = label_signature(label)
+        if not signature:
+            continue
+        sign = 1 if str(row.get("Segno", "+ Accredito")).startswith("+") else -1
+        values = {
+            "Voce": label,
+            "Segno": sign,
+            "Includi": _parse_bool_turni(row.get("Includi", False)),
+            "Categoria": str(row.get("Categoria", "") or "Voce confermata"),
+            "Ultimo mese": month_key,
+            "Ultimo importo": abs(_parse_float_turni(row.get("Importo", 0.0))),
+        }
+        if signature in existing_by_signature:
+            index = existing_by_signature[signature]
+            for column, value in values.items():
+                data.at[index, column] = value
+        else:
+            data = pd.concat([data, pd.DataFrame([values])], ignore_index=True)
+            existing_by_signature[signature] = data.index[-1]
+    return save_data_gsheets(
+        PAYSLIP_ALIASES_WORKSHEET,
+        PAYSLIP_ALIASES_HEADERS,
+        data[PAYSLIP_ALIASES_HEADERS],
+    )
+
+
 def payroll_adjustment_for_month(month_key, adjustment_rows=None):
     """Restituisce la rettifica esplicita o il valore netto medio predefinito."""
     rows = load_payroll_adjustments() if adjustment_rows is None else adjustment_rows
@@ -3640,6 +3724,154 @@ def payroll_adjustment_for_month(month_key, adjustment_rows=None):
         "description": str(saved.get("description", "") or "").strip(),
         "is_default": False,
     }
+
+
+def _render_payslip_pdf_review(default_month_key):
+    """UI di revisione: nessun valore estratto viene salvato senza conferma."""
+    with st.expander("🧾 Analizza un nuovo cedolino PDF", expanded=False):
+        st.caption(
+            "Carica il PDF digitale del cedolino. L’app cerca soltanto accrediti, "
+            "addizionali e trattenute non già comprese nel fisso o nelle variabili. "
+            "Controlla sempre le proposte: il PDF non viene conservato."
+        )
+        uploaded_pdf = st.file_uploader(
+            "Cedolino PDF",
+            type=["pdf"],
+            key="payroll_pdf_upload",
+            help="I PDF scansionati come immagine richiedono OCR e per ora non sono supportati.",
+        )
+        if uploaded_pdf is None:
+            st.info(
+                "I cedolini vecchi restano sulla rettifica media di −€63. "
+                "Puoi iniziare dal prossimo cedolino e revisionare lo storico solo se ti serve."
+            )
+            return
+        try:
+            pdf_text = extract_pdf_text(uploaded_pdf.getvalue())
+            inferred_month = extract_payslip_month(pdf_text, uploaded_pdf.name)
+            learned_aliases = load_payslip_aliases()
+            candidates = find_adjustment_candidates(pdf_text, learned_aliases)
+        except (ValueError, RuntimeError) as exc:
+            st.error(str(exc))
+            return
+
+        review_month = st.text_input(
+            "Mese del cedolino (AAAA-MM)",
+            value=inferred_month or default_month_key,
+            key=f"payroll_pdf_month::{uploaded_pdf.name}",
+            help="È il mese scritto sul cedolino, non il mese delle variabili pagate.",
+        ).strip()
+        if inferred_month:
+            st.caption(f"Mese riconosciuto dal PDF: **{inferred_month}**.")
+        else:
+            st.warning("Non ho riconosciuto il mese: controllalo prima di confermare.")
+
+        review_rows = pd.DataFrame([
+            {
+                "Includi": candidate.include,
+                "Voce": candidate.description,
+                "Categoria": candidate.category,
+                "Segno": "+ Accredito" if candidate.sign > 0 else "− Trattenuta",
+                "Importo": candidate.amount,
+                "Confidenza": round(candidate.confidence * 100),
+                "Riga PDF": candidate.source_line,
+            }
+            for candidate in candidates
+        ], columns=[
+            "Includi", "Voce", "Categoria", "Segno", "Importo", "Confidenza", "Riga PDF"
+        ])
+        if review_rows.empty:
+            st.warning(
+                "Non ho trovato voci riconoscibili. Puoi aggiungerle manualmente nella "
+                "tabella oppure continuare a usare la rettifica mensile nelle Regole."
+            )
+        elif any("possibile importo lordo" in str(value) for value in review_rows["Categoria"]):
+            st.warning(
+                "EDR, premi e arretrati possono essere esposti lordi nel PDF: per sicurezza "
+                "non sono preselezionati. Includili solo dopo aver sostituito l’importo con "
+                "l’effetto netto che vuoi applicare."
+            )
+        edited_rows = st.data_editor(
+            review_rows,
+            hide_index=True,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "Includi": st.column_config.CheckboxColumn("Includi", default=False),
+                "Segno": st.column_config.SelectboxColumn(
+                    "Segno",
+                    options=["+ Accredito", "− Trattenuta"],
+                    required=True,
+                ),
+                "Importo": st.column_config.NumberColumn(
+                    "Importo",
+                    min_value=0.0,
+                    step=0.01,
+                    format="€ %.2f",
+                ),
+                "Confidenza": st.column_config.NumberColumn("Sicurezza %", format="%d%%"),
+                "Riga PDF": st.column_config.TextColumn("Testo originale", width="large"),
+            },
+            disabled=["Categoria", "Confidenza", "Riga PDF"],
+            key=f"payroll_pdf_review::{uploaded_pdf.name}",
+        )
+        reviewed = []
+        total = 0.0
+        for _, row in edited_rows.iterrows():
+            values = row.to_dict()
+            include = _parse_bool_turni(values.get("Includi", False))
+            amount = abs(_parse_float_turni(values.get("Importo", 0.0)))
+            sign = 1 if str(values.get("Segno", "")).startswith("+") else -1
+            values["Includi"] = include
+            values["Importo"] = amount
+            reviewed.append(values)
+            if include:
+                total += sign * amount
+
+        current = load_payroll_adjustments().get(review_month)
+        if current:
+            st.warning(
+                f"Per {review_month} è già salvata una rettifica di "
+                f"{_signed_money_turni(current.get('amount', 0))}: la conferma la sostituirà."
+            )
+        st.metric("Rettifica netta proposta", _signed_money_turni(total))
+        confirmed = st.checkbox(
+            "Ho controllato voci, segni e importi: confermo questa rettifica netta.",
+            key=f"confirm_payroll_pdf::{uploaded_pdf.name}::{review_month}",
+        )
+        if st.button(
+            "✅ Conferma rettifica e aggiorna la calibrazione",
+            key=f"save_payroll_pdf::{uploaded_pdf.name}::{review_month}",
+            use_container_width=True,
+            disabled=not confirmed,
+        ):
+            if not re.fullmatch(r"20\d{2}-(0[1-9]|1[0-2])", review_month):
+                st.error("Il mese deve avere il formato AAAA-MM, per esempio 2026-07.")
+                return
+            selected = [row for row in reviewed if row.get("Includi")]
+            if not selected:
+                st.error("Seleziona almeno una voce da includere.")
+                return
+            summary_parts = []
+            for row in selected:
+                sign = "+" if str(row.get("Segno", "")).startswith("+") else "−"
+                label = str(row.get("Voce", "Voce PDF") or "Voce PDF").strip()
+                summary_parts.append(f"{sign}{_money_turni(row.get('Importo', 0))} {label}")
+            description = "PDF verificato: " + "; ".join(summary_parts)
+            adjustment_saved = save_payroll_adjustment(review_month, total, description[:1000])
+            if not adjustment_saved:
+                st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
+                return
+            aliases_saved = save_payslip_aliases(reviewed, review_month)
+            st.session_state.pop("payroll_calibration_editor", None)
+            st.success(
+                f"Rettifica di {_signed_money_turni(total)} salvata per {review_month}. "
+                "La calibrazione qui sotto usa già il nuovo valore."
+            )
+            if not aliases_saved:
+                st.warning(
+                    "La rettifica è salva, ma non sono riuscito ad aggiornare la memoria delle voci."
+                )
 
 
 def _payroll_v2_rules(rules):
@@ -6328,6 +6560,7 @@ def render_turni_guadagni_section():
             "così gli aumenti recenti pesano più dello storico remoto. Tredicesima, premi elevati e anomalie "
             "sono esclusi; la colonna “Includi” consente comunque di correggere ogni scelta."
         )
+        _render_payslip_pdf_review(month_key)
         try:
             with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
                 uploaded_turni_excel = st.file_uploader(
