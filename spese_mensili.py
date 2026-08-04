@@ -3383,6 +3383,8 @@ DEFAULT_TURNI_RULES = {
 }
 TURNI_RULES_WORKSHEET = "Regole Turni"
 TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
+PAYROLL_ADJUSTMENTS_WORKSHEET = "Rettifiche Cedolino"
+PAYROLL_ADJUSTMENTS_HEADERS = ["Mese", "Importo", "Descrizione"]
 
 
 def _money_turni(value):
@@ -3557,6 +3559,60 @@ def save_turni_rules(rules):
     )
 
 
+def load_payroll_adjustments(force_reload=False):
+    """Carica le rettifiche indicizzate per mese cedolino (YYYY-MM)."""
+    data = load_data_gsheets(
+        PAYROLL_ADJUSTMENTS_WORKSHEET,
+        PAYROLL_ADJUSTMENTS_HEADERS,
+        force_reload=force_reload,
+    )
+    adjustments = {}
+    if data is None or data.empty:
+        return adjustments
+    for _, row in data.iterrows():
+        month = pd.to_datetime(row.get("Mese"), errors="coerce")
+        if pd.isna(month):
+            continue
+        month_key = month.strftime("%Y-%m")
+        adjustments[month_key] = {
+            "amount": _parse_float_turni(row.get("Importo", 0.0)),
+            "description": str(row.get("Descrizione", "") or "").strip(),
+        }
+    return adjustments
+
+
+def save_payroll_adjustment(month_key, amount, description=""):
+    """Crea, aggiorna o rimuove la rettifica di un singolo cedolino."""
+    data = load_data_gsheets(
+        PAYROLL_ADJUSTMENTS_WORKSHEET,
+        PAYROLL_ADJUSTMENTS_HEADERS,
+        force_reload=True,
+    )
+    if data is None:
+        data = pd.DataFrame(columns=PAYROLL_ADJUSTMENTS_HEADERS)
+    data = data.copy()
+    for column in PAYROLL_ADJUSTMENTS_HEADERS:
+        if column not in data.columns:
+            data[column] = ""
+    parsed_months = pd.to_datetime(data["Mese"], errors="coerce").dt.strftime("%Y-%m")
+    data = data[parsed_months != month_key].copy()
+    clean_description = str(description or "").strip()
+    if abs(float(amount)) > 1e-9 or clean_description:
+        data = pd.concat([
+            data,
+            pd.DataFrame([{
+                "Mese": f"{month_key}-01",
+                "Importo": float(amount),
+                "Descrizione": clean_description,
+            }]),
+        ], ignore_index=True)
+    return save_data_gsheets(
+        PAYROLL_ADJUSTMENTS_WORKSHEET,
+        PAYROLL_ADJUSTMENTS_HEADERS,
+        data[PAYROLL_ADJUSTMENTS_HEADERS],
+    )
+
+
 def _payroll_v2_rules(rules):
     migrated = migrate_payroll_rules(rules, PAYROLL_V2_DEFAULTS)
     migrated["paga_oraria_lorda"] = float(
@@ -3599,11 +3655,17 @@ def _payroll_variables_by_month(df_turni, rules):
 
 def _payroll_estimate_for_month(df_turni, rules, month_key):
     uncertainty = float(st.session_state.get("payroll_calibration_mae", 0.0))
+    adjustment_rows = load_payroll_adjustments()
+    adjustments = {
+        month: float(values.get("amount", 0.0))
+        for month, values in adjustment_rows.items()
+    }
     return estimate_payslip(
         month_key,
         _payroll_variables_by_month(df_turni, rules),
         _payroll_v2_rules(rules),
         uncertainty=uncertainty,
+        adjustments=adjustments,
     )
 
 
@@ -3613,7 +3675,6 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_paga_lorda": "paga_oraria_lorda",
         "turni_netto_fisso": "netto_fisso_mensile",
         "turni_coeff_variabili": "coefficiente_netto_variabili",
-        "turni_rettifica": "rettifica_mensile",
         "turni_ritardo_competenze": "ritardo_competenze_mesi",
         "turni_mp_feriale": "m_p_feriale_pct",
         "turni_mp_festivo": "m_p_festivo_giorno_pct",
@@ -4089,6 +4150,9 @@ def compute_turno_net_estimate(
         + float(overtime.get("total", 0.0))
     )
     coefficient = float(rules.get("coefficiente_netto_variabili", 0.60))
+    premium_net = regular_premium_gross * coefficient
+    allowance_net = float(gross.get("indennita", 0.0)) * coefficient
+    overtime_net = float(overtime.get("total", 0.0)) * coefficient
     total_net = estimate_live_net_accrual(
         regular_hours,
         ordinary_net_hourly,
@@ -4108,6 +4172,9 @@ def compute_turno_net_estimate(
         "extra": variable_gross * coefficient,
         "rate_min": rate_min,
         "variable_gross": variable_gross,
+        "premium_net": premium_net,
+        "allowance_net": allowance_net,
+        "overtime_net": overtime_net,
     }
 
 
@@ -4372,24 +4439,23 @@ def _turni_month_money_summary(df_turni, rules, month_key):
     turni_total = 0.0
     turni_base = 0.0
     turni_extra = 0.0
+    live_net_hourly = _live_net_hourly_base(df_turni, rules, month_key)
     for _, row in month_df.iterrows():
-        calc = compute_turno(
+        calc = compute_turno_net_estimate(
             row["Data"],
             row["Turno"],
             bool(row["Festivo"]),
             rules,
+            live_net_hourly,
             until=datetime.max.replace(tzinfo=None),
             straordinario_minuti=_turni_row_straordinario_minuti(row),
         )
         turni_total += float(calc.get("total", 0.0))
         turni_base += float(calc.get("base", 0.0))
         turni_extra += float(calc.get("extra", 0.0))
-    monthly_adjustments = (
-        float(rules.get("quota_fissa_mensile", 0.0))
-        + float(rules.get("accrediti_mensili", 0.0))
-        - float(rules.get("trattenute_mensili", 0.0))
-        + float(report.get("buoni_pasto_total", 0.0))
-    )
+    # I buoni pasto restano un beneficio separato e i vecchi campi
+    # accrediti/trattenute non appartengono al nuovo netto maturato dei turni.
+    monthly_adjustments = 0.0
     return {
         **report,
         "turni_total": turni_total,
@@ -4817,6 +4883,33 @@ def _default_sede_calendar_ical_urls():
     return urls
 
 
+def ensure_turni_month_synced(selected_month, df_turni=None):
+    """Sincronizza una sola volta il mese e restituisce la sorgente comune alla UI."""
+    month_key = selected_month.strftime("%Y-%m")
+    auto_sync_key = f"turni_calendar_autosync_sede_v2::{month_key}"
+    current_df = load_turni_data() if df_turni is None else _normalize_turni_df(df_turni)
+    if st.session_state.get(auto_sync_key, False):
+        draft = st.session_state.get("turni_df_draft")
+        return (_normalize_turni_df(draft) if draft is not None else current_df), []
+
+    calendar_sources = _default_calendar_ical_urls()
+    if not calendar_sources:
+        st.session_state[auto_sync_key] = True
+        return current_df, []
+    synced_df, imported_count, errors = sync_turni_month_from_calendar(
+        current_df,
+        calendar_sources,
+        selected_month,
+        _default_sede_calendar_ical_urls(),
+    )
+    st.session_state[auto_sync_key] = True
+    if imported_count > 0:
+        st.session_state.turni_df_draft = synced_df.copy()
+        st.session_state.turni_dirty = False
+        return synced_df.copy(), errors
+    return current_df, errors
+
+
 def render_live_turni_kpis(stats, side_html=""):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
@@ -5168,17 +5261,17 @@ def render_live_turni_kpis(stats, side_html=""):
 def render_payroll_v2_details(estimate):
     cards = [
         ("Netto cedolino stimato", _money_turni(estimate.credited_net), "#34d399", "16,185,129"),
+        ("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}", "#34d399", "16,185,129"),
         (f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross), "#60a5fa", "59,130,246"),
+        ("Variabili nette stimate", _money_turni(estimate.variables_net), "#60a5fa", "59,130,246"),
         ("Fisso netto", _money_turni(estimate.fixed_net), "#a78bfa", "139,92,246"),
-        ("Rettifiche", _money_turni(estimate.adjustment), "#fb923c", "249,115,22"),
-        ("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}", "#22d3ee", "6,182,212"),
-        ("Variabili nette stimate", _money_turni(estimate.variables_net), "#2dd4bf", "20,184,166"),
-        ("Buoni pasto separati", _money_turni(estimate.meal_vouchers), "#facc15", "234,179,8"),
+        ("Buoni pasto separati", _money_turni(estimate.meal_vouchers), "#a78bfa", "139,92,246"),
+        ("Rettifica del mese", _money_turni(estimate.adjustment), "#fb923c", "249,115,22"),
         (
-            "Mag. / indenn. / straord.",
+            "Componenti lorde: mag. / indenn. / straord.",
             f"{_money_turni(estimate.breakdown.premiums_gross)} / {_money_turni(estimate.breakdown.allowances_gross)} / {_money_turni(estimate.breakdown.overtime_gross)}",
-            "#f472b6",
-            "219,39,119",
+            "#fb923c",
+            "249,115,22",
         ),
     ]
     cards_html = "".join(
@@ -5250,16 +5343,18 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
         focus_candidates = month_df[month_df["Data"] >= today_key]
         focus_date = focus_candidates.iloc[0]["Data"] if not focus_candidates.empty else month_df.iloc[-1]["Data"]
     cards = ['<div class="turni-summary-compact"><div class="turni-summary-compact-title">Riepilogo turni</div><div class="turni-grid-scroll">']
+    live_net_hourly = _live_net_hourly_base(df_turni, rules, month_key)
     for _, r in month_df.iterrows():
         turno = r["Turno"]
         info = _turno_color_info(turno)
         stra_minuti = _turni_row_straordinario_minuti(r)
         sede = _turni_row_sede(r)
-        calc = compute_turno(
+        calc = compute_turno_net_estimate(
             r["Data"],
             turno,
             bool(r["Festivo"]),
             rules,
+            live_net_hourly,
             until=datetime.max.replace(tzinfo=None),
             straordinario_minuti=stra_minuti,
         )
@@ -5278,8 +5373,8 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             f'<div{focus_attr} class="turni-card-small {info["class"]}">'
             f'<div class="date">{html.escape(str(r["Data"]))}{festivo_txt}</div>'
             f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(str(turno))}</div>'
-            f'<div class="meta">{html.escape(seg)} · Totale {html.escape(_money_turni(calc["total"]))}</div>'
-            f'<div class="meta">Base {html.escape(_money_turni(calc["base"]))} · Extra: Magg. {html.escape(_money_turni(calc.get("maggiorazione", 0)))} + indennità {html.escape(_money_turni(calc.get("indennita", 0)))} = {html.escape(_money_turni(calc["extra"]))}</div>'
+            f'<div class="meta">{html.escape(seg)} · Netto stimato {html.escape(_money_turni(calc["total"]))}</div>'
+            f'<div class="meta">Base netta {html.escape(_money_turni(calc["base"]))} · Variabili nette: Mag. {html.escape(_money_turni(calc.get("premium_net", 0)))} + indenn. {html.escape(_money_turni(calc.get("allowance_net", 0)))} + straord. {html.escape(_money_turni(calc.get("overtime_net", 0)))}</div>'
             f'{extra_txt}'
             f'</div>'
         )
@@ -5595,24 +5690,9 @@ def render_turni_guadagni_section():
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
 
-    df_turni = load_turni_data()
-    auto_calendar_sources = _default_calendar_ical_urls()
-    auto_sede_calendar_sources = _default_sede_calendar_ical_urls()
-    auto_sync_key = f"turni_calendar_autosync_sede_v2::{month_key}"
-    if auto_calendar_sources and not st.session_state.get(auto_sync_key, False):
-        synced_df, imported_count, calendar_errors = sync_turni_month_from_calendar(
-            df_turni,
-            auto_calendar_sources,
-            selected_month,
-            auto_sede_calendar_sources,
-        )
-        st.session_state[auto_sync_key] = True
-        if imported_count > 0:
-            st.session_state.turni_df_draft = synced_df.copy()
-            st.session_state.turni_dirty = False
-            df_turni = synced_df.copy()
-        if calendar_errors:
-            st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
+    df_turni, calendar_errors = ensure_turni_month_synced(selected_month)
+    if calendar_errors:
+        st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     today = _now_italy().date()
     current_month_key = today.strftime("%Y-%m")
@@ -5803,6 +5883,7 @@ def render_turni_guadagni_section():
                 st.info("Nessun turno inserito per il mese selezionato.")
             else:
                 month_df = month_df.sort_values("Data")
+                live_net_hourly = _live_net_hourly_base(df_turni, rules, month_key)
                 today_key = _now_italy().strftime("%Y-%m-%d")
                 if current_work_day and current_work_day in set(month_df["Data"].astype(str)):
                     focus_date = current_work_day
@@ -5815,11 +5896,12 @@ def render_turni_guadagni_section():
                     info = _turno_color_info(turno)
                     stra_minuti = _turni_row_straordinario_minuti(r)
                     sede = _turni_row_sede(r)
-                    calc = compute_turno(
+                    calc = compute_turno_net_estimate(
                         r["Data"],
                         turno,
                         bool(r["Festivo"]),
                         rules,
+                        live_net_hourly,
                         until=datetime.max.replace(tzinfo=None),
                         straordinario_minuti=stra_minuti,
                     )
@@ -5838,8 +5920,8 @@ def render_turni_guadagni_section():
                         f'<div{focus_attr} class="turni-card-small {info["class"]}">'
                         f'<div class="date">{r["Data"]}{festivo_txt}</div>'
                         f'<div class="title" style="color:{info["color"]};">{info["emoji"]} {turno}</div>'
-                        f'<div class="meta">{seg} · Totale {_money_turni(calc["total"])}</div>'
-                        f'<div class="meta">Base {_money_turni(calc["base"])} · Extra: Magg. {_money_turni(calc.get("maggiorazione", 0))} + indennità {_money_turni(calc.get("indennita", 0))} = {_money_turni(calc["extra"])}</div>'
+                        f'<div class="meta">{seg} · Netto stimato {_money_turni(calc["total"])}</div>'
+                        f'<div class="meta">Base netta {_money_turni(calc["base"])} · Variabili nette: Mag. {_money_turni(calc.get("premium_net", 0))} + indenn. {_money_turni(calc.get("allowance_net", 0))} + straord. {_money_turni(calc.get("overtime_net", 0))}</div>'
                         f'{extra_txt}'
                         f'</div>'
                     )
@@ -5920,7 +6002,7 @@ def render_turni_guadagni_section():
         ">
           <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino</div>
           <div style="font-size:11px;color:rgba(255,255,255,.58);margin-top:4px;">
-            Questi cinque valori determinano la previsione. Le percentuali dei turni sono configurate più sotto.
+            Questi parametri determinano la previsione. La rettifica è salvata sul singolo mese del cedolino.
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -5982,16 +6064,6 @@ def render_turni_guadagni_section():
                 help="Trasforma le variabili lorde in una stima netta.",
             )
         with v2_row_2[1]:
-            rules["rettifica_mensile"] = st.number_input(
-                "Rettifica mensile (+/-)",
-                value=float(rules.get("rettifica_mensile", 0.0)),
-                step=10.0,
-                key="turni_rettifica",
-                help="730, premi, arretrati o trattenute non ricorrenti.",
-            )
-        v2_row_3 = st.columns(2)
-        with v2_row_3[0]:
-            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
             rules["ritardo_competenze_mesi"] = st.number_input(
                 "Ritardo competenze (mesi)",
                 min_value=0,
@@ -6001,19 +6073,46 @@ def render_turni_guadagni_section():
                 key="turni_ritardo_competenze",
                 help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
             )
+        adjustment_rows = load_payroll_adjustments()
+        selected_adjustment = adjustment_rows.get(month_key, {})
+        st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
+        v2_row_3 = st.columns(2)
+        with v2_row_3[0]:
+            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+            monthly_adjustment = st.number_input(
+                "Importo (+ rimborso / − trattenuta)",
+                value=float(selected_adjustment.get("amount", 0.0)),
+                step=10.0,
+                key=f"turni_rettifica_mese::{month_key}",
+                help="730, premi, arretrati o trattenute del mese selezionato.",
+            )
         with v2_row_3[1]:
-            st.caption("Il contatore live usa questi parametri per mostrare €/h e €/min netti stimati.")
+            monthly_adjustment_note = st.text_input(
+                "Descrizione",
+                value=str(selected_adjustment.get("description", "")),
+                key=f"turni_rettifica_nota::{month_key}",
+                placeholder="es. rimborso 730",
+            )
+        if st.button(
+            f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
+            key=f"save_payroll_adjustment::{month_key}",
+            use_container_width=True,
+        ):
+            if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
+                st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
+                st.rerun()
+            else:
+                st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
         rules["paga_oraria"] = rules["paga_oraria_lorda"]
         st.caption(
             "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
-            "2.200 €, coefficiente 0,60, rettifica 0 €, ritardo 1 mese."
+            "2.200 €, coefficiente 0,60 e ritardo 1 mese."
         )
         st.info(
-            "Rettifiche: inserisci qui un importo positivo per premi/arretrati "
-            "o negativo per 730 e trattenute del cedolino che stai prevedendo. "
-            "Nella Calibrazione, invece, togli la spunta “Includi” ai mesi che "
-            "contengono queste voci straordinarie: non devono insegnare al modello "
-            "quale sia un mese ordinario."
+            "Per correggere un cedolino passato, torna al suo mese con le frecce del "
+            "calendario e salva qui l’importo esatto: positivo se aumenta il netto, "
+            "negativo se lo riduce. La calibrazione sottrae la rettifica prima di "
+            "imparare fisso e coefficiente, quindi quel mese può restare incluso."
         )
         st.markdown("---")
 
@@ -6107,7 +6206,8 @@ def render_turni_guadagni_section():
         st.markdown("### Calibrazione su storico reale")
         st.caption(
             "Ogni cedolino viene abbinato alle variabili maturate nel mese precedente. "
-            "Gli outlier compatibili con tredicesima, premi elevati, 730 o anomalie "
+            "Le rettifiche mensili registrate vengono neutralizzate prima del calcolo. "
+            "Gli altri outlier compatibili con tredicesima, premi elevati o anomalie "
             "sono esclusi automaticamente; la colonna “Includi” consente di correggere la scelta."
         )
         try:
@@ -6170,6 +6270,13 @@ def render_turni_guadagni_section():
                     if pd.notna(salary_month) and salary_value > 0:
                         salaries[salary_month.strftime("%Y-%m")] = salary_value
             variables_by_month = _payroll_variables_by_month(calibration_turni_df, rules)
+            calibration_adjustment_rows = load_payroll_adjustments(
+                force_reload=refresh_calibration,
+            )
+            calibration_adjustments = {
+                month: float(values.get("amount", 0.0))
+                for month, values in calibration_adjustment_rows.items()
+            }
             delay_months = int(round(rules.get("ritardo_competenze_mesi", 1)))
             matched_salary_months = {
                 month
@@ -6244,11 +6351,13 @@ def render_turni_guadagni_section():
                 salaries,
                 variables_by_month,
                 delay=delay_months,
+                adjustments=calibration_adjustments,
             )
             calibration_df = pd.DataFrame([{
                 "Mese cedolino": row.month,
                 "Mese variabili": row.variables_month,
                 "Netto reale": row.actual_net,
+                "Rettifica": row.adjustment,
                 "Variabili lorde": row.variables_gross,
                 "Netto stimato": row.estimated_net,
                 "Errore assoluto": row.absolute_error,
@@ -6272,6 +6381,7 @@ def render_turni_guadagni_section():
                 variables_by_month,
                 delay=delay_months,
                 manual_included=manual,
+                adjustments=calibration_adjustments,
             )
             confidence_margin = max(
                 0.0,
@@ -7016,6 +7126,11 @@ textarea {
             turni_df_home = st.session_state.get("turni_df_draft")
             if turni_df_home is None or getattr(turni_df_home, "empty", True):
                 turni_df_home = load_turni_data()
+            current_turni_month = _now_italy().date().replace(day=1)
+            turni_df_home, _home_calendar_errors = ensure_turni_month_synced(
+                current_turni_month,
+                turni_df_home,
+            )
             if turni_df_home is not None and not turni_df_home.empty:
                 turni_stats_home = compute_turni_dashboard(turni_df_home.copy(), get_turni_rules())
         except Exception:
