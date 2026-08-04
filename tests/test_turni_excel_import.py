@@ -5,17 +5,17 @@ from turni_excel_import import extract_turni_from_sheets, merge_turni_history
 
 def test_extracts_monthly_turns_sites_and_quarter_hour_overtime():
     source = pd.DataFrame({
-        "Data": [None, None, None, None, None],
-        "Turno": ["M", "P", "N", "F", "G"],
-        "fer/Fest": ["F", "f", "f", "f", "f"],
-        "Straord.": [None, 2, 3, 4, None],
-        "Sede": [False, True, False, False, True],
+        "Data": [None, None, None, None, None, None],
+        "Turno": ["R", "M", "P", "N", "F", "G"],
+        "fer/Fest": ["f", "F", "f", "f", "f", "f"],
+        "Straord.": [None, None, 2, 3, 4, None],
+        "Sede": [False, False, True, False, False, True],
     })
     result = extract_turni_from_sheets({"Gennaio 2025": source})
-    assert result["Turno"].tolist() == ["Mattina", "Pomeriggio", "Notte", "Ferie", "Giornata"]
-    assert result["Straordinario minuti"].tolist() == [0, 30, 45, 60, 0]
-    assert result["Sede"].tolist() == [False, True, False, False, True]
-    assert result.iloc[0]["Festivo"]
+    assert result["Turno"].tolist() == ["Riposo", "Mattina", "Pomeriggio", "Notte", "Ferie", "Giornata"]
+    assert result["Straordinario minuti"].tolist() == [0, 0, 30, 45, 60, 0]
+    assert result["Sede"].tolist() == [False, False, True, False, False, True]
+    assert result.iloc[1]["Festivo"]
 
 
 def test_merge_preserves_existing_google_rows_on_duplicate_dates():

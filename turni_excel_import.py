@@ -28,6 +28,7 @@ ITALIAN_MONTHS = {
     "dicembre": 12,
 }
 TURN_CODE_MAP = {
+    "R": "Riposo",
     "M": "Mattina",
     "P": "Pomeriggio",
     "N": "Notte",
