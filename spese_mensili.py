@@ -3394,6 +3394,14 @@ def _money_turni(value):
         return "€0,00"
 
 
+def _signed_money_turni(value):
+    amount = float(value or 0.0)
+    if abs(amount) < 0.005:
+        return "€0,00"
+    sign = "+" if amount > 0 else "−"
+    return f"{sign}{_money_turni(abs(amount))}"
+
+
 def _now_italy():
     if ZoneInfo is None:
         return datetime.now()
@@ -3692,8 +3700,6 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_stra_f_festivo": "stra_ferie_festivo_pct",
         "turni_buono_pasto": "buono_pasto",
         "turni_smart_target": "smart_target",
-        "turni_accrediti_mensili": "accrediti_mensili",
-        "turni_trattenute_mensili": "trattenute_mensili",
         "turni_ind_mp_f": "ind_m_p_feriale",
         "turni_ind_n_f": "ind_notte_feriale",
         "turni_ind_mp_fe": "ind_m_p_festivo",
@@ -4466,23 +4472,33 @@ def _turni_month_money_summary(df_turni, rules, month_key):
     }
 
 
-def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
+def render_selected_month_turni_kpis(
+    df_turni,
+    rules,
+    month_key,
+    payroll_estimate,
+    side_html="",
+):
     month_date = datetime.strptime(f"{month_key}-01", "%Y-%m-%d").date()
     month_label = html.escape(_turni_month_label(month_date))
     summary = _turni_month_money_summary(df_turni, rules, month_key)
     storico_stipendio = _storico_stipendio_for_month(month_key)
-    actual_value = summary["month_total"] if storico_stipendio is None else storico_stipendio
-    actual_subline = (
-        "Guadagno effettivo da storico stipendi"
-        if storico_stipendio is not None
-        else "Storico assente: uso il calcolo dei turni"
-    )
+    actual_value = "—" if storico_stipendio is None else _money_turni(storico_stipendio)
+    actual_subline = "Netto accreditato da storico" if storico_stipendio is not None else "Cedolino reale non presente nello storico"
+    if storico_stipendio is None:
+        estimate_difference = "Differenza non disponibile senza il cedolino reale"
+    else:
+        delta = float(storico_stipendio) - float(payroll_estimate.credited_net)
+        if abs(delta) < 0.005:
+            estimate_difference = "Stima coincidente con il netto reale"
+        else:
+            estimate_difference = f"Differenza reale {_signed_money_turni(delta)} rispetto alla stima"
     work_days = int(summary.get("work_days", 0))
     ferie_days = int(summary.get("ferie_days", 0))
     total_days = work_days + ferie_days
-    sede_days = int(summary.get("sede_days", 0))
-    sede_required = int(summary.get("sede_required", 0))
     buoni = float(summary.get("buoni_pasto_total", 0.0))
+    next_month_date = _add_months_turni(month_date, 1)
+    next_month_label = _turni_month_label(next_month_date)
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-static-shell has-side" if side_html else "turni-static-shell"
     component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
@@ -4490,19 +4506,20 @@ def render_selected_month_turni_kpis(df_turni, rules, month_key, side_html=""):
     <div class="{shell_class}">
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-          <div class="kpi-label">{month_label} — storico stipendi</div>
-          <div class="kpi-value" style="color:#34d399;">{_money_turni(actual_value)}</div>
+          <div class="kpi-label">{month_label} — cedolino reale</div>
+          <div class="kpi-value" style="color:#34d399;">{actual_value}</div>
           <div class="turni-subline">{html.escape(actual_subline)}</div>
         </div>
         <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-          <div class="kpi-label">Giorni lavorati / ferie</div>
-          <div class="kpi-value" style="color:#60a5fa;">{work_days} / {total_days}</div>
-          <div class="turni-subline">{work_days} lavorati + {ferie_days} ferie = {total_days}</div>
+          <div class="kpi-label">Cedolino stimato</div>
+          <div class="kpi-value" style="color:#60a5fa;">{_money_turni(payroll_estimate.credited_net)}</div>
+          <div class="turni-subline">{html.escape(estimate_difference)}</div>
         </div>
         <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
-          <div class="kpi-label">Turni calcolati</div>
+          <div class="kpi-label">Netto maturato dai turni</div>
           <div class="kpi-value" style="color:#fef3c7;">{_money_turni(summary["month_total"])}</div>
-          <div class="turni-subline">Sedi {sede_days}/{sede_required} · buoni {_money_turni(buoni)}</div>
+          <div class="turni-subline">{work_days} lavorati + {ferie_days} ferie = {total_days}</div>
+          <div class="turni-subline">Variabili pagate in {html.escape(next_month_label)} · buoni separati {_money_turni(buoni)}</div>
         </div>
       </div>
       {side_block}
@@ -5258,18 +5275,56 @@ def render_live_turni_kpis(stats, side_html=""):
     """, height=component_height)
 
 
-def render_payroll_v2_details(estimate):
+def render_payroll_v2_details(estimate, adjustment_description=""):
+    adjustment_label = _signed_money_turni(estimate.adjustment)
+    adjustment_formula = (
+        f"+ {_money_turni(estimate.adjustment)}"
+        if float(estimate.adjustment) >= 0
+        else f"− {_money_turni(abs(float(estimate.adjustment)))}"
+    )
+    spread = max(0.0, float(estimate.credited_net) - float(estimate.realistic_low))
     cards = [
-        ("Netto cedolino stimato", _money_turni(estimate.credited_net), "#34d399", "16,185,129"),
-        ("Intervallo realistico", f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}", "#34d399", "16,185,129"),
-        (f"Variabili lorde {estimate.competence_month}", _money_turni(estimate.variables_gross), "#60a5fa", "59,130,246"),
-        ("Variabili nette stimate", _money_turni(estimate.variables_net), "#60a5fa", "59,130,246"),
-        ("Fisso netto", _money_turni(estimate.fixed_net), "#a78bfa", "139,92,246"),
-        ("Buoni pasto separati", _money_turni(estimate.meal_vouchers), "#a78bfa", "139,92,246"),
-        ("Rettifica del mese", _money_turni(estimate.adjustment), "#fb923c", "249,115,22"),
+        (
+            "Netto cedolino stimato",
+            _money_turni(estimate.credited_net),
+            f"{_money_turni(estimate.fixed_net)} fisso + {_money_turni(estimate.variables_net)} variabili {adjustment_formula} rettifica",
+            "#34d399",
+            "16,185,129",
+        ),
+        (
+            "Intervallo realistico",
+            f"{_money_turni(estimate.realistic_low)} – {_money_turni(estimate.realistic_high)}",
+            f"Stima ± {_money_turni(spread)} di errore medio storico",
+            "#34d399",
+            "16,185,129",
+        ),
+        (
+            f"Variabili lorde {estimate.competence_month}",
+            _money_turni(estimate.variables_gross),
+            f"Maturate in {estimate.competence_month}, pagate in {estimate.month}",
+            "#60a5fa",
+            "59,130,246",
+        ),
+        (
+            "Variabili nette stimate",
+            _money_turni(estimate.variables_net),
+            "Variabili lorde × coefficiente netto calibrato",
+            "#60a5fa",
+            "59,130,246",
+        ),
+        ("Fisso netto", _money_turni(estimate.fixed_net), "Quota ordinaria mensile calibrata", "#a78bfa", "139,92,246"),
+        ("Buoni pasto separati", _money_turni(estimate.meal_vouchers), "Non inclusi nel netto accreditato", "#a78bfa", "139,92,246"),
+        (
+            "Rettifica del mese",
+            adjustment_label,
+            adjustment_description or "Nessuna rettifica registrata",
+            "#fb923c",
+            "249,115,22",
+        ),
         (
             "Componenti lorde: mag. / indenn. / straord.",
             f"{_money_turni(estimate.breakdown.premiums_gross)} / {_money_turni(estimate.breakdown.allowances_gross)} / {_money_turni(estimate.breakdown.overtime_gross)}",
+            "Dettaglio lordo già compreso nelle variabili",
             "#fb923c",
             "249,115,22",
         ),
@@ -5278,8 +5333,9 @@ def render_payroll_v2_details(estimate):
         f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
         f'<div class="payroll-v2-label">{html.escape(label)}</div>'
         f'<div class="payroll-v2-value">{html.escape(value)}</div>'
+        f'<div class="payroll-v2-sub">{html.escape(subline)}</div>'
         '</div>'
-        for label, value, color, rgb in cards
+        for label, value, subline, color, rgb in cards
     )
     st.markdown(f"""
     <style>
@@ -5292,7 +5348,7 @@ def render_payroll_v2_details(estimate):
         gap:10px; width:100%; align-items:stretch;
       }}
       .payroll-v2-card {{
-        min-width:0; min-height:112px; box-sizing:border-box;
+        min-width:0; min-height:132px; box-sizing:border-box;
         display:flex; flex-direction:column; justify-content:center;
         padding:13px 14px; border-radius:13px;
         border:1px solid rgba(var(--card-rgb),.34);
@@ -5308,11 +5364,16 @@ def render_payroll_v2_details(estimate):
         color:var(--card-color); font-size:20px; line-height:1.18;
         font-weight:750; overflow-wrap:anywhere;
       }}
+      .payroll-v2-sub {{
+        min-height:28px; margin-top:7px; color:rgba(255,255,255,.48);
+        font-size:10px; line-height:1.3; overflow-wrap:anywhere;
+      }}
       @media (max-width:767px) {{
         .payroll-v2-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }}
-        .payroll-v2-card {{ min-height:102px; padding:10px 9px; }}
+        .payroll-v2-card {{ min-height:124px; padding:10px 9px; }}
         .payroll-v2-label {{ min-height:29px; font-size:9px; letter-spacing:.3px; }}
         .payroll-v2-value {{ font-size:15px; }}
+        .payroll-v2-sub {{ min-height:31px; margin-top:6px; font-size:8.5px; line-height:1.3; }}
       }}
     </style>
     <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
@@ -5706,12 +5767,24 @@ def render_turni_guadagni_section():
 
     summary_focus_day = current_work_day if is_selected_current_month else ""
     mobile_summary_html = _turni_month_summary_html(df_turni, month_key, rules, summary_focus_day) if MOBILE_VIEW else ""
+    selected_payroll_estimate = _payroll_estimate_for_month(df_turni, rules, month_key)
+    selected_adjustment_description = str(
+        load_payroll_adjustments().get(month_key, {}).get("description", "")
+    )
     if is_selected_current_month:
         render_live_turni_kpis(stats, mobile_summary_html)
     else:
-        render_selected_month_turni_kpis(df_turni, rules, month_key, mobile_summary_html)
-    selected_payroll_estimate = _payroll_estimate_for_month(df_turni, rules, month_key)
-    render_payroll_v2_details(selected_payroll_estimate)
+        render_selected_month_turni_kpis(
+            df_turni,
+            rules,
+            month_key,
+            selected_payroll_estimate,
+            mobile_summary_html,
+        )
+    render_payroll_v2_details(
+        selected_payroll_estimate,
+        selected_adjustment_description,
+    )
 
     tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
         ["📅 Turni", "⚙️ Regole", "📊 Riepilogo", "🎯 Calibrazione"]
@@ -6160,13 +6233,11 @@ def render_turni_guadagni_section():
             rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
             st.markdown("""
             <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
-              <h5 style="margin:0;color:#34d399;">Sede e mensile</h5>
+              <h5 style="margin:0;color:#34d399;">Sede e buoni pasto</h5>
             </div>
             """, unsafe_allow_html=True)
             rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
-            rules["accrediti_mensili"] = st.number_input("Competenze fisse mensili", value=float(rules.get("accrediti_mensili", 0.0)), step=1.0, key="turni_accrediti_mensili")
-            rules["trattenute_mensili"] = st.number_input("Trattenute fisse mensili", value=float(rules.get("trattenute_mensili", 0.0)), step=1.0, key="turni_trattenute_mensili")
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Regole applicate</div>
@@ -6179,8 +6250,7 @@ def render_turni_guadagni_section():
                 <b style="color:#fef3c7;">Indennità V2:</b> M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
                 <b style="color:#c084fc;">Straordinari:</b> massimo 2 ore dopo il turno. M {rules['stra_mattina_feriale_pct']:g}%/{rules['stra_mattina_festivo_pct']:g}%, P {rules['stra_pomeriggio_feriale_pct']:g}%/{rules['stra_pomeriggio_festivo_pct']:g}%, N {rules['stra_notte_feriale_pct']:g}%/{rules['stra_notte_festivo_pct']:g}% (feriale/festivo).<br>
                 <b style="color:#34d399;">Ferie:</b> 8 ore base. <b style="color:#fde68a;">Buono pasto:</b> {_money_turni(rules['buono_pasto'])}, se in sede e non mattina feriale.<br>
-                <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.<br>
-                <b style="color:#60a5fa;">Cedolino:</b> competenze fisse {_money_turni(rules['accrediti_mensili'])}, trattenute fisse {_money_turni(rules['trattenute_mensili'])}.
+                <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.
                 </div>
             </div>
             """, unsafe_allow_html=True)
