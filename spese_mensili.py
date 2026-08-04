@@ -5368,15 +5368,15 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         gap:10px; width:100%; align-items:stretch;
       }}
       .payroll-v2-card {{
-        min-width:0; min-height:132px; box-sizing:border-box;
+        min-width:0; min-height:108px; box-sizing:border-box;
         display:flex; flex-direction:column; justify-content:center;
-        padding:13px 14px; border-radius:13px;
+        padding:10px 12px; border-radius:13px;
         border:1px solid rgba(var(--card-rgb),.34);
         background:linear-gradient(145deg,rgba(var(--card-rgb),.16),rgba(15,23,42,.84));
         box-shadow:0 10px 24px rgba(0,0,0,.16);
       }}
       .payroll-v2-label {{
-        min-height:30px; color:rgba(255,255,255,.58); font-size:11px;
+        min-height:25px; color:rgba(255,255,255,.58); font-size:11px;
         font-weight:750; letter-spacing:.45px; line-height:1.28;
         text-transform:uppercase;
       }}
@@ -5385,15 +5385,15 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         font-weight:750; overflow-wrap:anywhere;
       }}
       .payroll-v2-sub {{
-        min-height:28px; margin-top:7px; color:rgba(255,255,255,.48);
+        min-height:0; margin-top:5px; color:rgba(255,255,255,.48);
         font-size:10px; line-height:1.3; overflow-wrap:anywhere;
       }}
       @media (max-width:767px) {{
-        .payroll-v2-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }}
-        .payroll-v2-card {{ min-height:124px; padding:10px 9px; }}
-        .payroll-v2-label {{ min-height:29px; font-size:9px; letter-spacing:.3px; }}
+        .payroll-v2-grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }}
+        .payroll-v2-card {{ min-height:94px; padding:8px 9px; }}
+        .payroll-v2-label {{ min-height:23px; font-size:9px; letter-spacing:.3px; }}
         .payroll-v2-value {{ font-size:15px; }}
-        .payroll-v2-sub {{ min-height:31px; margin-top:6px; font-size:8.5px; line-height:1.3; }}
+        .payroll-v2-sub {{ min-height:0; margin-top:4px; font-size:8.5px; line-height:1.25; }}
       }}
     </style>
     <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
@@ -6470,6 +6470,14 @@ def render_turni_guadagni_section():
                 calibration_df,
                 hide_index=True,
                 use_container_width=True,
+                column_config={
+                    "Netto reale": st.column_config.NumberColumn(format="€ %.0f"),
+                    "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
+                    "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
+                    "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
+                    "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
+                    "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
+                },
                 disabled=[col for col in calibration_df.columns if col != "Includi"],
                 key="payroll_calibration_editor",
             )
