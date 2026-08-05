@@ -6432,6 +6432,10 @@ def render_turni_guadagni_section():
         selected_adjustment_description,
     )
 
+    # La revisione deve restare visibile durante i rerun generati da pulsanti,
+    # checkbox e tabella: dentro st.tabs Streamlit tornerebbe alla prima scheda.
+    _render_payslip_pdf_review(month_key)
+
     tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
         ["📅 Turni", "⚙️ Regole", "📊 Riepilogo", "🎯 Calibrazione"]
     )
@@ -6935,7 +6939,6 @@ def render_turni_guadagni_section():
             "così gli aumenti recenti pesano più dello storico remoto. Tredicesima, premi elevati e anomalie "
             "sono esclusi; la colonna “Includi” consente comunque di correggere ogni scelta."
         )
-        _render_payslip_pdf_review(month_key)
         try:
             with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
                 uploaded_turni_excel = st.file_uploader(
