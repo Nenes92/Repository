@@ -3388,7 +3388,7 @@ TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
 PAYROLL_ADJUSTMENTS_WORKSHEET = "Rettifiche Cedolino"
 PAYROLL_ADJUSTMENTS_HEADERS = ["Mese", "Importo", "Descrizione"]
 DEFAULT_PAYROLL_ADJUSTMENT = -63.0
-DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION = "Solite trattenute + accrediti + trattenute"
+DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION = "Soliti accrediti + trattenute"
 
 
 def _money_turni(value):
