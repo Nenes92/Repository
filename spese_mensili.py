@@ -11,6 +11,7 @@ import time
 import io
 import html
 import re
+import hashlib
 import urllib.request
 from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
@@ -30,6 +31,7 @@ from payslip_parser import (
     find_adjustment_candidates,
     label_signature,
 )
+from payslip_drive import pending_drive_files, safe_pdf_filename, unique_pdf_filename
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -38,7 +40,11 @@ except ImportError:
 # Google Sheets imports
 try:
     import gspread
+    from google.oauth2.credentials import Credentials as OAuthCredentials
     from google.oauth2.service_account import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
     GSHEETS_AVAILABLE = True
 except ImportError:
     GSHEETS_AVAILABLE = False
@@ -48,6 +54,7 @@ SHEET_URL = st.secrets["SHEET_URL"]
 # Cartella Drive dedicata ai cedolini: l'icona in alto apre la cartella Google
 # nativa, dove è possibile caricare, consultare e scaricare tutti i PDF.
 CEDOLINI_DRIVE_URL = "https://drive.google.com/drive/folders/1Uq9SGfCKy5vNJN2FOw4imrtbI32nHdvj"
+CEDOLINI_DRIVE_FOLDER_ID = "1Uq9SGfCKy5vNJN2FOw4imrtbI32nHdvj"
 
 CREDENTIALS_INFO = {
     "type": st.secrets["gcp_service_account"]["type"],
@@ -63,17 +70,57 @@ CREDENTIALS_INFO = {
     "universe_domain": st.secrets["gcp_service_account"]["universe_domain"]
 }
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
 
 @st.cache_resource
-def get_gsheet_client():
+def get_google_credentials():
     if not GSHEETS_AVAILABLE:
         return None
     try:
-        creds = Credentials.from_service_account_info(CREDENTIALS_INFO, scopes=SCOPES)
+        return Credentials.from_service_account_info(CREDENTIALS_INFO, scopes=SCOPES)
+    except Exception:
+        return None
+
+@st.cache_resource
+def get_gsheet_client():
+    creds = get_google_credentials()
+    if creds is None:
+        return None
+    try:
         client = gspread.authorize(creds)
         return client
-    except Exception as e:
+    except Exception:
+        return None
+
+
+@st.cache_resource
+def get_drive_service():
+    creds = None
+    try:
+        oauth_config = st.secrets.get("google_drive_oauth", {})
+        required = ("client_id", "client_secret", "refresh_token", "token_uri")
+        if all(str(oauth_config.get(key, "") or "").strip() for key in required):
+            creds = OAuthCredentials(
+                token=None,
+                refresh_token=str(oauth_config["refresh_token"]),
+                token_uri=str(oauth_config["token_uri"]),
+                client_id=str(oauth_config["client_id"]),
+                client_secret=str(oauth_config["client_secret"]),
+                scopes=["https://www.googleapis.com/auth/drive"],
+            )
+    except Exception:
+        creds = None
+    if creds is None:
+        creds = get_google_credentials()
+    if creds is None:
+        return None
+    try:
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    except Exception:
         return None
 
 
@@ -3403,6 +3450,17 @@ PAYSLIP_ALIASES_HEADERS = [
     "Ultimo mese",
     "Ultimo importo",
 ]
+PAYSLIP_FILES_WORKSHEET = "Cedolini PDF"
+PAYSLIP_FILES_HEADERS = [
+    "File ID",
+    "Nome file",
+    "Mese",
+    "Stato",
+    "Rettifica",
+    "Descrizione",
+    "Modificato il",
+    "Revisionato il",
+]
 DEFAULT_PAYROLL_ADJUSTMENT = -63.0
 DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION = "Solite trattenute + accrediti + trattenute"
 
@@ -3446,6 +3504,106 @@ def _parse_float_turni(value):
         return float(value)
     except Exception:
         return 0.0
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def list_drive_payslip_pdfs():
+    """Elenca i PDF della cartella cedolini condivisa con l'app."""
+    service = get_drive_service()
+    if service is None:
+        raise RuntimeError("Il collegamento Google Drive non è disponibile.")
+    files = []
+    page_token = None
+    try:
+        while True:
+            response = service.files().list(
+                q=(
+                    f"'{CEDOLINI_DRIVE_FOLDER_ID}' in parents and trashed = false "
+                    "and mimeType = 'application/pdf'"
+                ),
+                fields=(
+                    "nextPageToken,files(id,name,modifiedTime,md5Checksum,size,webViewLink)"
+                ),
+                orderBy="modifiedTime desc",
+                pageToken=page_token,
+                spaces="drive",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+            files.extend(response.get("files", []))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+        return files
+    except HttpError as exc:
+        status = getattr(getattr(exc, "resp", None), "status", None)
+        if status in (401, 403, 404):
+            raise RuntimeError(
+                "La cartella Cedolini non è ancora accessibile al servizio dell’app. "
+                "Deve essere condivisa con permesso di modifica."
+            ) from None
+        raise RuntimeError("Google Drive non risponde in questo momento.") from None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def download_drive_payslip_pdf(file_id):
+    service = get_drive_service()
+    if service is None or not str(file_id or "").strip():
+        raise RuntimeError("Il PDF su Drive non è disponibile.")
+    try:
+        request = service.files().get_media(
+            fileId=str(file_id),
+            supportsAllDrives=True,
+        )
+        buffer = io.BytesIO()
+        downloader = MediaIoBaseDownload(buffer, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        return buffer.getvalue()
+    except HttpError:
+        raise RuntimeError("Non sono riuscito a leggere questo PDF da Google Drive.") from None
+
+
+def upload_payslip_pdf_to_drive(pdf_bytes, filename):
+    """Archivia il PDF senza sovrascrivere file diversi con lo stesso nome."""
+    service = get_drive_service()
+    if service is None:
+        raise RuntimeError("Il collegamento Google Drive non è disponibile.")
+    data = bytes(pdf_bytes or b"")
+    if not data:
+        raise ValueError("Il PDF è vuoto.")
+    existing_files = list_drive_payslip_pdfs()
+    checksum = hashlib.md5(data, usedforsecurity=False).hexdigest()
+    for item in existing_files:
+        if item.get("md5Checksum") == checksum:
+            return dict(item), False
+    target_name = unique_pdf_filename(
+        safe_pdf_filename(filename),
+        [item.get("name", "") for item in existing_files],
+        _now_italy().strftime("%Y%m%d-%H%M"),
+    )
+    media = MediaIoBaseUpload(io.BytesIO(data), mimetype="application/pdf", resumable=False)
+    try:
+        created = service.files().create(
+            body={"name": target_name, "parents": [CEDOLINI_DRIVE_FOLDER_ID]},
+            media_body=media,
+            fields="id,name,modifiedTime,md5Checksum,size,webViewLink",
+            supportsAllDrives=True,
+        ).execute()
+        list_drive_payslip_pdfs.clear()
+        return dict(created), True
+    except HttpError as exc:
+        message = str(exc).lower()
+        if "storagequota" in message or "storage quota" in message:
+            raise RuntimeError(
+                "La cartella consente la lettura ma non il caricamento del servizio. "
+                "Per l’upload dall’app serve una cartella in un Drive condiviso oppure "
+                "un’autorizzazione Google personale."
+            ) from None
+        raise RuntimeError(
+            "Non sono riuscito a salvare il PDF nella cartella Cedolini di Google Drive."
+        ) from None
 
 
 def _normalize_turni_df(df):
@@ -3709,6 +3867,66 @@ def save_payslip_aliases(reviewed_rows, month_key):
     )
 
 
+def load_payslip_file_registry(force_reload=False):
+    data = load_data_gsheets(
+        PAYSLIP_FILES_WORKSHEET,
+        PAYSLIP_FILES_HEADERS,
+        force_reload=force_reload,
+    )
+    registry = {}
+    if data is None or data.empty:
+        return registry
+    for _, row in data.iterrows():
+        file_id = str(row.get("File ID", "") or "").strip()
+        if not file_id:
+            continue
+        month = pd.to_datetime(row.get("Mese"), errors="coerce")
+        registry[file_id] = {
+            "name": str(row.get("Nome file", "") or "").strip(),
+            "month": month.strftime("%Y-%m") if pd.notna(month) else "",
+            "status": str(row.get("Stato", "") or "").strip(),
+            "adjustment": _parse_float_turni(row.get("Rettifica", 0.0)),
+            "description": str(row.get("Descrizione", "") or "").strip(),
+            "modified_time": str(row.get("Modificato il", "") or "").strip(),
+            "reviewed_time": str(row.get("Revisionato il", "") or "").strip(),
+        }
+    return registry
+
+
+def save_payslip_file_record(file_meta, month_key, adjustment, description):
+    data = load_data_gsheets(
+        PAYSLIP_FILES_WORKSHEET,
+        PAYSLIP_FILES_HEADERS,
+        force_reload=True,
+    )
+    if data is None:
+        data = pd.DataFrame(columns=PAYSLIP_FILES_HEADERS)
+    data = data.copy()
+    for column in PAYSLIP_FILES_HEADERS:
+        if column not in data.columns:
+            data[column] = ""
+    file_id = str(file_meta.get("id", "") or "").strip()
+    if not file_id:
+        return False
+    data = data[data["File ID"].astype(str) != file_id].copy()
+    row = {
+        "File ID": file_id,
+        "Nome file": str(file_meta.get("name", "") or "").strip(),
+        "Mese": f"{month_key}-01",
+        "Stato": "Confermato",
+        "Rettifica": float(adjustment),
+        "Descrizione": str(description or "")[:1000],
+        "Modificato il": str(file_meta.get("modifiedTime", "") or ""),
+        "Revisionato il": _now_italy().isoformat(timespec="seconds"),
+    }
+    data = pd.concat([data, pd.DataFrame([row])], ignore_index=True)
+    return save_data_gsheets(
+        PAYSLIP_FILES_WORKSHEET,
+        PAYSLIP_FILES_HEADERS,
+        data[PAYSLIP_FILES_HEADERS],
+    )
+
+
 def payroll_adjustment_for_month(month_key, adjustment_rows=None):
     """Restituisce la rettifica esplicita o il valore netto medio predefinito."""
     rows = load_payroll_adjustments() if adjustment_rows is None else adjustment_rows
@@ -3727,28 +3945,152 @@ def payroll_adjustment_for_month(month_key, adjustment_rows=None):
 
 
 def _render_payslip_pdf_review(default_month_key):
-    """UI di revisione: nessun valore estratto viene salvato senza conferma."""
-    with st.expander("🧾 Analizza un nuovo cedolino PDF", expanded=False):
+    """Sincronizza Drive e app; nessun importo viene applicato senza conferma."""
+    drive_files = []
+    drive_error = ""
+    registry = load_payslip_file_registry()
+    try:
+        drive_files = list_drive_payslip_pdfs()
+    except RuntimeError as exc:
+        drive_error = str(exc)
+    pending_files = pending_drive_files(drive_files, registry)
+
+    saved_message = st.session_state.pop("payroll_pdf_saved_message", "")
+    if saved_message:
+        st.success(saved_message)
+    if pending_files:
+        pending_count = len(pending_files)
+        pending_noun = "cedolino" if pending_count == 1 else "cedolini"
+        pending_status = "revisionato" if pending_count == 1 else "revisionati"
+        st.warning(
+            f"🔔 Ho trovato {pending_count} {pending_noun} su Drive non ancora "
+            f"{pending_status}. Apri il riquadro qui sotto: "
+            "ti propongo il primo e poi passeremo al successivo."
+        )
+    elif drive_files and not drive_error:
+        st.success("✅ Tutti i cedolini presenti su Google Drive risultano revisionati.")
+
+    with st.expander(
+        "🧾 Revisione guidata cedolini PDF",
+        expanded=bool(pending_files),
+    ):
         st.caption(
-            "Carica il PDF digitale del cedolino. L’app cerca soltanto accrediti, "
-            "addizionali e trattenute non già comprese nel fisso o nelle variabili. "
-            "Controlla sempre le proposte: il PDF non viene conservato."
+            "I PDF caricati qui vengono archiviati nella cartella Cedolini su Google Drive; "
+            "quelli aggiunti direttamente su Drive compaiono qui come da controllare. "
+            "La rettifica cambia solo dopo la tua conferma."
         )
-        uploaded_pdf = st.file_uploader(
-            "Cedolino PDF",
-            type=["pdf"],
-            key="payroll_pdf_upload",
-            help="I PDF scansionati come immagine richiedono OCR e per ora non sono supportati.",
+
+        drive_cols = st.columns(2)
+        drive_cols[0].metric("PDF su Drive", len(drive_files) if not drive_error else "—")
+        drive_cols[1].metric("Da controllare", len(pending_files) if not drive_error else "—")
+        if drive_error:
+            st.warning(
+                f"{drive_error} Puoi comunque analizzare il PDF dall’app; per ottenere la "
+                "sincronizzazione completa bisogna abilitare l’accesso della cartella."
+            )
+        if st.button(
+            "🔄 Aggiorna elenco da Drive",
+            key="refresh_drive_payslips",
+            use_container_width=True,
+        ):
+            list_drive_payslip_pdfs.clear()
+            st.session_state.pop("active_drive_payslip", None)
+            load_data_gsheets(
+                PAYSLIP_FILES_WORKSHEET,
+                PAYSLIP_FILES_HEADERS,
+                force_reload=True,
+            )
+            st.rerun()
+
+        source_options = ["Google Drive", "Carica dall’app"] if drive_files else ["Carica dall’app"]
+        source_mode = st.radio(
+            "Da dove vuoi prenderlo?",
+            source_options,
+            horizontal=True,
+            key="payroll_pdf_source",
         )
-        if uploaded_pdf is None:
+        pdf_bytes = None
+        pdf_name = ""
+        file_meta = None
+        source_key = ""
+        if source_mode == "Google Drive":
+            pending_ids = {str(item.get("id", "")) for item in pending_files}
+            drive_by_id = {str(item.get("id", "")): item for item in drive_files}
+            ordered_ids = [str(item.get("id", "")) for item in pending_files]
+            ordered_ids.extend(file_id for file_id in drive_by_id if file_id not in pending_ids)
+
+            def _drive_file_label(file_id):
+                item = drive_by_id[file_id]
+                reviewed = str(registry.get(file_id, {}).get("status", "")).lower() == "confermato"
+                if file_id in pending_ids:
+                    status_icon = "🟠"
+                elif reviewed:
+                    status_icon = "✅"
+                else:
+                    status_icon = "⚪"
+                return f"{status_icon} {item.get('name', 'Cedolino PDF')}"
+
+            selected_file_id = st.selectbox(
+                "Cedolino presente su Drive",
+                ordered_ids,
+                format_func=_drive_file_label,
+                key="selected_drive_payslip",
+                help=(
+                    "Arancione: nuovo e da controllare. Verde: già confermato. "
+                    "Bianco: storico facoltativo, ancora revisionabile."
+                ),
+            )
+            if st.button(
+                (
+                    "📄 Revisiona il prossimo cedolino"
+                    if selected_file_id in pending_ids
+                    else "📄 Apri di nuovo il PDF selezionato"
+                ),
+                key="analyze_selected_drive_payslip",
+                use_container_width=True,
+            ):
+                st.session_state["active_drive_payslip"] = selected_file_id
+            active_file_id = str(st.session_state.get("active_drive_payslip", ""))
+            if active_file_id == selected_file_id:
+                file_meta = drive_by_id.get(selected_file_id)
+            if file_meta is not None:
+                pdf_name = str(file_meta.get("name", "cedolino.pdf"))
+                source_key = str(file_meta.get("id", ""))
+                try:
+                    pdf_bytes = download_drive_payslip_pdf(source_key)
+                except RuntimeError as exc:
+                    st.error(str(exc))
+                    return
+                previous_review = registry.get(source_key)
+                if previous_review and str(previous_review.get("status", "")).lower() == "confermato":
+                    st.info(
+                        f"Questo PDF era già stato confermato per {previous_review.get('month', '—')} "
+                        f"con rettifica {_signed_money_turni(previous_review.get('adjustment', 0))}."
+                    )
+        else:
+            uploaded_pdf = st.file_uploader(
+                "Cedolino PDF",
+                type=["pdf"],
+                key="payroll_pdf_upload",
+                help=(
+                    "Alla conferma viene salvato nella cartella Cedolini su Drive. "
+                    "I PDF scansionati come immagine richiedono OCR e per ora non sono supportati."
+                ),
+            )
+            if uploaded_pdf is not None:
+                pdf_bytes = uploaded_pdf.getvalue()
+                pdf_name = uploaded_pdf.name
+                source_key = hashlib.sha256(pdf_bytes).hexdigest()[:16]
+
+        if pdf_bytes is None:
             st.info(
-                "I cedolini vecchi restano sulla rettifica media di −€63. "
-                "Puoi iniziare dal prossimo cedolino e revisionare lo storico solo se ti serve."
+                "Scegli un PDF e premi il pulsante per analizzarlo. I cedolini storici "
+                "restano sulla rettifica già presente finché non li confermi uno per uno."
             )
             return
         try:
-            pdf_text = extract_pdf_text(uploaded_pdf.getvalue())
-            inferred_month = extract_payslip_month(pdf_text, uploaded_pdf.name)
+            pdf_text = extract_pdf_text(pdf_bytes)
+            inferred_month = extract_payslip_month(pdf_text, pdf_name)
             learned_aliases = load_payslip_aliases()
             candidates = find_adjustment_candidates(pdf_text, learned_aliases)
         except (ValueError, RuntimeError) as exc:
@@ -3758,7 +4100,7 @@ def _render_payslip_pdf_review(default_month_key):
         review_month = st.text_input(
             "Mese del cedolino (AAAA-MM)",
             value=inferred_month or default_month_key,
-            key=f"payroll_pdf_month::{uploaded_pdf.name}",
+            key=f"payroll_pdf_month::{source_key}",
             help="È il mese scritto sul cedolino, non il mese delle variabili pagate.",
         ).strip()
         if inferred_month:
@@ -3813,7 +4155,7 @@ def _render_payslip_pdf_review(default_month_key):
                 "Riga PDF": st.column_config.TextColumn("Testo originale", width="large"),
             },
             disabled=["Categoria", "Confidenza", "Riga PDF"],
-            key=f"payroll_pdf_review::{uploaded_pdf.name}",
+            key=f"payroll_pdf_review::{source_key}",
         )
         reviewed = []
         total = 0.0
@@ -3837,11 +4179,11 @@ def _render_payslip_pdf_review(default_month_key):
         st.metric("Rettifica netta proposta", _signed_money_turni(total))
         confirmed = st.checkbox(
             "Ho controllato voci, segni e importi: confermo questa rettifica netta.",
-            key=f"confirm_payroll_pdf::{uploaded_pdf.name}::{review_month}",
+            key=f"confirm_payroll_pdf::{source_key}::{review_month}",
         )
         if st.button(
-            "✅ Conferma rettifica e aggiorna la calibrazione",
-            key=f"save_payroll_pdf::{uploaded_pdf.name}::{review_month}",
+            "✅ Conferma, sincronizza Drive e aggiorna calibrazione",
+            key=f"save_payroll_pdf::{source_key}::{review_month}",
             use_container_width=True,
             disabled=not confirmed,
         ):
@@ -3849,29 +4191,62 @@ def _render_payslip_pdf_review(default_month_key):
                 st.error("Il mese deve avere il formato AAAA-MM, per esempio 2026-07.")
                 return
             selected = [row for row in reviewed if row.get("Includi")]
-            if not selected:
-                st.error("Seleziona almeno una voce da includere.")
-                return
             summary_parts = []
             for row in selected:
                 sign = "+" if str(row.get("Segno", "")).startswith("+") else "−"
                 label = str(row.get("Voce", "Voce PDF") or "Voce PDF").strip()
                 summary_parts.append(f"{sign}{_money_turni(row.get('Importo', 0))} {label}")
-            description = "PDF verificato: " + "; ".join(summary_parts)
+            description = (
+                "PDF verificato: " + "; ".join(summary_parts)
+                if summary_parts
+                else "PDF verificato: nessuna rettifica extra rilevante"
+            )
+            if file_meta is None:
+                try:
+                    file_meta, created_on_drive = upload_payslip_pdf_to_drive(pdf_bytes, pdf_name)
+                except (ValueError, RuntimeError) as exc:
+                    st.error(
+                        f"{exc} La rettifica non è stata modificata: puoi caricare il PDF "
+                        "direttamente nella cartella Drive e poi premere “Aggiorna elenco da Drive”."
+                    )
+                    return
+            else:
+                created_on_drive = False
             adjustment_saved = save_payroll_adjustment(review_month, total, description[:1000])
             if not adjustment_saved:
                 st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
                 return
             aliases_saved = save_payslip_aliases(reviewed, review_month)
+            registry_saved = save_payslip_file_record(
+                file_meta,
+                review_month,
+                total,
+                description,
+            )
             st.session_state.pop("payroll_calibration_editor", None)
+            archive_message = (
+                "PDF archiviato su Drive. " if created_on_drive else "PDF collegato a Drive. "
+            )
             st.success(
-                f"Rettifica di {_signed_money_turni(total)} salvata per {review_month}. "
+                f"{archive_message}Rettifica di {_signed_money_turni(total)} salvata per {review_month}. "
                 "La calibrazione qui sotto usa già il nuovo valore."
             )
             if not aliases_saved:
                 st.warning(
                     "La rettifica è salva, ma non sono riuscito ad aggiornare la memoria delle voci."
                 )
+            if not registry_saved:
+                st.warning(
+                    "PDF e rettifica sono salvi, ma non sono riuscito a marcarlo come revisionato."
+                )
+            else:
+                st.session_state["payroll_pdf_saved_message"] = (
+                    f"✅ {pdf_name} revisionato: rettifica di "
+                    f"{_signed_money_turni(total)} salvata per {review_month}. "
+                    "Ora puoi controllare il cedolino successivo."
+                )
+                st.session_state.pop("active_drive_payslip", None)
+                st.rerun()
 
 
 def _payroll_v2_rules(rules):
