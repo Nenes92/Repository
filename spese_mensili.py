@@ -3946,36 +3946,39 @@ def payroll_adjustment_for_month(month_key, adjustment_rows=None):
 
 def _render_payslip_pdf_review(default_month_key):
     """Sincronizza Drive e app; nessun importo viene applicato senza conferma."""
-    with st.expander("🧾 Analizza un nuovo cedolino PDF", expanded=False):
+    drive_files = []
+    drive_error = ""
+    registry = load_payslip_file_registry()
+    try:
+        drive_files = list_drive_payslip_pdfs()
+    except RuntimeError as exc:
+        drive_error = str(exc)
+    pending_files = pending_drive_files(drive_files, registry)
+
+    saved_message = st.session_state.pop("payroll_pdf_saved_message", "")
+    if saved_message:
+        st.success(saved_message)
+    if pending_files:
+        pending_count = len(pending_files)
+        pending_noun = "cedolino" if pending_count == 1 else "cedolini"
+        pending_status = "revisionato" if pending_count == 1 else "revisionati"
+        st.warning(
+            f"🔔 Ho trovato {pending_count} {pending_noun} su Drive non ancora "
+            f"{pending_status}. Apri il riquadro qui sotto: "
+            "ti propongo il primo e poi passeremo al successivo."
+        )
+    elif drive_files and not drive_error:
+        st.success("✅ Tutti i cedolini presenti su Google Drive risultano revisionati.")
+
+    with st.expander(
+        "🧾 Revisione guidata cedolini PDF",
+        expanded=bool(pending_files),
+    ):
         st.caption(
             "I PDF caricati qui vengono archiviati nella cartella Cedolini su Google Drive; "
             "quelli aggiunti direttamente su Drive compaiono qui come da controllare. "
             "La rettifica cambia solo dopo la tua conferma."
         )
-        drive_files = []
-        drive_error = ""
-        registry = load_payslip_file_registry()
-        try:
-            drive_files = list_drive_payslip_pdfs()
-        except RuntimeError as exc:
-            drive_error = str(exc)
-        # Lo storico fino a giugno 2026 resta intenzionalmente sulla rettifica
-        # media; luglio 2026 ha già una rettifica esplicita. I file più vecchi
-        # rimangono comunque selezionabili per una revisione facoltativa.
-        review_start_month = "2026-08"
-        file_months = {
-            str(item.get("id", "")): extract_payslip_month(
-                "", str(item.get("name", "") or "")
-            )
-            for item in drive_files
-        }
-        pending_candidates = [
-            item
-            for item in drive_files
-            if not file_months.get(str(item.get("id", "")))
-            or file_months[str(item.get("id", ""))] >= review_start_month
-        ]
-        pending_files = pending_drive_files(pending_candidates, registry)
 
         drive_cols = st.columns(2)
         drive_cols[0].metric("PDF su Drive", len(drive_files) if not drive_error else "—")
@@ -4038,7 +4041,11 @@ def _render_payslip_pdf_review(default_month_key):
                 ),
             )
             if st.button(
-                "📄 Apri e analizza il PDF selezionato",
+                (
+                    "📄 Revisiona il prossimo cedolino"
+                    if selected_file_id in pending_ids
+                    else "📄 Apri di nuovo il PDF selezionato"
+                ),
                 key="analyze_selected_drive_payslip",
                 use_container_width=True,
             ):
@@ -4077,8 +4084,8 @@ def _render_payslip_pdf_review(default_month_key):
 
         if pdf_bytes is None:
             st.info(
-                "I cedolini da marzo 2024 a giugno 2026 restano sulla rettifica media di "
-                "−€63 finché non li revisioni. Luglio 2026 è già stato corretto a +€171."
+                "Scegli un PDF e premi il pulsante per analizzarlo. I cedolini storici "
+                "restano sulla rettifica già presente finché non li confermi uno per uno."
             )
             return
         try:
@@ -4184,15 +4191,16 @@ def _render_payslip_pdf_review(default_month_key):
                 st.error("Il mese deve avere il formato AAAA-MM, per esempio 2026-07.")
                 return
             selected = [row for row in reviewed if row.get("Includi")]
-            if not selected:
-                st.error("Seleziona almeno una voce da includere.")
-                return
             summary_parts = []
             for row in selected:
                 sign = "+" if str(row.get("Segno", "")).startswith("+") else "−"
                 label = str(row.get("Voce", "Voce PDF") or "Voce PDF").strip()
                 summary_parts.append(f"{sign}{_money_turni(row.get('Importo', 0))} {label}")
-            description = "PDF verificato: " + "; ".join(summary_parts)
+            description = (
+                "PDF verificato: " + "; ".join(summary_parts)
+                if summary_parts
+                else "PDF verificato: nessuna rettifica extra rilevante"
+            )
             if file_meta is None:
                 try:
                     file_meta, created_on_drive = upload_payslip_pdf_to_drive(pdf_bytes, pdf_name)
@@ -4231,6 +4239,14 @@ def _render_payslip_pdf_review(default_month_key):
                 st.warning(
                     "PDF e rettifica sono salvi, ma non sono riuscito a marcarlo come revisionato."
                 )
+            else:
+                st.session_state["payroll_pdf_saved_message"] = (
+                    f"✅ {pdf_name} revisionato: rettifica di "
+                    f"{_signed_money_turni(total)} salvata per {review_month}. "
+                    "Ora puoi controllare il cedolino successivo."
+                )
+                st.session_state.pop("active_drive_payslip", None)
+                st.rerun()
 
 
 def _payroll_v2_rules(rules):
