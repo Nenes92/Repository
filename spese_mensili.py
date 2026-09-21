@@ -2134,7 +2134,7 @@ if MOBILE_VIEW:
     }
     .mobile-anchor:not(#mobile-top):not(#mobile-dashboard) {
         display:block;
-        border-top: 1px solid rgba(255,255,255,.08);
+        border-top: 0;
         margin-top: 18px;
         padding-top: 10px;
     }
@@ -2923,10 +2923,10 @@ def _render_stipendi_kpi_cards(data_stipendi):
             f'<div style="height:100%;width:{progresso:.2f}%;background:#1D9E75;"></div></div>'
         )
         cards = [
-            ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c", ""),
             ("Somma Stipendi", _s1, "#5792E8", ""),
-            ("Media Stipendi", _s2, "#f87171", ""),
+            ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c", ""),
             ("", "", "", ""),
+            ("Media Stipendi", _s2, "#f87171", ""),
             ("Somma Risparmi Mese Precedente", _r1, "#EF9F27", ""),
             ("Media Risparmi Mese Precedente", _r2, "#FFA040", ""),
             ("Somma Messi da Parte", _m1, "#1D9E75", universita_html),
@@ -7432,7 +7432,7 @@ textarea {
             '</div>'
         )
         st.markdown(
-            '<div style="height:1px;background:rgba(148,163,184,.22);margin:18px 0 14px;"></div>',
+            '<div style="height:8px;"></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
