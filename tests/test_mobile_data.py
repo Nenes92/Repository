@@ -167,3 +167,29 @@ def test_snapshot_uses_synced_data_widget_rules_and_recomputes_live(app):
         df, actual_rules, stats, errors = ns["_mobile_turni_snapshot"]("2026-09")
         assert stats["live_month"] == expected
         assert errors == ["calendar unavailable"]
+
+
+def test_internet_recurs_without_rewriting_history_or_existing_amounts(app):
+    ns, _, _ = app
+    ns.update(INTERNET_MENSILE_FISSO=35.90, INTERNET_MENSILE_DA="2026-09-01")
+    data = pd.DataFrame([
+        {"Mese": pd.Timestamp("2026-08-01"), "Internet": 0.0, "Gas": 12.0},
+        {"Mese": pd.Timestamp("2026-09-01"), "Internet": 39.0, "Gas": 20.0},
+        {"Mese": pd.Timestamp("2026-10-01"), "Internet": 0.0, "Gas": 30.0},
+    ])
+    result = ns["applica_internet_mensile"](data, "2026-11-20")
+    assert result["Internet"].tolist() == [0.0, 39.0, 35.90, 35.90]
+    assert result["Gas"].tolist() == [12.0, 20.0, 30.0, 0.0]
+    pd.testing.assert_frame_equal(result, ns["applica_internet_mensile"](result, "2026-11-20"))
+    assert len(data) == 3
+
+
+def test_internet_starts_in_september_even_without_other_bills(app):
+    ns, _, _ = app
+    ns.update(INTERNET_MENSILE_FISSO=35.90, INTERNET_MENSILE_DA="2026-09-01")
+    data = pd.DataFrame(columns=["Mese", "Internet", "Gas"])
+    assert ns["applica_internet_mensile"](data, "2026-08-20").empty
+    result = ns["applica_internet_mensile"](data, "2026-09-20")
+    assert len(result) == 1
+    assert result.iloc[0]["Internet"] == 35.90
+    assert result.iloc[0]["Gas"] == 0.0

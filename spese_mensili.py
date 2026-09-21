@@ -4998,7 +4998,7 @@ def _mobile_turni_snapshot(selected_month):
     return df_turni, rules, compute_turni_dashboard(df_turni, rules), errors
 
 
-def render_live_turni_kpis(stats, side_html=""):
+def render_live_turni_kpis(stats, side_html="", stacked=False):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
@@ -5038,6 +5038,16 @@ def render_live_turni_kpis(stats, side_html=""):
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
     component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    stacked_style = ""
+    if MOBILE_VIEW and stacked:
+        component_height = 570 if side_html else 330
+        stacked_style = """
+        .turni-live-shell.has-side { grid-template-columns: minmax(0, 1fr); }
+        .turni-live-grid { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+        .kpi-card, .turni-live-side { min-width: 0; }
+        .kpi-value { white-space: normal; overflow-wrap: anywhere; }
+        .turni-status-row, .turni-rate-row { flex-wrap: wrap; }
+        """
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -5226,6 +5236,7 @@ def render_live_turni_kpis(stats, side_html=""):
           margin: 0 0 7px;
         }}
       }}
+    {stacked_style}
     </style>
     <script>
       const start = Date.now();
@@ -7429,6 +7440,7 @@ textarea {
                         turni_df_home, current_turni_month.strftime("%Y-%m"),
                         turni_rules_home, home_work_day,
                     ),
+                    stacked=True,
                 )
             else:
                 st.markdown(
@@ -9457,6 +9469,27 @@ BUDGET_BOLLETTE_HEADERS = ["Mese", "Budget mensile"]
 BUDGET_BOLLETTE_WORKSHEET = "BudgetBollette"
 
 
+INTERNET_MENSILE_FISSO = 35.90
+INTERNET_MENSILE_DA = "2026-09-01"
+
+
+def applica_internet_mensile(data, fino_al):
+    """Completa i mesi maturati senza sovrascrivere bollette già registrate."""
+    df = data.copy()
+    inizio = pd.Timestamp(INTERNET_MENSILE_DA)
+    fine = pd.Timestamp(fino_al).to_period("M").to_timestamp()
+    for mese in pd.date_range(inizio, fine, freq="MS"):
+        mask = df["Mese"] == mese
+        if not mask.any():
+            row = {column: 0.0 for column in df.columns if column != "Mese"}
+            row.update(Mese=mese, Internet=INTERNET_MENSILE_FISSO)
+            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+        else:
+            mancanti = mask & (df["Internet"].isna() | (df["Internet"] == 0))
+            df.loc[mancanti, "Internet"] = INTERNET_MENSILE_FISSO
+    return df.sort_values("Mese").reset_index(drop=True)
+
+
 def normalizza_budget_bollette(data):
     if data is None or data.empty:
         return pd.DataFrame(columns=BUDGET_BOLLETTE_HEADERS)
@@ -9910,6 +9943,8 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         return df
 
     data_bollette = normalizza_data_bollette(load_data_gsheets("Bollette", BOLLETTE_HEADERS))
+    if MOBILE_VIEW:
+        data_bollette = applica_internet_mensile(data_bollette, _now_italy().date())
 
     budget_bollette_df = normalizza_budget_bollette(
         load_data_gsheets(BUDGET_BOLLETTE_WORKSHEET, BUDGET_BOLLETTE_HEADERS)
@@ -9934,11 +9969,17 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             elettricita_val = float(record_bol["Elettricità"].iloc[0]) if not record_bol.empty else 0.0
             gas_val = float(record_bol["Gas"].iloc[0]) if not record_bol.empty else 0.0
             acqua_val = float(record_bol["Acqua"].iloc[0]) if not record_bol.empty else 0.0
-            internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else 0.0
+            internet_default = (
+                INTERNET_MENSILE_FISSO
+                if MOBILE_VIEW and mese_dt_bol >= pd.Timestamp(INTERNET_MENSILE_DA)
+                else 0.0
+            )
+            internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else internet_default
             tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
             st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
 
             if MOBILE_VIEW:
+                st.caption("Internet: 35,90 € al mese inclusi automaticamente da settembre 2026. Gli importi già registrati restano invariati; la quota ricorrente resta inclusa anche eliminando il mese.")
                 col_bol_input1, col_bol_input2, col_bol_input3 = st.columns(3)
                 with col_bol_input1:
                     elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
@@ -10047,6 +10088,8 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             else:
                 st.info("Nessun dato disponibile ancora.")
 
+    if MOBILE_VIEW:
+        data_bollette = applica_internet_mensile(data_bollette, _now_italy().date())
     stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
     data_bollette = calcola_saldo_bollette(data_bollette, budget_bollette_df)
     data_melted = data_bollette.melt(
