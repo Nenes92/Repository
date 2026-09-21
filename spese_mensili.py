@@ -5470,9 +5470,12 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
              f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
-             html.escape(f"Maturate in {estimate.competence_month}, pagate in {estimate.month}. Netto = lordo × coefficiente netto calibrato."),
+             html.escape(f"Maturate in {estimate.competence_month}, pagate in {estimate.month}. Netto = lordo × coefficiente netto calibrato.")
+             + '<br><br><span style="color:#fb923c;">Componenti già incluse nel lordo:<br>'
+             + html.escape(f"Maggiorazioni: {_money_turni(estimate.breakdown.premiums_gross)}") + '<br>'
+             + html.escape(f"Indennità: {_money_turni(estimate.breakdown.allowances_gross)}") + '<br>'
+             + html.escape(f"Straordinari: {_money_turni(estimate.breakdown.overtime_gross)}") + '</span>',
              "#60a5fa", "59,130,246"),
-            (*cards[-1][:2], html.escape(cards[-1][2]), *cards[-1][3:]),
         ]
         cards_html = "".join(
             f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
@@ -5906,7 +5909,7 @@ def render_turni_guadagni_section():
         next_month = _add_months_turni(selected_month, 1).strftime("%Y-%m")
         title_prev = f'<a class="mobile-calendar-arrow" aria-label="Mese precedente" href="?view=mobile&mobile_section=Turni&turni_month={prev_month}#mobile-turni" target="_self">←</a>'
         title_next = f'<a class="mobile-calendar-arrow" aria-label="Mese successivo" href="?view=mobile&mobile_section=Turni&turni_month={next_month}#mobile-turni" target="_self">→</a>'
-    title_layout = "display:flex;align-items:center;justify-content:space-between;gap:10px;" if MOBILE_VIEW else ""
+    title_layout = "display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;" if MOBILE_VIEW else ""
     st.markdown(
         f"""
         <div id="mobile-turni" class="mobile-anchor"></div>
