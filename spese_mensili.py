@@ -4998,7 +4998,7 @@ def _mobile_turni_snapshot(selected_month):
     return df_turni, rules, compute_turni_dashboard(df_turni, rules), errors
 
 
-def render_live_turni_kpis(stats, side_html="", stacked=False):
+def render_live_turni_kpis(stats, side_html="", compact_home=False):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
@@ -5038,14 +5038,23 @@ def render_live_turni_kpis(stats, side_html="", stacked=False):
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
     component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
-    stacked_style = ""
-    if MOBILE_VIEW and stacked:
-        component_height = 570 if side_html else 330
-        stacked_style = """
-        .turni-live-shell.has-side { grid-template-columns: minmax(0, 1fr); }
+    compact_home_style = ""
+    if MOBILE_VIEW and compact_home:
+        component_height = 360
+        compact_home_style = """
+        .turni-live-shell.has-side {
+          grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+          gap: 7px;
+        }
         .turni-live-grid { min-width: 0; grid-template-columns: minmax(0, 1fr); }
-        .kpi-card, .turni-live-side { min-width: 0; }
-        .kpi-value { white-space: normal; overflow-wrap: anywhere; }
+        .kpi-card, .turni-live-side { min-width: 0; overflow-wrap: anywhere; }
+        .kpi-card { padding: 6px; }
+        .kpi-label { font-size: clamp(6px, 2.8vw, 8px); letter-spacing: .2px; }
+        .kpi-value { font-size: clamp(9px, 4.2vw, 14px); white-space: normal; }
+        .turni-subline, .turni-card-small .meta { font-size: clamp(7px, 3vw, 9px); }
+        .turni-status-row { font-size: clamp(8px, 3.4vw, 10px); }
+        .turni-summary-compact-title { font-size: clamp(9px, 3.8vw, 11px); }
+        .turni-grid-scroll { max-height: 280px; }
         .turni-status-row, .turni-rate-row { flex-wrap: wrap; }
         """
     components.html(f"""
@@ -5236,7 +5245,7 @@ def render_live_turni_kpis(stats, side_html="", stacked=False):
           margin: 0 0 7px;
         }}
       }}
-    {stacked_style}
+    {compact_home_style}
     </style>
     <script>
       const start = Date.now();
@@ -7440,7 +7449,7 @@ textarea {
                         turni_df_home, current_turni_month.strftime("%Y-%m"),
                         turni_rules_home, home_work_day,
                     ),
-                    stacked=True,
+                    compact_home=True,
                 )
             else:
                 st.markdown(
