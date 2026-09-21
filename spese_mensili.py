@@ -5012,8 +5012,18 @@ def ensure_turni_month_synced(selected_month, df_turni=None):
 def _mobile_turni_snapshot(selected_month):
     """Sorgente unica per home e Turni; il tempo live non viene messo in cache."""
     rules = _apply_turni_rules_from_widgets(get_turni_rules())
-    df_turni, errors = ensure_turni_month_synced(selected_month)
-    return df_turni, rules, compute_turni_dashboard(df_turni, rules), errors
+    selected_month = pd.Timestamp(selected_month).date().replace(day=1)
+    delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
+    # Il cedolino usa anche i turni del mese di competenza, che potrebbero
+    # esistere soltanto nei calendari e non ancora nel foglio Google.
+    months = [selected_month, _add_months_turni(selected_month, -1),
+              _add_months_turni(selected_month, -delay)]
+    df_turni = None
+    errors = []
+    for month in dict.fromkeys(months):
+        df_turni, month_errors = ensure_turni_month_synced(month, df_turni)
+        errors.extend(month_errors)
+    return df_turni, rules, compute_turni_dashboard(df_turni, rules), list(dict.fromkeys(errors))
 
 
 def render_live_turni_kpis(stats, side_html="", compact_home=False):
@@ -5446,6 +5456,31 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         '</div>'
         for label, value, subline, color, rgb in cards
     )
+    if MOBILE_VIEW:
+        net_caption = (
+            f'<span style="color:#a78bfa;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span> + '
+            f'<span style="color:#60a5fa;">{html.escape(_money_turni(estimate.variables_net))} variabili</span> '
+            f'<span style="color:#fb923c;">{html.escape(adjustment_formula)} rettifica</span>'
+            f'<br><span style="color:#fb923c;">{html.escape(adjustment_description or "Nessuna rettifica registrata")}</span>'
+            f'<br>Intervallo realistico: <strong style="color:#34d399;">'
+            f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
+            f'<br>Stima ± {html.escape(_money_turni(spread))} di errore medio storico'
+        )
+        mobile_cards = [
+            ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
+            ("Variabili lorde / nette stimate",
+             f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
+             html.escape(f"Maturate in {estimate.competence_month}, pagate in {estimate.month}. Netto = lordo × coefficiente netto calibrato."),
+             "#60a5fa", "59,130,246"),
+            (*cards[-1][:2], html.escape(cards[-1][2]), *cards[-1][3:]),
+        ]
+        cards_html = "".join(
+            f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
+            f'<div class="payroll-v2-label">{html.escape(label)}</div>'
+            f'<div class="payroll-v2-value">{html.escape(value)}</div>'
+            f'<div class="payroll-v2-sub">{caption}</div></div>'
+            for label, value, caption, color, rgb in mobile_cards
+        )
     st.markdown(f"""
     <style>
       .payroll-v2-heading {{
@@ -5865,11 +5900,18 @@ def render_turni_guadagni_section():
             pass
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
+    title_prev = title_next = ""
+    if MOBILE_VIEW:
+        prev_month = _add_months_turni(selected_month, -1).strftime("%Y-%m")
+        next_month = _add_months_turni(selected_month, 1).strftime("%Y-%m")
+        title_prev = f'<a class="mobile-calendar-arrow" aria-label="Mese precedente" href="?view=mobile&mobile_section=Turni&turni_month={prev_month}#mobile-turni" target="_self">←</a>'
+        title_next = f'<a class="mobile-calendar-arrow" aria-label="Mese successivo" href="?view=mobile&mobile_section=Turni&turni_month={next_month}#mobile-turni" target="_self">→</a>'
+    title_layout = "display:flex;align-items:center;justify-content:space-between;gap:10px;" if MOBILE_VIEW else ""
     st.markdown(
         f"""
         <div id="mobile-turni" class="mobile-anchor"></div>
-        <div style="margin:0 0 14px;text-align:center;font-size:25px;font-weight:900;color:rgba(255,255,255,.94);">
-          {_turni_month_label(selected_month)}
+        <div style="{title_layout}margin:0 0 14px;text-align:center;font-size:25px;font-weight:900;color:rgba(255,255,255,.94);">
+          {title_prev}<span>{_turni_month_label(selected_month)}</span>{title_next}
         </div>
         <div class="section-pill">⏱️ Guadagni Turni</div>
         """,
@@ -6059,12 +6101,12 @@ def render_turni_guadagni_section():
                             st.session_state["turni_action_day"] = day_str
                             st.rerun()
 
-            st.markdown("""
+            st.markdown(f"""
             <div class="mobile-calendar-legend">
               <span class="legend-item legend-shift" style="border-bottom-color:#60a5fa;">Mattina</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#fb923c;">Pomeriggio</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#64748b;">Notte</span>
-              <span class="legend-item legend-shift" style="border-bottom-color:#c084fc;">Giornata</span>
+              <span class="legend-item legend-shift" style="border-bottom-color:#c084fc;">{'Giornaliero' if MOBILE_VIEW else 'Giornata'}</span>
               <span class="legend-item legend-shift" style="border-bottom-color:#34d399;">Ferie</span>
               <span class="legend-sep"></span>
               <span class="legend-item legend-muted"><span style="color:#ef4444;font-weight:900;">Numero rosso</span> = festivo</span>

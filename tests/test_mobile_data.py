@@ -1,5 +1,6 @@
 """Exercise the app's I/O helpers without booting the UI or accessing live Sheets."""
 import ast
+from datetime import datetime
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -64,7 +65,7 @@ def app():
         cache_resource=streamlit.cache_resource,
         session_state={}, warning=lambda message: None, error=lambda message: None,
     )
-    ns = dict(st=st, pd=pd, time=time, MOBILE_VIEW=True, SHEET_URL="test-sheet",
+    ns = dict(st=st, pd=pd, time=time, datetime=datetime, MOBILE_VIEW=True, SHEET_URL="test-sheet",
               GSHEETS_CACHE_TTL_SECONDS=1800, GSHEETS_BACKOFF_SECONDS=90,
               GSHEETS_BACKOFF_LABEL="90 secondi", get_gsheet_client=lambda: object(),
               get_gsheet_spreadsheet=lambda: sheet)
@@ -154,7 +155,7 @@ def test_snapshot_uses_synced_data_widget_rules_and_recomputes_live(app):
     rules = {"rate": 1}
     ns["get_turni_rules"] = lambda: rules
     ns["_apply_turni_rules_from_widgets"] = lambda old: {"rate": 2}
-    ns["ensure_turni_month_synced"] = lambda month: (empty, ["calendar unavailable"])
+    ns["ensure_turni_month_synced"] = lambda month, df=None: (empty, ["calendar unavailable"])
 
     def calculate(df, actual_rules):
         assert df is empty
@@ -193,3 +194,36 @@ def test_internet_starts_in_september_even_without_other_bills(app):
     assert len(result) == 1
     assert result.iloc[0]["Internet"] == 35.90
     assert result.iloc[0]["Gas"] == 0.0
+
+
+@pytest.mark.parametrize('selected,delay,expected', [
+    ('2026-09', 1, ['2026-09', '2026-08']),
+    ('2026-01', 1, ['2026-01', '2025-12']),
+    ('2026-09', 2, ['2026-09', '2026-08', '2026-07']),
+    ('2026-09', 0, ['2026-09', '2026-08']),
+])
+def test_snapshot_loads_competence_before_estimating(app, selected, delay, expected):
+    from payroll_engine import DEFAULT_RULES, VariableBreakdown, estimate_payslip
+    ns, _, _ = app
+    rules = dict(DEFAULT_RULES, ritardo_competenze_mesi=delay)
+    ns['get_turni_rules'] = lambda: rules
+    ns['_apply_turni_rules_from_widgets'] = lambda value: value
+    loaded = []
+
+    def sync(month, df=None):
+        month_key = month.strftime('%Y-%m')
+        loaded.append(month_key)
+        previous = pd.DataFrame(columns=['month']) if df is None else df
+        return pd.concat([previous, pd.DataFrame([{'month': month_key}])]), []
+
+    def calculate(df, rules):
+        variables = {month: VariableBreakdown(premiums_gross=100) for month in df['month']}
+        return estimate_payslip(selected, variables, rules)
+
+    ns['ensure_turni_month_synced'] = sync
+    ns['compute_turni_dashboard'] = calculate
+    _, _, estimate, errors = ns['_mobile_turni_snapshot'](selected)
+    assert loaded == expected
+    assert estimate.variables_gross == 100
+    assert estimate.variables_net > 0
+    assert not errors
