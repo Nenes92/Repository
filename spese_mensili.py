@@ -9331,17 +9331,17 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
         st.altair_chart(grafico_finale, use_container_width=True)
         if MOBILE_VIEW:
             st.markdown("""
-            <div class="mobile-salary-legend" style="display:grid;gap:12px;margin-top:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;">
+            <div class="mobile-salary-legend" style="display:grid;text-align:left;gap:12px;margin-top:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;">
             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi</span>
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)</span>
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente</span>
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte</span>
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte</span>
             </div></div>
