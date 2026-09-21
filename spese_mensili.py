@@ -9677,7 +9677,6 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
         messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
         if MOBILE_VIEW:
-            st.caption("Valori salvati per il mese selezionato; se il mese non esiste viene creato al salvataggio.")
             col_input1, col_input2, col_input3, col_input4 = st.columns(4)
             with col_input1:
                 stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
@@ -10067,10 +10066,10 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             )
             internet_val = float(record_bol["Internet"].iloc[0]) if not record_bol.empty else internet_default
             tari_val = float(record_bol["Tari"].iloc[0]) if not record_bol.empty else 0.0
-            st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
+            if not MOBILE_VIEW:
+                st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
 
             if MOBILE_VIEW:
-                st.caption("Internet: 35,90 € al mese inclusi automaticamente da settembre 2026. Gli importi già registrati restano invariati; la quota ricorrente resta inclusa anche eliminando il mese.")
                 col_bol_input1, col_bol_input2, col_bol_input3 = st.columns(3)
                 with col_bol_input1:
                     elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
