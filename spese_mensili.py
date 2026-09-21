@@ -5478,10 +5478,14 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
              + html.escape(f"Straordinari: {_money_turni(estimate.breakdown.overtime_gross)}") + '</span>',
              "#60a5fa", "59,130,246"),
         ]
+        variables_value_html = (
+            f'<span style="opacity:.55;">{html.escape(_money_turni(estimate.variables_gross))} / </span>'
+            f'<span>{html.escape(_money_turni(estimate.variables_net))}</span>'
+        )
         cards_html = "".join(
             f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
             f'<div class="payroll-v2-label">{html.escape(label)}</div>'
-            f'<div class="payroll-v2-value">{html.escape(value)}</div>'
+            f'<div class="payroll-v2-value">{variables_value_html if label == "Variabili lorde / nette stimate" else html.escape(value)}</div>'
             f'<div class="payroll-v2-sub">{caption}</div></div>'
             for label, value, caption, color, rgb in mobile_cards
         )
