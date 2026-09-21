@@ -139,6 +139,36 @@ def _ensure_worksheet_headers(worksheet, expected_headers):
         return merged_headers
 
 
+@st.cache_resource(ttl=1800, show_spinner=False)
+def _mobile_worksheet_index(sheet_url):
+    # I link della navigazione aprono nuove sessioni: condividiamo i soli
+    # handle del medesimo foglio, senza dati utente o bozze di sessione.
+    spreadsheet = get_gsheet_spreadsheet()
+    if spreadsheet is None:
+        raise RuntimeError("Google Sheets non disponibile")
+    return {worksheet.title: worksheet for worksheet in spreadsheet.worksheets()}
+
+
+@st.cache_resource(ttl=1800, show_spinner=False)
+def _mobile_worksheet(sheet_url, worksheet_name, headers):
+    worksheet = _mobile_worksheet_index(sheet_url).get(worksheet_name)
+    if worksheet is None:
+        spreadsheet = get_gsheet_spreadsheet()
+        try:
+            worksheet = spreadsheet.worksheet(worksheet_name)
+        except gspread.WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows=1000, cols=20)
+        _mobile_worksheet_index.clear()
+    _ensure_worksheet_headers(worksheet, list(headers))
+    return worksheet
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _mobile_sheet_records(sheet_url, worksheet_name, headers):
+    # Cache breve tra sessioni; eccezioni e fallback vuoti non sono memorizzati.
+    return _mobile_worksheet(sheet_url, worksheet_name, headers).get_all_records()
+
+
 def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
     if _is_gsheets_in_backoff():
         return st.session_state.get(_worksheet_cache_key(worksheet_name))
@@ -146,6 +176,10 @@ def get_or_create_worksheet(client, sheet_url, worksheet_name, headers):
     if cached_worksheet is not None:
         return cached_worksheet
     try:
+        if globals().get("MOBILE_VIEW", False):
+            worksheet = _mobile_worksheet(sheet_url, worksheet_name, tuple(headers))
+            st.session_state[_worksheet_cache_key(worksheet_name)] = worksheet
+            return worksheet
         spreadsheet = get_gsheet_spreadsheet()
         if spreadsheet is None:
             spreadsheet = client.open_by_url(sheet_url)
@@ -222,7 +256,12 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
         if not worksheet:
             cached = _get_gsheets_cache(worksheet_name, allow_stale=True)
             return cached if cached is not None else pd.DataFrame(columns=headers)
-        records = worksheet.get_all_records()
+        if globals().get("MOBILE_VIEW", False):
+            if force_reload:
+                _mobile_sheet_records.clear(SHEET_URL, worksheet_name, tuple(headers))
+            records = _mobile_sheet_records(SHEET_URL, worksheet_name, tuple(headers))
+        else:
+            records = worksheet.get_all_records()
         if not records:
             df = pd.DataFrame(columns=headers)
             _set_gsheets_cache(worksheet_name, df)
@@ -271,11 +310,14 @@ def save_data_gsheets(worksheet_name, headers, data):
         rows = [headers]
         for _, row in data.iterrows():
             rows.append([_format_gsheet_value(h, row.get(h, "")) for h in headers])
+        # Invalida anche dopo scritture desktop o scritture parzialmente fallite.
+        _mobile_sheet_records.clear()
         worksheet.clear()
         try:
             worksheet.update(values=rows, range_name="A1")
         except TypeError:
             worksheet.update("A1", rows)
+        _mobile_sheet_records.clear()
         _set_gsheets_cache(worksheet_name, data)
         return True
     except Exception as e:
@@ -4949,6 +4991,13 @@ def ensure_turni_month_synced(selected_month, df_turni=None):
     return current_df, errors
 
 
+def _mobile_turni_snapshot(selected_month):
+    """Sorgente unica per home e Turni; il tempo live non viene messo in cache."""
+    rules = _apply_turni_rules_from_widgets(get_turni_rules())
+    df_turni, errors = ensure_turni_month_synced(selected_month)
+    return df_turni, rules, compute_turni_dashboard(df_turni, rules), errors
+
+
 def render_live_turni_kpis(stats, side_html=""):
     live_month = float(stats["live_month"])
     live_today = float(stats["live_today"])
@@ -5789,14 +5838,18 @@ def render_turni_guadagni_section():
         unsafe_allow_html=True,
     )
 
-    df_turni, calendar_errors = ensure_turni_month_synced(selected_month)
+    if MOBILE_VIEW:
+        df_turni, rules, stats, calendar_errors = _mobile_turni_snapshot(selected_month)
+    else:
+        df_turni, calendar_errors = ensure_turni_month_synced(selected_month)
     if calendar_errors:
         st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     today = _now_italy().date()
     current_month_key = today.strftime("%Y-%m")
     is_selected_current_month = month_key == current_month_key
-    stats = compute_turni_dashboard(df_turni, rules)
+    if not MOBILE_VIEW:
+        stats = compute_turni_dashboard(df_turni, rules)
     current_work_day = (
         stats.get("current_shift_start_date", "")
         if (stats.get("is_on_shift", False) or stats.get("is_on_leave", False))
@@ -7263,18 +7316,14 @@ textarea {
 
         turni_stats_home = None
         try:
-            turni_df_home = st.session_state.get("turni_df_draft")
-            if turni_df_home is None or getattr(turni_df_home, "empty", True):
-                turni_df_home = load_turni_data()
             current_turni_month = _now_italy().date().replace(day=1)
-            turni_df_home, _home_calendar_errors = ensure_turni_month_synced(
-                current_turni_month,
-                turni_df_home,
+            turni_df_home, turni_rules_home, turni_stats_home, home_calendar_errors = (
+                _mobile_turni_snapshot(current_turni_month)
             )
-            if turni_df_home is not None and not turni_df_home.empty:
-                turni_stats_home = compute_turni_dashboard(turni_df_home.copy(), get_turni_rules())
-        except Exception:
-            turni_stats_home = None
+            if home_calendar_errors:
+                st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(home_calendar_errors))
+        except Exception as error:
+            st.warning(f"Riepilogo turni non disponibile: {error}")
 
         turni_cards_home = (
             _recap_card("Mese corrente — netto maturato / cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
@@ -7369,7 +7418,18 @@ textarea {
         with home_turni_col:
             st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
             if turni_stats_home:
-                render_live_turni_kpis(turni_stats_home)
+                home_work_day = (
+                    turni_stats_home.get("current_shift_start_date", "")
+                    if (turni_stats_home.get("is_on_shift") or turni_stats_home.get("is_on_leave"))
+                    else _now_italy().strftime("%Y-%m-%d")
+                )
+                render_live_turni_kpis(
+                    turni_stats_home,
+                    _turni_month_summary_html(
+                        turni_df_home, current_turni_month.strftime("%Y-%m"),
+                        turni_rules_home, home_work_day,
+                    ),
+                )
             else:
                 st.markdown(
                     '<div class="mobile-home-recap">'
