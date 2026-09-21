@@ -5526,11 +5526,12 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
     <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
     <div class="payroll-v2-grid">{cards_html}</div>
     """, unsafe_allow_html=True)
-    st.caption(
-        "Formula: fisso netto + (maggiorazioni, indennità e straordinari lordi "
-        "del mese di competenza × coefficiente netto variabili) + rettifica. "
-        "Le ore ordinarie e i buoni pasto non vengono sommati al netto."
-    )
+    if not MOBILE_VIEW:
+        st.caption(
+            "Formula: fisso netto + (maggiorazioni, indennità e straordinari lordi "
+            "del mese di competenza × coefficiente netto variabili) + rettifica. "
+            "Le ore ordinarie e i buoni pasto non vengono sommati al netto."
+        )
 
 
 def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
