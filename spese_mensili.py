@@ -1170,7 +1170,7 @@ if MOBILE_VIEW:
     }
     .mobile-bollette-kpi-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
         width: 100%;
         max-width: 100%;
@@ -1186,6 +1186,8 @@ if MOBILE_VIEW:
         line-height: 1.12 !important;
     }
     .mobile-bollette-kpi-grid .kpi-value {
+        white-space: normal;
+        overflow-wrap: anywhere;
         font-size: 15px !important;
         line-height: 1.12 !important;
     }
@@ -2907,21 +2909,37 @@ def _render_stipendi_kpi_cards(data_stipendi):
     _m2 = f"{stats_stip['Messi da parte Totali']['media']:,.2f} €"
 
     if MOBILE_VIEW:
+        recupero_percentuale = float(stats_stip["Messi da parte Totali"]["somma"]) / 67000.0 * 100
+        progresso = min(100.0, max(0.0, recupero_percentuale))
+        recupero_label = f"{recupero_percentuale:.1f}".replace(".", ",")
+        universita_html = (
+            '<div style="margin-top:9px;font-size:10px;line-height:1.4;color:rgba(255,255,255,.65);">'
+            'Spese sostenute per l’università: <strong>67.000 €</strong>.<br>'
+            f'Messi da parte rispetto alla cifra da recuperare: <strong>{recupero_label}%</strong>.'
+            '</div>'
+            f'<div role="progressbar" aria-label="Recupero spese universitarie" aria-valuemin="0" '
+            f'aria-valuemax="100" aria-valuenow="{progresso:.1f}" '
+            'style="height:6px;margin-top:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;">'
+            f'<div style="height:100%;width:{progresso:.2f}%;background:#1D9E75;"></div></div>'
+        )
         cards = [
-            ("Somma Stipendi", _s1, "#5792E8"),
-            ("Media Stipendi", _s2, "#f87171"),
-            ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c"),
-            ("Somma Risparmi Mese Precedente", _r1, "#EF9F27"),
-            ("Media Risparmi Mese Precedente", _r2, "#FFA040"),
-            ("Somma Messi da Parte", _m1, "#1D9E75"),
-            ("Media Messi da Parte", _m2, "#90EE90"),
+            ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c", ""),
+            ("Somma Stipendi", _s1, "#5792E8", ""),
+            ("Media Stipendi", _s2, "#f87171", ""),
+            ("", "", "", ""),
+            ("Somma Risparmi Mese Precedente", _r1, "#EF9F27", ""),
+            ("Media Risparmi Mese Precedente", _r2, "#FFA040", ""),
+            ("Somma Messi da Parte", _m1, "#1D9E75", universita_html),
+            ("Media Messi da Parte", _m2, "#90EE90", ""),
         ]
         html_cards = "".join(
-            '<div class="kpi-card" style="min-width:0;padding:12px 12px;">'
-            f'<div class="kpi-label" style="font-size:10px;line-height:1.15;">{html.escape(label)}</div>'
-            f'<div class="kpi-value" style="color:{color};font-size:18px;line-height:1.15;">{html.escape(value)}</div>'
-            '</div>'
-            for label, value, color in cards
+            (
+                '<div class="kpi-card" style="min-width:0;padding:12px 12px;">'
+                f'<div class="kpi-label" style="font-size:10px;line-height:1.15;">{html.escape(label)}</div>'
+                f'<div class="kpi-value" style="color:{color};font-size:18px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;">{html.escape(value)}</div>'
+                f'{caption}</div>'
+            ) if label else '<div aria-hidden="true"></div>'
+            for label, value, color, caption in cards
         )
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));'
