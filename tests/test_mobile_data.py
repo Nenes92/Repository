@@ -227,3 +227,33 @@ def test_snapshot_loads_competence_before_estimating(app, selected, delay, expec
     assert estimate.variables_gross == 100
     assert estimate.variables_net > 0
     assert not errors
+
+
+def test_kitchen_migration_refreshes_and_preserves_other_expenses(app):
+    ns, _, _ = app
+    class State(dict):
+        __getattr__ = dict.__getitem__
+        __setattr__ = dict.__setitem__
+    ns['st'].session_state = State()
+    headers = ['Voce', 'Importo', 'Categoria', 'Carta', 'Gruppo']
+    ns.update(SPESE_FISSE_WORKSHEET='SpeseFisse', SPESE_FISSE_HEADERS=headers)
+    ns['_normalize_spese_fisse_df'] = lambda df: df.copy()
+    ns['_apply_spese_fisse_settings'] = lambda settings, metadata: None
+    old = pd.DataFrame([['Cucina', 320, 'Casa', 'ING', 'Casa'],
+                        ['Mutuo', 500, 'Casa', 'ING', 'Casa']], columns=headers)
+    fresh = old.copy()
+    fresh.loc[1, 'Importo'] = 600
+    reads, saved = [], []
+    def load(name, headers, force_reload=False):
+        reads.append(force_reload)
+        if force_reload:
+            ns['_set_gsheets_cache']('SpeseFisse', fresh)
+        return fresh if force_reload else old
+    ns['load_data_gsheets'] = load
+    ns['save_data_gsheets'] = lambda name, headers, df: saved.append(df.copy()) or True
+    ns['load_spese_fisse_settings']()
+    assert reads == [False, True]
+    assert saved[0]['Importo'].tolist() == [324, 600]
+    assert ns['st'].session_state.spese_fisse_settings['Cucina'] == 324
+    ns['load_spese_fisse_settings']()
+    assert len(saved) == 1

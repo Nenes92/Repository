@@ -2654,7 +2654,7 @@ SPESE = {
         "Bollette": decisione_budget_bollette_mensili,
         "Condominio": 45,
         "Altro": 0,
-        "Cucina": 0, #315,
+        "Cucina": 324,
         "Pulizia Casa": 40,
         "MoneyFarm - PAC 5": 100,
         "Alleanza - PAC": 100,
@@ -3024,6 +3024,19 @@ def _normalize_spese_fisse_df(df):
 def load_spese_fisse_settings():
     if "spese_fisse_settings" not in st.session_state:
         df = _normalize_spese_fisse_df(load_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS))
+        if MOBILE_VIEW and not df.empty and ((df["Voce"] == "Cucina") & (df["Importo"] == 320)).any():
+            # Migrazione dell'importo precedente: rileggi prima di salvare per
+            # preservare le altre spese aggiornate nel foglio.
+            refresh_started = time.time()
+            df = _normalize_spese_fisse_df(load_data_gsheets(
+                SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, force_reload=True,
+            ))
+            cucina_da_aggiornare = (df["Voce"] == "Cucina") & (df["Importo"] == 320)
+            if cucina_da_aggiornare.any():
+                df.loc[cucina_da_aggiornare, "Importo"] = 324.0
+                fresh_read = st.session_state.get(_gsheets_cache_key(SPESE_FISSE_WORKSHEET), {}).get("time", 0) >= refresh_started
+                if not fresh_read or _is_gsheets_in_backoff() or not save_data_gsheets(SPESE_FISSE_WORKSHEET, SPESE_FISSE_HEADERS, df):
+                    st.warning("Cucina aggiornata a 324 € nella vista; salvataggio su Google Sheets da riprovare.")
         if df.empty:
             settings = SPESE["Fisse"].copy()
             metadata = {
@@ -5085,6 +5098,16 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         .turni-grid-scroll { max-height: 280px; }
         .turni-status-row, .turni-rate-row { flex-wrap: wrap; }
         """
+    shift_type_html = f'<div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>'
+    shift_heading_html = f'<div class="kpi-label">{turno_kpi_label}</div>'
+    if MOBILE_VIEW:
+        shift_heading_html = (
+            '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
+            f'<div class="kpi-label">{turno_kpi_label}</div>'
+            f'<div id="turni-shift-type" class="turni-subline" style="margin-top:0;text-transform:none;text-align:right;">{current_shift_type.lower()}</div>'
+            '</div>'
+        )
+        shift_type_html = ""
     components.html(f"""
     <div class="{shell_class}">
       <div class="turni-live-grid">
@@ -5094,10 +5117,10 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
           <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
         </div>
         <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
-          <div class="kpi-label">{turno_kpi_label}</div>
+          {shift_heading_html}
           <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
           <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
-          <div id="turni-shift-type" class="turni-subline">{current_shift_type}</div>
+          {shift_type_html}
         </div>
         <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
           <div class="kpi-label">Stato turno</div>
