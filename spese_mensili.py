@@ -1284,7 +1284,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(input[aria-label="Importo"]):has([aria-label="Colore categoria"]):has([aria-label="Gruppo visivo"]) {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
