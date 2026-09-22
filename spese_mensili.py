@@ -7507,19 +7507,7 @@ textarea {
         with home_turni_col:
             st.markdown('<div class="mobile-home-carte-live-right-marker"></div>', unsafe_allow_html=True)
             if turni_stats_home:
-                home_work_day = (
-                    turni_stats_home.get("current_shift_start_date", "")
-                    if (turni_stats_home.get("is_on_shift") or turni_stats_home.get("is_on_leave"))
-                    else _now_italy().strftime("%Y-%m-%d")
-                )
-                render_live_turni_kpis(
-                    turni_stats_home,
-                    _turni_month_summary_html(
-                        turni_df_home, current_turni_month.strftime("%Y-%m"),
-                        turni_rules_home, home_work_day,
-                    ),
-                    compact_home=True,
-                )
+                render_live_turni_kpis(turni_stats_home, compact_home=True)
             else:
                 st.markdown(
                     '<div class="mobile-home-recap">'
