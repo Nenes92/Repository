@@ -1018,7 +1018,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(input[aria-label="Stipendio (€)"]):has(input[aria-label="Risparmi mese prec. (€)"]):has(input[aria-label="Messi da parte (€)"]) {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 6px !important;
         align-items: end !important;
         width: 100% !important;
@@ -1665,7 +1665,7 @@ if MOBILE_VIEW:
         font-size: 19px !important;
     }
     .section-pill {
-        margin-top: 12px !important;
+        margin-top: 6px !important;
         margin-bottom: 8px !important;
     }
     [data-testid="stTabs"] [role="tablist"] {
@@ -2166,8 +2166,8 @@ if MOBILE_VIEW:
     .mobile-anchor:not(#mobile-top):not(#mobile-dashboard) {
         display:block;
         border-top: 0;
-        margin-top: 18px;
-        padding-top: 10px;
+        margin-top: 6px;
+        padding-top: 0;
     }
     #mobile-spese { border-top-color: rgba(248,113,113,.48); }
     #mobile-variabili { border-top-color: rgba(245,158,11,.48); }
@@ -9173,13 +9173,15 @@ textarea {
             _render_promemoria_block()
             st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         if _mobile_show("Turni"):
-            st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+            if not MOBILE_VIEW:
+                st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
             render_turni_guadagni_section()
 
 if __name__ == "__main__":
     main()
 
-st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+if not MOBILE_VIEW:
+    st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
 
 
 #####################################
