@@ -4567,6 +4567,37 @@ def _turni_month_money_summary(df_turni, rules, month_key):
     }
 
 
+def _mobile_turni_paired_layout(side_html):
+    if not MOBILE_VIEW or not side_html:
+        return "", "", ""
+    return (
+        '<div class="turni-kpi-column"><div class="turni-paired-title">⏱️ Guadagni Turni</div>',
+        '</div>',
+        """<style>
+        .turni-kpi-column { min-width:0; }
+        .turni-kpi-column .turni-live-grid { margin-bottom:0; }
+        .turni-paired-title, .turni-live-side .turni-summary-compact-title {
+          display:flex;align-items:center;min-height:24px;box-sizing:border-box;
+          margin:0 0 7px;padding:0;font-size:11px;font-weight:800;
+          color:rgba(255,255,255,.88);line-height:1.2;
+        }
+        .turni-live-side .turni-grid-scroll { padding-top:0;box-sizing:border-box; }
+        </style><script>
+        const leftCards = document.querySelector('.turni-kpi-column .turni-live-grid');
+        const rightCards = document.querySelector('.turni-live-side .turni-grid-scroll');
+        if (leftCards && rightCards) {
+          const alignCards = () => {
+            const height = leftCards.getBoundingClientRect().height + 'px';
+            rightCards.style.height = height;
+            rightCards.style.maxHeight = height;
+          };
+          alignCards();
+          new ResizeObserver(alignCards).observe(leftCards);
+        }
+        </script>""",
+    )
+
+
 def render_selected_month_turni_kpis(
     df_turni,
     rules,
@@ -4596,9 +4627,11 @@ def render_selected_month_turni_kpis(
     next_month_label = _turni_month_label(next_month_date)
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-static-shell has-side" if side_html else "turni-static-shell"
-    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 360 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    paired_start, paired_end, paired_layout = _mobile_turni_paired_layout(side_html)
     components.html(f"""
     <div class="{shell_class}">
+      {paired_start}
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
           <div class="kpi-label">{month_label} — cedolino reale</div>
@@ -4617,8 +4650,10 @@ def render_selected_month_turni_kpis(
           <div class="turni-subline">Variabili pagate in {html.escape(next_month_label)} · buoni separati {_money_turni(buoni)}</div>
         </div>
       </div>
+      {paired_end}
       {side_block}
     </div>
+    {paired_layout}
     <style>
       body {{
         margin: 0;
@@ -5078,7 +5113,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
     side_block = f'<div class="turni-live-side">{side_html}</div>' if side_html else ""
     shell_class = "turni-live-shell has-side" if side_html else "turni-live-shell"
-    component_height = 286 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
+    component_height = 360 if (MOBILE_VIEW and side_html) else (330 if MOBILE_VIEW else 126)
     compact_home_style = ""
     if MOBILE_VIEW and compact_home:
         component_height = 360
@@ -5108,8 +5143,10 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
             '</div>'
         )
         shift_type_html = ""
+    paired_start, paired_end, paired_layout = _mobile_turni_paired_layout(side_html)
     components.html(f"""
     <div class="{shell_class}">
+      {paired_start}
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
           <div class="kpi-label">Mese corrente — netto maturato / cedolino stimato</div>
@@ -5136,8 +5173,10 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
           <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
         </div>
       </div>
+      {paired_end}
       {side_block}
     </div>
+    {paired_layout}
     <style>
       body {{
         margin: 0;
@@ -5945,7 +5984,7 @@ def render_turni_guadagni_section():
         <div style="{title_layout}margin:0 0 14px;text-align:center;font-size:25px;font-weight:900;color:rgba(255,255,255,.94);">
           {title_prev}<span>{_turni_month_label(selected_month)}</span>{title_next}
         </div>
-        <div class="section-pill">⏱️ Guadagni Turni</div>
+        {'' if MOBILE_VIEW else '<div class="section-pill">⏱️ Guadagni Turni</div>'}
         """,
         unsafe_allow_html=True,
     )
@@ -5990,9 +6029,14 @@ def render_turni_guadagni_section():
         selected_adjustment_description,
     )
 
-    tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
-        ["📅 Turni", "⚙️ Regole", "📊 Riepilogo", "🎯 Calibrazione"]
-    )
+    if MOBILE_VIEW:
+        tab_cal, tab_report, tab_rules, tab_calibration = st.tabs(
+            ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"]
+        )
+    else:
+        tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
+            ["📅 Turni", "⚙️ Regole", "📊 Riepilogo", "🎯 Calibrazione"]
+        )
 
     with tab_cal:
         year, month = selected_month.year, selected_month.month
