@@ -1343,7 +1343,7 @@ if MOBILE_VIEW:
     }
     div[data-testid="stHorizontalBlock"]:has(.fixed-expense-editor-marker) {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -1676,8 +1676,7 @@ if MOBILE_VIEW:
     .st-key-mobile-fixed-tabs [role="tablist"] {
         width: 100%;
     }
-    .st-key-mobile-turni-tabs [role="tablist"] [role="tab"]:nth-of-type(3),
-    .st-key-mobile-fixed-tabs [role="tablist"] [role="tab"]:nth-of-type(2) {
+    .st-key-mobile-turni-tabs [role="tablist"] [role="tab"]:nth-of-type(3) {
         margin-left: auto !important;
     }
     .st-key-mobile-salary-history-inputs [data-testid="stHorizontalBlock"] {
@@ -7741,7 +7740,7 @@ textarea {
                     unsafe_allow_html=True,
                 )
 
-                editor_cols = st.columns(2)
+                editor_cols = st.columns(3 if MOBILE_VIEW else 2)
                 editable_settings = {}
                 editable_metadata = {}
                 if MOBILE_VIEW:
