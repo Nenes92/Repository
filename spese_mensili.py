@@ -1672,6 +1672,14 @@ if MOBILE_VIEW:
         overflow-x: auto !important;
         flex-wrap: nowrap !important;
     }
+    .st-key-mobile-turni-tabs [role="tablist"],
+    .st-key-mobile-fixed-tabs [role="tablist"] {
+        width: 100%;
+    }
+    .st-key-mobile-turni-tabs [role="tablist"] [role="tab"]:nth-of-type(3),
+    .st-key-mobile-fixed-tabs [role="tablist"] [role="tab"]:nth-of-type(2) {
+        margin-left: auto !important;
+    }
     .mobile-home-title {
         font-size: 1.45rem;
         font-weight: 900;
@@ -4571,7 +4579,7 @@ def _mobile_turni_paired_layout(side_html):
     if not MOBILE_VIEW or not side_html:
         return "", "", ""
     return (
-        '<div class="turni-kpi-column"><div class="turni-paired-title">⏱️ Guadagni Turni</div>',
+        '<div class="turni-kpi-column"><div class="turni-paired-title"><span class="turni-section-pill">⏱️ Guadagni Turni</span></div>',
         '</div>',
         """<style>
         .turni-kpi-column { min-width:0; }
@@ -4580,6 +4588,12 @@ def _mobile_turni_paired_layout(side_html):
           display:flex;align-items:center;min-height:24px;box-sizing:border-box;
           margin:0 0 7px;padding:0;font-size:11px;font-weight:800;
           color:rgba(255,255,255,.88);line-height:1.2;
+        }
+        .turni-section-pill {
+          display:inline-block;background:rgba(96,165,250,.12);
+          border:.5px solid rgba(96,165,250,.25);border-radius:20px;
+          padding:4px 14px;font-size:11px;font-weight:500;color:#93c5fd;
+          text-transform:uppercase;letter-spacing:1px;white-space:nowrap;
         }
         .turni-live-side .turni-grid-scroll { padding-top:0;box-sizing:border-box; }
         </style><script>
@@ -6030,9 +6044,10 @@ def render_turni_guadagni_section():
     )
 
     if MOBILE_VIEW:
-        tab_cal, tab_report, tab_rules, tab_calibration = st.tabs(
-            ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"]
-        )
+        with st.container(key="mobile-turni-tabs"):
+            tab_cal, tab_report, tab_rules, tab_calibration = st.tabs(
+                ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"]
+            )
     else:
         tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
             ["📅 Turni", "⚙️ Regole", "📊 Riepilogo", "🎯 Calibrazione"]
@@ -7659,7 +7674,11 @@ textarea {
     with col1:
         if _mobile_show("Spese"):
             st.markdown('<div id="mobile-spese" class="mobile-anchor"></div><div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
-            tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
+            if MOBILE_VIEW:
+                with st.container(key="mobile-fixed-tabs"):
+                    tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
+            else:
+                tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
             with tab_decisioni_fisse:
                 settings = SPESE["Fisse"].copy()
