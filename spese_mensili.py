@@ -1680,6 +1680,29 @@ if MOBILE_VIEW:
     .st-key-mobile-fixed-tabs [role="tablist"] [role="tab"]:nth-of-type(2) {
         margin-left: auto !important;
     }
+    .st-key-mobile-salary-history-inputs [data-testid="stHorizontalBlock"] {
+        display:grid !important;
+        grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+        gap:6px !important;
+    }
+    .st-key-mobile-salary-history-inputs [data-testid="stHorizontalBlock"] > div {
+        width:100% !important;min-width:0 !important;flex:unset !important;
+    }
+    .st-key-mobile-salary-history-inputs [data-testid="stNumberInput"] label {
+        min-height:32px;
+    }
+    .st-key-mobile-salary-history-inputs [data-testid="stNumberInput"] label p {
+        font-size:10px !important;line-height:1.2 !important;
+    }
+    .st-key-mobile-salary-history-inputs [data-testid="stNumberInput"] input {
+        min-width:0;font-size:12px !important;padding-left:4px;padding-right:2px;
+    }
+    .st-key-mobile-salary-history-inputs [data-testid="stNumberInput"] button {
+        min-width:16px !important;width:16px !important;flex:0 0 16px !important;padding:0 !important;
+    }
+    .mobile-salary-kpis > .kpi-card:nth-child(-n+3) .kpi-value {
+        font-size:15px !important;
+    }
     .mobile-home-title {
         font-size: 1.45rem;
         font-weight: 900;
@@ -2933,7 +2956,6 @@ def _render_stipendi_kpi_cards(data_stipendi):
         cards = [
             ("Somma Stipendi", _s1, "#5792E8", ""),
             ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c", ""),
-            ("", "", "", ""),
             ("Media Stipendi", _s2, "#f87171", ""),
             ("Somma Risparmi Mese Precedente", _r1, "#EF9F27", ""),
             ("Media Risparmi Mese Precedente", _r2, "#FFA040", ""),
@@ -2942,15 +2964,15 @@ def _render_stipendi_kpi_cards(data_stipendi):
         ]
         html_cards = "".join(
             (
-                '<div class="kpi-card" style="min-width:0;padding:12px 12px;">'
+                f'<div class="kpi-card" style="grid-column:span {2 if index < 3 else 3};min-width:0;padding:10px 8px;">'
                 f'<div class="kpi-label" style="font-size:10px;line-height:1.15;">{html.escape(label)}</div>'
                 f'<div class="kpi-value" style="color:{color};font-size:18px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;">{html.escape(value)}</div>'
                 f'{caption}</div>'
             ) if label else '<div aria-hidden="true"></div>'
-            for label, value, color, caption in cards
+            for index, (label, value, color, caption) in enumerate(cards)
         )
         st.markdown(
-            '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));'
+            '<div class="mobile-salary-kpis" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));'
             'gap:8px;align-items:stretch;">'
             f'{html_cards}'
             '</div>',
@@ -9756,7 +9778,8 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
         messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
         if MOBILE_VIEW:
-            col_input1, col_input2, col_input3, col_input4 = st.columns(4)
+            with st.container(key="mobile-salary-history-inputs"):
+                col_input1, col_input2, col_input3, col_input4 = st.columns(4)
             with col_input1:
                 stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
             with col_input2:
