@@ -4625,6 +4625,15 @@ def _mobile_turni_paired_layout(side_html):
             const height = leftCards.getBoundingClientRect().height + 'px';
             rightCards.style.height = height;
             rightCards.style.maxHeight = height;
+            // Fit the mobile frame to the cards, avoiding empty space before payroll.
+            const shell = leftCards.closest('.turni-live-shell, .turni-static-shell');
+            if (shell) {
+              window.parent.postMessage({
+                isStreamlitMessage: true,
+                type: 'streamlit:setFrameHeight',
+                height: Math.ceil(shell.getBoundingClientRect().bottom + window.scrollY + 8),
+              }, '*');
+            }
           };
           alignCards();
           new ResizeObserver(alignCards).observe(leftCards);
