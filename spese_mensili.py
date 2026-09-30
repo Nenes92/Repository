@@ -5201,12 +5201,12 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
           <div class="kpi-label">Mese corrente — netto maturato / cedolino stimato</div>
-          <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month" style="opacity:{0.7 if MOBILE_VIEW else 1};"></span> / {payslip_estimate}</div>
+          <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month" style="opacity:{0.7 if MOBILE_VIEW else 1};"></span> / <span style="font-weight:{900 if MOBILE_VIEW else 'inherit'};">{payslip_estimate}</span></div>
           <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
         </div>
         <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
           {shift_heading_html}
-          <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today"></span> / {expected_today}</div>
+          <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today" style="font-weight:{900 if MOBILE_VIEW and is_on_shift else 'inherit'};"></span> / {expected_today}</div>
           <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
           {shift_type_html}
         </div>
