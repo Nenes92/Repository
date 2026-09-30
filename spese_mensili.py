@@ -5573,8 +5573,8 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         competence_label = _turni_month_label(pd.Timestamp(estimate.competence_month)).rsplit(" ", 1)[0]
         payment_label = _turni_month_label(pd.Timestamp(estimate.month)).rsplit(" ", 1)[0]
         net_caption = (
-            f'<span style="color:#a78bfa;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span> + '
-            f'<span style="color:#60a5fa;">{html.escape(_money_turni(estimate.variables_net))} variabili</span> '
+            f'<span style="color:#a78bfa;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span><br>'
+            f'<span style="color:#60a5fa;">{html.escape(_money_turni(estimate.variables_net))} variabili</span><br>'
             f'<span style="color:#fb923c;">{html.escape(adjustment_formula)} rettifica</span>'
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
             f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
@@ -5583,9 +5583,7 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
              f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
-             html.escape(f"Maturate in {competence_label}, pagate in {payment_label}.")
-             + '<br><br>'
-             + '<br>'.join(
+             '<br>'.join(
                  f'<span style="color:rgba(255,255,255,.48);">{label}: </span>'
                  f'<span style="color:#60a5fa;opacity:.55;">{html.escape(_money_turni(amount))}</span>'
                  for label, amount in (
@@ -5608,10 +5606,13 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                 f'<div class="payroll-v2-value" style="text-align:right;white-space:nowrap;">{html.escape(value)}</div></div>'
                 if label == "Netto cedolino stimato" else
                 f'<div class="payroll-v2-label">{html.escape(label)}</div>'
-                f'<div class="payroll-v2-value">{variables_value_html}</div>'
+                f'<div class="payroll-mobile-variable-columns" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;">'
+                f'<div style="min-width:0;"><div class="payroll-v2-value">{variables_value_html}</div>'
+                f'<div class="payroll-v2-sub">Maturate in {html.escape(competence_label)},<br>pagate in {html.escape(payment_label)}.</div></div>'
+                f'<div class="payroll-v2-sub" style="min-width:0;margin-top:0;">{caption}</div></div>'
             )
-            +
-            f'<div class="payroll-v2-sub">{caption}</div></div>'
+            + (f'<div class="payroll-v2-sub">{caption}</div>' if label == "Netto cedolino stimato" else '')
+            + '</div>'
             for label, value, caption, color, rgb in mobile_cards
         )
     st.markdown(f"""
