@@ -4628,11 +4628,18 @@ def _mobile_turni_paired_layout(side_html):
             // Fit the mobile frame to the cards, avoiding empty space before payroll.
             const shell = leftCards.closest('.turni-live-shell, .turni-static-shell');
             if (shell) {
-              window.parent.postMessage({
-                isStreamlitMessage: true,
-                type: 'streamlit:setFrameHeight',
-                height: Math.ceil(shell.getBoundingClientRect().bottom + window.scrollY + 8),
-              }, '*');
+              const frameHeight = Math.ceil(shell.getBoundingClientRect().bottom + window.scrollY + 8);
+              // components.html uses a plain iframe, not the custom-component message API.
+              const frame = window.frameElement;
+              if (frame) {
+                frame.style.height = frameHeight + 'px';
+                frame.setAttribute('height', String(frameHeight));
+                const container = frame.closest('[data-testid="stElementContainer"]');
+                if (container) {
+                  container.style.height = frameHeight + 'px';
+                  container.style.flexBasis = frameHeight + 'px';
+                }
+              }
             }
           };
           alignCards();
