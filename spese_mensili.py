@@ -5578,17 +5578,22 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             f'<span style="color:#fb923c;">{html.escape(adjustment_formula)} rettifica</span>'
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
             f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
-            f'<br>Stima ± {html.escape(_money_turni(spread))} di errore medio storico'
         )
         mobile_cards = [
             ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
              f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
              html.escape(f"Maturate in {competence_label}, pagate in {payment_label}.")
-             + '<br><br><span style="color:rgba(255,255,255,.48);">Componenti già incluse nel lordo:</span><br><span style="color:#fb923c;">'
-             + html.escape(f"Maggiorazioni: {_money_turni(estimate.breakdown.premiums_gross)}") + '<br>'
-             + html.escape(f"Indennità: {_money_turni(estimate.breakdown.allowances_gross)}") + '<br>'
-             + html.escape(f"Straordinari: {_money_turni(estimate.breakdown.overtime_gross)}") + '</span>',
+             + '<br><br>'
+             + '<br>'.join(
+                 f'<span style="color:rgba(255,255,255,.48);">{label}: </span>'
+                 f'<span style="color:#60a5fa;opacity:.55;">{html.escape(_money_turni(amount))}</span>'
+                 for label, amount in (
+                     ("Maggiorazioni", estimate.breakdown.premiums_gross),
+                     ("Indennità", estimate.breakdown.allowances_gross),
+                     ("Straordinari", estimate.breakdown.overtime_gross),
+                 )
+             ),
              "#60a5fa", "59,130,246"),
         ]
         variables_value_html = (
@@ -5597,8 +5602,15 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         )
         cards_html = "".join(
             f'<div class="payroll-v2-card" style="--card-color:{color};--card-rgb:{rgb};">'
-            f'<div class="payroll-v2-label">{html.escape(label)}</div>'
-            f'<div class="payroll-v2-value">{variables_value_html if label == "Variabili lorde / nette stimate" else html.escape(value)}</div>'
+            + (
+                f'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+                f'<div class="payroll-v2-label" style="min-height:0;">{html.escape(label)}</div>'
+                f'<div class="payroll-v2-value" style="text-align:right;white-space:nowrap;">{html.escape(value)}</div></div>'
+                if label == "Netto cedolino stimato" else
+                f'<div class="payroll-v2-label">{html.escape(label)}</div>'
+                f'<div class="payroll-v2-value">{variables_value_html}</div>'
+            )
+            +
             f'<div class="payroll-v2-sub">{caption}</div></div>'
             for label, value, caption, color, rgb in mobile_cards
         )
@@ -5641,6 +5653,7 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
         .payroll-v2-sub {{ min-height:0; margin-top:4px; font-size:8.5px; line-height:1.25; }}
       }}
     </style>
+    {'<div style="border-top:1px solid rgba(148,163,184,.28);margin:4px 0 14px;"></div>' if MOBILE_VIEW else ''}
     <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
     <div class="payroll-v2-grid">{cards_html}</div>
     """, unsafe_allow_html=True)
