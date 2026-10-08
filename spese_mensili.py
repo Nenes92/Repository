@@ -4337,6 +4337,8 @@ def compute_turni_dashboard(df_turni, rules):
     is_on_leave = False
     next_shift_start = None
     next_shift_label = "—"
+    next_shift_type = ""
+    current_shift_mode = ""
     next_shift_total = 0.0
     last_shift_end = None
     last_shift_label = "—"
@@ -4393,6 +4395,7 @@ def compute_turni_dashboard(df_turni, rules):
             elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                current_shift_mode = "in sede" if _turni_row_sede(row) else "in smart"
                 current_shift_type = f"{turno} {'festivo' if _is_festive_at(now, festivo) else 'feriale'}"
                 current_turno = turno
                 current_shift_date = _turni_short_date_label(start)
@@ -4413,6 +4416,7 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
+            next_shift_type = f"{turno.lower()} {'festivo' if _is_festive_at(start, festivo) else 'feriale'} {'in sede' if _turni_row_sede(row) else 'in smart'}"
             next_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti)["total"]
         if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
             last_shift_end = end
@@ -4459,6 +4463,8 @@ def compute_turni_dashboard(df_turni, rules):
         "current_rate_change_at": current_rate_change_at.isoformat() if current_rate_change_at else "",
         "next_shift_start": next_shift_start.isoformat() if next_shift_start else "",
         "next_shift_label": next_shift_label,
+        "next_shift_type": next_shift_type,
+        "current_shift_mode": current_shift_mode,
         "next_shift_total": next_shift_total,
         "last_shift_total": last_shift_total,
         "work_days_done": work_days_done,
@@ -5194,24 +5200,52 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
             '</div>'
         )
         shift_type_html = ""
+    month_heading_html = '<div class="kpi-label">Mese corrente — netto maturato / cedolino stimato</div>'
+    month_days_html = f'<div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>'
+    upcoming_detail_html = '<div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>'
+    status_heading_html = '<div class="kpi-label">Stato turno</div>'
+    status_caption_html = '<div class="turni-subline">Valori netti stimati da fisso e maggiorazioni</div>'
+    shift_label_style = "font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;"
+    if MOBILE_VIEW:
+        month_name = html.escape(_turni_month_label(_now_italy().date()).rsplit(" ", 1)[0].lower())
+        month_heading_html = (
+            '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">'
+            '<div class="kpi-label">Netto maturato / cedolino stimato</div>'
+            f'<div class="turni-subline" style="margin-top:0;">{month_name}</div></div>'
+        )
+        month_days_html = (
+            '<div class="turni-subline" style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">'
+            f'<span>Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</span>'
+            f'<span>Sedi: {int(stats.get("sede_days_total", 0))} · B.P.: {_money_turni(stats.get("buoni_pasto_total", 0))}</span></div>'
+        )
+        upcoming_detail_html = (
+            '<div class="turni-subline" style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">'
+            '<span id="turni-hours-left">Ore mancanti: —</span>'
+            f'<span>{html.escape(str(stats.get("next_shift_type", ""))) if not is_live_accrual else ""}</span></div>'
+        )
+        status_heading_html = ""
+        status_caption_html = ""
+        if is_on_shift:
+            status_text = f"{current_shift_type.lower()} {html.escape(str(stats.get('current_shift_mode', '')))} · {current_shift_date}"
+        shift_label_style += "" if is_live_accrual else "display:none;"
     paired_start, paired_end, paired_layout = _mobile_turni_paired_layout(side_html)
     components.html(f"""
     <div class="{shell_class}">
       {paired_start}
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
-          <div class="kpi-label">Mese corrente — netto maturato / cedolino stimato</div>
+          {month_heading_html}
           <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month" style="opacity:{0.7 if MOBILE_VIEW else 1};"></span> / <span style="font-weight:{900 if MOBILE_VIEW else 'inherit'};">{payslip_estimate}</span></div>
-          <div class="turni-subline">Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</div>
+          {month_days_html}
         </div>
         <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
           {shift_heading_html}
           <div class="kpi-value" style="color:#60a5fa;"><span id="turni-live-today" style="font-weight:{900 if MOBILE_VIEW and is_on_shift else 'inherit'};"></span> / {expected_today}</div>
-          <div id="turni-hours-left" class="turni-subline">Ore mancanti: —</div>
+          {upcoming_detail_html}
           {shift_type_html}
         </div>
         <div class="kpi-card" style="border-color:rgba(254,243,199,0.25);">
-          <div class="kpi-label">Stato turno</div>
+          {status_heading_html}
           <div class="turni-status-row">
             <span id="turni-status-dot" class="turni-status-dot" style="background:{status_color}; box-shadow:{status_shadow};"></span>
             <span id="turni-status-text">{status_text}</span>
@@ -5220,8 +5254,8 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
             <span id="turni-rate-min" class="kpi-value" style="color:#fef3c7;">{rate_min:.2f} €/min</span>
             <span id="turni-rate-hour" class="kpi-value" style="color:#fef3c7;">{rate_hour:.2f} €/h</span>
           </div>
-          <div class="turni-subline">Valori netti stimati da fisso e maggiorazioni</div>
-          <div id="turni-shift-label" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">{current_shift}</div>
+          {status_caption_html}
+          <div id="turni-shift-label" style="{shift_label_style}">{current_shift}</div>
         </div>
       </div>
       {paired_end}
