@@ -5757,7 +5757,7 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
                 start, _ = _shift_bounds(r["Data"], turno)
                 day_type = "festivo" if _is_festive_at(start, bool(r["Festivo"])) else "feriale"
                 shift_label = f"{turno} {day_type} {'in sede' if sede else 'in smart'}"
-            hours_label = _format_minutes_label(round(float(calc.get("hours", 0)) * 60))
+            hours_label = seg.replace("h fer.", "h feriali").replace("h fest.", "h festive")
             cards.append(
                 f'<div{focus_attr} class="turni-card-small {info["class"]}">'
                 '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
