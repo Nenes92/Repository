@@ -5465,6 +5465,11 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         const extra = elapsedSeconds() * rateSec;
         monthEl.textContent = money(startMonth + extra);
         todayEl.textContent = money(startToday + extra);
+        if ({json.dumps(MOBILE_VIEW)}) {{
+          const activeShift = (isInitiallyOnShift && !ended) || shouldStart;
+          todayEl.style.fontWeight = activeShift ? "900" : "600";
+          todayEl.style.webkitTextStroke = activeShift ? "0.35px currentColor" : "0px";
+        }}
         hoursLeftEl.textContent = remainingLabel();
         if (!isInitiallyOnShift && !isOnLeave && nextShiftLabel && nextShiftLabel !== "—") {{
           shiftEl.textContent = `Prossimo: ${{nextShiftLabel}}`;
@@ -5572,10 +5577,11 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
     if MOBILE_VIEW:
         competence_label = _turni_month_label(pd.Timestamp(estimate.competence_month)).rsplit(" ", 1)[0]
         payment_label = _turni_month_label(pd.Timestamp(estimate.month)).rsplit(" ", 1)[0]
+        adjustment_color = "#f87171" if float(estimate.adjustment) < 0 else "#22d3ee"
         net_caption = (
-            f'<span style="color:#a78bfa;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span><br>'
+            f'<span style="color:#22d3ee;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span><br>'
             f'<span style="color:#60a5fa;">{html.escape(_money_turni(estimate.variables_net))} variabili</span><br>'
-            f'<span style="color:#fb923c;">{html.escape(adjustment_formula)} rettifica</span>'
+            f'<span style="color:{adjustment_color};">{html.escape(adjustment_formula)} rettifica</span>'
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
             f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
         )
