@@ -10367,15 +10367,11 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         if not data_completa_bollette.empty:
             st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
             st.markdown(f"""
-            <div class="mobile-bills-summary" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;row-gap:4px;align-items:start;margin-top:8px;">
-                <div style="line-height:1.55;min-width:0;">
-                    <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
-                    <div><b>Totale bollette {current_month_start_bol.year}:</b> <span style="color:#84B6F4;">{totale_bollette_anno:,.2f} €</span></div>
-                </div>
-                <div style="line-height:1.55;min-width:0;">
-                    <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
-                </div>
-                <div style="grid-column:1 / -1;text-align:right;line-height:1.55;white-space:nowrap;"><b>Budget mensile:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span> / <b>stimato:</b> <span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €</span></div>
+            <div class="mobile-bills-summary" style="display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:18px;row-gap:4px;align-items:start;margin-top:8px;line-height:1.55;">
+                <div style="min-width:0;"><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
+                <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+                <div style="min-width:0;"><b>Totale bollette {current_month_start_bol.year}:</b> <span style="color:#84B6F4;">{totale_bollette_anno:,.2f} €</span></div>
+                <div style="white-space:nowrap;"><b>Budget mensile:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span> / <b>stimato:</b> <span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €</span></div>
             </div>
             """, unsafe_allow_html=True)
         else:
