@@ -2534,7 +2534,7 @@ if MOBILE_VIEW:
     </style>
     """, unsafe_allow_html=True)
     _mobile_cards = [
-        ("Panoramica", "panoramica", "Stipendi", "Budget e impostazioni"),
+        ("Panoramica", "panoramica", "Home / stipendi", "Budget e impostazioni"),
         ("Spese", "spese", "Spese", "Fisse e dettaglio"),
         ("Variabili", "variabili", "Variabili", "Quote e donut"),
         ("Entrate", "entrate", "Altre entrate", "Altre entrate e obiettivi"),
@@ -2550,7 +2550,7 @@ if MOBILE_VIEW:
     <div class="mobile-home-title">Calcolatore di Spese Personali</div>
     """, unsafe_allow_html=True)
     mobile_section_labels = {
-        "Panoramica": "Stipendi",
+        "Panoramica": "Home / stipendi",
         "Spese": "Spese fisse",
         "Variabili": "Spese variabili",
         "Entrate": "Altre entrate",
