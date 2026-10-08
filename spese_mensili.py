@@ -10374,10 +10374,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 </div>
                 <div style="line-height:1.55;min-width:0;">
                     <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
-                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px;">
-                        <div><b>Budget mensile attuale</b><br><span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
-                        <div><b>Budget stimato {current_month_start_bol.year + 1}</b><br><span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €/mese</span></div>
-                    </div>
+                    <div style="margin-top:4px;font-size:clamp(9px,2.1vw,12px);white-space:nowrap;"><b>Budget mensile:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span> / <b>stimato:</b> <span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €</span></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
