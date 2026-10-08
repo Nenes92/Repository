@@ -10352,6 +10352,16 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
     saldo_bollette_color = "#77DD77" if saldo_bollette_attuale >= 0 else "#FF6961"
 
     if MOBILE_VIEW:
+        mesi_bollette = pd.to_datetime(data_bollette["Mese"], errors="coerce")
+        bollette_anno_corrente = data_bollette[
+            (mesi_bollette.dt.year == current_month_start_bol.year)
+            & (mesi_bollette <= current_month_start_bol)
+        ]
+        totale_bollette_anno = float(
+            bollette_anno_corrente[["Elettricità", "Gas", "Acqua", "Internet", "Tari"]]
+            .apply(pd.to_numeric, errors="coerce").fillna(0).sum().sum()
+        )
+        budget_bollette_stimato = totale_bollette_anno / current_month_start_bol.month
         st.markdown("---")
         st.markdown("### Storico Bollette")
         if not data_completa_bollette.empty:
@@ -10360,9 +10370,15 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             <div class="mobile-bills-summary" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start;margin-top:8px;">
                 <div style="line-height:1.55;min-width:0;">
                     <div><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
-                    <div><b>Budget mensile bollette:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+                    <div><b>Totale bollette {current_month_start_bol.year}:</b> <span style="color:#84B6F4;">{totale_bollette_anno:,.2f} €</span></div>
                 </div>
-                <div style="line-height:1.55;min-width:0;"><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+                <div style="line-height:1.55;min-width:0;">
+                    <div><b>Saldo bollette:</b> <span style="color:{saldo_bollette_color};">{saldo_bollette_attuale:,.2f} €</span></div>
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px;">
+                        <div><b>Budget mensile attuale</b><br><span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span></div>
+                        <div><b>Budget stimato {current_month_start_bol.year + 1}</b><br><span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €/mese</span></div>
+                    </div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         else:
