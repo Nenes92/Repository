@@ -2954,12 +2954,12 @@ def _render_stipendi_kpi_cards(data_stipendi):
         )
         cards = [
             ("Somma Stipendi", _s1, "#5792E8", ""),
-            ("Media Stipendi Ordinari (no spikes)", _s3, "#fb923c", ""),
-            ("Media Stipendi", _s2, "#f87171", ""),
+            ("Media Stipendi (no 13°)", _s3, "#fb923c", ""),
+            ("Media Stipendi (+13°)", _s2, "#f87171", ""),
             ("Somma Risparmi Mese Precedente", _r1, "#EF9F27", ""),
             ("Media Risparmi Mese Precedente", _r2, "#FFA040", ""),
             ("Somma Messi da Parte", _m1, "#1D9E75", universita_html),
-            ("Media Messi da Parte", _m2, "#90EE90", ""),
+            ("Media Messi da Parte al Mese", _m2, "#90EE90", ""),
         ]
         html_cards = "".join(
             (
@@ -9518,8 +9518,8 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
             <div class="mobile-salary-legend" style="display:grid;text-align:left;gap:12px;margin-top:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;">
             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi ordinari (no spikes)</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi</span>
+            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi (no 13°)</span>
+            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi (+13°)</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente</span>
@@ -9527,7 +9527,7 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
             </div>
             <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
             <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte</span>
+            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte al mese</span>
             </div></div>
             """, unsafe_allow_html=True)
         else:
