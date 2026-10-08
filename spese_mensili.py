@@ -5760,8 +5760,9 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             hours_label = _format_minutes_label(round(float(calc.get("hours", 0)) * 60))
             cards.append(
                 f'<div{focus_attr} class="turni-card-small {info["class"]}">'
-                f'<div class="date">{html.escape(date_label)}</div>'
-                f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(shift_label)}</div>'
+                '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
+                f'<div class="title" style="color:{info["color"]};min-width:0;">{html.escape(info["emoji"])} {html.escape(shift_label)}</div>'
+                f'<div class="date" style="text-align:right;white-space:nowrap;flex-shrink:0;">{html.escape(date_label)}</div></div>'
                 f'<div class="meta">{html.escape(hours_label)} · Netto stimato <strong>{html.escape(_money_turni(calc["total"]))}</strong></div>'
                 f'<div class="meta">Base <strong>{html.escape(_money_turni(calc["base"]))}</strong> · '
                 f'Magg. <strong>{html.escape(_money_turni(calc.get("premium_net", 0)))}</strong> + '
