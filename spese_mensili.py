@@ -5750,6 +5750,26 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
         data_dt = pd.to_datetime(r["Data"]).to_pydatetime()
         festivo_txt = " · festivo" if _is_italian_public_holiday(data_dt) else (" · festivo manuale" if bool(r["Festivo"]) else "")
         focus_attr = ' id="turni-focus-card"' if r["Data"] == focus_date else ""
+        if MOBILE_VIEW:
+            date_label = f"{data_dt.day:02d} {_turni_month_label(data_dt.date()).lower()}"
+            shift_label = str(turno)
+            if turno not in {"Ferie", "Riposo"}:
+                start, _ = _shift_bounds(r["Data"], turno)
+                day_type = "festivo" if _is_festive_at(start, bool(r["Festivo"])) else "feriale"
+                shift_label = f"{turno} {day_type} {'in sede' if sede else 'in smart'}"
+            hours_label = _format_minutes_label(round(float(calc.get("hours", 0)) * 60))
+            cards.append(
+                f'<div{focus_attr} class="turni-card-small {info["class"]}">'
+                f'<div class="date">{html.escape(date_label)}</div>'
+                f'<div class="title" style="color:{info["color"]};">{html.escape(info["emoji"])} {html.escape(shift_label)}</div>'
+                f'<div class="meta">{html.escape(hours_label)} · Netto stimato <strong>{html.escape(_money_turni(calc["total"]))}</strong></div>'
+                f'<div class="meta">Base <strong>{html.escape(_money_turni(calc["base"]))}</strong> · '
+                f'Magg. <strong>{html.escape(_money_turni(calc.get("premium_net", 0)))}</strong> + '
+                f'Indenn. <strong>{html.escape(_money_turni(calc.get("allowance_net", 0)))}</strong> + '
+                f'Straord. <strong>{html.escape(_money_turni(calc.get("overtime_net", 0)))}</strong></div>'
+                '</div>'
+            )
+            continue
         cards.append(
             f'<div{focus_attr} class="turni-card-small {info["class"]}">'
             f'<div class="date">{html.escape(str(r["Data"]))}{festivo_txt}</div>'
