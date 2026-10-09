@@ -2097,7 +2097,7 @@ if MOBILE_VIEW:
         box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-section-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22);
         color: #ffffff !important;
     }
-    .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; font-size:11px; }
+    .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; font-size:12px; }
     .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
     .mobile-section-link.variabili { --mobile-section-color:#f59e0b; grid-column:5; grid-row:1; }
     .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
@@ -2539,7 +2539,7 @@ if MOBILE_VIEW:
     </style>
     """, unsafe_allow_html=True)
     _mobile_cards = [
-        ("Panoramica", "panoramica", "Home / stipendi", "Budget e impostazioni"),
+        ("Panoramica", "panoramica", "Home / Stipendi", "Budget e impostazioni"),
         ("Spese", "spese", "Spese", "Fisse e dettaglio"),
         ("Variabili", "variabili", "Variabili", "Quote e donut"),
         ("Entrate", "entrate", "Altre entrate", "Altre entrate e obiettivi"),
@@ -2555,7 +2555,7 @@ if MOBILE_VIEW:
     <div class="mobile-home-title">Calcolatore di Spese Personali</div>
     """, unsafe_allow_html=True)
     mobile_section_labels = {
-        "Panoramica": "Home / stipendi",
+        "Panoramica": "Home / Stipendi",
         "Spese": "Spese fisse",
         "Variabili": "Spese variabili",
         "Entrate": "Altre entrate",
