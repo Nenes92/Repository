@@ -2097,7 +2097,7 @@ if MOBILE_VIEW:
         box-shadow: 0 0 0 1px color-mix(in srgb, var(--mobile-section-color, #60a5fa) 48%, transparent), 0 10px 22px rgba(0,0,0,.22);
         color: #ffffff !important;
     }
-    .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; }
+    .mobile-section-link.panoramica { --mobile-section-color:#38bdf8; grid-column:1 / span 2; grid-row:1; font-size:11px; }
     .mobile-section-link.spese { --mobile-section-color:#f87171; grid-column:4; grid-row:1; }
     .mobile-section-link.variabili { --mobile-section-color:#f59e0b; grid-column:5; grid-row:1; }
     .mobile-section-link.entrate { --mobile-section-color:#34d399; grid-column:7; grid-row:1; }
