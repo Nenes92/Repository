@@ -181,3 +181,36 @@ def test_live_counter_clamps_invalid_inputs():
         variable_coefficient=2.0,
     )
     assert value == pytest.approx(10.0)
+
+
+def test_net_allowances_are_added_without_conversion(rules):
+    rules["indennita_nette"] = True
+    breakdown = calculate_month_variables([Shift(date(2026, 10, 11), "Mattina")], rules)
+    assert breakdown.allowances_gross == 0
+    assert breakdown.allowances_net == rules["ind_m_p_festivo"]
+    estimate = estimate_payslip("2026-11", {"2026-10": breakdown}, rules)
+    expected = breakdown.premiums_gross * rules["coefficiente_netto_variabili"] + breakdown.allowances_net
+    assert estimate.variables_net == pytest.approx(expected)
+    assert estimate.credited_net == pytest.approx(rules["netto_fisso_mensile"] + expected + rules["rettifica_mensile"])
+
+
+def test_net_allowances_preserve_mobile_weekend_eligibility(rules):
+    rules["indennita_nette"] = True
+    weekday = calculate_shift_variables(Shift(date(2026, 10, 9), "Mattina"), rules)
+    saturday = calculate_shift_variables(Shift(date(2026, 10, 10), "Mattina"), rules)
+    assert weekday.allowances_net == 0
+    assert saturday.allowances_net == rules["ind_m_p_feriale"]
+
+
+def test_calibration_subtracts_already_net_allowances(rules):
+    variables = {
+        "2026-06": VariableBreakdown(premiums_gross=100, allowances_net=20),
+        "2026-07": VariableBreakdown(premiums_gross=200, allowances_net=40),
+        "2026-08": VariableBreakdown(premiums_gross=300, allowances_net=90),
+    }
+    salaries = {"2026-07": 2080, "2026-08": 2160, "2026-09": 2270}
+    result = calibrate(salaries, variables, adjustments={}, recency_months=None)
+    assert result.fixed_net == pytest.approx(2000)
+    assert result.variable_coefficient == pytest.approx(.6)
+    assert result.mean_absolute_error == pytest.approx(0)
+    assert [r.estimated_net for r in result.rows] == pytest.approx(list(salaries.values()))

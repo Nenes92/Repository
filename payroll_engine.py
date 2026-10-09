@@ -2,7 +2,8 @@
 
 The ordinary salary is represented by a configurable monthly net amount.
 Only variable components (shift premiums, allowances and overtime) are
-calculated from the contractual gross hourly rate.
+calculated from the contractual gross hourly rate. Already-net allowances
+can be kept separate through the indennita_nette rule (used by the mobile UI).
 """
 
 from __future__ import annotations
@@ -69,6 +70,7 @@ class VariableBreakdown:
     meal_vouchers: float = 0.0
     premium_hours: Mapping[float, float] = field(default_factory=dict)
     overtime_hours: Mapping[float, float] = field(default_factory=dict)
+    allowances_net: float = 0.0
 
     @property
     def variables_gross(self) -> float:
@@ -189,6 +191,9 @@ def shift_allowance(shift: Shift, rules: Mapping[str, float]) -> float:
         return 0.0
     start, _ = _bounds(shift)
     festive = is_holiday(start, shift.forced_holiday)
+    # Mobile allowances keep the same eligible days as the live shift calculation.
+    if rules.get("indennita_nette", False) and not festive and start.weekday() != 5:
+        return 0.0
     if shift.kind == "Notte":
         return rules["ind_notte_festiva"] if festive else rules["ind_notte_feriale"]
     return rules["ind_m_p_festivo"] if festive else rules["ind_m_p_feriale"]
@@ -239,7 +244,8 @@ def calculate_shift_variables(shift: Shift, rules: Mapping[str, float]) -> Varia
             meal = float(rules.get("buono_pasto", 0.0))
     return VariableBreakdown(
         premiums_gross=premiums,
-        allowances_gross=shift_allowance(shift, rules),
+        allowances_gross=0.0 if rules.get("indennita_nette", False) else shift_allowance(shift, rules),
+        allowances_net=shift_allowance(shift, rules) if rules.get("indennita_nette", False) else 0.0,
         overtime_gross=overtime,
         meal_vouchers=meal,
         premium_hours=premium_hours,
@@ -250,18 +256,19 @@ def calculate_shift_variables(shift: Shift, rules: Mapping[str, float]) -> Varia
 def calculate_month_variables(shifts: Iterable[Shift], rules: Mapping[str, float]) -> VariableBreakdown:
     premium_hours: dict[float, float] = {}
     overtime_hours: dict[float, float] = {}
-    premiums = allowances = overtime = vouchers = 0.0
+    premiums = allowances = overtime = vouchers = allowances_net = 0.0
     for shift in shifts:
         item = calculate_shift_variables(shift, rules)
         premiums += item.premiums_gross
         allowances += item.allowances_gross
+        allowances_net += item.allowances_net
         overtime += item.overtime_gross
         vouchers += item.meal_vouchers
         for pct, hours in item.premium_hours.items():
             premium_hours[pct] = premium_hours.get(pct, 0.0) + hours
         for pct, hours in item.overtime_hours.items():
             overtime_hours[pct] = overtime_hours.get(pct, 0.0) + hours
-    return VariableBreakdown(premiums, allowances, overtime, vouchers, premium_hours, overtime_hours)
+    return VariableBreakdown(premiums, allowances, overtime, vouchers, premium_hours, overtime_hours, allowances_net)
 
 
 def estimate_payslip(
@@ -281,7 +288,7 @@ def estimate_payslip(
         if adjustments is not None
         else rules.get("rettifica_mensile", 0.0)
     )
-    variables_net = breakdown.variables_gross * coefficient
+    variables_net = breakdown.variables_gross * coefficient + breakdown.allowances_net
     credited = fixed + variables_net + adjustment
     spread = max(0.0, float(uncertainty))
     return PayslipEstimate(
@@ -326,14 +333,14 @@ def calibrate(
     adjustments: Mapping[str, float] | None = None,
     recency_months: int | None = 12,
 ) -> CalibrationResult:
-    """Fit actual_net - adjustment = fixed_net + coefficient * previous variables.
+    """Fit actual_net - adjustment - net allowances = fixed + coefficient * gross.
 
     Obvious exceptional months are excluded with a robust median/MAD rule. By
     default only the latest 12 calendar months are fitted, so contractual pay
     growth is not diluted by older salary levels. Older rows remain visible and
     can still be included manually.
     """
-    candidates: list[tuple[str, str, float, float, float]] = []
+    candidates: list[tuple[str, str, float, float, float, float]] = []
     for month, actual in sorted(salaries.items()):
         variables_month = add_months(month, -delay)
         if variables_month in variables_by_month and float(actual) > 0:
@@ -344,10 +351,11 @@ def calibrate(
                 float(actual),
                 adjustment,
                 variables_by_month[variables_month].variables_gross,
+                variables_by_month[variables_month].allowances_net,
             ))
     if len(candidates) < 2:
         raise ValueError("Servono almeno due mensilità abbinate per calibrare il modello.")
-    actuals = sorted(item[2] - item[3] for item in candidates)
+    actuals = sorted(item[2] - item[3] - item[5] for item in candidates)
     median = actuals[len(actuals) // 2]
     deviations = sorted(abs(value - median) for value in actuals)
     mad = deviations[len(deviations) // 2] or max(1.0, median * 0.05)
@@ -358,8 +366,8 @@ def calibrate(
     use_recency_window = window_months > 0 and len(recent_candidates) >= 2
     included_flags: list[bool] = []
     reasons: list[str] = []
-    for month, _, actual, adjustment, _ in candidates:
-        normalized_actual = actual - adjustment
+    for month, _, actual, adjustment, _, net_allowance in candidates:
+        normalized_actual = actual - adjustment - net_allowance
         ordinary = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
         recent = not use_recency_window or month >= window_start
         automatic = ordinary and recent
@@ -376,7 +384,7 @@ def calibrate(
     if len(selected) < 2:
         raise ValueError("Servono almeno due mensilità incluse per calibrare il modello.")
     xs = [row[4] for row in selected]
-    ys = [row[2] - row[3] for row in selected]
+    ys = [row[2] - row[3] - row[5] for row in selected]
     x_mean, y_mean = mean(xs), mean(ys)
     denominator = sum((x - x_mean) ** 2 for x in xs)
     coefficient = 0.60 if denominator <= 1e-12 else sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / denominator
@@ -393,12 +401,12 @@ def calibrate(
             actual_net=actual,
             adjustment=adjustment,
             variables_gross=variables,
-            estimated_net=fixed + coefficient * variables + adjustment,
-            absolute_error=abs(actual - (fixed + coefficient * variables + adjustment)),
-            percentage_error=(abs(actual - (fixed + coefficient * variables + adjustment)) / actual * 100) if actual else None,
+            estimated_net=fixed + coefficient * variables + adjustment + net_allowance,
+            absolute_error=abs(actual - (fixed + coefficient * variables + adjustment + net_allowance)),
+            percentage_error=(abs(actual - (fixed + coefficient * variables + adjustment + net_allowance)) / actual * 100) if actual else None,
             included=included,
             exclusion_reason="" if included else reason,
         )
-        for (month, variables_month, actual, adjustment, variables), included, reason in zip(candidates, included_flags, reasons)
+        for (month, variables_month, actual, adjustment, variables, net_allowance), included, reason in zip(candidates, included_flags, reasons)
     )
     return CalibrationResult(fixed, coefficient, mae, fixed - margin, fixed + margin, rows)

@@ -3751,6 +3751,7 @@ def _payroll_v2_rules(rules):
     )
     if migrated["paga_oraria_lorda"] <= 0:
         migrated["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
+    migrated["indennita_nette"] = bool(MOBILE_VIEW)
     return migrated
 
 
@@ -4279,16 +4280,19 @@ def compute_turno_net_estimate(
         + float(gross.get("indennita", 0.0))
         + float(overtime.get("total", 0.0))
     )
+    net_allowance = float(gross.get("indennita", 0.0)) if MOBILE_VIEW else 0.0
+    if MOBILE_VIEW:
+        variable_gross -= net_allowance
     coefficient = float(rules.get("coefficiente_netto_variabili", 0.60))
     premium_net = regular_premium_gross * coefficient
-    allowance_net = float(gross.get("indennita", 0.0)) * coefficient
+    allowance_net = net_allowance if MOBILE_VIEW else float(gross.get("indennita", 0.0)) * coefficient
     overtime_net = float(overtime.get("total", 0.0)) * coefficient
     total_net = estimate_live_net_accrual(
         regular_hours,
         ordinary_net_hourly,
         variable_gross,
         coefficient,
-    )
+    ) + net_allowance
     rate_min = 0.0
     gross_rate_min = float(gross.get("rate_min", 0.0))
     if gross_rate_min > 0:
@@ -4299,7 +4303,7 @@ def compute_turno_net_estimate(
         **gross,
         "total": total_net,
         "base": regular_hours * ordinary_net_hourly,
-        "extra": variable_gross * coefficient,
+        "extra": variable_gross * coefficient + net_allowance,
         "rate_min": rate_min,
         "variable_gross": variable_gross,
         "premium_net": premium_net,
@@ -4472,6 +4476,7 @@ def compute_turni_dashboard(df_turni, rules):
         "ferie_days_total": ferie_days_total,
         "monthly_adjustments": monthly_adjustments,
         "buoni_pasto_total": buoni_pasto_total,
+        "buoni_pasto_days": int(month_report.get("buoni_pasto_days", 0)),
         "fixed_net": float(payroll_v2.fixed_net),
         "variables_gross": float(payroll_v2.variables_gross),
         "variables_net": float(payroll_v2.variables_net),
@@ -4528,6 +4533,23 @@ def _segmenti_turno(data_str, turno, forced_festivo):
     if festivi > 0:
         parts.append(f"{festivi:.0f}h fest.")
     return " / ".join(parts) if parts else "—"
+
+
+def _turni_premium_net_parts(data_str, turno, forced_festivo, rules):
+    """Ripartisce la maggiorazione ordinaria netta nelle percentuali effettive."""
+    if turno in {"Ferie", "Riposo", "Giornata"}:
+        return {}
+    start, end = _shift_bounds(data_str, turno)
+    hourly = float(rules.get("paga_oraria_lorda", rules.get("paga_oraria", 0)))
+    coefficient = float(rules.get("coefficiente_netto_variabili", 0.60))
+    amounts = {}
+    cursor = start
+    while cursor < end:
+        nxt = min(cursor + timedelta(minutes=1), end)
+        pct = _pct_for_turno(turno, cursor, forced_festivo, rules)
+        amounts[pct] = amounts.get(pct, 0.0) + hourly * pct / 100 * (nxt - cursor).total_seconds() / 3600 * coefficient
+        cursor = nxt
+    return amounts
 
 
 def _add_months_turni(date_value, months):
@@ -5216,7 +5238,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         month_days_html = (
             '<div class="turni-subline" style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">'
             f'<span>Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}</span>'
-            f'<span>Sedi: {int(stats.get("sede_days_total", 0))} · B.P.: {_money_turni(stats.get("buoni_pasto_total", 0))}</span></div>'
+            f'<span>Sedi: {int(stats.get("sede_days_total", 0))} · bp: {int(stats.get("buoni_pasto_days", 0))} = {_money_turni(stats.get("buoni_pasto_total", 0))}</span></div>'
         )
         upcoming_detail_html = (
             '<div class="turni-subline" style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">'
@@ -5628,7 +5650,7 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                  f'<span style="color:#60a5fa;opacity:.55;">{html.escape(_money_turni(amount))}</span>'
                  for label, amount in (
                      ("Maggiorazioni", estimate.breakdown.premiums_gross),
-                     ("Indennità", estimate.breakdown.allowances_gross),
+                     ("Indennità", estimate.breakdown.allowances_net),
                      ("Straordinari", estimate.breakdown.overtime_gross),
                  )
              ),
@@ -5758,14 +5780,19 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
                 day_type = "festivo" if _is_festive_at(start, bool(r["Festivo"])) else "feriale"
                 shift_label = f"{turno} {day_type} {'in sede' if sede else 'in smart'}"
             hours_label = seg.replace("h fer.", "h feriali").replace("h fest.", "h festive")
+            premium_parts = _turni_premium_net_parts(r["Data"], turno, bool(r["Festivo"]), rules)
+            premium_html = "".join(
+                f' + {pct:g}% = <strong>{html.escape(_money_turni(amount))}</strong>'
+                for pct, amount in premium_parts.items()
+            )
             cards.append(
                 f'<div{focus_attr} class="turni-card-small {info["class"]}">'
                 '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
                 f'<div class="title" style="color:{info["color"]};min-width:0;">{html.escape(info["emoji"])} {html.escape(shift_label)}</div>'
                 f'<div class="date" style="text-align:right;white-space:nowrap;flex-shrink:0;">{html.escape(date_label)}</div></div>'
                 f'<div class="meta">{html.escape(hours_label)} · Netto stimato <strong>{html.escape(_money_turni(calc["total"]))}</strong></div>'
-                f'<div class="meta">Base <strong>{html.escape(_money_turni(calc["base"]))}</strong> · '
-                f'Magg. <strong>{html.escape(_money_turni(calc.get("premium_net", 0)))}</strong> + '
+                f'<div class="meta">Base <strong>{html.escape(_money_turni(calc["base"]))}</strong>'
+                f'{premium_html} + '
                 f'Indenn. <strong>{html.escape(_money_turni(calc.get("allowance_net", 0)))}</strong> + '
                 f'Straord. <strong>{html.escape(_money_turni(calc.get("overtime_net", 0)))}</strong></div>'
                 '</div>'
@@ -6068,6 +6095,7 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
         .turni-report-lists {{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }}
         .turni-report-list {{ padding:8px 7px; }}
         .turni-report-list h4 {{ font-size:11px; }}
+        {'.turni-report-list div:has(h4) { border-top:0 !important; padding-top:0 !important; }' if MOBILE_VIEW else ''}
         .turni-report-list div {{ font-size:9px; gap:4px; }}
       }}
     </style>
@@ -6488,7 +6516,7 @@ def render_turni_guadagni_section():
                 step=0.01,
                 format="%.5f",
                 key="turni_paga_lorda",
-                help="Serve solo a calcolare maggiorazioni, indennità e straordinari lordi.",
+                help=("Serve a calcolare maggiorazioni e straordinari lordi; le indennità sono già nette." if MOBILE_VIEW else "Serve solo a calcolare maggiorazioni, indennità e straordinari lordi."),
             )
         with v2_row_1[1]:
             rules["netto_fisso_mensile"] = st.number_input(
