@@ -11,6 +11,11 @@ import time
 import io
 import html
 import urllib.request
+import importlib
+import payroll_engine as _payroll_engine
+# Streamlit reruns the app after a deploy but can retain an imported helper module.
+if "allowances_net" not in _payroll_engine.VariableBreakdown.__dataclass_fields__:
+    importlib.reload(_payroll_engine)
 from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
     Shift as PayrollShift,
