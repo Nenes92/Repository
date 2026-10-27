@@ -3970,6 +3970,12 @@ def _render_saved_mobile_calibration(snapshot):
         })
     margin = max(0., (result.confidence_high - result.confidence_low) / 2)
     st.markdown(_mobile_calibration_result_html(result, margin), unsafe_allow_html=True)
+    rules = get_turni_rules()
+    with st.expander("Parametri del cedolino · sola lettura"):
+        st.markdown(
+            f"**Paga oraria lorda:** {_money_turni(rules['paga_oraria_lorda'])}/h · "
+            f"**Ritardo variabili:** {int(rules['ritardo_competenze_mesi'])} mesi · "
+            f"**Finestra calibrazione:** {int(rules['finestra_calibrazione_mesi'])} mesi")
 
 
 @st.fragment
@@ -4084,7 +4090,13 @@ def _apply_turni_rules_from_widgets(rules):
         "turni_ind_mp_fe": "ind_m_p_festivo",
         "turni_ind_n_fe": "ind_notte_festiva",
     }
+    managed_parameters = {"paga_oraria_lorda", "netto_fisso_mensile", "coefficiente_netto_variabili",
+                          "ritardo_competenze_mesi", "finestra_calibrazione_mesi"}
     for widget_key, rule_key in widget_to_rule.items():
+        # Widget di una sessione precedente al deploy non devono prevalere
+        # sui parametri salvati/applicati dalla calibrazione nella vista mobile.
+        if globals().get("MOBILE_VIEW", False) and rule_key in managed_parameters:
+            continue
         if widget_key in st.session_state:
             rules[rule_key] = float(st.session_state[widget_key])
     rules["paga_oraria"] = float(rules.get("paga_oraria_lorda", rules["paga_oraria"]))
@@ -6396,6 +6408,172 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
     """, unsafe_allow_html=True)
 
 
+def _mobile_contract_rules_html(rules):
+    groups = [
+        ("Maggiorazioni", "#93c5fd", [
+            ("M/P feriale", "m_p_feriale_pct", "%"),
+            ("M/P festivo 06–18", "m_p_festivo_giorno_pct", "%"),
+            ("Notte feriale", "notte_feriale_pct", "%"),
+            ("Festivo sera/notte", "festivo_sera_notte_pct", "%")]),
+        ("Indennità nette", "#7dd3fc", [
+            ("M/P feriale", "ind_m_p_feriale", "€"),
+            ("Notte feriale", "ind_notte_feriale", "€"),
+            ("M/P festivo", "ind_m_p_festivo", "€"),
+            ("Notte festiva", "ind_notte_festiva", "€")]),
+        ("Straordinari · feriale / festivo", "#c084fc", [
+            ("Mattina", ("stra_mattina_feriale_pct", "stra_mattina_festivo_pct"), "%"),
+            ("Pomeriggio", ("stra_pomeriggio_feriale_pct", "stra_pomeriggio_festivo_pct"), "%"),
+            ("Notte", ("stra_notte_feriale_pct", "stra_notte_festivo_pct"), "%")]),
+        ("Sede e buoni pasto", "#34d399", [
+            ("Buono pasto", "buono_pasto", "€"),
+            ("Smart al mese", "smart_target", "giorni")]),
+    ]
+    cards = []
+    for title, color, fields in groups:
+        rows = []
+        for label, key, unit in fields:
+            if isinstance(key, tuple):
+                value = " / ".join(f"{float(rules[k]):g}%" for k in key)
+            elif unit == "€":
+                value = _money_turni(rules[key])
+            else:
+                value = f"{float(rules[key]):g}{'%' if unit == '%' else ' giorni'}"
+            rows.append(f'<div class="contract-rule-row"><span>{html.escape(label)}</span>'
+                        f'<b style="color:{color};">{html.escape(value)}</b></div>')
+        cards.append(f'<div class="contract-rule-card"><div class="contract-rule-title" style="color:{color};">'
+                     f'{html.escape(title)}</div>{"".join(rows)}</div>')
+    return """<style>
+      div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) {
+        display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;align-items:start !important;
+      }
+      div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) > div[data-testid="stColumn"] {
+        width:auto !important;min-width:0 !important;max-width:100% !important;flex:initial !important;
+      }
+      div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {display:none !important;}
+      .contract-rule-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0 8px;}
+      .contract-rule-card {min-width:0;padding:10px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);}
+      .contract-rule-title {font-size:12px;font-weight:750;margin-bottom:6px;}
+      .contract-rule-row {display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:11px;line-height:1.7;color:#94a3b8;}
+      .contract-rule-row b {white-space:nowrap;font-weight:650;}
+    </style><div class="contract-rule-grid">""" + "".join(cards) + "</div>"
+
+
+def _render_mobile_turni_rules(rules, selected_month):
+    month_key = selected_month.strftime("%Y-%m")
+    with st.expander("Festività automatiche nel cedolino", expanded=False):
+        rules["festivita_automatiche"] = float(st.checkbox(
+            "Prevedi festività di domenica e 4 novembre",
+            value=bool(rules.get("festivita_automatiche", 1)), key="turni_festivita_attive"))
+        rules["festivita_quota_lorda"] = st.number_input(
+            "Quota lorda per festività (€)", min_value=0.0,
+            value=float(rules.get("festivita_quota_lorda", 119.90)), step=1.0, key="turni_festivita_quota")
+        rules["festivita_ritardo_mesi"] = st.number_input(
+            "Pagamento festività: ritardo in mesi", min_value=0, max_value=3,
+            value=int(rules.get("festivita_ritardo_mesi", 0)), key="turni_festivita_ritardo")
+        rules["patrono_mese"] = st.number_input(
+            "Mese Santo Patrono (0 = non impostato)", min_value=0, max_value=12,
+            value=int(rules.get("patrono_mese", 0)), key="turni_patrono_mese")
+        rules["patrono_giorno"] = st.number_input(
+            "Giorno Santo Patrono (0 = non impostato)", min_value=0, max_value=31,
+            value=int(rules.get("patrono_giorno", 0)), key="turni_patrono_giorno")
+        if not rules["patrono_mese"] or not rules["patrono_giorno"]:
+            st.caption("Santo Patrono non incluso finché non viene impostata la data.")
+        annual_holidays = paid_holidays(
+            selected_month.year, rules["festivita_quota_lorda"],
+            int(rules["patrono_mese"]), int(rules["patrono_giorno"]))
+        st.dataframe(pd.DataFrame([{
+            "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
+            "Importo lordo": event.gross,
+        } for event in annual_holidays]), hide_index=True, use_container_width=True)
+    adjustment_rows = load_payroll_adjustments()
+    selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
+    st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
+    v2_row_3 = st.columns(2)
+    with v2_row_3[0]:
+        st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+        monthly_adjustment = st.number_input(
+            "Importo netto (+ rimborso / − trattenuta)",
+            value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
+            step=10.0,
+            key=f"turni_rettifica_mese::{month_key}",
+            help="Importo netto: 730, premi, arretrati o trattenute del mese selezionato.",
+        )
+    with v2_row_3[1]:
+        monthly_adjustment_note = st.text_input(
+            "Descrizione",
+            value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
+            key=f"turni_rettifica_nota::{month_key}",
+            placeholder="es. rimborso 730",
+        )
+    if st.button(
+        f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
+        key=f"save_payroll_adjustment::{month_key}",
+        use_container_width=True,
+    ):
+        if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
+            st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
+            st.rerun()
+        else:
+            st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
+    st.markdown(_mobile_contract_rules_html(rules), unsafe_allow_html=True)
+    with st.expander("Modifica regole contrattuali", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="margin:0 0 12px; padding-top:0;">
+              <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            rules["quota_fissa_mensile"] = 0.0
+            rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
+            rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
+            rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
+            rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#c084fc;">Straordinari</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            stra_cols = st.columns(2)
+            with stra_cols[0]:
+                rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
+                rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
+                rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
+            with stra_cols[1]:
+                rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
+                rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
+                rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
+        with c2:
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="margin:0 0 12px; padding-top:0;">
+              <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
+            rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
+            rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
+            rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
+            st.markdown("""
+            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+              <h5 style="margin:0;color:#34d399;">Sede e buoni pasto</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
+            rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
+    if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+        rules = _apply_turni_rules_from_widgets(rules)
+        if save_turni_rules(rules):
+            st.success("Regole salvate nel foglio Google “Regole Turni”.")
+        else:
+            st.error("Non sono riuscito a salvare le regole su Google Sheets.")
+
+    st.session_state.turni_rules = rules
+
+
 def render_turni_guadagni_section():
     rules = get_turni_rules()
     rules = _apply_turni_rules_from_widgets(rules)
@@ -6749,247 +6927,250 @@ def render_turni_guadagni_section():
             st.warning("Modifiche turni in bozza: Google Sheets non ha confermato il salvataggio.")
 
     with tab_rules:
-        # I parametri che governano il cedolino sono raggruppati qui,
-        # prima delle regole tecniche dei turni, per essere immediatamente
-        # individuabili anche da smartphone.
-        if float(rules.get("paga_oraria_lorda", 0.0)) <= 0:
-            rules["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
-            rules["paga_oraria"] = rules["paga_oraria_lorda"]
-            if "turni_paga_lorda" in st.session_state:
-                st.session_state["turni_paga_lorda"] = rules["paga_oraria_lorda"]
-        st.markdown("""
-        <div style="
-            margin:0 0 12px;
-            padding:12px 14px;
-            border:1px solid rgba(52,211,153,.30);
-            border-radius:14px;
-            background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(59,130,246,.08));
-        ">
-          <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.58);margin-top:4px;">
-            Questi parametri determinano la previsione. La rettifica è salvata sul singolo mese del cedolino.
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <style>
-        div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) {
-          display:grid !important;
-          grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-          gap:8px !important;
-          align-items:start !important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
-          > div[data-testid="stColumn"] {
-          width:auto !important; min-width:0 !important; max-width:100% !important;
-          flex:initial !important;
-        }
-        div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {
-          display:none !important;
-        }
-        @media (max-width:767px) {
-          div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
-            [data-testid="stNumberInput"] label p { font-size:10px !important; }
-          div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
-            [data-testid="stNumberInput"] input { font-size:13px !important; }
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        v2_row_1 = st.columns(2)
-        with v2_row_1[0]:
-            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
-            rules["paga_oraria_lorda"] = st.number_input(
-                "Paga oraria lorda contrattuale",
-                min_value=0.01,
-                value=float(rules.get("paga_oraria_lorda", 18.01988)),
-                step=0.01,
-                format="%.5f",
-                key="turni_paga_lorda",
-                help=("Serve a calcolare maggiorazioni e straordinari lordi; le indennità sono già nette." if MOBILE_VIEW else "Serve solo a calcolare maggiorazioni, indennità e straordinari lordi."),
-            )
-        with v2_row_1[1]:
-            rules["netto_fisso_mensile"] = st.number_input(
-                "Netto fisso mensile",
-                min_value=0.0,
-                value=float(rules.get("netto_fisso_mensile", 2200.0)),
-                step=10.0,
-                key="turni_netto_fisso",
-                help="La parte ordinaria netta che non dipende dalle ore del mese.",
-            )
-        v2_row_2 = st.columns(3)
-        with v2_row_2[0]:
-            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
-            rules["coefficiente_netto_variabili"] = st.number_input(
-                "Coefficiente netto variabili",
-                min_value=0.0,
-                max_value=1.0,
-                value=float(rules.get("coefficiente_netto_variabili", 0.60)),
-                step=0.01,
-                key="turni_coeff_variabili",
-                help="Trasforma le variabili lorde in una stima netta.",
-            )
-        with v2_row_2[1]:
-            rules["ritardo_competenze_mesi"] = st.number_input(
-                "Ritardo competenze (mesi)",
-                min_value=0,
-                max_value=3,
-                value=int(round(rules.get("ritardo_competenze_mesi", 1))),
-                step=1,
-                key="turni_ritardo_competenze",
-                help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
-            )
-        with v2_row_2[2]:
-            rules["finestra_calibrazione_mesi"] = st.number_input(
-                "Finestra calibrazione (mesi)",
-                min_value=3,
-                max_value=36,
-                value=int(round(rules.get("finestra_calibrazione_mesi", 12))),
-                step=1,
-                key="turni_finestra_calibrazione",
-                help="Dà priorità al livello retributivo recente: i mesi più vecchi restano visibili ma sono esclusi automaticamente dal fit.",
-            )
         if MOBILE_VIEW:
-            with st.expander("Festività automatiche nel cedolino", expanded=False):
-                rules["festivita_automatiche"] = float(st.checkbox(
-                    "Prevedi festività di domenica e 4 novembre",
-                    value=bool(rules.get("festivita_automatiche", 1)), key="turni_festivita_attive"))
-                rules["festivita_quota_lorda"] = st.number_input(
-                    "Quota lorda per festività (€)", min_value=0.0,
-                    value=float(rules.get("festivita_quota_lorda", 119.90)), step=1.0, key="turni_festivita_quota")
-                rules["festivita_ritardo_mesi"] = st.number_input(
-                    "Pagamento festività: ritardo in mesi", min_value=0, max_value=3,
-                    value=int(rules.get("festivita_ritardo_mesi", 0)), key="turni_festivita_ritardo")
-                rules["patrono_mese"] = st.number_input(
-                    "Mese Santo Patrono (0 = non impostato)", min_value=0, max_value=12,
-                    value=int(rules.get("patrono_mese", 0)), key="turni_patrono_mese")
-                rules["patrono_giorno"] = st.number_input(
-                    "Giorno Santo Patrono (0 = non impostato)", min_value=0, max_value=31,
-                    value=int(rules.get("patrono_giorno", 0)), key="turni_patrono_giorno")
-                st.caption("Quota iniziale dal tuo cedolino: 119,90 € lordi. Il netto è stimato con il coefficiente variabili. Salva con le altre regole. Non inserire nuovamente queste voci nella rettifica.")
-                if not rules["patrono_mese"] or not rules["patrono_giorno"]:
-                    st.caption("Santo Patrono non incluso finché non viene impostata la data.")
-                annual_holidays = paid_holidays(
-                    selected_month.year, rules["festivita_quota_lorda"],
-                    int(rules["patrono_mese"]), int(rules["patrono_giorno"]))
-                st.dataframe(pd.DataFrame([{
-                    "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
-                    "Importo lordo": event.gross,
-                } for event in annual_holidays]), hide_index=True, use_container_width=True)
-        adjustment_rows = load_payroll_adjustments()
-        selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
-        st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
-        v2_row_3 = st.columns(2)
-        with v2_row_3[0]:
-            st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
-            monthly_adjustment = st.number_input(
-                "Importo netto (+ rimborso / − trattenuta)",
-                value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
-                step=10.0,
-                key=f"turni_rettifica_mese::{month_key}",
-                help="Importo netto: 730, premi, arretrati o trattenute del mese selezionato.",
-            )
-        with v2_row_3[1]:
-            monthly_adjustment_note = st.text_input(
-                "Descrizione",
-                value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
-                key=f"turni_rettifica_nota::{month_key}",
-                placeholder="es. rimborso 730",
-            )
-        if st.button(
-            f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
-            key=f"save_payroll_adjustment::{month_key}",
-            use_container_width=True,
-        ):
-            if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
-                st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
-                st.rerun()
-            else:
-                st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
-        rules["paga_oraria"] = rules["paga_oraria_lorda"]
-        st.caption(
-            "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
-            "2.200 €, coefficiente 0,60 e ritardo 1 mese."
-        )
-        st.info(
-            "Per correggere un cedolino passato, torna al suo mese con le frecce del "
-            "calendario e salva qui l’importo esatto: positivo se aumenta il netto, "
-            "negativo se lo riduce. La calibrazione sottrae la rettifica prima di "
-            "imparare fisso e coefficiente, quindi quel mese può restare incluso."
-        )
-        st.markdown("---")
-
-        c1, c2 = st.columns(2)
-        with c1:
+            _render_mobile_turni_rules(rules, selected_month)
+        else:
+            # I parametri che governano il cedolino sono raggruppati qui,
+            # prima delle regole tecniche dei turni, per essere immediatamente
+            # individuabili anche da smartphone.
+            if float(rules.get("paga_oraria_lorda", 0.0)) <= 0:
+                rules["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
+                rules["paga_oraria"] = rules["paga_oraria_lorda"]
+                if "turni_paga_lorda" in st.session_state:
+                    st.session_state["turni_paga_lorda"] = rules["paga_oraria_lorda"]
+            st.markdown("""
+            <div style="
+                margin:0 0 12px;
+                padding:12px 14px;
+                border:1px solid rgba(52,211,153,.30);
+                border-radius:14px;
+                background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(59,130,246,.08));
+            ">
+              <div style="font-size:15px;font-weight:900;color:#6ee7b7;">🧾 Parametri cedolino</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.58);margin-top:4px;">
+                Questi parametri determinano la previsione. La rettifica è salvata sul singolo mese del cedolino.
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+            div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) {
+              display:grid !important;
+              grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+              gap:8px !important;
+              align-items:start !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+              > div[data-testid="stColumn"] {
+              width:auto !important; min-width:0 !important; max-width:100% !important;
+              flex:initial !important;
+            }
+            div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {
+              display:none !important;
+            }
+            @media (max-width:767px) {
+              div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+                [data-testid="stNumberInput"] label p { font-size:10px !important; }
+              div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker)
+                [data-testid="stNumberInput"] input { font-size:13px !important; }
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            v2_row_1 = st.columns(2)
+            with v2_row_1[0]:
+                st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+                rules["paga_oraria_lorda"] = st.number_input(
+                    "Paga oraria lorda contrattuale",
+                    min_value=0.01,
+                    value=float(rules.get("paga_oraria_lorda", 18.01988)),
+                    step=0.01,
+                    format="%.5f",
+                    key="turni_paga_lorda",
+                    help=("Serve a calcolare maggiorazioni e straordinari lordi; le indennità sono già nette." if MOBILE_VIEW else "Serve solo a calcolare maggiorazioni, indennità e straordinari lordi."),
+                )
+            with v2_row_1[1]:
+                rules["netto_fisso_mensile"] = st.number_input(
+                    "Netto fisso mensile",
+                    min_value=0.0,
+                    value=float(rules.get("netto_fisso_mensile", 2200.0)),
+                    step=10.0,
+                    key="turni_netto_fisso",
+                    help="La parte ordinaria netta che non dipende dalle ore del mese.",
+                )
+            v2_row_2 = st.columns(3)
+            with v2_row_2[0]:
+                st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+                rules["coefficiente_netto_variabili"] = st.number_input(
+                    "Coefficiente netto variabili",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=float(rules.get("coefficiente_netto_variabili", 0.60)),
+                    step=0.01,
+                    key="turni_coeff_variabili",
+                    help="Trasforma le variabili lorde in una stima netta.",
+                )
+            with v2_row_2[1]:
+                rules["ritardo_competenze_mesi"] = st.number_input(
+                    "Ritardo competenze (mesi)",
+                    min_value=0,
+                    max_value=3,
+                    value=int(round(rules.get("ritardo_competenze_mesi", 1))),
+                    step=1,
+                    key="turni_ritardo_competenze",
+                    help="Normalmente 1: le variabili maturate nel mese M sono pagate in M+1.",
+                )
+            with v2_row_2[2]:
+                rules["finestra_calibrazione_mesi"] = st.number_input(
+                    "Finestra calibrazione (mesi)",
+                    min_value=3,
+                    max_value=36,
+                    value=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                    step=1,
+                    key="turni_finestra_calibrazione",
+                    help="Dà priorità al livello retributivo recente: i mesi più vecchi restano visibili ma sono esclusi automaticamente dal fit.",
+                )
             if MOBILE_VIEW:
-                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
-            st.markdown("""
-            <div style="margin:0 0 12px; padding-top:0;">
-              <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
-            </div>
-            """, unsafe_allow_html=True)
-            rules["quota_fissa_mensile"] = 0.0
-            rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
-            rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
-            rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
-            rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
-            st.markdown("""
-            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
-              <h5 style="margin:0;color:#c084fc;">Straordinari</h5>
-            </div>
-            """, unsafe_allow_html=True)
-            stra_cols = st.columns(2)
-            with stra_cols[0]:
-                rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
-                rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
-                rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
-            with stra_cols[1]:
-                rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
-                rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
-                rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
-        with c2:
-            if MOBILE_VIEW:
-                st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
-            st.markdown("""
-            <div style="margin:0 0 12px; padding-top:0;">
-              <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
-            </div>
-            """, unsafe_allow_html=True)
-            rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
-            rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
-            rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
-            rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
-            st.markdown("""
-            <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
-              <h5 style="margin:0;color:#34d399;">Sede e buoni pasto</h5>
-            </div>
-            """, unsafe_allow_html=True)
-            rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
-            rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Regole applicate</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.72);line-height:1.55;">
-                <b style="color:#fef3c7;">Paga lorda contrattuale:</b> {_money_turni(rules['paga_oraria_lorda'])}/h<br>
-                <b style="color:#34d399;">Fisso netto:</b> {_money_turni(rules['netto_fisso_mensile'])}; variabili × {rules['coefficiente_netto_variabili']:.2f}; ritardo {rules['ritardo_competenze_mesi']:g} mese/i.<br>
-                <b style="color:#93c5fd;">Mattina 06–14:</b> feriale {rules['m_p_feriale_pct']:g}%, festivo {rules['m_p_festivo_giorno_pct']:g}%. Sabato: nessuna maggiorazione.<br>
-                <b style="color:#fb923c;">Pomeriggio 14–22:</b> feriale {rules['m_p_feriale_pct']:g}%; festivo 14–18 {rules['m_p_festivo_giorno_pct']:g}% e 18–22 {rules['festivo_sera_notte_pct']:g}%. Sabato: 14–18 senza maggiorazione, 18–22 {rules['m_p_feriale_pct']:g}%.<br>
-                <b style="color:#94a3b8;">Notte 22–06:</b> {rules['notte_feriale_pct']:g}% feriale e {rules['festivo_sera_notte_pct']:g}% festivo; le ore sono attribuite al giorno effettivo, anche dopo mezzanotte.<br>
-                <b style="color:#fef3c7;">Indennità V2:</b> M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
-                <b style="color:#c084fc;">Straordinari:</b> massimo 2 ore dopo il turno. M {rules['stra_mattina_feriale_pct']:g}%/{rules['stra_mattina_festivo_pct']:g}%, P {rules['stra_pomeriggio_feriale_pct']:g}%/{rules['stra_pomeriggio_festivo_pct']:g}%, N {rules['stra_notte_feriale_pct']:g}%/{rules['stra_notte_festivo_pct']:g}% (feriale/festivo).<br>
-                <b style="color:#34d399;">Ferie:</b> 8 ore base. <b style="color:#fde68a;">Buono pasto:</b> {_money_turni(rules['buono_pasto'])}, se in sede e non mattina feriale.<br>
-                <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
-                rules = _apply_turni_rules_from_widgets(rules)
-                if save_turni_rules(rules):
-                    st.success("Regole salvate nel foglio Google “Regole Turni”.")
+                with st.expander("Festività automatiche nel cedolino", expanded=False):
+                    rules["festivita_automatiche"] = float(st.checkbox(
+                        "Prevedi festività di domenica e 4 novembre",
+                        value=bool(rules.get("festivita_automatiche", 1)), key="turni_festivita_attive"))
+                    rules["festivita_quota_lorda"] = st.number_input(
+                        "Quota lorda per festività (€)", min_value=0.0,
+                        value=float(rules.get("festivita_quota_lorda", 119.90)), step=1.0, key="turni_festivita_quota")
+                    rules["festivita_ritardo_mesi"] = st.number_input(
+                        "Pagamento festività: ritardo in mesi", min_value=0, max_value=3,
+                        value=int(rules.get("festivita_ritardo_mesi", 0)), key="turni_festivita_ritardo")
+                    rules["patrono_mese"] = st.number_input(
+                        "Mese Santo Patrono (0 = non impostato)", min_value=0, max_value=12,
+                        value=int(rules.get("patrono_mese", 0)), key="turni_patrono_mese")
+                    rules["patrono_giorno"] = st.number_input(
+                        "Giorno Santo Patrono (0 = non impostato)", min_value=0, max_value=31,
+                        value=int(rules.get("patrono_giorno", 0)), key="turni_patrono_giorno")
+                    st.caption("Quota iniziale dal tuo cedolino: 119,90 € lordi. Il netto è stimato con il coefficiente variabili. Salva con le altre regole. Non inserire nuovamente queste voci nella rettifica.")
+                    if not rules["patrono_mese"] or not rules["patrono_giorno"]:
+                        st.caption("Santo Patrono non incluso finché non viene impostata la data.")
+                    annual_holidays = paid_holidays(
+                        selected_month.year, rules["festivita_quota_lorda"],
+                        int(rules["patrono_mese"]), int(rules["patrono_giorno"]))
+                    st.dataframe(pd.DataFrame([{
+                        "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
+                        "Importo lordo": event.gross,
+                    } for event in annual_holidays]), hide_index=True, use_container_width=True)
+            adjustment_rows = load_payroll_adjustments()
+            selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
+            st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
+            v2_row_3 = st.columns(2)
+            with v2_row_3[0]:
+                st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+                monthly_adjustment = st.number_input(
+                    "Importo netto (+ rimborso / − trattenuta)",
+                    value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
+                    step=10.0,
+                    key=f"turni_rettifica_mese::{month_key}",
+                    help="Importo netto: 730, premi, arretrati o trattenute del mese selezionato.",
+                )
+            with v2_row_3[1]:
+                monthly_adjustment_note = st.text_input(
+                    "Descrizione",
+                    value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
+                    key=f"turni_rettifica_nota::{month_key}",
+                    placeholder="es. rimborso 730",
+                )
+            if st.button(
+                f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
+                key=f"save_payroll_adjustment::{month_key}",
+                use_container_width=True,
+            ):
+                if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
+                    st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
+                    st.rerun()
                 else:
-                    st.error("Non sono riuscito a salvare le regole su Google Sheets.")
+                    st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
+            rules["paga_oraria"] = rules["paga_oraria_lorda"]
+            st.caption(
+                "Valori iniziali consigliati: paga lorda 18,01988 €/h, fisso netto "
+                "2.200 €, coefficiente 0,60 e ritardo 1 mese."
+            )
+            st.info(
+                "Per correggere un cedolino passato, torna al suo mese con le frecce del "
+                "calendario e salva qui l’importo esatto: positivo se aumenta il netto, "
+                "negativo se lo riduce. La calibrazione sottrae la rettifica prima di "
+                "imparare fisso e coefficiente, quindi quel mese può restare incluso."
+            )
+            st.markdown("---")
 
-        st.session_state.turni_rules = rules
-        st.caption("Le regole restano attive subito nella sessione. Con “Salva regole su Google” vengono conservate nel foglio “Regole Turni” e ricaricate al prossimo accesso.")
+            c1, c2 = st.columns(2)
+            with c1:
+                if MOBILE_VIEW:
+                    st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+                st.markdown("""
+                <div style="margin:0 0 12px; padding-top:0;">
+                  <h5 style="margin:0;color:#93c5fd;">Maggiorazioni</h5>
+                </div>
+                """, unsafe_allow_html=True)
+                rules["quota_fissa_mensile"] = 0.0
+                rules["m_p_feriale_pct"] = st.number_input("Mattina/Pomeriggio feriale %", value=float(rules["m_p_feriale_pct"]), step=1.0, key="turni_mp_feriale")
+                rules["m_p_festivo_giorno_pct"] = st.number_input("Mattina/Pomeriggio festivo 06-18 %", value=float(rules["m_p_festivo_giorno_pct"]), step=1.0, key="turni_mp_festivo")
+                rules["notte_feriale_pct"] = st.number_input("Notte feriale %", value=float(rules["notte_feriale_pct"]), step=1.0, key="turni_notte_feriale")
+                rules["festivo_sera_notte_pct"] = st.number_input("Festivo sera/notte %", value=float(rules["festivo_sera_notte_pct"]), step=1.0, key="turni_festivo_notte")
+                st.markdown("""
+                <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+                  <h5 style="margin:0;color:#c084fc;">Straordinari</h5>
+                </div>
+                """, unsafe_allow_html=True)
+                stra_cols = st.columns(2)
+                with stra_cols[0]:
+                    rules["stra_mattina_feriale_pct"] = st.number_input("M feriale %", value=float(rules.get("stra_mattina_feriale_pct", 25.0)), step=1.0, key="turni_stra_m_feriale")
+                    rules["stra_pomeriggio_feriale_pct"] = st.number_input("P feriale %", value=float(rules.get("stra_pomeriggio_feriale_pct", 40.0)), step=1.0, key="turni_stra_p_feriale")
+                    rules["stra_notte_feriale_pct"] = st.number_input("N feriale %", value=float(rules.get("stra_notte_feriale_pct", 50.0)), step=1.0, key="turni_stra_n_feriale")
+                with stra_cols[1]:
+                    rules["stra_mattina_festivo_pct"] = st.number_input("M festivo %", value=float(rules.get("stra_mattina_festivo_pct", 55.0)), step=1.0, key="turni_stra_m_festivo")
+                    rules["stra_pomeriggio_festivo_pct"] = st.number_input("P festivo %", value=float(rules.get("stra_pomeriggio_festivo_pct", 60.0)), step=1.0, key="turni_stra_p_festivo")
+                    rules["stra_notte_festivo_pct"] = st.number_input("N festivo %", value=float(rules.get("stra_notte_festivo_pct", 70.0)), step=1.0, key="turni_stra_n_festivo")
+            with c2:
+                if MOBILE_VIEW:
+                    st.markdown('<span class="turni-rules-marker"></span>', unsafe_allow_html=True)
+                st.markdown("""
+                <div style="margin:0 0 12px; padding-top:0;">
+                  <h5 style="margin:0;color:#fef3c7;">Indennità</h5>
+                </div>
+                """, unsafe_allow_html=True)
+                rules["ind_m_p_feriale"] = st.number_input("Indennità M/P feriale", value=float(rules["ind_m_p_feriale"]), step=1.0, key="turni_ind_mp_f")
+                rules["ind_notte_feriale"] = st.number_input("Indennità notte feriale", value=float(rules["ind_notte_feriale"]), step=1.0, key="turni_ind_n_f")
+                rules["ind_m_p_festivo"] = st.number_input("Indennità M/P festiva", value=float(rules["ind_m_p_festivo"]), step=1.0, key="turni_ind_mp_fe")
+                rules["ind_notte_festiva"] = st.number_input("Indennità notte festiva", value=float(rules["ind_notte_festiva"]), step=1.0, key="turni_ind_n_fe")
+                st.markdown("""
+                <div style="border-top:1px solid rgba(255,255,255,.14); margin:18px 0 12px; padding-top:10px;">
+                  <h5 style="margin:0;color:#34d399;">Sede e buoni pasto</h5>
+                </div>
+                """, unsafe_allow_html=True)
+                rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
+                rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-label">Regole applicate</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.72);line-height:1.55;">
+                    <b style="color:#fef3c7;">Paga lorda contrattuale:</b> {_money_turni(rules['paga_oraria_lorda'])}/h<br>
+                    <b style="color:#34d399;">Fisso netto:</b> {_money_turni(rules['netto_fisso_mensile'])}; variabili × {rules['coefficiente_netto_variabili']:.2f}; ritardo {rules['ritardo_competenze_mesi']:g} mese/i.<br>
+                    <b style="color:#93c5fd;">Mattina 06–14:</b> feriale {rules['m_p_feriale_pct']:g}%, festivo {rules['m_p_festivo_giorno_pct']:g}%. Sabato: nessuna maggiorazione.<br>
+                    <b style="color:#fb923c;">Pomeriggio 14–22:</b> feriale {rules['m_p_feriale_pct']:g}%; festivo 14–18 {rules['m_p_festivo_giorno_pct']:g}% e 18–22 {rules['festivo_sera_notte_pct']:g}%. Sabato: 14–18 senza maggiorazione, 18–22 {rules['m_p_feriale_pct']:g}%.<br>
+                    <b style="color:#94a3b8;">Notte 22–06:</b> {rules['notte_feriale_pct']:g}% feriale e {rules['festivo_sera_notte_pct']:g}% festivo; le ore sono attribuite al giorno effettivo, anche dopo mezzanotte.<br>
+                    <b style="color:#fef3c7;">Indennità V2:</b> M/P {_money_turni(rules['ind_m_p_feriale'])} feriale / {_money_turni(rules['ind_m_p_festivo'])} festivo; Notte {_money_turni(rules['ind_notte_feriale'])} feriale / {_money_turni(rules['ind_notte_festiva'])} festiva.<br>
+                    <b style="color:#c084fc;">Straordinari:</b> massimo 2 ore dopo il turno. M {rules['stra_mattina_feriale_pct']:g}%/{rules['stra_mattina_festivo_pct']:g}%, P {rules['stra_pomeriggio_feriale_pct']:g}%/{rules['stra_pomeriggio_festivo_pct']:g}%, N {rules['stra_notte_feriale_pct']:g}%/{rules['stra_notte_festivo_pct']:g}% (feriale/festivo).<br>
+                    <b style="color:#34d399;">Ferie:</b> 8 ore base. <b style="color:#fde68a;">Buono pasto:</b> {_money_turni(rules['buono_pasto'])}, se in sede e non mattina feriale.<br>
+                    <b style="color:#fb923c;">Sede:</b> target Smart {rules['smart_target']:g} giorni/mese; sedi richieste = giorni lavorati − target Smart.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+                    rules = _apply_turni_rules_from_widgets(rules)
+                    if save_turni_rules(rules):
+                        st.success("Regole salvate nel foglio Google “Regole Turni”.")
+                    else:
+                        st.error("Non sono riuscito a salvare le regole su Google Sheets.")
+
+            st.session_state.turni_rules = rules
+            st.caption("Le regole restano attive subito nella sessione. Con “Salva regole su Google” vengono conservate nel foglio “Regole Turni” e ricaricate al prossimo accesso.")
 
     with tab_report:
         month_report = compute_turni_month_report(df_turni, rules, month_key)

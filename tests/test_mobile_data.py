@@ -334,3 +334,25 @@ def test_mobile_calendar_sync_removals_and_partial_failure_are_safe(app):
     pd.testing.assert_frame_equal(empty_month, old)
     desktop, _, _ = sync(old, {}, date(2026, 10, 1))
     pd.testing.assert_frame_equal(desktop, old)
+
+
+def test_mobile_model_parameters_ignore_old_widgets_but_contract_rules_stay_editable(app):
+    ns, _, _ = app
+    class State(dict):
+        __getattr__ = dict.__getitem__
+        __setattr__ = dict.__setitem__
+    ns['st'].session_state = State()
+    ns['st'].session_state.update(turni_paga_lorda=99., turni_netto_fisso=9999.,
+        turni_coeff_variabili=.01, turni_finestra_calibrazione=36,
+        turni_ritardo_competenze=3, turni_notte_feriale=50.)
+    rules = dict(paga_oraria=18., paga_oraria_lorda=18., netto_fisso_mensile=2100.,
+                 coefficiente_netto_variabili=.7, finestra_calibrazione_mesi=12., ritardo_competenze_mesi=1.)
+    updated = ns['_apply_turni_rules_from_widgets'](rules.copy())
+    for key, value in rules.items():
+        assert updated[key] == value
+    assert updated['notte_feriale_pct'] == 50.
+    ns['MOBILE_VIEW'] = False
+    desktop = ns['_apply_turni_rules_from_widgets'](rules.copy())
+    assert desktop['paga_oraria_lorda'] == 99.
+    assert desktop['netto_fisso_mensile'] == 9999.
+    assert desktop['coefficiente_netto_variabili'] == .01
