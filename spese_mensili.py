@@ -5658,8 +5658,6 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             f'<span style="color:#22d3ee;">{html.escape(_money_turni(estimate.fixed_net))} fisso netto</span><br>'
             f'<span style="color:#60a5fa;">{html.escape(_money_turni(estimate.variables_net))} variabili</span><br>'
             f'<span style="color:{adjustment_color};">{html.escape(adjustment_formula)} rettifica</span>'
-            f'<br>Intervallo realistico: <strong style="color:#34d399;">'
-            f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
         )
         if estimate.holiday_items:
             holiday_names = ", ".join(event.label for event in estimate.holiday_items)
@@ -5667,13 +5665,17 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                 f'<br><span style="color:#fde68a;">Festività: +{html.escape(_money_turni(estimate.holiday_net))} nette stimate'
                 f' ({html.escape(_money_turni(estimate.holiday_gross))} lorde · {html.escape(holiday_names)})</span>'
             )
+        net_caption += (
+            f'<br>Intervallo realistico: <strong style="color:#34d399;">'
+            f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
+        )
         mobile_cards = [
             ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
              f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
              '<br>'.join(
                  f'<span style="color:rgba(255,255,255,.48);">{label}: </span>'
-                 f'<span style="color:#60a5fa;opacity:.55;">{html.escape(_money_turni(amount))}</span>'
+                 f'<span style="color:#60a5fa;opacity:{1 if label == "Indennità" else .55};">{html.escape(_money_turni(amount))}</span>'
                  for label, amount in (
                      ("Maggiorazioni", estimate.breakdown.premiums_gross),
                      ("Indennità", estimate.breakdown.allowances_net),
