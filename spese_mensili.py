@@ -6412,9 +6412,11 @@ def _mobile_contract_rules_html(rules):
     def percentage(key):
         return f"{float(rules[key]):g}%"
 
+    shift_colors = {"Mattina": "#60a5fa", "Pomeriggio": "#fb923c", "Notte": "#94a3b8"}
+
     def table_card(title, color, rows, note=""):
         body = "".join(
-            f'<div class="contract-rule-data-row" role="row"><div role="rowheader">{html.escape(label)}</div><div role="cell">{feriale}</div><div role="cell">{festivo}</div></div>'
+            f'<div class="contract-rule-data-row" role="row" style="--shift-color:{shift_colors.get(label, "#94a3b8")};"><div role="rowheader">{html.escape(label)}</div><div role="cell">{feriale}</div><div role="cell">{festivo}</div></div>'
             for label, feriale, festivo in rows)
         return (f'<div class="contract-rule-card" style="--rule-color:{color};">'
                 f'<div class="contract-rule-title">{html.escape(title)}</div>'
@@ -6453,15 +6455,16 @@ def _mobile_contract_rules_html(rules):
       }
       div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {display:none !important;}
       .contract-rule-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0 8px;}
-      .contract-rule-card {min-width:0;max-width:100%;box-sizing:border-box;padding:10px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);}
-      .contract-rule-title {font-size:12px;font-weight:750;margin-bottom:6px;color:var(--rule-color);}
+      .contract-rule-card {min-width:0;max-width:100%;box-sizing:border-box;padding:12px;border:.5px solid rgba(255,255,255,.10);border-radius:12px;background:rgba(255,255,255,.035);}
+      .contract-rule-title {font-size:12px;font-weight:700;margin-bottom:8px;color:#93c5fd;}
       .contract-rule-legend {font-size:11px;color:#94a3b8;margin-top:14px;}
       .contract-rule-table {width:100%;min-width:0;font-size:10px;line-height:1.4;}
-      .contract-rule-head,.contract-rule-data-row {display:grid;grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr));gap:3px;align-items:center;}
-      .contract-rule-head > div,.contract-rule-data-row > div {min-width:0;padding:6px 0;text-align:right;box-sizing:border-box;}
-      .contract-rule-head > div:first-child,.contract-rule-data-row > div:first-child {text-align:left;color:#cbd5e1;font-weight:500;overflow-wrap:anywhere;}
-      .contract-rule-head {color:#94a3b8;font-weight:650;}
-      .contract-rule-data-row {border-top:1px solid rgba(148,163,184,.18);}
+      .contract-rule-head,.contract-rule-data-row {display:grid;grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr));gap:0;align-items:center;}
+      .contract-rule-head > div,.contract-rule-data-row > div {min-width:0;padding:5px 0;text-align:center;box-sizing:border-box;}
+      .contract-rule-head > div:first-child,.contract-rule-data-row > div:first-child {text-align:left;color:var(--shift-color,#94a3b8);font-weight:500;overflow-wrap:anywhere;padding-right:5px;}
+      .contract-rule-head {color:rgba(255,255,255,.40);font-size:9px;font-weight:800;}
+      .contract-rule-head > div:last-child,.contract-rule-data-row > div:last-child {border-left:1px solid rgba(148,163,184,.32);}
+      .contract-rule-data-row {border-top:.5px solid rgba(255,255,255,.07);}
       .contract-rule-data-row > div:not(:first-child) {color:var(--rule-color);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
       .contract-rule-table small {display:block;font-size:8px;color:#94a3b8;font-weight:400;line-height:1.15;}
       .contract-rule-note {font-size:9px;color:#94a3b8;margin-top:6px;}
