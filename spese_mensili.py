@@ -6409,39 +6409,40 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
 
 
 def _mobile_contract_rules_html(rules):
-    groups = [
-        ("Maggiorazioni", "#93c5fd", [
-            ("M/P feriale", "m_p_feriale_pct", "%"),
-            ("M/P festivo 06–18", "m_p_festivo_giorno_pct", "%"),
-            ("Notte feriale", "notte_feriale_pct", "%"),
-            ("Festivo sera/notte", "festivo_sera_notte_pct", "%")]),
-        ("Indennità nette", "#7dd3fc", [
-            ("M/P feriale", "ind_m_p_feriale", "€"),
-            ("Notte feriale", "ind_notte_feriale", "€"),
-            ("M/P festivo", "ind_m_p_festivo", "€"),
-            ("Notte festiva", "ind_notte_festiva", "€")]),
-        ("Straordinari · feriale / festivo", "#c084fc", [
-            ("Mattina", ("stra_mattina_feriale_pct", "stra_mattina_festivo_pct"), "%"),
-            ("Pomeriggio", ("stra_pomeriggio_feriale_pct", "stra_pomeriggio_festivo_pct"), "%"),
-            ("Notte", ("stra_notte_feriale_pct", "stra_notte_festivo_pct"), "%")]),
-        ("Sede e buoni pasto", "#34d399", [
-            ("Buono pasto", "buono_pasto", "€"),
-            ("Smart al mese", "smart_target", "giorni")]),
-    ]
-    cards = []
-    for title, color, fields in groups:
-        rows = []
-        for label, key, unit in fields:
-            if isinstance(key, tuple):
-                value = " / ".join(f"{float(rules[k]):g}%" for k in key)
-            elif unit == "€":
-                value = _money_turni(rules[key])
-            else:
-                value = f"{float(rules[key]):g}{'%' if unit == '%' else ' giorni'}"
-            rows.append(f'<div class="contract-rule-row"><span>{html.escape(label)}</span>'
-                        f'<b style="color:{color};">{html.escape(value)}</b></div>')
-        cards.append(f'<div class="contract-rule-card"><div class="contract-rule-title" style="color:{color};">'
-                     f'{html.escape(title)}</div>{"".join(rows)}</div>')
+    def percentage(key):
+        return f"{float(rules[key]):g}%"
+
+    def table_card(title, color, rows, note=""):
+        body = "".join(
+            f'<tr><th scope="row">{html.escape(label)}</th><td>{feriale}</td><td>{festivo}</td></tr>'
+            for label, feriale, festivo in rows)
+        return (f'<div class="contract-rule-card" style="--rule-color:{color};">'
+                f'<div class="contract-rule-title">{html.escape(title)}</div>'
+                '<table class="contract-rule-table"><colgroup><col style="width:42%"><col style="width:29%"><col style="width:29%"></colgroup>'
+                '<thead><tr><th scope="col">Turno</th><th scope="col" title="Feriale">f</th>'
+                '<th scope="col" title="Festivo">F</th></tr></thead>'
+                f'<tbody>{body}</tbody></table>'
+                + (f'<div class="contract-rule-note">{note}</div>' if note else '') + '</div>')
+
+    afternoon_festive = (f'{percentage("m_p_festivo_giorno_pct")}<small>14–18</small>'
+                         f'{percentage("festivo_sera_notte_pct")}<small>18–22</small>')
+    cards = [table_card("Maggiorazioni", "#93c5fd", [
+        ("Mattina", percentage("m_p_feriale_pct"), percentage("m_p_festivo_giorno_pct")),
+        ("Pomeriggio", percentage("m_p_feriale_pct"), afternoon_festive),
+        ("Notte", percentage("notte_feriale_pct"), percentage("festivo_sera_notte_pct")),
+    ], "Sabato 06–18: 0%."), table_card("Indennità nette", "#7dd3fc", [
+        ("Mattina", _money_turni(rules["ind_m_p_feriale"]), _money_turni(rules["ind_m_p_festivo"])),
+        ("Pomeriggio", _money_turni(rules["ind_m_p_feriale"]), _money_turni(rules["ind_m_p_festivo"])),
+        ("Notte", _money_turni(rules["ind_notte_feriale"]), _money_turni(rules["ind_notte_festiva"])),
+    ]), table_card("Straordinari", "#c084fc", [
+        ("Mattina", percentage("stra_mattina_feriale_pct"), percentage("stra_mattina_festivo_pct")),
+        ("Pomeriggio", percentage("stra_pomeriggio_feriale_pct"), percentage("stra_pomeriggio_festivo_pct")),
+        ("Notte", percentage("stra_notte_feriale_pct"), percentage("stra_notte_festivo_pct")),
+    ])]
+    cards.append('<div class="contract-rule-card" style="--rule-color:#34d399;">'
+                 '<div class="contract-rule-title">Sede e buoni pasto</div>'
+                 f'<div class="contract-rule-row"><span>Buono pasto</span><b>{html.escape(_money_turni(rules["buono_pasto"]))}</b></div>'
+                 f'<div class="contract-rule-row"><span>Smart al mese</span><b>{float(rules["smart_target"]):g} giorni</b></div></div>')
     return """<style>
       div[data-testid="stHorizontalBlock"]:has(.payroll-rules-grid-marker) {
         display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;align-items:start !important;
@@ -6452,10 +6453,20 @@ def _mobile_contract_rules_html(rules):
       div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {display:none !important;}
       .contract-rule-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0 8px;}
       .contract-rule-card {min-width:0;padding:10px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);}
-      .contract-rule-title {font-size:12px;font-weight:750;margin-bottom:6px;}
+      .contract-rule-title {font-size:12px;font-weight:750;margin-bottom:6px;color:var(--rule-color);}
+      .contract-rule-legend {font-size:11px;color:#94a3b8;margin-top:14px;}
+      .contract-rule-table {width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;line-height:1.4;}
+      .contract-rule-table th,.contract-rule-table td {padding:6px 0;border-bottom:0;text-align:right;vertical-align:middle;}
+      .contract-rule-table th:first-child {text-align:left;color:#cbd5e1;font-weight:500;}
+      .contract-rule-table thead th {color:#94a3b8;font-weight:650;}
+      .contract-rule-table tbody tr {border-top:1px solid rgba(148,163,184,.18);}
+      .contract-rule-table td {color:var(--rule-color);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+      .contract-rule-table small {display:block;font-size:8px;color:#94a3b8;font-weight:400;line-height:1.15;}
+      .contract-rule-note {font-size:9px;color:#94a3b8;margin-top:6px;}
+
       .contract-rule-row {display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:11px;line-height:1.7;color:#94a3b8;}
-      .contract-rule-row b {white-space:nowrap;font-weight:650;}
-    </style><div class="contract-rule-grid">""" + "".join(cards) + "</div>"
+      .contract-rule-row b {white-space:nowrap;font-weight:650;color:var(--rule-color);}
+    </style><div class="contract-rule-legend"><b>f</b> = feriale · <b>F</b> = festivo</div><div class="contract-rule-grid">""" + "".join(cards) + "</div>"
 
 
 def _render_mobile_turni_rules(rules, selected_month):
