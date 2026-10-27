@@ -257,3 +257,80 @@ def test_kitchen_migration_refreshes_and_preserves_other_expenses(app):
     assert ns['st'].session_state.spese_fisse_settings['Cucina'] == 324
     ns['load_spese_fisse_settings']()
     assert len(saved) == 1
+
+
+def test_calendar_entry_bypasses_feed_cache_once_and_again_on_return(app):
+    import io
+    from types import SimpleNamespace
+    ns, _, calls = app
+    class State(dict):
+        __getattr__ = dict.__getitem__
+        __setattr__ = dict.__setitem__
+    state = State(mobile_section_select="Panoramica")
+    ns['st'].session_state = state
+    content = [b'old calendar']
+    def download(url, **kw):
+        calls['calendar'] += 1
+        return io.BytesIO(content[0])
+    ns.update(urllib=SimpleNamespace(request=SimpleNamespace(urlopen=download)),
+              _default_calendar_ical_urls=lambda: {'Mattina': 'test-calendar'},
+              _default_sede_calendar_ical_urls=lambda: {'Sede': 'test-calendar'})
+    load = ns['load_google_calendar_ics']
+    assert load('test-calendar') == 'old calendar'
+    content[0] = b'updated calendar'
+    assert load('test-calendar') == 'old calendar'
+    state['turni_calendar_autosync_sede_v2::2026-10'] = True
+    ns['_mark_mobile_calendar_entry']()
+    ns['_refresh_mobile_calendar_on_entry']()
+    assert load('test-calendar') == 'updated calendar'
+    assert 'turni_calendar_autosync_sede_v2::2026-10' not in state
+    for _ in range(3):
+        ns['_mark_mobile_calendar_entry']()
+        ns['_refresh_mobile_calendar_on_entry']()
+        load('test-calendar')
+    assert calls['calendar'] == 2
+    state['mobile_section_select'] = 'Turni'
+    ns['_mark_mobile_calendar_entry']()
+    ns['_refresh_mobile_calendar_on_entry']()
+    load('test-calendar')
+    assert calls['calendar'] == 3
+    state['mobile_section_select'] = 'Spese fisse'
+    ns['_mark_mobile_calendar_entry']()
+    state['mobile_section_select'] = 'Turni'
+    ns['_mark_mobile_calendar_entry']()
+    ns['_refresh_mobile_calendar_on_entry']()
+    load('test-calendar')
+    assert calls['calendar'] == 4
+
+
+def test_mobile_calendar_sync_removals_and_partial_failure_are_safe(app):
+    from datetime import date
+    ns, _, _ = app
+    headers = ['Data', 'Turno', 'Festivo', 'Straordinario minuti', 'Sede']
+    old = pd.DataFrame([
+        ['2026-09-30', 'Notte', False, 0, False],
+        ['2026-10-09', 'Mattina', False, 30, True],
+        ['2026-10-10', 'Pomeriggio', False, 0, False],
+    ], columns=headers)
+    imported = pd.DataFrame([['2026-10-09', 'Notte', False, 0, False]], columns=headers)
+    errors = []
+    ns.update(TURNI_HEADERS=headers, TURNI_ORARI={'Mattina': (), 'Pomeriggio': (), 'Notte': ()},
+              _normalize_turni_df=lambda df: df.copy(),
+              import_turni_from_calendar_sources=lambda *a: (imported.copy(), errors.copy()),
+              import_sede_dates_from_calendar_sources=lambda *a: (set(), []))
+    sync = ns['sync_turni_month_from_calendar']
+    updated, count, _ = sync(old, {}, date(2026, 10, 1), preserve_on_error=True)
+    assert count == 1
+    assert updated['Data'].tolist() == ['2026-09-30', '2026-10-09']
+    row = updated.iloc[-1]
+    assert row['Turno'] == 'Notte' and row['Straordinario minuti'] == 30
+    assert not row['Sede']
+    errors.append('One feed unavailable')
+    unchanged, _, _ = sync(old, {}, date(2026, 10, 1), preserve_on_error=True)
+    pd.testing.assert_frame_equal(unchanged, old)
+    errors.clear()
+    imported = pd.DataFrame(columns=headers)
+    empty_month, _, _ = sync(old, {}, date(2026, 10, 1), preserve_on_error=True)
+    pd.testing.assert_frame_equal(empty_month, old)
+    desktop, _, _ = sync(old, {}, date(2026, 10, 1))
+    pd.testing.assert_frame_equal(desktop, old)

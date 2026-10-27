@@ -5289,11 +5289,12 @@ def import_sede_dates_from_calendar_sources(calendar_sources, selected_month):
     return sede_dates, errors
 
 
-def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month, sede_calendar_sources=None):
+def sync_turni_month_from_calendar(df_turni, calendar_sources, selected_month, sede_calendar_sources=None, preserve_on_error=False):
     imported, errors = import_turni_from_calendar_sources(calendar_sources, selected_month)
     sede_dates, sede_errors = import_sede_dates_from_calendar_sources(sede_calendar_sources or {}, selected_month)
     errors.extend(sede_errors)
-    if imported.empty:
+    # Una lettura parziale non deve cancellare turni dei feed non raggiungibili.
+    if imported.empty or (preserve_on_error and errors):
         return df_turni.copy(), 0, errors
     month_key = selected_month.strftime("%Y-%m")
     existing_month = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
@@ -5381,6 +5382,7 @@ def ensure_turni_month_synced(selected_month, df_turni=None):
         calendar_sources,
         selected_month,
         _default_sede_calendar_ical_urls(),
+        preserve_on_error=bool(MOBILE_VIEW),
     )
     st.session_state[auto_sync_key] = True
     if imported_count > 0:
@@ -5390,8 +5392,32 @@ def ensure_turni_month_synced(selected_month, df_turni=None):
     return current_df, errors
 
 
+def _mark_mobile_calendar_entry():
+    """L'apertura dell'app e l'ingresso in Turni richiedono una lettura fresca."""
+    section = st.session_state.get("mobile_section_select", "Panoramica")
+    previous = st.session_state.get("turni_calendar_last_section")
+    if previous is None or (section == "Turni" and previous != "Turni"):
+        st.session_state.turni_calendar_refresh_pending = True
+    st.session_state.turni_calendar_last_section = section
+
+
+def _refresh_mobile_calendar_on_entry():
+    if not st.session_state.pop("turni_calendar_refresh_pending", False):
+        return
+    # Ogni feed contiene tutti i mesi: scaricarlo una sola volta basta anche
+    # per il mese precedente usato dal cedolino. Nessuna lettura Drive dei PDF.
+    urls = set(_default_calendar_ical_urls().values()) | set(_default_sede_calendar_ical_urls().values())
+    for url in urls:
+        if url:
+            load_google_calendar_ics.clear(url)
+    for key in list(st.session_state):
+        if key.startswith("turni_calendar_autosync_sede_v2::"):
+            del st.session_state[key]
+
+
 def _mobile_turni_snapshot(selected_month):
     """Sorgente unica per home e Turni; il tempo live non viene messo in cache."""
+    _refresh_mobile_calendar_on_entry()
     rules = _apply_turni_rules_from_widgets(get_turni_rules())
     selected_month = pd.Timestamp(selected_month).date().replace(day=1)
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
@@ -7314,6 +7340,8 @@ def render_turni_guadagni_section():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
+    if MOBILE_VIEW:
+        _mark_mobile_calendar_entry()
     load_spese_fisse_settings()
     load_altre_entrate_settings()
 
