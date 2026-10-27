@@ -61,7 +61,7 @@ def app():
 
     sheet = Spreadsheet()
     st = SimpleNamespace(
-        cache_data=streamlit.cache_data,
+        fragment=lambda f: f, cache_data=streamlit.cache_data,
         cache_resource=streamlit.cache_resource,
         session_state={}, warning=lambda message: None, error=lambda message: None,
     )

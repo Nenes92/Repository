@@ -4,6 +4,10 @@ import streamlit.components.v1 as components
 import mysql.connector
 import pandas as pd
 import json
+import base64
+import zlib
+from dataclasses import asdict
+from types import SimpleNamespace
 import os
 from datetime import datetime, timedelta
 import calendar
@@ -346,7 +350,7 @@ def load_data_gsheets(worksheet_name, headers, force_reload=False):
             st.error(f"Errore caricamento dati: {e}")
         return pd.DataFrame(columns=headers)
 
-def save_data_gsheets(worksheet_name, headers, data):
+def save_data_gsheets(worksheet_name, headers, data, clear_existing=True):
     # Le quote Google per letture e scritture sono indipendenti: una lettura in
     # backoff non deve impedire un salvataggio che può ancora andare a buon fine.
     # Gli effettivi errori di scrittura restano gestiti dal blocco try/except.
@@ -369,7 +373,8 @@ def save_data_gsheets(worksheet_name, headers, data):
             rows.append([_format_gsheet_value(h, row.get(h, "")) for h in headers])
         # Invalida anche dopo scritture desktop o scritture parzialmente fallite.
         _mobile_sheet_records.clear()
-        worksheet.clear()
+        if clear_existing:
+            worksheet.clear()
         try:
             worksheet.update(values=rows, range_name="A1")
         except TypeError:
@@ -3548,7 +3553,8 @@ DEFAULT_TURNI_RULES = {
     "ind_notte_festiva": 25.0,
 }
 TURNI_RULES_WORKSHEET = "Regole Turni"
-TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys())
+CALIBRATION_STATE_HEADER = "Calibrazione salvata"
+TURNI_RULES_HEADERS = list(DEFAULT_TURNI_RULES.keys()) + [CALIBRATION_STATE_HEADER]
 PAYROLL_ADJUSTMENTS_WORKSHEET = "Rettifiche Cedolino"
 PAYROLL_ADJUSTMENTS_HEADERS = ["Mese", "Importo", "Descrizione"]
 DEFAULT_PAYROLL_ADJUSTMENT = -63.0
@@ -3699,6 +3705,9 @@ def get_turni_rules():
             saved_rules = load_data_gsheets(TURNI_RULES_WORKSHEET, TURNI_RULES_HEADERS)
             if saved_rules is not None and not saved_rules.empty:
                 saved_row = saved_rules.iloc[-1].to_dict()
+                snapshot = _decode_calibration_snapshot(saved_row.get(CALIBRATION_STATE_HEADER, ""))
+                if snapshot is not None:
+                    st.session_state.payroll_calibration_saved = snapshot
                 migrated = migrate_payroll_rules(saved_row, PAYROLL_V2_DEFAULTS)
                 for key, default_value in DEFAULT_TURNI_RULES.items():
                     saved_value = saved_row.get(key)
@@ -3722,16 +3731,19 @@ def get_turni_rules():
     return st.session_state.turni_rules
 
 
-def save_turni_rules(rules):
+def save_turni_rules(rules, calibration_snapshot=None):
     """Salva l'ultima configurazione delle regole in un foglio dedicato."""
     row = {
         key: float(rules.get(key, default_value))
         for key, default_value in DEFAULT_TURNI_RULES.items()
     }
+    snapshot = calibration_snapshot if calibration_snapshot is not None else st.session_state.get("payroll_calibration_saved")
+    row[CALIBRATION_STATE_HEADER] = _encode_calibration_snapshot(snapshot) if snapshot else ""
     return save_data_gsheets(
         TURNI_RULES_WORKSHEET,
         TURNI_RULES_HEADERS,
         pd.DataFrame([row], columns=TURNI_RULES_HEADERS),
+        clear_existing=False,  # Unica riga: regole e risultato si salvano insieme senza clear.
     )
 
 
@@ -3887,6 +3899,126 @@ def _mobile_calibration_result_html(calibrated, margin):
         for label, value, detail, color in items
     )
     return '<div class="calibration-compact-results"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;">' + content + '</div></div>'
+
+
+def _encode_calibration_snapshot(snapshot):
+    raw = json.dumps(snapshot, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+    encoded = base64.b64encode(zlib.compress(raw)).decode("ascii")
+    if len(encoded) > 49000:
+        raise ValueError("Storico calibrazione troppo grande per il salvataggio.")
+    return encoded
+
+
+def _decode_calibration_snapshot(value):
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        snapshot = json.loads(zlib.decompress(base64.b64decode(value)))
+        if not isinstance(snapshot, dict):
+            return None
+        if snapshot.get("version") != 1 or not isinstance(snapshot.get("result"), dict):
+            return None
+        if not isinstance(snapshot["result"].get("rows"), list):
+            return None
+        return snapshot
+    except (ValueError, TypeError, zlib.error):
+        return None
+
+
+def _render_saved_mobile_calibration(snapshot):
+    drive = snapshot["drive"]
+    result = SimpleNamespace(**snapshot["result"])
+    st.caption(f"Ultima sincronizzazione e applicazione · {drive['checked_at']}")
+    if drive.get("errors"):
+        with st.expander(f"PDF da controllare ({len(drive['errors'])})"):
+            for error in drive["errors"]:
+                st.write(error)
+    st.markdown("""<style>
+      .calibration-compact-summary,.calibration-compact-results {
+        padding:11px 12px;margin:8px 0 12px;border-radius:12px;
+        border:1px solid rgba(96,165,250,.25);
+        background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(15,23,42,.7));
+        color:rgba(255,255,255,.92);font-size:12px;line-height:1.4;
+      }</style>""", unsafe_allow_html=True)
+    salaries = drive["salaries"]
+    missing = snapshot["missing"]
+    st.markdown(_mobile_calibration_status_html(
+        len(salaries), len(salaries) - len(missing), len(missing), max(salaries) if salaries else ""),
+        unsafe_allow_html=True)
+    if missing:
+        with st.expander(f"Cedolini letti ma non calibrabili ({len(missing)})"):
+            st.dataframe(pd.DataFrame([{
+                "Mese cedolino": _calibration_month_label(month),
+                "Netto reale": salaries[month],
+                "Servono i turni di": _calibration_month_label(add_payroll_months(month, -snapshot["delay"])),
+            } for month in missing]), hide_index=True, use_container_width=True)
+    frame = pd.DataFrame([{
+        "Includi": row["included"], "Mese cedolino": row["month"],
+        "Netto reale": row["actual_net"], "Netto stimato": row["estimated_net"],
+        "Scarto reale − stima": row["actual_net"] - row["estimated_net"],
+        "Motivo esclusione": row["exclusion_reason"],
+    } for row in result.rows])
+    styled, _ = _mobile_calibration_table(frame)
+    with st.expander("Confronto dei cedolini"):
+        st.dataframe(styled, hide_index=True, use_container_width=True, column_config={
+            "Includi": st.column_config.CheckboxColumn("Usa", width="small"),
+            "Mese cedolino": st.column_config.TextColumn("Mese", width="small"),
+            "Netto reale": st.column_config.NumberColumn("Reale", width="small"),
+            "Netto stimato": st.column_config.NumberColumn("Stimato", width="small"),
+            "Scarto reale − stima": st.column_config.NumberColumn("Scarto", width="small"),
+            "Motivo esclusione": st.column_config.TextColumn("Esclusione", width="medium"),
+        })
+    margin = max(0., (result.confidence_high - result.confidence_low) / 2)
+    st.markdown(_mobile_calibration_result_html(result, margin), unsafe_allow_html=True)
+
+
+@st.fragment
+def _render_mobile_calibration(rules):
+    st.markdown("### Calibrazione cedolini")
+    refresh = st.button("🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True,
+                        help="Legge i cedolini, aggiorna e salva automaticamente la previsione.")
+    if st.session_state.pop("payroll_calibration_sync_success", False):
+        st.success("Cedolini sincronizzati. Previsione aggiornata e salvata.")
+    if refresh:
+        try:
+            with st.spinner("Sincronizzo i cedolini e aggiorno la previsione…"):
+                drive = _mobile_drive_payslips(force=True)
+                if drive.get("error"):
+                    raise ValueError(drive["error"])
+                salaries = drive["salaries"]
+                variables = _payroll_variables_by_month(load_turni_data(force_reload=True), rules)
+                delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
+                adjustments = {month: float(values.get("amount", 0.))
+                               for month, values in load_payroll_adjustments(force_reload=True).items()}
+                for month in salaries:
+                    adjustments.setdefault(month, DEFAULT_PAYROLL_ADJUSTMENT)
+                holidays = {month: sum(event.gross for event in holiday_compensation(month, _payroll_v2_rules(rules)))
+                            for month in salaries}
+                calibrated = calibrate_payroll(salaries, variables, delay=delay, adjustments=adjustments,
+                    recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))), automatic_gross=holidays)
+                snapshot = {"version": 1, "drive": drive, "result": asdict(calibrated), "delay": delay,
+                            "missing": sorted(month for month in salaries if add_payroll_months(month, -delay) not in variables)}
+                updated_rules = dict(rules, netto_fisso_mensile=float(calibrated.fixed_net),
+                    coefficiente_netto_variabili=float(calibrated.variable_coefficient),
+                    errore_medio_calibrazione=float(calibrated.mean_absolute_error))
+                if not save_turni_rules(updated_rules, calibration_snapshot=snapshot):
+                    raise ValueError("Salvataggio non riuscito: resta valida l’ultima calibrazione applicata. Riprova Sincronizza Drive.")
+                st.session_state.payroll_calibration_saved = snapshot
+                st.session_state.turni_rules = updated_rules
+                st.session_state.payroll_calibration_mae = float(calibrated.mean_absolute_error)
+                st.session_state.pop("turni_netto_fisso", None)
+                st.session_state.pop("turni_coeff_variabili", None)
+                st.session_state.payroll_calibration_sync_success = True
+            st.rerun(scope="app")
+        except (ValueError, RuntimeError) as exc:
+            st.warning(str(exc))
+        except Exception:
+            st.error("Sincronizzazione non completata. L’ultima calibrazione salvata è conservata; riprova.")
+    snapshot = st.session_state.get("payroll_calibration_saved")
+    if snapshot:
+        _render_saved_mobile_calibration(snapshot)
+    else:
+        st.info("Premi Sincronizza Drive una prima volta: il risultato verrà applicato e resterà disponibile alle prossime aperture.")
 
 
 def _payroll_variables_by_month(df_turni, rules):
@@ -6317,7 +6449,7 @@ def render_turni_guadagni_section():
         with st.container(key="mobile-turni-tabs"):
             tab_cal, tab_report, tab_rules, tab_calibration = st.tabs(
                 ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"],
-                key="mobile_turni_active_tab", on_change="rerun",
+                key="mobile_turni_active_tab", on_change="ignore",
             )
     else:
         tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
@@ -6842,7 +6974,8 @@ def render_turni_guadagni_section():
         _render_turni_report(month_report, previous_month_report, current_month_label, previous_month_label)
 
     with tab_calibration:
-        if MOBILE_VIEW and not tab_calibration.open:
+        if MOBILE_VIEW:
+            _render_mobile_calibration(rules)
             return
         st.markdown("### Calibrazione cedolini" if MOBILE_VIEW else "### Calibrazione su storico reale")
         if not MOBILE_VIEW:

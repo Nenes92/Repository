@@ -109,6 +109,7 @@ def test_existing_saved_rules_enable_new_feature_with_san_giustino_defaults():
     saved = pd.DataFrame([{"netto_fisso_mensile": 2300}])
     ns = dict(DEFAULT_TURNI_RULES=defaults, PAYROLL_V2_DEFAULTS=DEFAULT_RULES,
               TURNI_RULES_WORKSHEET="Rules", TURNI_RULES_HEADERS=list(defaults), pd=pd,
+              CALIBRATION_STATE_HEADER="Calibrazione salvata", _decode_calibration_snapshot=lambda v: None,
               st=SimpleNamespace(session_state=State()), migrate_payroll_rules=migrate_rules,
               load_data_gsheets=lambda *a, **kw: saved)
     exec(compile(ast.Module(body=funcs, type_ignores=[]), "app-rule-migration", "exec"), ns)
