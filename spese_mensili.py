@@ -6414,14 +6414,15 @@ def _mobile_contract_rules_html(rules):
 
     def table_card(title, color, rows, note=""):
         body = "".join(
-            f'<tr><th scope="row">{html.escape(label)}</th><td>{feriale}</td><td>{festivo}</td></tr>'
+            f'<div class="contract-rule-data-row" role="row"><div role="rowheader">{html.escape(label)}</div><div role="cell">{feriale}</div><div role="cell">{festivo}</div></div>'
             for label, feriale, festivo in rows)
         return (f'<div class="contract-rule-card" style="--rule-color:{color};">'
                 f'<div class="contract-rule-title">{html.escape(title)}</div>'
-                '<table class="contract-rule-table"><colgroup><col style="width:42%"><col style="width:29%"><col style="width:29%"></colgroup>'
-                '<thead><tr><th scope="col">Turno</th><th scope="col" title="Feriale">f</th>'
-                '<th scope="col" title="Festivo">F</th></tr></thead>'
-                f'<tbody>{body}</tbody></table>'
+                '<div class="contract-rule-table" role="table">'
+                '<div class="contract-rule-head" role="row"><div role="columnheader">Turno</div>'
+                '<div role="columnheader" title="Feriale">f</div>'
+                '<div role="columnheader" title="Festivo">F</div></div>'
+                f'{body}</div>'
                 + (f'<div class="contract-rule-note">{note}</div>' if note else '') + '</div>')
 
     afternoon_festive = (f'{percentage("m_p_festivo_giorno_pct")}<small>14–18</small>'
@@ -6452,15 +6453,16 @@ def _mobile_contract_rules_html(rules):
       }
       div[data-testid="stElementContainer"]:has(.payroll-rules-grid-marker) {display:none !important;}
       .contract-rule-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0 8px;}
-      .contract-rule-card {min-width:0;padding:10px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);}
+      .contract-rule-card {min-width:0;max-width:100%;box-sizing:border-box;padding:10px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);}
       .contract-rule-title {font-size:12px;font-weight:750;margin-bottom:6px;color:var(--rule-color);}
       .contract-rule-legend {font-size:11px;color:#94a3b8;margin-top:14px;}
-      .contract-rule-table {width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;line-height:1.4;}
-      .contract-rule-table th,.contract-rule-table td {padding:6px 0;border-bottom:0;text-align:right;vertical-align:middle;}
-      .contract-rule-table th:first-child {text-align:left;color:#cbd5e1;font-weight:500;}
-      .contract-rule-table thead th {color:#94a3b8;font-weight:650;}
-      .contract-rule-table tbody tr {border-top:1px solid rgba(148,163,184,.18);}
-      .contract-rule-table td {color:var(--rule-color);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+      .contract-rule-table {width:100%;min-width:0;font-size:10px;line-height:1.4;}
+      .contract-rule-head,.contract-rule-data-row {display:grid;grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr));gap:3px;align-items:center;}
+      .contract-rule-head > div,.contract-rule-data-row > div {min-width:0;padding:6px 0;text-align:right;box-sizing:border-box;}
+      .contract-rule-head > div:first-child,.contract-rule-data-row > div:first-child {text-align:left;color:#cbd5e1;font-weight:500;overflow-wrap:anywhere;}
+      .contract-rule-head {color:#94a3b8;font-weight:650;}
+      .contract-rule-data-row {border-top:1px solid rgba(148,163,184,.18);}
+      .contract-rule-data-row > div:not(:first-child) {color:var(--rule-color);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
       .contract-rule-table small {display:block;font-size:8px;color:#94a3b8;font-weight:400;line-height:1.15;}
       .contract-rule-note {font-size:9px;color:#94a3b8;margin-top:6px;}
 
@@ -6471,6 +6473,16 @@ def _mobile_contract_rules_html(rules):
 
 def _render_mobile_turni_rules(rules, selected_month):
     month_key = selected_month.strftime("%Y-%m")
+    st.markdown("""<style>
+      .mobile-adjustment-summary {box-sizing:border-box;min-width:0;width:100%;padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);margin:4px 0 0;}
+      .mobile-adjustment-summary-top {display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;}
+      .mobile-adjustment-summary-top > div {min-width:0;}
+      .mobile-adjustment-summary-top b {color:#e2e8f0;}
+      .mobile-adjustment-summary-top strong {font-size:18px;white-space:nowrap;}
+      .mobile-adjustment-month,.mobile-adjustment-note {font-size:11px;color:#94a3b8;overflow-wrap:anywhere;}
+      .mobile-adjustment-month {margin-top:3px;}
+      .mobile-adjustment-note {margin-top:7px;}
+    </style>""", unsafe_allow_html=True)
     with st.expander("Festività automatiche nel cedolino", expanded=False):
         rules["festivita_automatiche"] = float(st.checkbox(
             "Prevedi festività di domenica e 4 novembre",
@@ -6496,36 +6508,42 @@ def _render_mobile_turni_rules(rules, selected_month):
             "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
             "Importo lordo": event.gross,
         } for event in annual_holidays]), hide_index=True, use_container_width=True)
+        if st.button("💾 Salva festività", key="save_mobile_holiday_rules", use_container_width=True):
+            if save_turni_rules(_apply_turni_rules_from_widgets(rules)):
+                st.success("Festività salvate.")
+            else:
+                st.error("Non sono riuscito a salvare le festività. Riprova.")
     adjustment_rows = load_payroll_adjustments()
     selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
-    st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
-    v2_row_3 = st.columns(2)
-    with v2_row_3[0]:
-        st.markdown('<span class="payroll-rules-grid-marker"></span>', unsafe_allow_html=True)
+    adjustment_amount = float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT))
+    adjustment_note = str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION))
+    adjustment_color = "#f87171" if adjustment_amount < 0 else "#7dd3fc"
+    st.markdown(
+        '<div class="mobile-adjustment-summary">'
+        '<div class="mobile-adjustment-summary-top"><div><b>Rettifica cedolino</b>'
+        f'<div class="mobile-adjustment-month">{html.escape(_turni_month_label(selected_month))}</div></div>'
+        f'<strong style="color:{adjustment_color};">{html.escape(_money_turni(adjustment_amount))}</strong></div>'
+        f'<div class="mobile-adjustment-note">{html.escape(adjustment_note)}</div></div>',
+        unsafe_allow_html=True)
+    with st.expander("Modifica rettifica", expanded=False):
         monthly_adjustment = st.number_input(
-            "Importo netto (+ rimborso / − trattenuta)",
+            "Importo netto (€)",
             value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
-            step=10.0,
-            key=f"turni_rettifica_mese::{month_key}",
-            help="Importo netto: 730, premi, arretrati o trattenute del mese selezionato.",
-        )
-    with v2_row_3[1]:
+            step=10.0, key=f"turni_rettifica_mese::{month_key}",
+            help="Positivo: rimborso. Negativo: trattenuta. Vale per il mese selezionato.")
         monthly_adjustment_note = st.text_input(
-            "Descrizione",
-            value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
-            key=f"turni_rettifica_nota::{month_key}",
-            placeholder="es. rimborso 730",
-        )
-    if st.button(
-        f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
-        key=f"save_payroll_adjustment::{month_key}",
-        use_container_width=True,
-    ):
-        if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
-            st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
-            st.rerun()
-        else:
-            st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
+            "Descrizione", value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
+            key=f"turni_rettifica_nota::{month_key}", placeholder="es. rimborso 730")
+        if st.button(
+            f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
+            key=f"save_payroll_adjustment::{month_key}",
+            use_container_width=True,
+        ):
+            if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
+                st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
+                st.rerun()
+            else:
+                st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
     st.markdown(_mobile_contract_rules_html(rules), unsafe_allow_html=True)
     with st.expander("Modifica regole contrattuali", expanded=False):
         c1, c2 = st.columns(2)
@@ -6575,12 +6593,12 @@ def _render_mobile_turni_rules(rules, selected_month):
             """, unsafe_allow_html=True)
             rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
-    if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
-        rules = _apply_turni_rules_from_widgets(rules)
-        if save_turni_rules(rules):
-            st.success("Regole salvate nel foglio Google “Regole Turni”.")
-        else:
-            st.error("Non sono riuscito a salvare le regole su Google Sheets.")
+        if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+            rules = _apply_turni_rules_from_widgets(rules)
+            if save_turni_rules(rules):
+                st.success("Regole salvate nel foglio Google “Regole Turni”.")
+            else:
+                st.error("Non sono riuscito a salvare le regole su Google Sheets.")
 
     st.session_state.turni_rules = rules
 
