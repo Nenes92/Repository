@@ -110,17 +110,20 @@ def _load_drive_payslips(principal, folder_id, _credentials_info):
 
 
 def _mobile_drive_payslips(force=False):
+    if not force:
+        return st.session_state.get(
+            "payroll_drive_last_result", st.session_state.get("payroll_drive_last_success"))
     principal = CREDENTIALS_INFO["client_email"]
     folder_id = CEDOLINI_DRIVE_URL.rstrip("/").split("/")[-1]
-    if force:
-        _load_drive_payslips.clear(principal, folder_id, CREDENTIALS_INFO)
+    _load_drive_payslips.clear(principal, folder_id, CREDENTIALS_INFO)
     result = _load_drive_payslips(principal, folder_id, CREDENTIALS_INFO)
     if result["error"]:
         last = st.session_state.get("payroll_drive_last_success")
         if last:
-            return {**last, "error": result["error"], "stale": True}
+            result = {**last, "error": result["error"], "stale": True}
     else:
         st.session_state.payroll_drive_last_success = result
+    st.session_state.payroll_drive_last_result = result
     return result
 
 
@@ -3834,6 +3837,58 @@ def _payroll_shifts_from_df(df_turni):
     return shifts
 
 
+def _calibration_month_label(month):
+    date_value = pd.Timestamp(month)
+    month_name = _turni_month_label(date_value.date()).rsplit(" ", 1)[0]
+    return f"{month_name[:3].lower()} {date_value.year % 100:02d}"
+
+
+def _mobile_calibration_table(frame):
+    view = frame[["Includi", "Mese cedolino", "Netto reale", "Netto stimato",
+                  "Scarto reale − stima", "Motivo esclusione"]].copy()
+    labels = {_calibration_month_label(month): str(month) for month in view["Mese cedolino"]}
+    view["Mese cedolino"] = view["Mese cedolino"].map(_calibration_month_label)
+    styled = view.style.format({
+        "Netto reale": _money_turni, "Netto stimato": _money_turni,
+        "Scarto reale − stima": _signed_money_turni,
+    }).set_properties(subset=["Netto reale"], **{"font-weight": "700"}
+    ).set_properties(subset=["Netto stimato"], **{"font-weight": "400", "color": "#94a3b8"}
+    ).map(lambda value: "color: " + ("#f87171" if value < 0 else "#34d399" if value > 0 else "#94a3b8"),
+          subset=["Scarto reale − stima"])
+    return styled, labels
+
+
+def _mobile_calibration_status_html(total, matched, missing, last_month):
+    latest = _calibration_month_label(last_month) if last_month else "—"
+    return (
+        '<div class="calibration-compact-summary">'
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
+        '<strong>Cedolini da Drive</strong>'
+        f'<span style="color:#c4b5fd;">Ultimo: {html.escape(latest)}</span></div>'
+        '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;color:rgba(255,255,255,.65);">'
+        f'<span><b style="color:#60a5fa;">{total}</b> mesi letti</span>'
+        f'<span><b style="color:#34d399;">{matched}</b> con turni</span>'
+        f'<span><b style="color:#fb923c;">{missing}</b> senza turni</span></div></div>'
+    )
+
+
+def _mobile_calibration_result_html(calibrated, margin):
+    items = [
+        ("Fisso netto stimato", _money_turni(calibrated.fixed_net), "quota mensile senza extra", "#34d399"),
+        ("Conversione lordo → netto", f"{calibrated.variable_coefficient:.1%}", "per i componenti lordi", "#60a5fa"),
+        ("Scarto medio storico", _money_turni(calibrated.mean_absolute_error), "differenza media dai cedolini", "#facc15"),
+        ("Margine del modello", f"± {_money_turni(margin)}", "variabilità degli scarti storici", "#f472b6"),
+    ]
+    content = "".join(
+        '<div style="min-width:0;">'
+        f'<div style="color:rgba(255,255,255,.65);font-size:11px;">{html.escape(label)}</div>'
+        f'<div style="color:{color};font-size:17px;font-weight:800;margin:2px 0;">{html.escape(value)}</div>'
+        f'<div style="color:rgba(255,255,255,.45);font-size:10px;">{html.escape(detail)}</div></div>'
+        for label, value, detail, color in items
+    )
+    return '<div class="calibration-compact-results"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;">' + content + '</div></div>'
+
+
 def _payroll_variables_by_month(df_turni, rules):
     grouped = {}
     for shift in _payroll_shifts_from_df(df_turni):
@@ -6839,9 +6894,16 @@ def render_turni_guadagni_section():
                                 st.error("Importazione pronta, ma il salvataggio su Google Sheets non è riuscito.")
             if MOBILE_VIEW:
                 refresh_calibration = st.button(
-                    "🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True)
-                with st.spinner("Leggo i cedolini da Drive…"):
-                    drive_result = _mobile_drive_payslips(force=refresh_calibration)
+                    "🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True,
+                    help="Legge i PDF e aggiorna il confronto. Per salvare i parametri usa Applica alla previsione.")
+                if refresh_calibration:
+                    with st.spinner("Leggo i cedolini da Drive…"):
+                        drive_result = _mobile_drive_payslips(force=True)
+                else:
+                    drive_result = _mobile_drive_payslips()
+                if drive_result is None:
+                    st.info("Premi Sincronizza Drive per leggere i cedolini. Nessuna lettura automatica.")
+                    return
                 if drive_result["error"]:
                     st.warning(drive_result["error"])
                     if not drive_result.get("stale"):
@@ -6852,7 +6914,7 @@ def render_turni_guadagni_section():
                             st.write(error)
                 if drive_result.get("checked_at"):
                     st.markdown(
-                        f'<div style="font-size:12px;color:rgba(255,255,255,.58);margin:4px 0 10px;">Drive · lettura automatica · {html.escape(drive_result["checked_at"])}</div>',
+                        f'<div style="font-size:12px;color:rgba(255,255,255,.58);margin:4px 0 10px;">Ultima sincronizzazione · {html.escape(drive_result["checked_at"])}</div>',
                         unsafe_allow_html=True)
                 salaries = drive_result["salaries"]
                 if st.session_state.get("payroll_drive_salaries") != salaries:
@@ -6922,6 +6984,10 @@ def render_turni_guadagni_section():
                 '</div>'
                 for label, value, color, rgb in status_cards
             )
+            if MOBILE_VIEW:
+                status_html = _mobile_calibration_status_html(
+                    len(salaries), len(matched_salary_months), len(missing_salary_months),
+                    max(salaries) if salaries else "")
             st.markdown(f"""
             <style>
               .calibration-status-grid,.calibration-result-grid {{
@@ -6950,7 +7016,15 @@ def render_turni_guadagni_section():
                 .calibration-status-value,.calibration-result-value {{ font-size:16px; }}
               }}
             </style>
-            <div class="calibration-status-grid">{status_html}</div>
+            <style>
+              .calibration-compact-summary,.calibration-compact-results {{
+                padding:11px 12px;margin:8px 0 12px;border-radius:12px;
+                border:1px solid rgba(96,165,250,.25);
+                background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(15,23,42,.7));
+                color:rgba(255,255,255,.92);font-size:12px;line-height:1.4;
+              }}
+            </style>
+            {status_html if MOBILE_VIEW else '<div class="calibration-status-grid">' + status_html + '</div>'}
             """, unsafe_allow_html=True)
             if refresh_calibration and not MOBILE_VIEW:
                 st.success("Cedolini e turni riletti da Google Sheets.")
@@ -6963,6 +7037,9 @@ def render_turni_guadagni_section():
                     }
                     for month in missing_salary_months
                 ])
+                if MOBILE_VIEW:
+                    for date_column in ["Mese cedolino", "Servono i turni di"]:
+                        missing_rows[date_column] = missing_rows[date_column].map(_calibration_month_label)
                 with st.expander(
                     f"Cedolini letti ma non calibrabili ({len(missing_salary_months)})",
                     expanded=False,
@@ -6999,31 +7076,41 @@ def render_turni_guadagni_section():
                 "Includi": row.included,
                 "Motivo esclusione": row.exclusion_reason,
             } for row in automatic.rows])
+            month_labels = {}
+            editor_data = calibration_df
             if MOBILE_VIEW:
-                calibration_df = calibration_df[[
-                    "Includi", "Mese cedolino", "Netto reale", "Netto stimato",
-                    "Scarto reale − stima", "Motivo esclusione",
-                ]]
+                editor_data, month_labels = _mobile_calibration_table(calibration_df)
+            editor_config = {
+                "Netto reale": st.column_config.NumberColumn(format="€ %.0f"),
+                "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
+                "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
+                "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
+                "Scarto reale − stima": st.column_config.NumberColumn(format="€ %.1f"),
+                "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
+                "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
+            }
+            if MOBILE_VIEW:
+                editor_config = {
+                    "Includi": st.column_config.CheckboxColumn("Usa", width="small"),
+                    "Mese cedolino": st.column_config.TextColumn("Mese", width="small"),
+                    "Netto reale": st.column_config.NumberColumn("Reale", width="small"),
+                    "Netto stimato": st.column_config.NumberColumn("Stimato", width="small"),
+                    "Scarto reale − stima": st.column_config.NumberColumn(
+                        "Scarto", width="small", help="Reale meno stimato: verde = più del previsto, rosso = meno del previsto."),
+                    "Motivo esclusione": st.column_config.TextColumn("Esclusione", width="medium"),
+                }
             editor_container = st.expander("Confronto dei cedolini", expanded=False) if MOBILE_VIEW else st.container()
             with editor_container:
                 edited = st.data_editor(
-                    calibration_df,
+                    editor_data,
                     hide_index=True,
                     use_container_width=True,
-                    column_config={
-                        "Netto reale": st.column_config.NumberColumn(format="€ %.0f"),
-                        "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
-                        "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
-                        "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
-                        "Scarto reale − stima": st.column_config.NumberColumn(format="€ %.1f"),
-                        "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
-                        "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
-                    },
+                    column_config=editor_config,
                     disabled=[col for col in calibration_df.columns if col != "Includi"],
                     key="payroll_calibration_editor",
                 )
             manual = {
-                str(row["Mese cedolino"]): bool(row["Includi"])
+                month_labels.get(str(row["Mese cedolino"]), str(row["Mese cedolino"])): bool(row["Includi"])
                 for _, row in edited.iterrows()
             }
             calibrated = calibrate_payroll(
@@ -7060,7 +7147,8 @@ def render_turni_guadagni_section():
                 for label, value, color, rgb in result_cards
             )
             st.markdown(
-                f'<div class="calibration-result-grid">{result_html}</div>',
+                _mobile_calibration_result_html(calibrated, confidence_margin) if MOBILE_VIEW
+                else f'<div class="calibration-result-grid">{result_html}</div>',
                 unsafe_allow_html=True,
             )
             if not MOBILE_VIEW:

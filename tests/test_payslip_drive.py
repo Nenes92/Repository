@@ -134,7 +134,11 @@ def test_drive_cache_only_downloads_new_or_changed_pdfs():
               _now_italy=lambda: datetime(2026, 10, 27, 7))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "drive-cache", "exec"), ns)
     load = ns["_mobile_drive_payslips"]
-    assert load()["salaries"] == {"2026-10": 2496}
+    assert load() is None
+    assert not calls
+    assert load(force=True)["salaries"] == {"2026-10": 2496}
+    # Even an expired/cleared cache must not cause a background Drive request.
+    ns["_load_drive_payslips"].clear()
     load()
     assert calls == {"list": 1, "download": 1}
     load(force=True)
