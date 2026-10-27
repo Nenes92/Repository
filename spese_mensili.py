@@ -14,7 +14,8 @@ import urllib.request
 import importlib
 import payroll_engine as _payroll_engine
 # Streamlit reruns the app after a deploy but can retain an imported helper module.
-if "allowances_net" not in _payroll_engine.VariableBreakdown.__dataclass_fields__:
+if ("allowances_net" not in _payroll_engine.VariableBreakdown.__dataclass_fields__
+        or "holiday_gross" not in _payroll_engine.PayslipEstimate.__dataclass_fields__):
     importlib.reload(_payroll_engine)
 from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
@@ -27,6 +28,7 @@ from payroll_engine import (
     estimate_payslip,
     migrate_rules as migrate_payroll_rules,
 )
+from payroll_holidays import paid_holidays, holiday_compensation
 from turni_excel_import import merge_turni_history, read_turni_excel
 try:
     from zoneinfo import ZoneInfo
@@ -3462,6 +3464,11 @@ DEFAULT_TURNI_RULES = {
     "quota_fissa_mensile": 0.0,
     "paga_oraria_lorda": 18.01988,
     "netto_fisso_mensile": 2200.0,
+    "festivita_automatiche": 1.0,
+    "festivita_quota_lorda": 119.90,
+    "festivita_ritardo_mesi": 0.0,
+    "patrono_mese": 6.0,
+    "patrono_giorno": 11.0,
     "coefficiente_netto_variabili": 0.60,
     "errore_medio_calibrazione": 0.0,
     "finestra_calibrazione_mesi": 12.0,
@@ -3651,7 +3658,7 @@ def get_turni_rules():
                         and str(saved_value).strip() != ""
                     ):
                         rules[key] = _parse_float_turni(saved_row[key])
-                    elif key in migrated:
+                    elif key in migrated and key not in {"festivita_automatiche", "patrono_mese", "patrono_giorno"}:
                         rules[key] = float(migrated[key])
                 # Sincronizza l'alias usato dal vecchio contatore live.
                 rules["paga_oraria"] = float(rules["paga_oraria_lorda"])
@@ -3757,6 +3764,7 @@ def _payroll_v2_rules(rules):
     if migrated["paga_oraria_lorda"] <= 0:
         migrated["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
     migrated["indennita_nette"] = bool(MOBILE_VIEW)
+    migrated["festivita_automatiche"] = bool(MOBILE_VIEW) and bool(rules.get("festivita_automatiche", 1))
     return migrated
 
 
@@ -3812,6 +3820,11 @@ def _payroll_estimate_for_month(df_turni, rules, month_key):
 
 def _apply_turni_rules_from_widgets(rules):
     widget_to_rule = {
+        "turni_festivita_quota": "festivita_quota_lorda",
+        "turni_festivita_ritardo": "festivita_ritardo_mesi",
+        "turni_patrono_mese": "patrono_mese",
+        "turni_patrono_giorno": "patrono_giorno",
+        "turni_festivita_attive": "festivita_automatiche",
         "turni_paga": "paga_oraria",
         "turni_paga_lorda": "paga_oraria_lorda",
         "turni_netto_fisso": "netto_fisso_mensile",
@@ -3890,6 +3903,8 @@ def _italian_public_holidays(year):
         (12, 26),  # Santo Stefano
     }
     dates = {datetime(year, month, day).date() for month, day in fixed}
+    if MOBILE_VIEW and year >= 2026:
+        dates.add(datetime(year, 10, 4).date())
     dates.add(_easter_date(year) + timedelta(days=1))  # Pasquetta
     return dates
 
@@ -5646,6 +5661,12 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
             f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
         )
+        if estimate.holiday_items:
+            holiday_names = ", ".join(event.label for event in estimate.holiday_items)
+            net_caption += (
+                f'<br><span style="color:#fde68a;">Festività: +{html.escape(_money_turni(estimate.holiday_net))} nette stimate'
+                f' ({html.escape(_money_turni(estimate.holiday_gross))} lorde · {html.escape(holiday_names)})</span>'
+            )
         mobile_cards = [
             ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
@@ -6564,6 +6585,33 @@ def render_turni_guadagni_section():
                 key="turni_finestra_calibrazione",
                 help="Dà priorità al livello retributivo recente: i mesi più vecchi restano visibili ma sono esclusi automaticamente dal fit.",
             )
+        if MOBILE_VIEW:
+            with st.expander("Festività automatiche nel cedolino", expanded=False):
+                rules["festivita_automatiche"] = float(st.checkbox(
+                    "Prevedi festività di domenica e 4 novembre",
+                    value=bool(rules.get("festivita_automatiche", 1)), key="turni_festivita_attive"))
+                rules["festivita_quota_lorda"] = st.number_input(
+                    "Quota lorda per festività (€)", min_value=0.0,
+                    value=float(rules.get("festivita_quota_lorda", 119.90)), step=1.0, key="turni_festivita_quota")
+                rules["festivita_ritardo_mesi"] = st.number_input(
+                    "Pagamento festività: ritardo in mesi", min_value=0, max_value=3,
+                    value=int(rules.get("festivita_ritardo_mesi", 0)), key="turni_festivita_ritardo")
+                rules["patrono_mese"] = st.number_input(
+                    "Mese Santo Patrono (0 = non impostato)", min_value=0, max_value=12,
+                    value=int(rules.get("patrono_mese", 0)), key="turni_patrono_mese")
+                rules["patrono_giorno"] = st.number_input(
+                    "Giorno Santo Patrono (0 = non impostato)", min_value=0, max_value=31,
+                    value=int(rules.get("patrono_giorno", 0)), key="turni_patrono_giorno")
+                st.caption("Quota iniziale dal tuo cedolino: 119,90 € lordi. Il netto è stimato con il coefficiente variabili. Salva con le altre regole. Non inserire nuovamente queste voci nella rettifica.")
+                if not rules["patrono_mese"] or not rules["patrono_giorno"]:
+                    st.caption("Santo Patrono non incluso finché non viene impostata la data.")
+                annual_holidays = paid_holidays(
+                    selected_month.year, rules["festivita_quota_lorda"],
+                    int(rules["patrono_mese"]), int(rules["patrono_giorno"]))
+                st.dataframe(pd.DataFrame([{
+                    "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
+                    "Importo lordo": event.gross,
+                } for event in annual_holidays]), hide_index=True, use_container_width=True)
         adjustment_rows = load_payroll_adjustments()
         selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
         st.markdown(f"##### Rettifica cedolino · {_turni_month_label(selected_month)}")
@@ -6839,12 +6887,17 @@ def render_turni_guadagni_section():
                         "Questi cedolini sono stati letti correttamente. Per usarli nella calibrazione "
                         "devi aggiungere o importare i turni del mese indicato in TurniGuadagni."
                     )
+            holiday_gross_by_month = {
+                salary_month: sum(event.gross for event in holiday_compensation(salary_month, _payroll_v2_rules(rules)))
+                for salary_month in salaries
+            }
             automatic = calibrate_payroll(
                 salaries,
                 variables_by_month,
                 delay=delay_months,
                 adjustments=calibration_adjustments,
                 recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                automatic_gross=holiday_gross_by_month,
             )
             calibration_df = pd.DataFrame([{
                 "Mese cedolino": row.month,
@@ -6852,6 +6905,7 @@ def render_turni_guadagni_section():
                 "Netto reale": row.actual_net,
                 "Rettifica": row.adjustment,
                 "Variabili lorde": row.variables_gross,
+                **({"Festività lorde": row.holiday_gross} if MOBILE_VIEW else {}),
                 "Netto stimato": row.estimated_net,
                 "Scarto reale − stima": row.actual_net - row.estimated_net,
                 "Errore assoluto": row.absolute_error,
@@ -6886,6 +6940,7 @@ def render_turni_guadagni_section():
                 manual_included=manual,
                 adjustments=calibration_adjustments,
                 recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                automatic_gross=holiday_gross_by_month,
             )
             confidence_margin = max(
                 0.0,

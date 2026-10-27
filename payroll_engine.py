@@ -13,11 +13,17 @@ from datetime import date, datetime, time, timedelta
 from math import sqrt
 from statistics import mean
 from typing import Iterable, Mapping, Sequence
+from payroll_holidays import PaidHoliday, holiday_compensation
 
 
 DEFAULT_RULES: dict[str, float] = {
     "paga_oraria_lorda": 18.01988,
     "netto_fisso_mensile": 2200.0,
+    "festivita_automatiche": 0.0,
+    "festivita_quota_lorda": 119.90,
+    "festivita_ritardo_mesi": 0.0,
+    "patrono_mese": 0.0,
+    "patrono_giorno": 0.0,
     "coefficiente_netto_variabili": 0.60,
     "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
@@ -90,6 +96,9 @@ class PayslipEstimate:
     realistic_low: float
     realistic_high: float
     breakdown: VariableBreakdown
+    holiday_gross: float = 0.0
+    holiday_net: float = 0.0
+    holiday_items: tuple[PaidHoliday, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -104,6 +113,7 @@ class CalibrationRow:
     percentage_error: float | None
     included: bool
     exclusion_reason: str = ""
+    holiday_gross: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -165,8 +175,10 @@ def _easter(year: int) -> date:
     return date(year, month, (h + l - 7 * m + 114) % 31 + 1)
 
 
-def is_holiday(moment: datetime, forced: bool = False) -> bool:
+def is_holiday(moment: datetime, forced: bool = False, san_francesco: bool = False) -> bool:
     fixed = {(1, 1), (1, 6), (4, 25), (5, 1), (6, 2), (8, 15), (11, 1), (12, 8), (12, 25), (12, 26)}
+    if san_francesco and moment.year >= 2026:
+        fixed.add((10, 4))
     return forced or moment.weekday() == 6 or (moment.month, moment.day) in fixed or moment.date() == _easter(moment.year) + timedelta(days=1)
 
 
@@ -174,7 +186,7 @@ def premium_percentage(kind: str, moment: datetime, forced: bool, rules: Mapping
     minutes = moment.hour * 60 + moment.minute
     if moment.weekday() == 5 and 6 * 60 <= minutes < 18 * 60:
         return 0.0
-    festive = is_holiday(moment, forced)
+    festive = is_holiday(moment, forced, bool(rules.get("indennita_nette", False)))
     if kind == "Mattina":
         return rules["m_p_festivo_giorno_pct"] if festive else rules["m_p_feriale_pct"]
     if kind == "Pomeriggio":
@@ -190,7 +202,7 @@ def shift_allowance(shift: Shift, rules: Mapping[str, float]) -> float:
     if shift.kind in {"Ferie", "Riposo", "Giornata"}:
         return 0.0
     start, _ = _bounds(shift)
-    festive = is_holiday(start, shift.forced_holiday)
+    festive = is_holiday(start, shift.forced_holiday, bool(rules.get("indennita_nette", False)))
     # Mobile allowances keep the same eligible days as the live shift calculation.
     if rules.get("indennita_nette", False) and not festive and start.weekday() != 5:
         return 0.0
@@ -200,7 +212,7 @@ def shift_allowance(shift: Shift, rules: Mapping[str, float]) -> float:
 
 
 def _overtime_percentage(shift: Shift, moment: datetime, rules: Mapping[str, float]) -> float:
-    festive = is_holiday(moment, shift.forced_holiday)
+    festive = is_holiday(moment, shift.forced_holiday, bool(rules.get("indennita_nette", False)))
     suffix = "festivo" if festive else "feriale"
     prefix = {"Mattina": "mattina", "Pomeriggio": "pomeriggio", "Notte": "notte", "Ferie": "ferie"}.get(shift.kind)
     fallback = rules[f"straordinario_{suffix}_pct"]
@@ -240,7 +252,7 @@ def calculate_shift_variables(shift: Shift, rules: Mapping[str, float]) -> Varia
     meal = 0.0
     if shift.onsite and shift.kind not in {"", "Ferie", "Riposo"}:
         start, _ = _bounds(shift)
-        if shift.kind != "Mattina" or is_holiday(start, shift.forced_holiday):
+        if shift.kind != "Mattina" or is_holiday(start, shift.forced_holiday, bool(rules.get("indennita_nette", False))):
             meal = float(rules.get("buono_pasto", 0.0))
     return VariableBreakdown(
         premiums_gross=premiums,
@@ -289,7 +301,10 @@ def estimate_payslip(
         else rules.get("rettifica_mensile", 0.0)
     )
     variables_net = breakdown.variables_gross * coefficient + breakdown.allowances_net
-    credited = fixed + variables_net + adjustment
+    holidays = holiday_compensation(month, rules)
+    holidays_gross = sum(event.gross for event in holidays)
+    holidays_net = holidays_gross * coefficient
+    credited = fixed + variables_net + adjustment + holidays_net
     spread = max(0.0, float(uncertainty))
     return PayslipEstimate(
         month=month,
@@ -303,6 +318,9 @@ def estimate_payslip(
         realistic_low=credited - spread,
         realistic_high=credited + spread,
         breakdown=breakdown,
+        holiday_gross=holidays_gross,
+        holiday_net=holidays_net,
+        holiday_items=holidays,
     )
 
 
@@ -332,15 +350,19 @@ def calibrate(
     manual_included: Mapping[str, bool] | None = None,
     adjustments: Mapping[str, float] | None = None,
     recency_months: int | None = 12,
+    automatic_net: Mapping[str, float] | None = None,
+    automatic_gross: Mapping[str, float] | None = None,
 ) -> CalibrationResult:
-    """Fit actual_net - adjustment - net allowances = fixed + coefficient * gross.
+    """Fit actual net after adjustments and net allowances against gross income.
 
+    Automatic holiday gross amounts enter the regressor alongside shift variables,
+    so calibration does not absorb holiday payments into the fixed monthly net.
     Obvious exceptional months are excluded with a robust median/MAD rule. By
     default only the latest 12 calendar months are fitted, so contractual pay
     growth is not diluted by older salary levels. Older rows remain visible and
     can still be included manually.
     """
-    candidates: list[tuple[str, str, float, float, float, float]] = []
+    candidates: list[tuple[str, str, float, float, float, float, float]] = []
     for month, actual in sorted(salaries.items()):
         variables_month = add_months(month, -delay)
         if variables_month in variables_by_month and float(actual) > 0:
@@ -351,7 +373,8 @@ def calibrate(
                 float(actual),
                 adjustment,
                 variables_by_month[variables_month].variables_gross,
-                variables_by_month[variables_month].allowances_net,
+                variables_by_month[variables_month].allowances_net + float((automatic_net or {}).get(month, 0)),
+                float((automatic_gross or {}).get(month, 0)),
             ))
     if len(candidates) < 2:
         raise ValueError("Servono almeno due mensilità abbinate per calibrare il modello.")
@@ -366,7 +389,7 @@ def calibrate(
     use_recency_window = window_months > 0 and len(recent_candidates) >= 2
     included_flags: list[bool] = []
     reasons: list[str] = []
-    for month, _, actual, adjustment, _, net_allowance in candidates:
+    for month, _, actual, adjustment, _, net_allowance, _ in candidates:
         normalized_actual = actual - adjustment - net_allowance
         ordinary = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
         recent = not use_recency_window or month >= window_start
@@ -383,7 +406,7 @@ def calibrate(
     selected = [row for row, flag in zip(candidates, included_flags) if flag]
     if len(selected) < 2:
         raise ValueError("Servono almeno due mensilità incluse per calibrare il modello.")
-    xs = [row[4] for row in selected]
+    xs = [row[4] + row[6] for row in selected]
     ys = [row[2] - row[3] - row[5] for row in selected]
     x_mean, y_mean = mean(xs), mean(ys)
     denominator = sum((x - x_mean) ** 2 for x in xs)
@@ -401,12 +424,13 @@ def calibrate(
             actual_net=actual,
             adjustment=adjustment,
             variables_gross=variables,
-            estimated_net=fixed + coefficient * variables + adjustment + net_allowance,
-            absolute_error=abs(actual - (fixed + coefficient * variables + adjustment + net_allowance)),
-            percentage_error=(abs(actual - (fixed + coefficient * variables + adjustment + net_allowance)) / actual * 100) if actual else None,
+            estimated_net=fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance,
+            absolute_error=abs(actual - (fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance)),
+            percentage_error=(abs(actual - (fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance)) / actual * 100) if actual else None,
             included=included,
             exclusion_reason="" if included else reason,
+            holiday_gross=gross_extra,
         )
-        for (month, variables_month, actual, adjustment, variables, net_allowance), included, reason in zip(candidates, included_flags, reasons)
+        for (month, variables_month, actual, adjustment, variables, net_allowance, gross_extra), included, reason in zip(candidates, included_flags, reasons)
     )
     return CalibrationResult(fixed, coefficient, mae, fixed - margin, fixed + margin, rows)
