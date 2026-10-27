@@ -9022,7 +9022,7 @@ textarea {
                                 SPESE["Variabili"].get(voce, 0.0)
                                 for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere"]
                             )
-                            anticipo_rimborsabile_revolut = 21.50
+                            anticipo_rimborsabile_revolut = 14.50
                             saldo_prima_accantonamenti = (
                                 risparmi_mese_precedente + totale_carta
                                 - spese_fisse_revolut - anticipo_rimborsabile_revolut
@@ -9164,7 +9164,7 @@ textarea {
                             SPESE["Variabili"].get(voce, 0.0)
                             for voce in ["Emergenze/Compleanni", "Viaggi", "Da spendere"]
                         )
-                        anticipo_rimborsabile_revolut = 21.50
+                        anticipo_rimborsabile_revolut = 14.50
                         saldo_revolut_prima_accantonamenti = (
                             risparmi_mese_precedente
                             + totale_carta
