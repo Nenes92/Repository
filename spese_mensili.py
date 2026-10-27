@@ -28,6 +28,7 @@ from payroll_engine import (
     estimate_payslip,
     migrate_rules as migrate_payroll_rules,
 )
+from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
 from turni_excel_import import merge_turni_history, read_turni_excel
 try:
@@ -75,6 +76,52 @@ def get_gsheet_client():
         return client
     except Exception as e:
         return None
+
+
+@st.cache_resource
+def _get_payslip_drive_session(principal, _credentials_info):
+    from google.auth.transport.requests import AuthorizedSession
+    credentials = Credentials.from_service_account_info(
+        _credentials_info, scopes=["https://www.googleapis.com/auth/drive.readonly"])
+    return AuthorizedSession(credentials)
+
+
+@st.cache_data(ttl=86400, max_entries=256, show_spinner=False)
+def _read_drive_payslip(principal, file_id, name, revision, _session):
+    return download_payslip(_session, file_id, name)
+
+
+@st.cache_data(ttl=300, max_entries=4, show_spinner=False)
+def _load_drive_payslips(principal, folder_id, _credentials_info):
+    try:
+        session = _get_payslip_drive_session(principal, _credentials_info)
+        files = list_payslip_files(session, folder_id)
+        result = collect_payslips(
+            files, lambda item: _read_drive_payslip(
+                principal, item["id"], item["name"],
+                item.get("md5Checksum") or item.get("modifiedTime", ""), session))
+        result["checked_at"] = _now_italy().strftime("%d/%m/%Y %H:%M")
+        result["error"] = ""
+        return result
+    except Exception:
+        # Cache failures too, so an unavailable Drive does not cause a call storm.
+        return {"salaries": {}, "files": 0, "positions": 0, "errors": [],
+                "checked_at": "", "error": "Non riesco a leggere la cartella cedolini su Drive. Verifica l'accesso dell'account dell'app e riprova."}
+
+
+def _mobile_drive_payslips(force=False):
+    principal = CREDENTIALS_INFO["client_email"]
+    folder_id = CEDOLINI_DRIVE_URL.rstrip("/").split("/")[-1]
+    if force:
+        _load_drive_payslips.clear(principal, folder_id, CREDENTIALS_INFO)
+    result = _load_drive_payslips(principal, folder_id, CREDENTIALS_INFO)
+    if result["error"]:
+        last = st.session_state.get("payroll_drive_last_success")
+        if last:
+            return {**last, "error": result["error"], "stale": True}
+    else:
+        st.session_state.payroll_drive_last_success = result
+    return result
 
 
 @st.cache_resource
@@ -6214,7 +6261,8 @@ def render_turni_guadagni_section():
     if MOBILE_VIEW:
         with st.container(key="mobile-turni-tabs"):
             tab_cal, tab_report, tab_rules, tab_calibration = st.tabs(
-                ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"]
+                ["📅 Turni", "📊 Riepilogo", "⚙️ Regole", "🎯 Calibrazione"],
+                key="mobile_turni_active_tab", on_change="rerun",
             )
     else:
         tab_cal, tab_rules, tab_report, tab_calibration = st.tabs(
@@ -6739,73 +6787,100 @@ def render_turni_guadagni_section():
         _render_turni_report(month_report, previous_month_report, current_month_label, previous_month_label)
 
     with tab_calibration:
-        st.markdown("### Calibrazione su storico reale")
-        st.caption(
-            "Ogni cedolino viene abbinato alle variabili maturate nel mese precedente. "
-            "Le rettifiche mensili registrate vengono neutralizzate prima del calcolo. "
-            f"Il modello usa automaticamente gli ultimi {int(round(rules.get('finestra_calibrazione_mesi', 12)))} mesi, "
-            "così gli aumenti recenti pesano più dello storico remoto. Tredicesima, premi elevati e anomalie "
-            "sono esclusi; la colonna “Includi” consente comunque di correggere ogni scelta."
-        )
+        if MOBILE_VIEW and not tab_calibration.open:
+            return
+        st.markdown("### Calibrazione cedolini" if MOBILE_VIEW else "### Calibrazione su storico reale")
+        if not MOBILE_VIEW:
+            st.caption(
+                "Ogni cedolino viene abbinato alle variabili maturate nel mese precedente. "
+                "Le rettifiche mensili registrate vengono neutralizzate prima del calcolo. "
+                f"Il modello usa automaticamente gli ultimi {int(round(rules.get('finestra_calibrazione_mesi', 12)))} mesi, "
+                "così gli aumenti recenti pesano più dello storico remoto. Tredicesima, premi elevati e anomalie "
+                "sono esclusi; la colonna “Includi” consente comunque di correggere ogni scelta."
+            )
         try:
-            with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
-                uploaded_turni_excel = st.file_uploader(
-                    "File Turni guadagni.xlsx",
-                    type=["xlsx"],
-                    key="turni_excel_history_upload",
-                    help="Legge i fogli mensili e unisce lo storico senza sovrascrivere le date già presenti su Google.",
-                )
-                imported_history = None
-                if uploaded_turni_excel is not None:
-                    imported_history = read_turni_excel(uploaded_turni_excel)
-                if imported_history is not None:
-                    existing_dates = set(_normalize_turni_df(df_turni)["Data"].astype(str))
-                    imported_dates = set(imported_history["Data"].astype(str))
-                    new_dates = imported_dates - existing_dates
-                    imported_months = sorted(imported_history["Data"].str[:7].unique()) if not imported_history.empty else []
-                    st.info(
-                        f"Rilevati {len(imported_history)} turni in {len(imported_months)} mesi "
-                        f"({imported_months[0] if imported_months else '—'} → {imported_months[-1] if imported_months else '—'}). "
-                        f"Nuove date da aggiungere: {len(new_dates)}."
+            if not MOBILE_VIEW:
+                with st.expander("📥 Importa storico turni dal prototipo Excel", expanded=False):
+                    uploaded_turni_excel = st.file_uploader(
+                        "File Turni guadagni.xlsx",
+                        type=["xlsx"],
+                        key="turni_excel_history_upload",
+                        help="Legge i fogli mensili e unisce lo storico senza sovrascrivere le date già presenti su Google.",
                     )
-                    if st.button(
-                        "✅ Unisci e salva lo storico su Google",
-                        key="save_imported_turni_history",
-                        use_container_width=True,
-                        disabled=imported_history.empty,
-                    ):
-                        fresh_existing = load_turni_data(force_reload=True)
-                        merged_history = merge_turni_history(fresh_existing, imported_history)
-                        if save_turni_data(merged_history):
-                            st.session_state.pop("payroll_calibration_editor", None)
-                            st.success(
-                                f"Storico importato: {len(merged_history)} giornate complessive; "
-                                "le date già presenti su Google sono state conservate."
-                            )
-                            st.rerun()
-                        else:
-                            st.error("Importazione pronta, ma il salvataggio su Google Sheets non è riuscito.")
-            refresh_calibration = st.button(
-                "🔄 Aggiorna cedolini e turni da Google",
-                key="refresh_payroll_calibration",
-                use_container_width=True,
-                help="Forza una nuova lettura del foglio Stipendi e del foglio TurniGuadagni.",
-            )
-            salary_df = load_data_gsheets(
-                "Stipendi",
-                STIPENDI_HEADERS,
-                force_reload=refresh_calibration,
-            )
-            calibration_turni_df = (
-                load_turni_data(force_reload=True) if refresh_calibration else df_turni
-            )
-            salaries = {}
-            if salary_df is not None and not salary_df.empty:
-                for _, salary_row in salary_df.iterrows():
-                    salary_month = pd.to_datetime(salary_row.get("Mese"), errors="coerce")
-                    salary_value = _parse_float_turni(salary_row.get("Stipendio", 0.0))
-                    if pd.notna(salary_month) and salary_value > 0:
-                        salaries[salary_month.strftime("%Y-%m")] = salary_value
+                    imported_history = None
+                    if uploaded_turni_excel is not None:
+                        imported_history = read_turni_excel(uploaded_turni_excel)
+                    if imported_history is not None:
+                        existing_dates = set(_normalize_turni_df(df_turni)["Data"].astype(str))
+                        imported_dates = set(imported_history["Data"].astype(str))
+                        new_dates = imported_dates - existing_dates
+                        imported_months = sorted(imported_history["Data"].str[:7].unique()) if not imported_history.empty else []
+                        st.info(
+                            f"Rilevati {len(imported_history)} turni in {len(imported_months)} mesi "
+                            f"({imported_months[0] if imported_months else '—'} → {imported_months[-1] if imported_months else '—'}). "
+                            f"Nuove date da aggiungere: {len(new_dates)}."
+                        )
+                        if st.button(
+                            "✅ Unisci e salva lo storico su Google",
+                            key="save_imported_turni_history",
+                            use_container_width=True,
+                            disabled=imported_history.empty,
+                        ):
+                            fresh_existing = load_turni_data(force_reload=True)
+                            merged_history = merge_turni_history(fresh_existing, imported_history)
+                            if save_turni_data(merged_history):
+                                st.session_state.pop("payroll_calibration_editor", None)
+                                st.success(
+                                    f"Storico importato: {len(merged_history)} giornate complessive; "
+                                    "le date già presenti su Google sono state conservate."
+                                )
+                                st.rerun()
+                            else:
+                                st.error("Importazione pronta, ma il salvataggio su Google Sheets non è riuscito.")
+            if MOBILE_VIEW:
+                refresh_calibration = st.button(
+                    "🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True)
+                with st.spinner("Leggo i cedolini da Drive…"):
+                    drive_result = _mobile_drive_payslips(force=refresh_calibration)
+                if drive_result["error"]:
+                    st.warning(drive_result["error"])
+                    if not drive_result.get("stale"):
+                        raise ValueError("Nessun cedolino disponibile da Drive.")
+                if drive_result["errors"]:
+                    with st.expander(f"PDF da controllare ({len(drive_result['errors'])})"):
+                        for error in drive_result["errors"]:
+                            st.write(error)
+                if drive_result.get("checked_at"):
+                    st.markdown(
+                        f'<div style="font-size:12px;color:rgba(255,255,255,.58);margin:4px 0 10px;">Drive · lettura automatica · {html.escape(drive_result["checked_at"])}</div>',
+                        unsafe_allow_html=True)
+                salaries = drive_result["salaries"]
+                if st.session_state.get("payroll_drive_salaries") != salaries:
+                    st.session_state.pop("payroll_calibration_editor", None)
+                    st.session_state.payroll_drive_salaries = salaries.copy()
+                calibration_turni_df = load_turni_data(force_reload=True) if refresh_calibration else df_turni
+            else:
+                refresh_calibration = st.button(
+                    "🔄 Aggiorna cedolini e turni da Google",
+                    key="refresh_payroll_calibration",
+                    use_container_width=True,
+                    help="Forza una nuova lettura del foglio Stipendi e del foglio TurniGuadagni.",
+                )
+                salary_df = load_data_gsheets(
+                    "Stipendi",
+                    STIPENDI_HEADERS,
+                    force_reload=refresh_calibration,
+                )
+                calibration_turni_df = (
+                    load_turni_data(force_reload=True) if refresh_calibration else df_turni
+                )
+                salaries = {}
+                if salary_df is not None and not salary_df.empty:
+                    for _, salary_row in salary_df.iterrows():
+                        salary_month = pd.to_datetime(salary_row.get("Mese"), errors="coerce")
+                        salary_value = _parse_float_turni(salary_row.get("Stipendio", 0.0))
+                        if pd.notna(salary_month) and salary_value > 0:
+                            salaries[salary_month.strftime("%Y-%m")] = salary_value
             variables_by_month = _payroll_variables_by_month(calibration_turni_df, rules)
             calibration_adjustment_rows = load_payroll_adjustments(
                 force_reload=refresh_calibration,
@@ -6832,6 +6907,14 @@ def render_turni_guadagni_section():
                 ("Senza turni precedenti", str(len(missing_salary_months)), "#fb923c", "249,115,22"),
                 ("Mesi variabili disponibili", str(len(variables_by_month)), "#a78bfa", "139,92,246"),
             ]
+            if MOBILE_VIEW:
+                latest_salary = _turni_month_label(pd.Timestamp(max(salaries))) if salaries else "—"
+                status_cards = [
+                    ("Mesi con cedolino", str(len(salaries)), "#60a5fa", "59,130,246"),
+                    ("Mesi utilizzabili", str(len(matched_salary_months)), "#34d399", "16,185,129"),
+                    ("Mesi senza turni", str(len(missing_salary_months)), "#fb923c", "249,115,22"),
+                    ("Ultimo cedolino", latest_salary, "#a78bfa", "139,92,246"),
+                ]
             status_html = "".join(
                 f'<div class="calibration-status-card" style="--cal-color:{color};--cal-rgb:{rgb};">'
                 f'<div class="calibration-status-label">{html.escape(label)}</div>'
@@ -6869,7 +6952,7 @@ def render_turni_guadagni_section():
             </style>
             <div class="calibration-status-grid">{status_html}</div>
             """, unsafe_allow_html=True)
-            if refresh_calibration:
+            if refresh_calibration and not MOBILE_VIEW:
                 st.success("Cedolini e turni riletti da Google Sheets.")
             if missing_salary_months:
                 missing_rows = pd.DataFrame([
@@ -6885,10 +6968,11 @@ def render_turni_guadagni_section():
                     expanded=False,
                 ):
                     st.dataframe(missing_rows, hide_index=True, use_container_width=True)
-                    st.caption(
-                        "Questi cedolini sono stati letti correttamente. Per usarli nella calibrazione "
-                        "devi aggiungere o importare i turni del mese indicato in TurniGuadagni."
-                    )
+                    if not MOBILE_VIEW:
+                        st.caption(
+                            "Questi cedolini sono stati letti correttamente. Per usarli nella calibrazione "
+                            "devi aggiungere o importare i turni del mese indicato in TurniGuadagni."
+                        )
             holiday_gross_by_month = {
                 salary_month: sum(event.gross for event in holiday_compensation(salary_month, _payroll_v2_rules(rules)))
                 for salary_month in salaries
@@ -6915,22 +6999,29 @@ def render_turni_guadagni_section():
                 "Includi": row.included,
                 "Motivo esclusione": row.exclusion_reason,
             } for row in automatic.rows])
-            edited = st.data_editor(
-                calibration_df,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Netto reale": st.column_config.NumberColumn(format="€ %.0f"),
-                    "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
-                    "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
-                    "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
-                    "Scarto reale − stima": st.column_config.NumberColumn(format="€ %.1f"),
-                    "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
-                    "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
-                },
-                disabled=[col for col in calibration_df.columns if col != "Includi"],
-                key="payroll_calibration_editor",
-            )
+            if MOBILE_VIEW:
+                calibration_df = calibration_df[[
+                    "Includi", "Mese cedolino", "Netto reale", "Netto stimato",
+                    "Scarto reale − stima", "Motivo esclusione",
+                ]]
+            editor_container = st.expander("Confronto dei cedolini", expanded=False) if MOBILE_VIEW else st.container()
+            with editor_container:
+                edited = st.data_editor(
+                    calibration_df,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Netto reale": st.column_config.NumberColumn(format="€ %.0f"),
+                        "Rettifica": st.column_config.NumberColumn(format="€ %.0f"),
+                        "Variabili lorde": st.column_config.NumberColumn(format="€ %.1f"),
+                        "Netto stimato": st.column_config.NumberColumn(format="€ %.1f"),
+                        "Scarto reale − stima": st.column_config.NumberColumn(format="€ %.1f"),
+                        "Errore assoluto": st.column_config.NumberColumn(format="€ %.1f"),
+                        "Errore %": st.column_config.NumberColumn(format="%.1f%%"),
+                    },
+                    disabled=[col for col in calibration_df.columns if col != "Includi"],
+                    key="payroll_calibration_editor",
+                )
             manual = {
                 str(row["Mese cedolino"]): bool(row["Includi"])
                 for _, row in edited.iterrows()
@@ -6954,6 +7045,13 @@ def render_turni_guadagni_section():
                 ("Errore medio tipico", _money_turni(calibrated.mean_absolute_error), "#facc15", "234,179,8"),
                 ("Fascia prudenziale 95%", f"± {_money_turni(confidence_margin)}", "#f472b6", "219,39,119"),
             ]
+            if MOBILE_VIEW:
+                result_cards = [
+                    ("Fisso netto stimato", _money_turni(calibrated.fixed_net), "#34d399", "16,185,129"),
+                    ("Conversione lordo → netto", f"{calibrated.variable_coefficient:.1%}", "#60a5fa", "59,130,246"),
+                    ("Scarto medio storico", _money_turni(calibrated.mean_absolute_error), "#facc15", "234,179,8"),
+                    ("Margine di stima", f"± {_money_turni(confidence_margin)}", "#f472b6", "219,39,119"),
+                ]
             result_html = "".join(
                 f'<div class="calibration-result-card" style="--cal-color:{color};--cal-rgb:{rgb};">'
                 f'<div class="calibration-result-label">{html.escape(label)}</div>'
@@ -6965,14 +7063,15 @@ def render_turni_guadagni_section():
                 f'<div class="calibration-result-grid">{result_html}</div>',
                 unsafe_allow_html=True,
             )
-            st.info(
-                "Come leggerla: l’errore medio tipico descrive lo scarto che il modello "
-                "ha avuto normalmente sullo storico. La fascia 95% è più larga perché "
-                "copre anche mesi poco favorevoli. Se è enorme, di solito ci sono pochi "
-                "mesi ordinari, rettifiche non registrate oppure variabili poco coerenti "
-                "con i cedolini; controlla la colonna “Includi” prima di applicare."
-            )
-            if st.button("✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True):
+            if not MOBILE_VIEW:
+                st.info(
+                    "Come leggerla: l’errore medio tipico descrive lo scarto che il modello "
+                    "ha avuto normalmente sullo storico. La fascia 95% è più larga perché "
+                    "copre anche mesi poco favorevoli. Se è enorme, di solito ci sono pochi "
+                    "mesi ordinari, rettifiche non registrate oppure variabili poco coerenti "
+                    "con i cedolini; controlla la colonna “Includi” prima di applicare."
+                )
+            if st.button("✅ Applica alla previsione" if MOBILE_VIEW else "✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True):
                 rules["netto_fisso_mensile"] = float(calibrated.fixed_net)
                 rules["coefficiente_netto_variabili"] = float(calibrated.variable_coefficient)
                 rules["errore_medio_calibrazione"] = float(calibrated.mean_absolute_error)
