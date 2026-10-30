@@ -1611,6 +1611,10 @@ if MOBILE_VIEW:
         font-size: 10px;
         line-height: 1.3;
     }
+    .st-key-mobile_notes_edit_action {
+        margin-top: 12px;
+        clear: both;
+    }
     .mobile-objective-block {
         margin-top: 14px;
     }
@@ -9554,14 +9558,15 @@ textarea {
                     "nota3": _nota_value("nota3"),
                     "nota4": _nota_value("nota4"),
                 }
-                with st.expander("Apri / modifica note", expanded=False):
-                    for idx, note_key in enumerate(note_keys, start=1):
-                        note_values_map[note_key] = st.text_area(
-                            f"Nota {idx}",
-                            value=note_values_map[note_key],
-                            height=180,
-                            key=f"{note_key}_text"
-                        )
+                with st.container(key="mobile_notes_edit_action"):
+                    with st.popover("✏️ Modifica note", use_container_width=True):
+                        for idx, note_key in enumerate(note_keys, start=1):
+                            note_values_map[note_key] = st.text_area(
+                                f"Nota {idx}",
+                                value=note_values_map[note_key],
+                                height=180,
+                                key=f"{note_key}_text"
+                            )
                 nota1 = note_values_map["nota1"]
                 nota2 = note_values_map["nota2"]
                 nota3 = note_values_map["nota3"]
