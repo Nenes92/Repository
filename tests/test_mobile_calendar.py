@@ -20,3 +20,24 @@ def test_invalid_browser_payload_cannot_be_saved(field,value):
     payload=valid();payload[field]=value
     with pytest.raises(ValueError):
         validate_day_save(payload, {'2026-10-20'})
+
+
+def test_asset_updates_replace_cached_browser_component_but_data_updates_do_not(monkeypatch):
+    import mobile_shift_calendar as calendar
+    mounts = []
+    definitions = []
+    def declare(name, **assets):
+        definitions.append(name)
+        def render(**kwargs):
+            mounts.append(kwargs)
+            return None
+        return render
+    monkeypatch.setattr(calendar, 'component', declare)
+    calendar.render_mobile_shift_calendar([], 'october')
+    calendar.render_mobile_shift_calendar([None], 'october')
+    assert definitions[0] == definitions[1]
+    assert mounts[0]['key'] == mounts[1]['key']
+    monkeypatch.setattr(calendar, 'CSS', calendar.CSS + '\n/* updated badges */')
+    calendar.render_mobile_shift_calendar([], 'october')
+    assert definitions[2] != definitions[0]
+    assert mounts[2]['key'] != mounts[0]['key']

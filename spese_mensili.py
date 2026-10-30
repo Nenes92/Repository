@@ -36,6 +36,9 @@ from payroll_engine import (
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
 from turni_excel_import import merge_turni_history, read_turni_excel
+import mobile_shift_calendar as _mobile_shift_calendar
+# Streamlit can retain helper imports across deploys: refresh the inline assets.
+importlib.reload(_mobile_shift_calendar)
 from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_save
 try:
     from zoneinfo import ZoneInfo

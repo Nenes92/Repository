@@ -1,4 +1,5 @@
 """Mobile calendar: browse/edit locally; notify Streamlit only on explicit save."""
+from hashlib import sha256
 from streamlit.components.v2 import component
 
 CSS = """
@@ -123,8 +124,9 @@ export default function({data, parentElement, setTriggerValue}) {
 def render_mobile_shift_calendar(days, key, revision=""):
     # Identical definitions register idempotently. Register in the active
     # runtime rather than retaining a renderer from an earlier server runtime.
-    renderer = component("mobile_shift_calendar", html=HTML, css=CSS, js=JS)
-    return renderer(data={"days": days, "revision": revision}, key=key,
+    asset_version = sha256((HTML + CSS + JS).encode("utf-8")).hexdigest()[:12]
+    renderer = component(f"mobile_shift_calendar_{asset_version}", html=HTML, css=CSS, js=JS)
+    return renderer(data={"days": days, "revision": revision}, key=f"{key}::{asset_version}",
                     on_save_change=lambda: None)
 
 
