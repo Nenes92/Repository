@@ -259,7 +259,7 @@ def test_kitchen_migration_refreshes_and_preserves_other_expenses(app):
     assert len(saved) == 1
 
 
-def test_calendar_entry_bypasses_feed_cache_once_and_again_on_return(app):
+def test_calendar_entry_refreshes_on_app_open_but_not_section_navigation(app):
     import io
     from types import SimpleNamespace
     ns, _, calls = app
@@ -293,14 +293,22 @@ def test_calendar_entry_bypasses_feed_cache_once_and_again_on_return(app):
     ns['_mark_mobile_calendar_entry']()
     ns['_refresh_mobile_calendar_on_entry']()
     load('test-calendar')
-    assert calls['calendar'] == 3
+    assert calls['calendar'] == 2
     state['mobile_section_select'] = 'Spese fisse'
     ns['_mark_mobile_calendar_entry']()
     state['mobile_section_select'] = 'Turni'
     ns['_mark_mobile_calendar_entry']()
     ns['_refresh_mobile_calendar_on_entry']()
     load('test-calendar')
-    assert calls['calendar'] == 4
+    assert calls['calendar'] == 2
+
+    state.clear()
+    state['mobile_section_select'] = 'Turni'
+    content[0] = b'new app session calendar'
+    ns['_mark_mobile_calendar_entry']()
+    ns['_refresh_mobile_calendar_on_entry']()
+    assert load('test-calendar') == 'new app session calendar'
+    assert calls['calendar'] == 3
 
 
 def test_mobile_calendar_sync_removals_and_partial_failure_are_safe(app):

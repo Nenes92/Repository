@@ -40,6 +40,9 @@ import mobile_shift_calendar as _mobile_shift_calendar
 # Streamlit can retain helper imports across deploys: refresh the inline assets.
 importlib.reload(_mobile_shift_calendar)
 from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_save
+import mobile_navigation as _mobile_navigation
+importlib.reload(_mobile_navigation)
+from mobile_navigation import render_mobile_navigation
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -2644,6 +2647,7 @@ if MOBILE_VIEW:
         )
     _mobile_nav_html.append("</div>")
     st.markdown("\n".join(_mobile_nav_html), unsafe_allow_html=True)
+    render_mobile_navigation(MOBILE_SECTIONS, mobile_section)
 
 def _mobile_show(*sections):
     return (not MOBILE_VIEW) or (mobile_section in sections)
@@ -4061,10 +4065,15 @@ def _render_mobile_calibration(rules):
 
 
 def _payroll_variables_by_month(df_turni, rules):
+    return _cached_payroll_variables_by_month(
+        df_turni, _payroll_v2_rules(rules), os.stat(_payroll_engine.__file__).st_mtime_ns)
+
+
+@st.cache_data(ttl=1800, max_entries=8, show_spinner=False)
+def _cached_payroll_variables_by_month(df_turni, v2_rules, engine_revision):
     grouped = {}
     for shift in _payroll_shifts_from_df(df_turni):
         grouped.setdefault(shift.day.strftime("%Y-%m"), []).append(shift)
-    v2_rules = _payroll_v2_rules(rules)
     return {
         month: calculate_month_variables(month_shifts, v2_rules)
         for month, month_shifts in grouped.items()
@@ -4645,6 +4654,21 @@ def _turni_current_prev_months():
     return current, prev
 
 
+def _nearest_turni_shift_times(df_turni, now):
+    upcoming = []
+    completed = []
+    for _, row in df_turni.iterrows():
+        shift = str(row.get("Turno", ""))
+        if shift not in TURNI_ORARI or shift in {"", "Ferie", "Riposo"}:
+            continue
+        start, end = _shift_bounds(row["Data"], shift)
+        if start > now:
+            upcoming.append(start)
+        if end <= now:
+            completed.append(end)
+    return min(upcoming) if upcoming else None, max(completed) if completed else None
+
+
 def compute_turni_dashboard(df_turni, rules):
     now = _now_italy()
     today = now.strftime("%Y-%m-%d")
@@ -4678,6 +4702,8 @@ def compute_turni_dashboard(df_turni, rules):
     work_days_total = 0
     ferie_days_total = 0
     live_net_hourly = _live_net_hourly_base(df_turni, rules, current_m)
+    prev_live_net_hourly = _live_net_hourly_base(df_turni, rules, prev_m)
+    nearest_next_start, nearest_last_end = _nearest_turni_shift_times(df_turni, now)
 
     for _, row in df_turni.iterrows():
         data = row["Data"]
@@ -4723,7 +4749,7 @@ def compute_turni_dashboard(df_turni, rules):
                     current_shift_end = end
                     current_rate_change_at = start if now < start else None
                 live_today = calc_live["total"]
-                expected_today = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
+                expected_today = calc_full["total"]
             elif turno not in ["Ferie", "Riposo"] and start <= now < end:
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
@@ -4738,22 +4764,21 @@ def compute_turni_dashboard(df_turni, rules):
                 boundaries = [t for t in (current_rate_change_at, leave_start, leave_end) if t is not None and now < t < end]
                 current_rate_change_at = min(boundaries) if boundaries else None
                 live_today = calc_live["total"]
-                expected_today = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
+                expected_today = calc_full["total"]
 
         if has_turno and data[:7] == prev_m:
-            prev_live_net_hourly = _live_net_hourly_base(df_turni, rules, prev_m)
             calc_prev = compute_turno_net_estimate(data, turno, festivo, rules, prev_live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))
             prev_extras += calc_prev["extra"]
 
         if not has_turno:
             continue
         start, end = _shift_bounds(data, turno)
-        if turno not in ["Ferie", "Riposo"] and start > now and (next_shift_start is None or start < next_shift_start):
+        if turno not in ["Ferie", "Riposo"] and start == nearest_next_start and next_shift_start is None:
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
             next_shift_type = f"{turno.lower()} {'festivo' if _is_festive_at(start, festivo) else 'feriale'} {'in sede' if _turni_row_sede(row) else 'in smart'}"
             next_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
-        if turno not in ["Ferie", "Riposo"] and end <= now and (last_shift_end is None or end > last_shift_end):
+        if turno not in ["Ferie", "Riposo"] and end == nearest_last_end and last_shift_end is None:
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
             last_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
@@ -5474,10 +5499,10 @@ def ensure_turni_month_synced(selected_month, df_turni=None):
 
 
 def _mark_mobile_calendar_entry():
-    """L'apertura dell'app e l'ingresso in Turni richiedono una lettura fresca."""
+    """L'apertura dell'app richiede una lettura fresca; la navigazione la riusa."""
     section = st.session_state.get("mobile_section_select", "Panoramica")
     previous = st.session_state.get("turni_calendar_last_section")
-    if previous is None or (section == "Turni" and previous != "Turni"):
+    if previous is None:
         st.session_state.turni_calendar_refresh_pending = True
     st.session_state.turni_calendar_last_section = section
 
