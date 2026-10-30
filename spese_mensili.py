@@ -3491,6 +3491,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 # ─── MODULO CONTATORE GUADAGNI TURNI ─────────────────────────────────────────
+def _mobile_save_button_styles():
+    return """<style>
+      div[data-testid="stButton"] > button[kind^="primary"],
+      div[data-testid="stFormSubmitButton"] > button[kind^="primary"] {
+        background:rgba(66,105,139,.36) !important;border:1px solid rgba(139,177,207,.40) !important;
+        color:#dbeafe !important;border-radius:11px !important;font-weight:650 !important;
+      }
+      div[data-testid="stButton"] > button[kind^="primary"]:hover,
+      div[data-testid="stFormSubmitButton"] > button[kind^="primary"]:hover {
+        background:rgba(66,105,139,.48) !important;border-color:rgba(139,177,207,.60) !important;
+      }
+      div[data-testid="stButton"] > button[kind^="secondary"],
+      div[data-testid="stFormSubmitButton"] > button[kind^="secondary"] {
+        background:rgba(255,255,255,.045) !important;border:1px solid rgba(148,163,184,.22) !important;color:#cbd5e1 !important;
+      }
+      div[data-testid="stButton"] > button[kind^="secondary"]:hover,
+      div[data-testid="stFormSubmitButton"] > button[kind^="secondary"]:hover {
+        background:rgba(255,255,255,.08) !important;border-color:rgba(148,163,184,.36) !important;
+      }
+      div[data-testid="stButton"] > button:disabled,
+      div[data-testid="stFormSubmitButton"] > button:disabled {opacity:.45;}
+    </style>"""
+
+
 TURNI_HEADERS = ["Data", "Turno", "Festivo", "Straordinario minuti", "Sede", "Permesso minuti", "Permesso inizio"]
 TURNI_WORKSHEET = "TurniGuadagni"
 CALENDAR_ICAL_URL = ""
@@ -6196,40 +6220,52 @@ def _render_turni_day_action_menu(df_turni, month_days):
     if MOBILE_VIEW:
         st.markdown("""<style>
           div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) {
-            display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px !important;align-items:start !important;
+            display:grid !important;grid-template-columns:minmax(0,.85fr) minmax(0,1.25fr) minmax(0,1.1fr) minmax(0,1.35fr) !important;gap:6px !important;align-items:end !important;
           }
           div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) > div[data-testid="stColumn"],
           div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) > div[data-testid="column"] {
             width:auto !important;min-width:0 !important;max-width:100% !important;flex:initial !important;
           }
           div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) [data-testid="stSelectbox"] {min-width:0 !important;width:100% !important;}
-          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) label p {font-size:11px !important;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) label p {font-size:9px !important;}
           div[data-testid="stElementContainer"]:has(.turni-day-extra-marker) {display:none !important;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) [data-baseweb="select"] > div {padding-left:5px !important;padding-right:3px !important;font-size:11px !important;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) [data-testid="stSelectbox"] label {min-height:18px !important;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) [data-testid="stCheckbox"] {min-height:38px;display:flex;align-items:center;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-extra-marker) [data-testid="stTooltipIcon"] {display:none;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-actions-marker) {display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;}
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-actions-marker) > div[data-testid="stColumn"],
+          div[data-testid="stHorizontalBlock"]:has(.turni-day-actions-marker) > div[data-testid="column"] {width:auto !important;min-width:0 !important;flex:initial !important;}
+          div[data-testid="stElementContainer"]:has(.turni-day-actions-marker) {display:none !important;}
+
         </style>""", unsafe_allow_html=True)
     st.markdown(f"#### Modifica giorno · {action_day_label}{turno_label}")
     with st.form(f"turni_day_action_form_{action_day}", clear_on_submit=False):
         permesso_value = permesso_esistente
         permesso_position = "Inizio turno" if _parse_bool_turni(leave_row.get("Permesso inizio", False)) else "Fine turno"
         if MOBILE_VIEW:
-            festivo_value = st.checkbox("Festivo", value=bool(festivo_esistente), key=f"turni_day_festivo_{action_day}")
-            menu_cols = st.columns(2, gap="small")
+            menu_cols = st.columns([.85, 1.25, 1.1, 1.35], gap="small")
             with menu_cols[0]:
                 st.markdown('<span class="turni-day-extra-marker"></span>', unsafe_allow_html=True)
+                festivo_value = st.checkbox("Festivo", value=bool(festivo_esistente), key=f"turni_day_festivo_{action_day}")
+            with menu_cols[1]:
                 durata_value = st.selectbox(
                     "Straordinario", durata_options, index=durata_options.index(durata_default),
-                    format_func=lambda value: "No" if value == 0 else _format_minutes_label(value),
+                    format_func=lambda value: "No" if value == 0 else _format_minutes_label(value).replace(" ", ""),
                     key=f"turni_day_stra_{action_day}", disabled=not overtime_allowed)
-            with menu_cols[1]:
+            with menu_cols[2]:
                 permesso_options = list(range(0, 241, 15))
                 permesso_value = st.selectbox(
                     "Permesso", permesso_options, index=permesso_options.index(permesso_esistente),
-                    format_func=lambda value: "No" if value == 0 else _format_minutes_label(value),
+                    format_func=lambda value: "No" if value == 0 else _format_minutes_label(value).replace(" ", ""),
                     key=f"turni_day_permesso_{action_day}", disabled=not overtime_allowed,
                     help="Permesso retribuito: mantiene la paga base, senza maggiorazioni.")
-            permesso_position = st.selectbox(
-                "Posizione permesso", ["Inizio turno", "Fine turno"],
-                index=0 if _parse_bool_turni(leave_row.get("Permesso inizio", False)) else 1,
-                key=f"turni_day_permesso_pos_{action_day}", disabled=not overtime_allowed)
+            with menu_cols[3]:
+                permesso_position = st.selectbox(
+                    "Posizione", ["Inizio turno", "Fine turno"],
+                    index=0 if _parse_bool_turni(leave_row.get("Permesso inizio", False)) else 1,
+                    key=f"turni_day_permesso_pos_{action_day}", disabled=not overtime_allowed,
+                    format_func=lambda value: value.replace(" turno", ""))
 
         else:
             menu_cols = st.columns(2, gap="small")
@@ -6253,7 +6289,9 @@ def _render_turni_day_action_menu(df_turni, month_days):
 
         action_cols = st.columns(2, gap="small")
         with action_cols[0]:
-            save_day = st.form_submit_button("Salva giorno", use_container_width=True)
+            if MOBILE_VIEW:
+                st.markdown('<span class="turni-day-actions-marker"></span>', unsafe_allow_html=True)
+            save_day = st.form_submit_button("Salva giorno", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
         with action_cols[1]:
             close_day = st.form_submit_button("Chiudi", use_container_width=True)
 
@@ -6599,7 +6637,7 @@ def _render_mobile_turni_rules(rules, selected_month):
             "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
             "Importo lordo": event.gross,
         } for event in annual_holidays]), hide_index=True, use_container_width=True)
-        if st.button("💾 Salva festività", key="save_mobile_holiday_rules", use_container_width=True):
+        if st.button("💾 Salva festività", key="save_mobile_holiday_rules", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
             if save_turni_rules(_apply_turni_rules_from_widgets(rules)):
                 st.success("Festività salvate.")
             else:
@@ -6629,7 +6667,7 @@ def _render_mobile_turni_rules(rules, selected_month):
             f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
             key=f"save_payroll_adjustment::{month_key}",
             use_container_width=True,
-        ):
+        type="primary" if MOBILE_VIEW else "secondary"):
             if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
                 st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
                 st.rerun()
@@ -6684,7 +6722,7 @@ def _render_mobile_turni_rules(rules, selected_month):
             """, unsafe_allow_html=True)
             rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
-        if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+        if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
             rules = _apply_turni_rules_from_widgets(rules)
             if save_turni_rules(rules):
                 st.success("Regole salvate nel foglio Google “Regole Turni”.")
@@ -7204,7 +7242,7 @@ def render_turni_guadagni_section():
                 f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
                 key=f"save_payroll_adjustment::{month_key}",
                 use_container_width=True,
-            ):
+            type="primary" if MOBILE_VIEW else "secondary"):
                 if save_payroll_adjustment(month_key, monthly_adjustment, monthly_adjustment_note):
                     st.success("Rettifica salvata. Previsione e calibrazione sono state aggiornate.")
                     st.rerun()
@@ -7286,7 +7324,7 @@ def render_turni_guadagni_section():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True):
+                if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
                     rules = _apply_turni_rules_from_widgets(rules)
                     if save_turni_rules(rules):
                         st.success("Regole salvate nel foglio Google “Regole Turni”.")
@@ -7344,7 +7382,7 @@ def render_turni_guadagni_section():
                             key="save_imported_turni_history",
                             use_container_width=True,
                             disabled=imported_history.empty,
-                        ):
+                        type="primary" if MOBILE_VIEW else "secondary"):
                             fresh_existing = load_turni_data(force_reload=True)
                             merged_history = merge_turni_history(fresh_existing, imported_history)
                             if save_turni_data(merged_history):
@@ -7623,7 +7661,7 @@ def render_turni_guadagni_section():
                     "mesi ordinari, rettifiche non registrate oppure variabili poco coerenti "
                     "con i cedolini; controlla la colonna “Includi” prima di applicare."
                 )
-            if st.button("✅ Applica alla previsione" if MOBILE_VIEW else "✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True):
+            if st.button("✅ Applica alla previsione" if MOBILE_VIEW else "✅ Applica e salva calibrazione", key="apply_payroll_calibration", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
                 rules["netto_fisso_mensile"] = float(calibrated.fixed_net)
                 rules["coefficiente_netto_variabili"] = float(calibrated.variable_coefficient)
                 rules["errore_medio_calibrazione"] = float(calibrated.mean_absolute_error)
@@ -7646,6 +7684,7 @@ def render_turni_guadagni_section():
 
 def main():
     if MOBILE_VIEW:
+        st.markdown(_mobile_save_button_styles(), unsafe_allow_html=True)
         _mark_mobile_calendar_entry()
     load_spese_fisse_settings()
     load_altre_entrate_settings()
@@ -7874,14 +7913,14 @@ def main():
             "✓ Salva riepilogo del mese",
             key="salva_stipendio_home",
             use_container_width=True,
-        ) if _mobile_show("Panoramica") else False
+        type="primary" if MOBILE_VIEW else "secondary") if _mobile_show("Panoramica") else False
     else:
         with col_stip_inserimento2:
             salva_stipendio_home = st.button(
                 "✓ Salva riepilogo del mese",
                 key="salva_stipendio_home",
                 use_container_width=True,
-            )
+            type="primary" if MOBILE_VIEW else "secondary")
     home_salary_save_feedback = st.empty()
 
     altre_entrate_totali = sum(ALTRE_ENTRATE.values())
@@ -8138,8 +8177,8 @@ textarea {
                             "💾 Salva obiettivo",
                             use_container_width=True,
                             key="save_obiettivo_risparmi",
-                            disabled=not st.session_state.get("note_loaded_from_sheet", True)
-                        )
+                            disabled=not st.session_state.get("note_loaded_from_sheet", True),
+                        type="primary" if MOBILE_VIEW else "secondary")
                         if salva_obiettivo:
                             df_note = _build_note_df(
                                 _nota_value("nota1"),
@@ -8626,7 +8665,7 @@ textarea {
                 with save_col:
                     if MOBILE_VIEW:
                         st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
-                    if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse"):
+                    if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse", type="primary" if MOBILE_VIEW else "secondary"):
                         nome_nuova = nuova_spesa_nome.strip()
                         if nome_nuova:
                             editable_settings[nome_nuova] = float(nuova_spesa_importo)
@@ -9220,7 +9259,7 @@ textarea {
                     with save_altre_col:
                         if MOBILE_VIEW:
                             st.markdown('<span class="other-income-actions-marker"></span>', unsafe_allow_html=True)
-                        if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate"):
+                        if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate", type="primary" if MOBILE_VIEW else "secondary"):
                             if save_altre_entrate_settings(edited_altre):
                                 st.success("Altre entrate salvate")
                                 st.rerun()
@@ -9524,8 +9563,8 @@ textarea {
                 "💾 Salva note",
                 use_container_width=True,
                 key="save_note_promemoria",
-                disabled=not st.session_state.get("note_loaded_from_sheet", True)
-            )
+                disabled=not st.session_state.get("note_loaded_from_sheet", True),
+            type="primary" if MOBILE_VIEW else "secondary")
             if salva:
                 note_values = [nota1, nota2, nota3, nota4]
                 all_notes_empty = all(not str(value).strip() for value in note_values)
@@ -10626,7 +10665,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
                 st.markdown('<span class="mobile-stipendi-save-marker"></span>', unsafe_allow_html=True)
-                aggiungi_button = st.button("Salva mese", key="aggiorna_stipendi", use_container_width=True)
+                aggiungi_button = st.button("Salva mese", key="aggiorna_stipendi", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
             with col_btn2:
                 st.markdown('<span class="mobile-stipendi-delete-marker"></span>', unsafe_allow_html=True)
                 elimina_button = st.button("Elimina mese", key="elimina_stipendi", use_container_width=True)
@@ -11024,7 +11063,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 col_bol_btn1, col_bol_btn2 = st.columns(2)
                 with col_bol_btn1:
                     st.markdown('<span class="mobile-bollette-save-marker"></span>', unsafe_allow_html=True)
-                    aggiungi_bollette = st.button("Salva mese", key="aggiorna_bollette", use_container_width=True)
+                    aggiungi_bollette = st.button("Salva mese", key="aggiorna_bollette", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
                 with col_bol_btn2:
                     st.markdown('<span class="mobile-bollette-delete-marker"></span>', unsafe_allow_html=True)
                     elimina_bollette = st.button("Elimina mese", key="elimina_bollette", use_container_width=True)
@@ -11051,7 +11090,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                     key=f"budget_bollette_input_{selected_mese_bol}",
                     help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
                 )
-                if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}"):
+                if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}", type="primary" if MOBILE_VIEW else "secondary"):
                     if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
                         st.success("Budget bollette salvato")
                         st.rerun()
