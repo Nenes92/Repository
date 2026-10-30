@@ -66,3 +66,31 @@ def test_night_percentage_parts_add_up_to_net_premium():
         assert set(parts) == {20, 60}
         result = env["compute_turno_net_estimate"](day, "Notte", False, rules, 12, until=datetime.max)
         assert sum(parts.values()) == pytest.approx(result["premium_net"])
+
+
+@pytest.mark.parametrize('at_start', [False, True])
+def test_paid_leave_live_and_net_parts_keep_base_and_match_payroll_engine(at_start):
+    from payroll_engine import Shift, calculate_shift_variables
+    from datetime import date
+    env = app_functions()
+    rules = dict(env['DEFAULT_TURNI_RULES'], notte_feriale_pct=50.)
+    args = dict(permesso_minuti=60, permesso_inizio=at_start)
+    result = env['compute_turno_net_estimate']('2026-10-31', 'Notte', False, rules, 12., until=datetime.max, **args)
+    engine = calculate_shift_variables(Shift(date(2026,10,31), 'Notte', paid_leave_minutes=60, paid_leave_at_start=at_start),
+                                      dict(rules, indennita_nette=True))
+    assert result['base'] == pytest.approx(8*12.)
+    assert result['premium_net'] == pytest.approx(engine.premiums_gross * rules['coefficiente_netto_variabili'])
+    parts = env['_turni_premium_net_parts']('2026-10-31', 'Notte', False, rules, **args)
+    assert sum(parts.values()) == pytest.approx(result['premium_net'])
+    day1 = env['compute_turno_net_estimate']('2026-10-31', 'Notte', False, rules, 12., until=datetime.max, only_day='2026-10-31', **args)
+    day2 = env['compute_turno_net_estimate']('2026-10-31', 'Notte', False, rules, 12., until=datetime.max, only_day='2026-11-01', **args)
+    assert day1['total'] + day2['total'] == pytest.approx(result['total'])
+
+
+def test_live_rate_is_base_only_during_paid_leave():
+    env = app_functions()
+    rules = env['DEFAULT_TURNI_RULES']
+    env['_now_italy'] = lambda: datetime(2026,10,27,13,30)
+    result = env['compute_turno_net_estimate']('2026-10-27','Mattina',False,rules,12.,permesso_minuti=60)
+    assert result['rate_min'] == pytest.approx(12/60)
+    assert result['base'] == pytest.approx(7.5*12)

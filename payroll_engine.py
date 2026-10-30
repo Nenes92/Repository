@@ -66,6 +66,8 @@ class Shift:
     forced_holiday: bool = False
     overtime_minutes: int = 0
     onsite: bool = False
+    paid_leave_minutes: int = 0
+    paid_leave_at_start: bool = False
 
 
 @dataclass(frozen=True)
@@ -228,11 +230,14 @@ def calculate_shift_variables(shift: Shift, rules: Mapping[str, float]) -> Varia
     premium_hours: dict[float, float] = {}
     if shift.kind not in {"Ferie", "Riposo"}:
         start, end = _bounds(shift)
+        leave_duration = timedelta(minutes=min(240, max(0, shift.paid_leave_minutes)))
+        leave_start = start if shift.paid_leave_at_start else end - leave_duration
+        leave_end = start + leave_duration if shift.paid_leave_at_start else end
         cursor = start
         while cursor < end:
             nxt = min(cursor + timedelta(minutes=1), end)
             hours = (nxt - cursor).total_seconds() / 3600
-            pct = premium_percentage(shift.kind, cursor, shift.forced_holiday, rules)
+            pct = 0.0 if leave_start <= cursor < leave_end else premium_percentage(shift.kind, cursor, shift.forced_holiday, rules)
             premiums += hourly * pct / 100 * hours
             if pct:
                 premium_hours[pct] = premium_hours.get(pct, 0.0) + hours

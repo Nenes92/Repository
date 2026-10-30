@@ -214,3 +214,37 @@ def test_calibration_subtracts_already_net_allowances(rules):
     assert result.variable_coefficient == pytest.approx(.6)
     assert result.mean_absolute_error == pytest.approx(0)
     assert [r.estimated_net for r in result.rows] == pytest.approx(list(salaries.values()))
+
+
+@pytest.mark.parametrize('minutes', [15, 30, 60, 240])
+@pytest.mark.parametrize('at_start', [False, True])
+def test_paid_leave_only_removes_premiums_and_keeps_fixed_pay(rules, minutes, at_start):
+    rules.update(indennita_nette=True)
+    ordinary = calculate_shift_variables(Shift(date(2026, 10, 27), 'Mattina', onsite=True), rules)
+    with_leave = calculate_shift_variables(Shift(date(2026, 10, 27), 'Mattina', onsite=True,
+        paid_leave_minutes=minutes, paid_leave_at_start=at_start), rules)
+    assert ordinary.premiums_gross - with_leave.premiums_gross == pytest.approx(
+        minutes / 60 * rules['paga_oraria_lorda'] * rules['m_p_feriale_pct'] / 100)
+    assert with_leave.allowances_net == ordinary.allowances_net
+    assert with_leave.meal_vouchers == ordinary.meal_vouchers
+    estimate = estimate_payslip('2026-11', {'2026-10': with_leave}, rules)
+    assert estimate.fixed_net == rules['netto_fisso_mensile']
+
+
+@pytest.mark.parametrize('day,at_start,expected_50,expected_60', [
+    (date(2026, 10, 31), True, 1, 6), (date(2026, 10, 31), False, 2, 5),
+    (date(2026, 11, 1), True, 6, 1), (date(2026, 11, 1), False, 5, 2),
+    (date(2026, 12, 25), False, 0, 7),
+])
+def test_paid_leave_uses_actual_night_hours(day, at_start, expected_50, expected_60, rules):
+    rules['notte_feriale_pct'] = 50.
+    result = calculate_shift_variables(Shift(day, 'Notte', paid_leave_minutes=60, paid_leave_at_start=at_start), rules)
+    assert result.premium_hours.get(50., 0) == pytest.approx(expected_50)
+    assert result.premium_hours.get(60., 0) == pytest.approx(expected_60)
+    assert result.premiums_gross == pytest.approx(rules['paga_oraria_lorda'] * (.5 * expected_50 + .6 * expected_60))
+
+
+def test_paid_leave_does_not_reduce_overtime(rules):
+    no_leave = calculate_shift_variables(Shift(date(2026, 10, 27), 'Mattina', overtime_minutes=30), rules)
+    leave = calculate_shift_variables(Shift(date(2026, 10, 27), 'Mattina', overtime_minutes=30, paid_leave_minutes=240), rules)
+    assert no_leave.overtime_gross == leave.overtime_gross

@@ -31,3 +31,14 @@ def test_merge_preserves_existing_google_rows_on_duplicate_dates():
     assert len(merged) == 1
     assert merged.iloc[0]["Turno"] == "Notte"
     assert merged.iloc[0]["Straordinario minuti"] == 30
+
+
+def test_merge_preserves_paid_leave_on_existing_days():
+    import pandas as pd
+    from turni_excel_import import merge_turni_history
+    old = pd.DataFrame([{'Data': '2026-10-31', 'Turno': 'Notte', 'Permesso minuti':45, 'Permesso inizio':True}])
+    incoming = pd.DataFrame([{'Data':'2026-10-31','Turno':'Mattina'}, {'Data':'2026-11-01','Turno':'Notte'}])
+    merged = merge_turni_history(old, incoming)
+    assert merged.iloc[0]['Turno'] == 'Notte'
+    assert merged.iloc[0]['Permesso minuti'] == 45 and merged.iloc[0]['Permesso inizio']
+    assert merged.iloc[1]['Permesso minuti'] == 0

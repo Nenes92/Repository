@@ -356,3 +356,47 @@ def test_mobile_model_parameters_ignore_old_widgets_but_contract_rules_stay_edit
     assert desktop['paga_oraria_lorda'] == 99.
     assert desktop['netto_fisso_mensile'] == 9999.
     assert desktop['coefficiente_netto_variabili'] == .01
+
+
+def test_paid_leave_is_persisted_and_old_rows_default_to_zero(app):
+    ns, worksheet, calls = app
+    class State(dict):
+        __getattr__ = dict.__getitem__
+        __setattr__ = dict.__setitem__
+    ns['st'].session_state = State()
+    headers = ['Data','Turno','Festivo','Straordinario minuti','Sede','Permesso minuti','Permesso inizio']
+    ns.update(TURNI_HEADERS=headers, TURNI_ORARI={'Mattina': (), 'Notte': (), 'Ferie': ()})
+    old = pd.DataFrame([dict(Data='2026-10-31', Turno='Notte', Festivo=False, Sede=True)])
+    df = ns['_normalize_turni_df'](old)
+    assert df.iloc[0]['Permesso minuti'] == 0
+    assert not df.iloc[0]['Permesso inizio']
+    df = ns['_upsert_turni_day'](df, '2026-10-31', permesso_minuti=45, permesso_inizio=True, straordinario_minuti=30)
+    assert ns['save_data_gsheets']('Test', headers, df)
+    ns['st'].session_state.clear()
+    restored = ns['_normalize_turni_df'](ns['load_data_gsheets']('Test', headers, force_reload=True))
+    assert restored.iloc[0]['Permesso minuti'] == 45
+    assert restored.iloc[0]['Permesso inizio']
+    assert restored.iloc[0]['Straordinario minuti'] == 30
+    changed = ns['_upsert_turni_day'](restored, '2026-10-31', festivo=True)
+    assert changed.iloc[0]['Permesso minuti'] == 45
+    assert changed.iloc[0]['Permesso inizio']
+
+
+def test_calendar_refresh_preserves_paid_leave_and_overtime(app):
+    from datetime import date
+    ns, _, _ = app
+    headers = ['Data','Turno','Festivo','Straordinario minuti','Sede','Permesso minuti','Permesso inizio']
+    ns.update(TURNI_HEADERS=headers, TURNI_ORARI={'Mattina': (), 'Notte': ()})
+    old = ns['_normalize_turni_df'](pd.DataFrame([{
+        'Data':'2026-10-31','Turno':'Notte','Festivo':False,'Sede':True,
+        'Straordinario minuti':30,'Permesso minuti':60,'Permesso inizio':True}]))
+    imported = ns['_normalize_turni_df'](pd.DataFrame([{
+        'Data':'2026-10-31','Turno':'Mattina','Festivo':False,'Sede':False}]))
+    ns['import_turni_from_calendar_sources'] = lambda *a: (imported, [])
+    ns['import_sede_dates_from_calendar_sources'] = lambda *a: (set(), [])
+    synced, _, errors = ns['sync_turni_month_from_calendar'](old, {}, date(2026,10,1), preserve_on_error=True)
+    row = synced.iloc[0]
+    assert row['Turno'] == 'Mattina'
+    assert row['Permesso minuti'] == 60 and row['Permesso inizio']
+    assert row['Straordinario minuti'] == 30 and not row['Sede']
+    assert not errors

@@ -111,7 +111,12 @@ def merge_turni_history(existing: pd.DataFrame, imported: pd.DataFrame) -> pd.Da
         for column in TURNI_HEADERS:
             if column not in normalized.columns:
                 normalized[column] = ""
-        frames.append(normalized[TURNI_HEADERS])
+        columns = TURNI_HEADERS + [column for column in ("Permesso minuti", "Permesso inizio")
+                                  if any(frame is not None and column in frame.columns for frame in (existing, imported))]
+        for column in columns:
+            if column not in normalized:
+                normalized[column] = False if column == "Permesso inizio" else 0
+        frames.append(normalized[columns])
     merged = pd.concat(frames, ignore_index=True)
     merged["Data"] = pd.to_datetime(merged["Data"], errors="coerce").dt.strftime("%Y-%m-%d")
     merged = merged.dropna(subset=["Data"])
