@@ -36,6 +36,7 @@ from payroll_engine import (
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
 from turni_excel_import import merge_turni_history, read_turni_excel
+from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_save
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -6195,6 +6196,52 @@ def _existing_turni_row_values(df_turni, day_str):
     )
 
 
+def _render_instant_mobile_calendar(df_turni, selected_month, current_work_day):
+    month = selected_month.strftime("%Y-%m")
+    days = []
+    for week in calendar.Calendar(firstweekday=0).monthdatescalendar(selected_month.year, selected_month.month):
+        for day in week:
+            if day.month != selected_month.month:
+                days.append(None)
+                continue
+            date_key = day.strftime("%Y-%m-%d")
+            rows = df_turni[df_turni["Data"] == date_key]
+            row = {} if rows.empty else rows.iloc[0]
+            shift = str(row.get("Turno", ""))
+            info = _turno_color_info(shift)
+            days.append({
+                "date": date_key, "number": day.day, "label": day.strftime("%d/%m/%Y"),
+                "shift": shift, "short": info["short"] if shift in TURNI_ORARI else "", "color": info["color"],
+                "festive": day.weekday() == 6 or _is_italian_public_holiday(datetime(day.year,day.month,day.day)) or bool(row.get("Festivo", False)),
+                "today": date_key == current_work_day, "holiday": bool(row.get("Festivo", False)),
+                "overtime": min([0,30,45,60,75,90,105,120], key=lambda n:abs(n-_turni_row_straordinario_minuti(row))),
+                "leave": _turni_row_permesso_minuti(row), "at_start": _parse_bool_turni(row.get("Permesso inizio", False)),
+                "onsite": _turni_row_sede(row), "allowed": shift in TURNI_ORARI and shift not in {"", "Ferie", "Riposo"},
+            })
+    if st.session_state.pop("turni_calendar_save_failed", False):
+        st.error("Salvataggio non riuscito: le modifiche restano in bozza. Premi Salva giorno per riprovare.")
+    result = render_mobile_shift_calendar(days, key=f"mobile_calendar::{month}",
+        revision=st.session_state.get("turni_calendar_last_save_request", ""))
+    if not result.save:
+        return
+    try:
+        payload = validate_day_save(result.save, {day["date"] for day in days if day})
+    except ValueError as exc:
+        st.error(str(exc))
+        return
+    if payload["request_id"] == st.session_state.get("turni_calendar_last_save_request"):
+        return
+    st.session_state.turni_calendar_last_save_request = payload["request_id"]
+    selected = next(day for day in days if day and day["date"] == payload["date"])
+    updated = _upsert_turni_day(df_turni, payload["date"], festivo=payload["holiday"],
+        straordinario_minuti=payload["overtime"] if selected["allowed"] else 0,
+        permesso_minuti=payload["leave"] if selected["allowed"] else 0,
+        permesso_inizio=payload["at_start"])
+    _save_turni_and_rerun(updated)
+    st.session_state.turni_calendar_save_failed = True
+    st.rerun()
+
+
 def _render_turni_day_action_menu(df_turni, month_days):
     if not month_days:
         return df_turni
@@ -6869,56 +6916,7 @@ def render_turni_guadagni_section():
                 for day in range(1, calendar.monthrange(year, month)[1] + 1)
             ]
             if MOBILE_VIEW:
-                turni_day_param = st.query_params.get("turni_day")
-                if isinstance(turni_day_param, list):
-                    turni_day_param = turni_day_param[0] if turni_day_param else None
-                if turni_day_param in month_days:
-                    st.session_state["turni_action_day"] = turni_day_param
-
-                calendar_cells = ['<div class="mobile-calendar-grid">']
-                for wd in weekdays:
-                    calendar_cells.append(f'<div class="mobile-calendar-head">{html.escape(wd)}</div>')
-                selected_action_day = st.session_state.get("turni_action_day")
-                for week in cal.monthdatescalendar(year, month):
-                    for day in week:
-                        if day.month != month:
-                            calendar_cells.append('<div class="mobile-calendar-day empty"></div>')
-                            continue
-                        day_str = day.strftime("%Y-%m-%d")
-                        row = df_turni[df_turni["Data"] == day_str]
-                        turno_corrente = "" if row.empty else str(row.iloc[0].get("Turno", ""))
-                        info = _turno_color_info(turno_corrente)
-                        shift_html = ""
-                        if turno_corrente in TURNI_ORARI and turno_corrente:
-                            shift_html = (
-                                f'<span class="shift" style="color:{html.escape(info["color"])};">'
-                                f'{html.escape(info["short"])}</span>'
-                            )
-                        stra_minuti = 0 if row.empty else _turni_row_straordinario_minuti(row.iloc[0])
-                        sede = False if row.empty else _turni_row_sede(row.iloc[0])
-                        markers_html = ""
-                        if not row.empty and _turni_row_permesso_minuti(row.iloc[0]):
-                            markers_html += '<span class="mobile-day-extra" title="Permesso retribuito">p</span>'
-                        if stra_minuti:
-                            markers_html += '<span class="mobile-day-extra">+</span>'
-                        if sede:
-                            markers_html += '<span class="mobile-day-sede">S</span>'
-                        day_is_festive = (
-                            day.weekday() == 6
-                            or _is_italian_public_holiday(datetime(day.year, day.month, day.day))
-                            or (not row.empty and bool(row.iloc[0]["Festivo"]))
-                        )
-                        day_num_class = "holiday" if day_is_festive else ""
-                        today_dot = '<span class="today-dot">•</span>' if day_str == current_work_day else ""
-                        selected_class = " selected" if selected_action_day == day_str else ""
-                        href = f"?view=mobile&mobile_section=Turni&turni_month={month_key}&turni_day={day_str}#mobile-turni"
-                        calendar_cells.append(
-                            f'<a href="{href}" target="_self" class="mobile-calendar-day{selected_class}">'
-                            f'{today_dot}<span class="{day_num_class}">{day.day}</span>{shift_html}{markers_html}'
-                            '</a>'
-                        )
-                calendar_cells.append("</div>")
-                st.markdown("".join(calendar_cells), unsafe_allow_html=True)
+                _render_instant_mobile_calendar(df_turni, selected_month, current_work_day)
             else:
                 cols = st.columns(7)
                 for c, wd in zip(cols, weekdays):
@@ -6976,7 +6974,8 @@ def render_turni_guadagni_section():
             """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-            df_turni = _render_turni_day_action_menu(df_turni, month_days)
+            if not MOBILE_VIEW:
+                df_turni = _render_turni_day_action_menu(df_turni, month_days)
 
         if summary_col is not None:
           with summary_col:
