@@ -3,21 +3,34 @@ from hashlib import sha256
 from streamlit.components.v2 import component
 
 CSS = """
-:host {display:block;color:#d1d5db;font-family:var(--st-font,'DM Sans',sans-serif);font-size:13px;}
+:host {container-type:inline-size;display:block;color:#d1d5db;font-family:var(--st-font,'DM Sans',sans-serif);font-size:13px;}
 * {box-sizing:border-box;} button,input,select {font:inherit;}
 .grid {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin-top:10px;}
 .head {text-align:center;color:rgba(255,255,255,.46);font-size:11px;font-weight:800;padding-bottom:2px;}
-.day {position:relative;min-width:0;min-height:42px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:rgba(30,58,92,.70);border:.5px solid rgba(96,165,250,.36);color:#d1d5db;font-size:13px;font-weight:800;padding:3px 1px;cursor:pointer;}
+.day {position:relative;min-width:0;min-height:42px;border-radius:10px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:2px;background:rgba(30,58,92,.70);border:.5px solid rgba(96,165,250,.36);color:#d1d5db;font-size:13px;font-weight:800;padding:3px 1px;cursor:pointer;}
 .day.empty {visibility:hidden;}.day[aria-pressed=true] {border-color:rgba(125,211,252,.70);box-shadow:0 0 0 1px rgba(125,211,252,.44),0 0 14px rgba(96,165,250,.16);}
 .day:hover {border-color:rgba(125,211,252,.62);background:rgba(30,64,115,.82);}
 .day:focus-visible,select:focus-visible,input:focus-visible,button:focus-visible {outline:2px solid #7dd3fc;outline-offset:2px;}
-.day-main {display:flex;align-items:center;justify-content:center;gap:3px;line-height:1;}
+.day-main {display:flex;align-items:center;justify-content:center;gap:2px;line-height:1;}
 .shift {font-size:14px;font-weight:900;text-shadow:0 0 2px currentColor;}
-.holiday {color:#ef4444;}.badges {min-height:12px;display:flex;align-items:center;justify-content:center;gap:3px;line-height:1;}
-.badge {display:inline-flex;align-items:center;justify-content:center;flex:0 0 12px;width:12px;height:12px;border-radius:4px;font-size:9px;font-weight:900;line-height:1;}
+.holiday {color:#ef4444;}.badges {display:flex;align-items:center;justify-content:center;gap:1px;line-height:1;}
+.badge {display:inline-flex;align-items:center;justify-content:center;flex:0 0 10px;width:10px;height:10px;border-radius:3px;font-size:8px;font-weight:900;line-height:1;}
 .mark {color:#f5d0fe;background:rgba(168,85,247,.26);border:.5px solid rgba(216,180,254,.55);}
 .site {color:#fef3c7;background:rgba(245,158,11,.24);border:.5px solid rgba(251,191,36,.55);}
-.badge.overtime {font-size:12px;}
+.badge.overtime {font-size:10px;}
+.badges:empty {display:none;}
+@container (max-width:480px) {
+  .grid {gap:4px;}
+  .day[data-markers="2"] {font-size:11px;gap:1px;}
+  .day[data-markers="2"] .shift {font-size:11px;}
+  .day[data-markers="2"] .badge {width:9px;height:9px;flex-basis:9px;font-size:7px;}
+  .day[data-markers="3"] {font-size:10px;gap:1px;}
+  .day[data-markers="3"] .day-main {gap:1px;}
+  .day[data-markers="3"] .shift {font-size:10px;}
+  .day[data-markers="3"] .badges {gap:.5px;}
+  .day[data-markers="3"] .badge {width:7.5px;height:8px;flex-basis:7.5px;font-size:6px;}
+  .day[data-markers="3"] .badge.overtime {font-size:8px;}
+}
 .today {position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;background:#fb923c;box-shadow:0 0 0 1px rgba(251,146,60,.25);}
 
 .editor {margin-top:14px;}.editor[hidden] {display:none;}.title {font-size:16px;font-weight:750;margin:0 0 10px;color:#e2e8f0;}
@@ -106,6 +119,7 @@ export default function({data, parentElement, setTriggerValue}) {
     for (const [show,text,kind,label] of [[day.leave>0,'p','mark','Permesso'],[day.overtime>0,'+','mark overtime','Straordinario'],[day.onsite,'S','site','Sede']]) {
       if (show) {const mark=document.createElement('span');mark.textContent=text;mark.className='badge '+kind;mark.title=label;mark.setAttribute('aria-label',label);badges.appendChild(mark);}
     }
+    button.dataset.markers=String(badges.childElementCount);
     button.appendChild(badges);
     if (day.today) {const dot=document.createElement('span');dot.className='today';dot.title='Giorno corrente';dot.setAttribute('aria-label','Giorno corrente');button.appendChild(dot);}
     button.onclick=()=>selectDay(day.date);grid.appendChild(button);
