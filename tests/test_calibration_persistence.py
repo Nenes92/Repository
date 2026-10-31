@@ -29,7 +29,8 @@ def app_helpers():
                     and any(isinstance(t, ast.Name) and t.id == "DEFAULT_TURNI_RULES" for t in n.targets))
     defaults = ast.literal_eval(defaults)
     names = {"_encode_calibration_snapshot", "_decode_calibration_snapshot", "get_turni_rules",
-             "save_turni_rules", "_parse_float_turni", "_render_mobile_calibration"}
+             "save_turni_rules", "_parse_float_turni", "_render_mobile_calibration",
+             "_build_mobile_calibration", "_save_mobile_calibration", "_apply_mobile_calibration_selection"}
     funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     state = State()
     st = SimpleNamespace(session_state=state, fragment=lambda f: f)
@@ -65,7 +66,7 @@ def test_snapshot_and_parameters_survive_new_session_and_rule_edits():
 @pytest.mark.parametrize("clicked", [False, True])
 def test_no_background_work_and_failed_sync_keeps_applied_result(clicked):
     ns, st = app_helpers()
-    old_snapshot = {"version": 1, "result": {"rows": []}}
+    old_snapshot = {"version": 1, "result": {"rows": []}, "manual_included": {"2025-07": False}}
     old_rules = dict(ns["DEFAULT_TURNI_RULES"])
     st.session_state.update(payroll_calibration_saved=old_snapshot, turni_rules=old_rules)
     calls = []
@@ -92,7 +93,7 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     from payroll_engine import VariableBreakdown, add_months
     ns, st = app_helpers()
     old_rules = dict(ns["DEFAULT_TURNI_RULES"])
-    old_snapshot = {"version": 1, "result": {"rows": []}}
+    old_snapshot = {"version": 1, "result": {"rows": []}, "manual_included": {"2025-07": False}}
     st.session_state.update(turni_rules=old_rules, payroll_calibration_saved=old_snapshot)
     st.markdown = st.warning = st.error = lambda *a, **kw: None
     st.button = lambda *a, **kw: True
@@ -128,6 +129,7 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
         assert st.session_state.payroll_calibration_mae >= 0
         assert st.session_state.payroll_calibration_sync_success is True
         result = saves[0][1]["result"]
+        assert saves[0][1]["manual_included"] == old_snapshot.get("manual_included", {})
         assert result["thirteenth_samples"] == int(with_december)
         assert saves[0][0]["tredicesima_coeff_netto"] == pytest.approx(result["thirteenth_net"] / result["fixed_net"])
         restored = ns["_decode_calibration_snapshot"](ns["_encode_calibration_snapshot"](saves[0][1]))
@@ -138,3 +140,57 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
         assert st.session_state.payroll_calibration_saved == old_snapshot
         assert "payroll_calibration_mae" not in st.session_state
     assert len(saves) == 1
+
+
+@pytest.mark.parametrize("save_ok", [False, True])
+def test_selection_recalibrates_without_drive_or_forced_reads_and_persists_only_changes(save_ok):
+    from payroll_engine import VariableBreakdown, add_months
+    ns, st = app_helpers()
+    rules = dict(ns["DEFAULT_TURNI_RULES"])
+    salaries = {"2025-12": 4000., "2026-09": 2400., "2026-10": 2500.}
+    variables = {"2025-11": VariableBreakdown(premiums_gross=200.),
+                 "2026-08": VariableBreakdown(premiums_gross=100.),
+                 "2026-09": VariableBreakdown(premiums_gross=200.)}
+    snapshot = {"version": 1, "drive": {"salaries": salaries}, "result": {"rows": []},
+                "manual_included": {"2025-07": False}}
+    st.session_state.update(turni_rules=rules, payroll_calibration_saved=snapshot)
+    reads, saves = [], []
+    def load_turns(**kwargs):
+        reads.append(("turns", kwargs))
+        return pd.DataFrame()
+    def load_adjustments(**kwargs):
+        reads.append(("adjustments", kwargs))
+        return {}
+    def save(updated, **kwargs):
+        saves.append((updated, kwargs["calibration_snapshot"]))
+        return save_ok
+    def drive_forbidden(*args, **kwargs):
+        pytest.fail("Changing a checkbox must not read Drive")
+    ns.update(_mobile_drive_payslips=drive_forbidden, load_turni_data=load_turns,
+              load_payroll_adjustments=load_adjustments,
+              _payroll_variables_by_month=lambda *a: variables,
+              DEFAULT_PAYROLL_ADJUSTMENT=-63., holiday_compensation=lambda *a: [],
+              _payroll_v2_rules=lambda r: r, add_payroll_months=add_months,
+              calibrate_payroll=calibrate, save_turni_rules=save)
+    frame = pd.DataFrame({"Mese cedolino": list(salaries), "Includi": [True, True, True]})
+    labels = {"dic 25": "2025-12", "set 26": "2026-09", "ott 26": "2026-10"}
+    edited = pd.DataFrame({"Mese cedolino": list(labels), "Includi": [False, True, True]})
+    if save_ok:
+        ns["_apply_mobile_calibration_selection"](snapshot, frame, edited, labels)
+        stored = saves[0][1]
+        assert stored["manual_included"] == {"2025-07": False, "2025-12": False}
+        assert stored["drive"] == snapshot["drive"]
+        assert not next(row for row in stored["result"]["rows"] if row["month"] == "2025-12")["included"]
+        assert st.session_state.payroll_calibration_saved == stored
+        # Reinclude December, carrying forward only explicit choices.
+        frame["Includi"] = [False, True, True]
+        edited["Includi"] = [True, True, True]
+        ns["_apply_mobile_calibration_selection"](stored, frame, edited, labels)
+        assert saves[-1][1]["manual_included"] == {"2025-07": False, "2025-12": True}
+        assert saves[-1][1]["result"]["thirteenth_samples"] == 1
+    else:
+        with pytest.raises(ValueError, match="Salvataggio non riuscito"):
+            ns["_apply_mobile_calibration_selection"](snapshot, frame, edited, labels)
+        assert st.session_state.payroll_calibration_saved == snapshot
+        assert st.session_state.turni_rules == rules
+    assert all(kwargs == {"force_reload": False} for _, kwargs in reads)
