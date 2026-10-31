@@ -1,0 +1,146 @@
+"""An overnight shift remains live across midnight, month/year changes and rest."""
+import ast
+import calendar
+import html
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
+from types import SimpleNamespace
+
+import pandas as pd
+import pytest
+
+from payroll_engine import estimate_live_net_accrual, estimate_payslip
+
+
+def app_at(now):
+    source = Path(__file__).parents[1] / "spese_mensili.py"
+    nodes = []
+    for node in ast.parse(source.read_text()).body:
+        if isinstance(node, ast.Assign):
+            try:
+                ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                continue
+            nodes.append(node)
+        elif isinstance(node, ast.FunctionDef):
+            node.decorator_list = []
+            nodes.append(node)
+    env = dict(pd=pd, datetime=datetime, timedelta=timedelta, calendar=calendar,
+               html=html, json=json, MOBILE_VIEW=True,
+               estimate_live_net_accrual=estimate_live_net_accrual,
+               st=SimpleNamespace(session_state={}))
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), env)
+    env["_now_italy"] = lambda: now
+    # Only replace the persisted payroll forecast; live calculations are real.
+    env["_payroll_estimate_for_month"] = lambda df, rules, month: estimate_payslip(month, {}, rules)
+    return env
+
+
+def calendar_with_night(env, start_day="2026-10-31", rest_kind="Riposo"):
+    start = pd.Timestamp(start_day)
+    following = (start + pd.Timedelta(days=1)).normalize()
+    rows = [{"Data": start.strftime("%Y-%m-%d"), "Turno": "Notte"},
+            {"Data": following.strftime("%Y-%m-%d"), "Turno": rest_kind}]
+    # Different planned hours in the two months expose accidental hourly-base
+    # changes at midnight. No work overlaps the overnight/rest interval.
+    for day in range(1, 16):
+        rows.append({"Data": start.replace(day=day).strftime("%Y-%m-%d"), "Turno": "Mattina"})
+    for day in range(2, 22):
+        rows.append({"Data": following.replace(day=day).strftime("%Y-%m-%d"), "Turno": "Mattina"})
+    frame = env["_normalize_turni_df"](pd.DataFrame(rows))
+    return frame, dict(env["DEFAULT_TURNI_RULES"], notte_feriale_pct=50.)
+
+
+@pytest.mark.parametrize("start_day", ["2026-10-31", "2026-12-31", "2027-02-28"])
+@pytest.mark.parametrize("minutes", [0, 2, 359])
+def test_month_and_year_boundary_keep_whole_shift_live_and_count_only_new_month_hours(start_day, minutes):
+    start = datetime.fromisoformat(start_day + "T22:00")
+    midnight = (start + timedelta(days=1)).replace(hour=0)
+    now = midnight + timedelta(minutes=minutes)
+    env = app_at(now)
+    frame, rules = calendar_with_night(env, start_day)
+    before = frame.copy(deep=True)
+    result = env["compute_turni_dashboard"](frame, rules)
+    hourly = env["_live_net_hourly_base"](frame, rules, start_day[:7])
+    assert hourly != env["_live_net_hourly_base"](frame, rules, now.strftime("%Y-%m"))
+    expected = env["compute_turno_net_estimate"](start_day, "Notte", False, rules, hourly, until=now)
+    full = env["compute_turno_net_estimate"](start_day, "Notte", False, rules, hourly, until=datetime.max)
+    carry = env["compute_turno_net_estimate"](start_day, "Notte", False, rules, hourly, until=now,
+                                                only_day=now.strftime("%Y-%m-%d"))
+    assert result["is_on_shift"] and not result["is_on_leave"]
+    assert result["current_turno"] == "Notte"
+    assert result["current_shift_start_date"] == start_day
+    assert result["current_shift_end"] == (midnight + timedelta(hours=6)).isoformat()
+    assert result["rate_min"] == pytest.approx(expected["rate_min"])
+    assert result["rate_min"] > 0
+    assert result["live_today"] == pytest.approx(expected["total"])
+    assert result["expected_today"] == pytest.approx(full["total"])
+    assert result["live_month"] == pytest.approx(carry["total"])
+    assert result["hours_live"] == pytest.approx(minutes / 60)
+    assert carry["allowance_net"] == 0  # Already credited on the shift's start day.
+    assert "01/" in result["current_shift"] and "06:00" in result["current_shift"]
+    pd.testing.assert_frame_equal(frame, before, check_dtype=False)
+
+
+@pytest.mark.parametrize("now", [datetime(2026, 11, 1, 6), datetime(2026, 11, 1, 12), datetime(2026, 11, 2, 1)])
+def test_rest_starts_at_six_and_carryover_remains_in_month_total(now):
+    env = app_at(now)
+    frame, rules = calendar_with_night(env)
+    result = env["compute_turni_dashboard"](frame, rules)
+    hourly = env["_live_net_hourly_base"](frame, rules, "2026-10")
+    carry = env["compute_turno_net_estimate"]("2026-10-31", "Notte", False, rules, hourly,
+                                              until=now, only_day="2026-11-01")
+    assert not result["is_on_shift"]
+    assert result["current_shift_end"] == ""
+    assert result["rate_min"] == 0
+    assert result["turno_kpi_label"] == "Ultimo / prossimo turno"
+    assert result["live_month"] == pytest.approx(carry["total"])
+    assert result["hours_live"] == pytest.approx(6.)
+    assert result["next_shift_start"] == "2026-11-02T06:00:00"
+
+
+@pytest.mark.parametrize("rest_kind", ["", "Riposo", "Ferie"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_previous_night_has_priority_over_today_rest_or_leave_regardless_of_row_order(rest_kind, reverse):
+    env = app_at(datetime(2026, 11, 1, 2))
+    frame, rules = calendar_with_night(env, rest_kind=rest_kind)
+    if reverse:
+        frame = frame.iloc[::-1]
+    result = env["compute_turni_dashboard"](frame, rules)
+    assert result["is_on_shift"] and not result["is_on_leave"]
+    assert result["current_turno"] == "Notte"
+    assert result["turno_kpi_label"] == "Turno — netto live / totale netto"
+
+
+def test_same_month_night_before_rest_remains_live():
+    env = app_at(datetime(2026, 10, 31, 2))
+    frame = env["_normalize_turni_df"](pd.DataFrame([
+        {"Data": "2026-10-30", "Turno": "Notte"}, {"Data": "2026-10-31", "Turno": "Riposo"}]))
+    result = env["compute_turni_dashboard"](frame, env["DEFAULT_TURNI_RULES"])
+    assert result["is_on_shift"]
+    assert result["live_today"] > 0 and result["rate_min"] > 0
+
+
+def test_shift_counter_does_not_restart_at_midnight_and_holiday_rate_changes():
+    before_env = app_at(datetime(2026, 10, 31, 23, 59))
+    frame, rules = calendar_with_night(before_env)
+    before = before_env["compute_turni_dashboard"](frame.copy(), rules)
+    after_env = app_at(datetime(2026, 11, 1, 0, 0))
+    after = after_env["compute_turni_dashboard"](frame.copy(), rules)
+    assert before["is_on_shift"] and after["is_on_shift"]
+    assert after["live_today"] - before["live_today"] == pytest.approx(before["rate_min"])
+    assert after["expected_today"] == pytest.approx(before["expected_today"])
+    assert after["rate_min"] > before["rate_min"]  # Sunday/Nov 1 starts at midnight.
+    assert after["live_month"] == 0
+
+
+def test_summary_includes_only_the_active_previous_month_night_until_six():
+    env = app_at(datetime(2026, 11, 1, 2))
+    frame, rules = calendar_with_night(env)
+    summary = env["_turni_month_summary_html"](frame, "2026-11", rules, "2026-10-31")
+    assert 'id="turni-focus-card"' in summary
+    assert "31 ottobre 2026" in summary
+    assert "01 ottobre 2026" not in summary
+    env["_now_italy"] = lambda: datetime(2026, 11, 1, 6)
+    assert "31 ottobre 2026" not in env["_turni_month_summary_html"](frame, "2026-11", rules, "2026-10-31")

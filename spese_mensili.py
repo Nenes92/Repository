@@ -4762,6 +4762,7 @@ def compute_turni_dashboard(df_turni, rules):
     now = _now_italy()
     today = now.strftime("%Y-%m-%d")
     current_m, prev_m = _turni_current_prev_months()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     live_month = 0.0
     current_base_full = 0.0
@@ -4800,32 +4801,35 @@ def compute_turni_dashboard(df_turni, rules):
         festivo = bool(row["Festivo"])
         stra_minuti = _turni_row_straordinario_minuti(row)
         has_turno = turno in TURNI_ORARI and turno != ""
+        start, end = _shift_bounds(data, turno) if has_turno else (None, None)
+        active_work = has_turno and turno not in {"Ferie", "Riposo"} and start <= now < end
+        shift_net_hourly = prev_live_net_hourly if data[:7] == prev_m else live_net_hourly
 
         if has_turno and turno == "Ferie" and data[:7] == current_m:
             ferie_days_total += 1
 
         if has_turno and turno not in ["Ferie", "Riposo"] and data[:7] == current_m:
             work_days_total += 1
-            start_day, _ = _shift_bounds(data, turno)
-            if start_day <= now:
+            if start <= now:
                 work_days_done += 1
 
-        if has_turno and data[:7] == current_m:
+        if has_turno and (data[:7] == current_m or active_work):
             calc_live = compute_turno_net_estimate(
-                data, turno, festivo, rules, live_net_hourly,
+                data, turno, festivo, rules, shift_net_hourly,
                 until=now, straordinario_minuti=stra_minuti,
                 **_turni_row_permesso_kwargs(row),
             )
-            live_month += calc_live["total"]
-            hours_live += calc_live["hours"]
+            if data[:7] == current_m:
+                live_month += calc_live["total"]
+                hours_live += calc_live["hours"]
             calc_full = compute_turno_net_estimate(
-                data, turno, festivo, rules, live_net_hourly,
+                data, turno, festivo, rules, shift_net_hourly,
                 until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti,
                 **_turni_row_permesso_kwargs(row),
             )
-            current_base_full += calc_full["base"]
-            start, end = _shift_bounds(data, turno)
-            if turno == "Ferie" and start.strftime("%Y-%m-%d") == today:
+            if data[:7] == current_m:
+                current_base_full += calc_full["base"]
+            if turno == "Ferie" and start.strftime("%Y-%m-%d") == today and not (current_shift_end and not is_on_leave):
                 is_on_leave = True
                 rate_min = calc_live["rate_min"]
                 current_shift = f"Ferie {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
@@ -4839,9 +4843,13 @@ def compute_turni_dashboard(df_turni, rules):
                     current_rate_change_at = start if now < start else None
                 live_today = calc_live["total"]
                 expected_today = calc_full["total"]
-            elif turno not in ["Ferie", "Riposo"] and start <= now < end:
+            elif active_work:
+                is_on_leave = False
+                turno_kpi_label = "Turno — netto live / totale netto"
                 rate_min = calc_live["rate_min"]
                 current_shift = f"{turno} {start.strftime('%H:%M')}-{end.strftime('%H:%M')}"
+                if start.date() != now.date():
+                    current_shift = f"{turno} {start.strftime('%d/%m %H:%M')} → {end.strftime('%d/%m %H:%M')}"
                 current_shift_mode = "in sede" if _turni_row_sede(row) else "in smart"
                 current_shift_type = f"{turno} {'festivo' if _is_festive_at(now, festivo) else 'feriale'}"
                 current_turno = turno
@@ -4858,10 +4866,19 @@ def compute_turni_dashboard(df_turni, rules):
         if has_turno and data[:7] == prev_m:
             calc_prev = compute_turno_net_estimate(data, turno, festivo, rules, prev_live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))
             prev_extras += calc_prev["extra"]
+            if turno not in {"Ferie", "Riposo"} and start < month_start < end:
+                # Only the post-midnight portion belongs to this month's live.
+                # Keep the hourly base of the month in which the shift started;
+                # only_day also prevents crediting its allowance a second time.
+                carry = compute_turno_net_estimate(
+                    data, turno, festivo, rules, prev_live_net_hourly, until=now,
+                    only_day=month_start.strftime("%Y-%m-%d"), straordinario_minuti=stra_minuti,
+                    **_turni_row_permesso_kwargs(row))
+                live_month += carry["total"]
+                hours_live += carry["hours"]
 
         if not has_turno:
             continue
-        start, end = _shift_bounds(data, turno)
         if turno not in ["Ferie", "Riposo"] and start == nearest_next_start and next_shift_start is None:
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
@@ -4870,7 +4887,7 @@ def compute_turni_dashboard(df_turni, rules):
         if turno not in ["Ferie", "Riposo"] and end == nearest_last_end and last_shift_end is None:
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
-            last_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
+            last_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, shift_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
         if turno != "Ferie" and current_shift_end is None and start.strftime("%Y-%m-%d") <= today <= end.strftime("%Y-%m-%d"):
             live_today += compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=now, only_day=today, straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
             expected_today += compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), only_day=today, straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
@@ -6218,7 +6235,15 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
 
 
 def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
-    month_df = df_turni[df_turni["Data"].str.startswith(month_key)].copy()
+    month_mask = df_turni["Data"].str.startswith(month_key)
+    now = _now_italy()
+    if current_work_day and current_work_day[:7] != month_key and month_key == now.strftime("%Y-%m"):
+        for _, row in df_turni[df_turni["Data"] == current_work_day].iterrows():
+            if row["Turno"] in TURNI_ORARI and row["Turno"] not in {"", "Ferie", "Riposo"}:
+                start, end = _shift_bounds(row["Data"], row["Turno"])
+                if start <= now < end:
+                    month_mask |= df_turni["Data"] == current_work_day
+    month_df = df_turni[month_mask].copy()
     month_df = month_df[month_df["Turno"].isin(TURNI_ORARI.keys()) & (month_df["Turno"] != "")]
     if month_df.empty:
         return """
@@ -6246,7 +6271,7 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
             turno,
             bool(r["Festivo"]),
             rules,
-            live_net_hourly,
+            live_net_hourly if r["Data"][:7] == month_key else _live_net_hourly_base(df_turni, rules, r["Data"][:7]),
             until=datetime.max.replace(tzinfo=None),
             straordinario_minuti=stra_minuti,
             **_turni_row_permesso_kwargs(r),
