@@ -163,6 +163,20 @@ def test_calibration_uses_latest_twelve_months_for_current_salary_level():
     assert old_row.exclusion_reason == "Fuori finestra recente (12 mesi)"
 
 
+def test_default_calibration_window_includes_exactly_eighteen_calendar_months():
+    salaries, variables = {}, {}
+    for i in range(24):
+        month = add_months("2025-01", i)
+        gross = 100. + (i % 5) * 40.
+        salaries[month] = 2000. + gross * .6
+        variables[add_months(month, -1)] = VariableBreakdown(premiums_gross=gross)
+    result = calibrate(salaries, variables)
+    included = [row.month for row in result.rows if row.included]
+    assert len(included) == 18
+    assert included[0] == "2025-07" and included[-1] == "2026-12"
+    assert next(row for row in result.rows if row.month == "2025-06").exclusion_reason == "Fuori finestra recente (18 mesi)"
+
+
 def test_live_counter_converts_only_variables_with_calibrated_coefficient():
     value = estimate_live_net_accrual(
         ordinary_hours=8,

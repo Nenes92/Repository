@@ -397,7 +397,7 @@ def calibrate(
     delay: int = 1,
     manual_included: Mapping[str, bool] | None = None,
     adjustments: Mapping[str, float] | None = None,
-    recency_months: int | None = 12,
+    recency_months: int | None = 18,
     automatic_net: Mapping[str, float] | None = None,
     automatic_gross: Mapping[str, float] | None = None,
     include_thirteenth: bool = False,
@@ -409,7 +409,7 @@ def calibrate(
     With include_thirteenth, a separate December-only net component is fitted;
     it does not enter the gross variables or the ordinary monthly fixed pay.
     Obvious exceptional months are excluded with a robust median/MAD rule. By
-    default only the latest 12 calendar months are fitted, so contractual pay
+    default only the latest 18 calendar months are fitted, so contractual pay
     growth is not diluted by older salary levels. Older rows remain visible and
     can still be included manually.
     """

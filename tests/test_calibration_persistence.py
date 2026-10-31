@@ -30,7 +30,7 @@ def app_helpers():
     defaults = ast.literal_eval(defaults)
     names = {"_encode_calibration_snapshot", "_decode_calibration_snapshot", "get_turni_rules",
              "save_turni_rules", "_parse_float_turni", "_render_mobile_calibration",
-             "_build_mobile_calibration", "_save_mobile_calibration", "_apply_mobile_calibration_selection"}
+             "_build_mobile_calibration", "_save_mobile_calibration", "_mobile_calibration_selection"}
     funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     state = State()
     st = SimpleNamespace(session_state=state, fragment=lambda f: f)
@@ -71,18 +71,22 @@ def test_no_background_work_and_failed_sync_keeps_applied_result(clicked):
     st.session_state.update(payroll_calibration_saved=old_snapshot, turni_rules=old_rules)
     calls = []
     st.markdown = lambda *a, **kw: None
-    st.button = lambda *a, **kw: clicked
+    st.form = lambda *a, **kw: nullcontext()
+    st.form_submit_button = lambda *a, **kw: clicked
     st.spinner = lambda *a, **kw: nullcontext()
     st.warning = lambda msg: calls.append("warning")
     st.error = lambda msg: calls.append("error")
-    ns["_render_saved_mobile_calibration"] = lambda snapshot: calls.append(snapshot)
+    def render(snapshot):
+        calls.append(snapshot)
+        return snapshot.get("manual_included", {})
+    ns["_render_saved_mobile_calibration"] = render
     def offline(**kwargs):
         assert kwargs == {"force": True}
         calls.append("drive")
         return {"error": "Drive non disponibile"}
     ns["_mobile_drive_payslips"] = offline
     ns["_render_mobile_calibration"](old_rules)
-    assert calls == (["drive", "warning", old_snapshot] if clicked else [old_snapshot])
+    assert calls == ([old_snapshot, "drive", "warning"] if clicked else [old_snapshot])
     assert st.session_state.turni_rules == old_rules
     assert st.session_state.payroll_calibration_saved == old_snapshot
 
@@ -96,7 +100,8 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     old_snapshot = {"version": 1, "result": {"rows": []}, "manual_included": {"2025-07": False}}
     st.session_state.update(turni_rules=old_rules, payroll_calibration_saved=old_snapshot)
     st.markdown = st.warning = st.error = lambda *a, **kw: None
-    st.button = lambda *a, **kw: True
+    st.form = lambda *a, **kw: nullcontext()
+    st.form_submit_button = lambda *a, **kw: True
     st.spinner = lambda *a, **kw: nullcontext()
     class Rerun(BaseException):
         pass
@@ -113,7 +118,7 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     if with_december:
         salaries["2026-12"] = 4700.
         variables["2026-11"] = VariableBreakdown()
-    ns.update(_render_saved_mobile_calibration=lambda snapshot: None,
+    ns.update(_render_saved_mobile_calibration=lambda snapshot: dict(snapshot["manual_included"], **{"2025-08": True}),
               _mobile_drive_payslips=lambda **kw: {"error": "", "salaries": salaries},
               load_turni_data=lambda **kw: pd.DataFrame(),
               _payroll_variables_by_month=lambda *a: variables,
@@ -129,7 +134,8 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
         assert st.session_state.payroll_calibration_mae >= 0
         assert st.session_state.payroll_calibration_sync_success is True
         result = saves[0][1]["result"]
-        assert saves[0][1]["manual_included"] == old_snapshot.get("manual_included", {})
+        assert saves[0][1]["manual_included"] == {"2025-07": False, "2025-08": True}
+        assert saves[0][0]["finestra_calibrazione_mesi"] == 18.
         assert result["thirteenth_samples"] == int(with_december)
         assert saves[0][0]["tredicesima_coeff_netto"] == pytest.approx(result["thirteenth_net"] / result["fixed_net"])
         restored = ns["_decode_calibration_snapshot"](ns["_encode_calibration_snapshot"](saves[0][1]))
@@ -142,55 +148,29 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     assert len(saves) == 1
 
 
-@pytest.mark.parametrize("save_ok", [False, True])
-def test_selection_recalibrates_without_drive_or_forced_reads_and_persists_only_changes(save_ok):
-    from payroll_engine import VariableBreakdown, add_months
+def test_selection_collects_multiple_choices_without_applying_them():
     ns, st = app_helpers()
-    rules = dict(ns["DEFAULT_TURNI_RULES"])
-    salaries = {"2025-12": 4000., "2026-09": 2400., "2026-10": 2500.}
-    variables = {"2025-11": VariableBreakdown(premiums_gross=200.),
-                 "2026-08": VariableBreakdown(premiums_gross=100.),
-                 "2026-09": VariableBreakdown(premiums_gross=200.)}
-    snapshot = {"version": 1, "drive": {"salaries": salaries}, "result": {"rows": []},
-                "manual_included": {"2025-07": False}}
-    st.session_state.update(turni_rules=rules, payroll_calibration_saved=snapshot)
-    reads, saves = [], []
-    def load_turns(**kwargs):
-        reads.append(("turns", kwargs))
-        return pd.DataFrame()
-    def load_adjustments(**kwargs):
-        reads.append(("adjustments", kwargs))
-        return {}
-    def save(updated, **kwargs):
-        saves.append((updated, kwargs["calibration_snapshot"]))
-        return save_ok
-    def drive_forbidden(*args, **kwargs):
-        pytest.fail("Changing a checkbox must not read Drive")
-    ns.update(_mobile_drive_payslips=drive_forbidden, load_turni_data=load_turns,
-              load_payroll_adjustments=load_adjustments,
-              _payroll_variables_by_month=lambda *a: variables,
-              DEFAULT_PAYROLL_ADJUSTMENT=-63., holiday_compensation=lambda *a: [],
-              _payroll_v2_rules=lambda r: r, add_payroll_months=add_months,
-              calibrate_payroll=calibrate, save_turni_rules=save)
-    frame = pd.DataFrame({"Mese cedolino": list(salaries), "Includi": [True, True, True]})
-    labels = {"dic 25": "2025-12", "set 26": "2026-09", "ott 26": "2026-10"}
-    edited = pd.DataFrame({"Mese cedolino": list(labels), "Includi": [False, True, True]})
-    if save_ok:
-        ns["_apply_mobile_calibration_selection"](snapshot, frame, edited, labels)
-        stored = saves[0][1]
-        assert stored["manual_included"] == {"2025-07": False, "2025-12": False}
-        assert stored["drive"] == snapshot["drive"]
-        assert not next(row for row in stored["result"]["rows"] if row["month"] == "2025-12")["included"]
-        assert st.session_state.payroll_calibration_saved == stored
-        # Reinclude December, carrying forward only explicit choices.
-        frame["Includi"] = [False, True, True]
-        edited["Includi"] = [True, True, True]
-        ns["_apply_mobile_calibration_selection"](stored, frame, edited, labels)
-        assert saves[-1][1]["manual_included"] == {"2025-07": False, "2025-12": True}
-        assert saves[-1][1]["result"]["thirteenth_samples"] == 1
-    else:
-        with pytest.raises(ValueError, match="Salvataggio non riuscito"):
-            ns["_apply_mobile_calibration_selection"](snapshot, frame, edited, labels)
-        assert st.session_state.payroll_calibration_saved == snapshot
-        assert st.session_state.turni_rules == rules
-    assert all(kwargs == {"force_reload": False} for _, kwargs in reads)
+    snapshot = {"manual_included": {"2025-07": False}, "result": {"rows": []}}
+    st.session_state.payroll_calibration_saved = snapshot
+    def forbidden(*args, **kwargs):
+        pytest.fail("Draft selections must not read, calibrate or save")
+    ns.update(_mobile_drive_payslips=forbidden, load_turni_data=forbidden,
+              load_payroll_adjustments=forbidden, calibrate_payroll=forbidden,
+              save_turni_rules=forbidden)
+    months = ["2025-12", "2026-01", "2026-02", "2026-03", "2026-04"]
+    labels = {label: month for label, month in zip(["dic 25", "gen 26", "feb 26", "mar 26", "apr 26"], months)}
+    frame = pd.DataFrame({"Mese cedolino": months, "Includi": [True] * 5})
+    edited = pd.DataFrame({"Mese cedolino": list(labels), "Includi": [False] * 4 + [True]})
+    manual = ns["_mobile_calibration_selection"](snapshot, frame, edited, labels)
+    assert manual == {"2025-07": False, **{m: False for m in months[:4]}}
+    assert st.session_state.payroll_calibration_saved == snapshot
+    assert snapshot["manual_included"] == {"2025-07": False}
+
+
+def test_mobile_window_updates_saved_twelve_month_rules_and_current_sessions():
+    ns, st = app_helpers()
+    ns["MOBILE_VIEW"] = True
+    ns["load_data_gsheets"] = lambda *a, **kw: pd.DataFrame([{"finestra_calibrazione_mesi": 12.}])
+    assert ns["get_turni_rules"]()["finestra_calibrazione_mesi"] == 18.
+    st.session_state.turni_rules["finestra_calibrazione_mesi"] = 12.
+    assert ns["get_turni_rules"]()["finestra_calibrazione_mesi"] == 18.

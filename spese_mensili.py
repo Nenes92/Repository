@@ -3565,7 +3565,7 @@ DEFAULT_TURNI_RULES = {
     "patrono_giorno": 11.0,
     "coefficiente_netto_variabili": 0.60,
     "errore_medio_calibrazione": 0.0,
-    "finestra_calibrazione_mesi": 12.0,
+    "finestra_calibrazione_mesi": 18.0,
     "tredicesima_coeff_netto": 1.0,
     "tredicesima_campioni": 0.0,
     "rettifica_mensile": -63.0,
@@ -3771,6 +3771,9 @@ def get_turni_rules():
     else:
         for key, value in DEFAULT_TURNI_RULES.items():
             st.session_state.turni_rules.setdefault(key, value)
+    if globals().get("MOBILE_VIEW", False):
+        # Apply the requested window to existing saved rules and live sessions too.
+        st.session_state.turni_rules["finestra_calibrazione_mesi"] = 18.0
     return st.session_state.turni_rules
 
 
@@ -3987,7 +3990,7 @@ def _decode_calibration_snapshot(value):
 
 
 def _build_mobile_calibration(drive, rules, manual_included, force_reload=False):
-    """Recalculate from cached inputs on selection changes; Drive is read elsewhere."""
+    """Recalculate only on form submission; Drive is read by the caller."""
     salaries = drive["salaries"]
     variables = _payroll_variables_by_month(load_turni_data(force_reload=force_reload), rules)
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
@@ -3998,7 +4001,7 @@ def _build_mobile_calibration(drive, rules, manual_included, force_reload=False)
     holidays = {month: sum(event.gross for event in holiday_compensation(month, _payroll_v2_rules(rules)))
                 for month in salaries}
     calibrated = calibrate_payroll(salaries, variables, delay=delay, adjustments=adjustments,
-        recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))), automatic_gross=holidays,
+        recency_months=18, automatic_gross=holidays,
         include_thirteenth=True, manual_included=manual_included)
     snapshot = {"version": 1, "drive": drive, "result": asdict(calibrated), "delay": delay,
                 "manual_included": dict(manual_included),
@@ -4008,6 +4011,7 @@ def _build_mobile_calibration(drive, rules, manual_included, force_reload=False)
 
 def _save_mobile_calibration(calibrated, snapshot, rules):
     updated_rules = dict(rules, netto_fisso_mensile=float(calibrated.fixed_net),
+        finestra_calibrazione_mesi=18.,
         coefficiente_netto_variabili=float(calibrated.variable_coefficient),
         errore_medio_calibrazione=float(calibrated.mean_absolute_error),
         tredicesima_coeff_netto=calibrated.thirteenth_net / calibrated.fixed_net if calibrated.fixed_net > 0 else 0.,
@@ -4021,12 +4025,8 @@ def _save_mobile_calibration(calibrated, snapshot, rules):
     st.session_state.pop("turni_coeff_variabili", None)
 
 
-def _mark_mobile_calibration_selection():
-    st.session_state.payroll_calibration_selection_pending = True
-
-
-def _apply_mobile_calibration_selection(snapshot, frame, edited, labels):
-    """Persist explicit changes only, preserving automatic decisions on other rows."""
+def _mobile_calibration_selection(snapshot, frame, edited, labels):
+    """Collect the submitted choices without reads, calculations or writes."""
     manual = dict(snapshot.get("manual_included", {}))
     previous = dict(zip(frame["Mese cedolino"], frame["Includi"]))
     for _, row in edited.iterrows():
@@ -4035,9 +4035,7 @@ def _apply_mobile_calibration_selection(snapshot, frame, edited, labels):
             raise ValueError("Selezione non valida: riapri la tabella dei cedolini.")
         if bool(row["Includi"]) != bool(previous[month]):
             manual[month] = bool(row["Includi"])
-    rules = get_turni_rules()
-    calibrated, updated = _build_mobile_calibration(snapshot["drive"], rules, manual)
-    _save_mobile_calibration(calibrated, updated, rules)
+    return manual
 
 
 def _render_saved_mobile_calibration(snapshot):
@@ -4081,7 +4079,7 @@ def _render_saved_mobile_calibration(snapshot):
         edited = st.data_editor(styled, hide_index=True, use_container_width=True,
             key=f"mobile_calibration_editor::{editor_version}",
             disabled=[column for column in styled.data.columns if column != "Includi"],
-            on_change=_mark_mobile_calibration_selection, column_config={
+            column_config={
             "Includi": st.column_config.CheckboxColumn("Usa", width="small"),
             "Mese cedolino": st.column_config.TextColumn("Mese", width="small"),
             "Netto reale": st.column_config.NumberColumn("Reale", width="small"),
@@ -4090,17 +4088,7 @@ def _render_saved_mobile_calibration(snapshot):
             "Motivo esclusione": st.column_config.TextColumn("Esclusione", width="medium"),
             "Tredicesima stimata": st.column_config.NumberColumn("13ª stimata", width="small"),
         })
-        st.caption("Le spunte ricalibrano e salvano automaticamente. Gli importi sono di sola lettura.")
-    if st.session_state.pop("payroll_calibration_selection_pending", False):
-        try:
-            _apply_mobile_calibration_selection(snapshot, frame, edited, labels)
-        except (ValueError, RuntimeError) as exc:
-            st.warning(str(exc))
-        except Exception:
-            st.error("Selezione non applicata. L’ultima calibrazione salvata è conservata.")
-        else:
-            st.session_state.payroll_calibration_selection_success = True
-            st.rerun(scope="app")
+        st.caption("Modifica le spunte, poi premi Sincronizza Drive per applicarle. Gli importi sono di sola lettura.")
     margin = max(0., (result.confidence_high - result.confidence_low) / 2)
     st.markdown(_mobile_calibration_result_html(result, margin), unsafe_allow_html=True)
     if hasattr(result, "thirteenth_net"):
@@ -4111,24 +4099,28 @@ def _render_saved_mobile_calibration(snapshot):
             f"**Paga oraria lorda:** {_money_turni(rules['paga_oraria_lorda'])}/h · "
             f"**Ritardo variabili:** {int(rules['ritardo_competenze_mesi'])} mesi · "
             f"**Finestra calibrazione:** {int(rules['finestra_calibrazione_mesi'])} mesi")
+    return _mobile_calibration_selection(snapshot, frame, edited, labels)
 
 
 @st.fragment
 def _render_mobile_calibration(rules):
     st.markdown("### Calibrazione cedolini")
-    refresh = st.button("🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True,
-                        help="Legge i cedolini, aggiorna e salva automaticamente la previsione.")
     if st.session_state.pop("payroll_calibration_sync_success", False):
         st.success("Cedolini sincronizzati. Previsione aggiornata e salvata.")
-    if st.session_state.pop("payroll_calibration_selection_success", False):
-        st.success("Selezione salvata. Previsione aggiornata.")
+    # Forms keep all checkbox edits in the browser until this single submission.
+    with st.form("mobile_calibration_form", border=False, enter_to_submit=False):
+        refresh = st.form_submit_button("🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True,
+                            help="Applica le spunte, legge i cedolini e salva la previsione aggiornata.")
+        snapshot = st.session_state.get("payroll_calibration_saved")
+        manual = _render_saved_mobile_calibration(snapshot) if snapshot else {}
+        if not snapshot:
+            st.info("Premi Sincronizza Drive una prima volta: il risultato verrà applicato e resterà disponibile alle prossime aperture.")
     if refresh:
         try:
             with st.spinner("Sincronizzo i cedolini e aggiorno la previsione…"):
                 drive = _mobile_drive_payslips(force=True)
                 if drive.get("error"):
                     raise ValueError(drive["error"])
-                manual = st.session_state.get("payroll_calibration_saved", {}).get("manual_included", {})
                 calibrated, snapshot = _build_mobile_calibration(drive, rules, manual, force_reload=True)
                 _save_mobile_calibration(calibrated, snapshot, rules)
                 st.session_state.payroll_calibration_sync_success = True
@@ -4139,11 +4131,6 @@ def _render_mobile_calibration(rules):
         else:
             # Redraw forecasts above this fragment too, keeping the same session.
             st.rerun(scope="app")
-    snapshot = st.session_state.get("payroll_calibration_saved")
-    if snapshot:
-        _render_saved_mobile_calibration(snapshot)
-    else:
-        st.info("Premi Sincronizza Drive una prima volta: il risultato verrà applicato e resterà disponibile alle prossime aperture.")
 
 
 def _payroll_variables_by_month(df_turni, rules):
@@ -7301,7 +7288,7 @@ def render_turni_guadagni_section():
                     "Finestra calibrazione (mesi)",
                     min_value=3,
                     max_value=36,
-                    value=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                    value=int(round(rules.get("finestra_calibrazione_mesi", 18))),
                     step=1,
                     key="turni_finestra_calibrazione",
                     help="Dà priorità al livello retributivo recente: i mesi più vecchi restano visibili ma sono esclusi automaticamente dal fit.",
@@ -7676,7 +7663,7 @@ def render_turni_guadagni_section():
                 variables_by_month,
                 delay=delay_months,
                 adjustments=calibration_adjustments,
-                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 18))),
                 automatic_gross=holiday_gross_by_month,
             )
             calibration_df = pd.DataFrame([{
@@ -7736,7 +7723,7 @@ def render_turni_guadagni_section():
                 delay=delay_months,
                 manual_included=manual,
                 adjustments=calibration_adjustments,
-                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))),
+                recency_months=int(round(rules.get("finestra_calibrazione_mesi", 18))),
                 automatic_gross=holiday_gross_by_month,
             )
             confidence_margin = max(
