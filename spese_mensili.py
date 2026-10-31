@@ -7,6 +7,7 @@ import json
 import base64
 import zlib
 from dataclasses import asdict
+from contextlib import nullcontext
 from types import SimpleNamespace
 import os
 from datetime import datetime, timedelta
@@ -3508,6 +3509,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 # ─── MODULO CONTATORE GUADAGNI TURNI ─────────────────────────────────────────
+def _mobile_edit_form(key):
+    return st.form(key, border=False, enter_to_submit=False) if MOBILE_VIEW else nullcontext()
+
+
+def _editor_button(label, **kwargs):
+    return (st.form_submit_button if MOBILE_VIEW else st.button)(label, **kwargs)
+
+
+def _mobile_save_refresh(message, error=False):
+    st.session_state.mobile_save_feedback = {"message": message, "error": error}
+    st.rerun(scope="app")
+
+
 def _mobile_save_button_styles():
     return """<style>
       div[data-testid="stButton"] > button[kind^="primary"],
@@ -4173,6 +4187,9 @@ def _payroll_estimate_for_month(df_turni, rules, month_key):
 
 
 def _apply_turni_rules_from_widgets(rules):
+    if globals().get("MOBILE_VIEW", False):
+        # Mobile rule widgets are drafts; only the matching form may commit them.
+        return rules
     widget_to_rule = {
         "turni_festivita_quota": "festivita_quota_lorda",
         "turni_festivita_ritardo": "festivita_ritardo_mesi",
@@ -6760,6 +6777,8 @@ def _mobile_contract_rules_html(rules):
 
 
 def _render_mobile_turni_rules(rules, selected_month):
+    saved_rules = rules
+    rules = dict(saved_rules)
     month_key = selected_month.strftime("%Y-%m")
     st.markdown("""<style>
       .mobile-adjustment-summary {box-sizing:border-box;min-width:0;width:100%;padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:rgba(30,41,59,.55);margin:4px 0 0;}
@@ -6771,7 +6790,7 @@ def _render_mobile_turni_rules(rules, selected_month):
       .mobile-adjustment-month {margin-top:3px;}
       .mobile-adjustment-note {margin-top:7px;}
     </style>""", unsafe_allow_html=True)
-    with st.expander("Festività automatiche nel cedolino", expanded=False):
+    with st.expander("Festività automatiche nel cedolino", expanded=False), st.form("mobile_holidays_form", border=False, enter_to_submit=False):
         rules["festivita_automatiche"] = float(st.checkbox(
             "Prevedi festività di domenica e 4 novembre",
             value=bool(rules.get("festivita_automatiche", 1)), key="turni_festivita_attive"))
@@ -6796,11 +6815,13 @@ def _render_mobile_turni_rules(rules, selected_month):
             "Data": event.day.strftime("%d/%m/%Y"), "Festività": event.label,
             "Importo lordo": event.gross,
         } for event in annual_holidays]), hide_index=True, use_container_width=True)
-        if st.button("💾 Salva festività", key="save_mobile_holiday_rules", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
+        if st.form_submit_button("💾 Salva festività", key="save_mobile_holiday_rules", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
             if save_turni_rules(_apply_turni_rules_from_widgets(rules)):
-                st.success("Festività salvate.")
+                st.session_state.turni_rules = rules
+                _mobile_save_refresh("Festività salvate.")
             else:
                 st.error("Non sono riuscito a salvare le festività. Riprova.")
+    rules = saved_rules
     adjustment_rows = load_payroll_adjustments()
     selected_adjustment = payroll_adjustment_for_month(month_key, adjustment_rows)
     adjustment_amount = float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT))
@@ -6813,7 +6834,7 @@ def _render_mobile_turni_rules(rules, selected_month):
         f'<strong style="color:{adjustment_color};">{html.escape(_money_turni(adjustment_amount))}</strong></div>'
         f'<div class="mobile-adjustment-note">{html.escape(adjustment_note)}</div></div>',
         unsafe_allow_html=True)
-    with st.expander("Modifica rettifica", expanded=False):
+    with st.expander("Modifica rettifica", expanded=False), st.form(f"mobile_adjustment_form::{month_key}", border=False, enter_to_submit=False):
         monthly_adjustment = st.number_input(
             "Importo netto (€)",
             value=float(selected_adjustment.get("amount", DEFAULT_PAYROLL_ADJUSTMENT)),
@@ -6822,7 +6843,7 @@ def _render_mobile_turni_rules(rules, selected_month):
         monthly_adjustment_note = st.text_input(
             "Descrizione", value=str(selected_adjustment.get("description", DEFAULT_PAYROLL_ADJUSTMENT_DESCRIPTION)),
             key=f"turni_rettifica_nota::{month_key}", placeholder="es. rimborso 730")
-        if st.button(
+        if st.form_submit_button(
             f"💾 Salva rettifica per {_turni_month_label(selected_month)}",
             key=f"save_payroll_adjustment::{month_key}",
             use_container_width=True,
@@ -6833,7 +6854,8 @@ def _render_mobile_turni_rules(rules, selected_month):
             else:
                 st.error("Non sono riuscito a salvare la rettifica su Google Sheets.")
     st.markdown(_mobile_contract_rules_html(rules), unsafe_allow_html=True)
-    with st.expander("Modifica regole contrattuali", expanded=False):
+    rules = dict(saved_rules)
+    with st.expander("Modifica regole contrattuali", expanded=False), st.form("mobile_contract_rules_form", border=False, enter_to_submit=False):
         c1, c2 = st.columns(2)
         with c1:
             if MOBILE_VIEW:
@@ -6881,14 +6903,15 @@ def _render_mobile_turni_rules(rules, selected_month):
             """, unsafe_allow_html=True)
             rules["buono_pasto"] = st.number_input("Buono pasto", value=float(rules.get("buono_pasto", 7.0)), step=0.50, key="turni_buono_pasto")
             rules["smart_target"] = st.number_input("Smart target mensile", value=float(rules.get("smart_target", 15.0)), step=1.0, key="turni_smart_target")
-        if st.button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
+        if st.form_submit_button("💾 Salva regole su Google", key="save_turni_rules_google", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary"):
             rules = _apply_turni_rules_from_widgets(rules)
             if save_turni_rules(rules):
-                st.success("Regole salvate nel foglio Google “Regole Turni”.")
+                st.session_state.turni_rules = rules
+                _mobile_save_refresh("Regole salvate nel foglio Google “Regole Turni”.")
             else:
                 st.error("Non sono riuscito a salvare le regole su Google Sheets.")
 
-    st.session_state.turni_rules = rules
+
 
 
 def render_turni_guadagni_section():
@@ -7797,6 +7820,9 @@ def main():
     if MOBILE_VIEW:
         st.markdown(_mobile_save_button_styles(), unsafe_allow_html=True)
         _mark_mobile_calendar_entry()
+        feedback = st.session_state.pop("mobile_save_feedback", None)
+        if feedback:
+            (st.error if feedback["error"] else st.success)(feedback["message"])
     load_spese_fisse_settings()
     load_altre_entrate_settings()
 
@@ -7850,156 +7876,41 @@ def main():
         return max(0.0, value)
 
     if MOBILE_VIEW:
-        mobile_salary_defaults = {
-            "mobile_salary_stipendio_percepito_value": float(input_stipendio_percepito),
-            "mobile_salary_budget_da_stipendio_value": float(input_budget_da_stipendio),
-            "mobile_salary_risparmi_mese_precedente_value": float(input_risparmi_mese_precedente),
-        }
-        for salary_key, salary_default in mobile_salary_defaults.items():
-            st.session_state.setdefault(salary_key, salary_default)
-
-        def _sync_mobile_salary_from_widget(value_key, widget_key, default, max_value=None):
-            if widget_key in st.session_state:
-                st.session_state[value_key] = _parse_mobile_amount(
-                    st.session_state[widget_key],
-                    default,
-                    max_value=max_value
-                )
-            else:
-                st.session_state.setdefault(value_key, float(default))
-            if max_value is not None:
-                st.session_state[value_key] = min(
-                    float(st.session_state[value_key]),
-                    float(max_value)
-                )
-
-        def _store_mobile_salary_widget(value_key, widget_key, default, max_value=None):
-            st.session_state[value_key] = _parse_mobile_amount(
-                st.session_state.get(widget_key, st.session_state.get(value_key, default)),
-                default,
-                max_value=max_value
-            )
-
-        def _prime_mobile_salary_widget(widget_key, value_key):
-            if widget_key not in st.session_state:
-                st.session_state[widget_key] = float(st.session_state[value_key])
-
+        committed_salary = _parse_mobile_amount(st.session_state.get("mobile_salary_stipendio_percepito_value", input_stipendio_percepito), input_stipendio_percepito)
+        committed_budget = _parse_mobile_amount(st.session_state.get("mobile_salary_budget_da_stipendio_value", input_budget_da_stipendio), input_budget_da_stipendio, max_value=committed_salary)
+        committed_savings = _parse_mobile_amount(st.session_state.get("mobile_salary_risparmi_mese_precedente_value", input_risparmi_mese_precedente), input_risparmi_mese_precedente)
+        st.session_state.setdefault("mobile_salary_stipendio_percepito_value", committed_salary)
+        st.session_state.setdefault("mobile_salary_budget_da_stipendio_value", committed_budget)
+        st.session_state.setdefault("mobile_salary_risparmi_mese_precedente_value", committed_savings)
+        stipendio_percepito, budget_da_stipendio, risparmi_mese_precedente = committed_salary, committed_budget, committed_savings
+        salva_stipendio_home = False
         if _mobile_show("Panoramica"):
-            _sync_mobile_salary_from_widget(
-                "mobile_salary_stipendio_percepito_value",
-                "mobile_salary_stipendio_percepito_num",
-                input_stipendio_percepito
-            )
-            _sync_mobile_salary_from_widget(
-                "mobile_salary_budget_da_stipendio_value",
-                "mobile_salary_budget_da_stipendio_num",
-                input_budget_da_stipendio,
-                max_value=st.session_state["mobile_salary_stipendio_percepito_value"]
-            )
-            _sync_mobile_salary_from_widget(
-                "mobile_salary_risparmi_mese_precedente_value",
-                "mobile_salary_risparmi_mese_precedente_num",
-                input_risparmi_mese_precedente
-            )
-            _prime_mobile_salary_widget(
-                "mobile_salary_stipendio_percepito_num",
-                "mobile_salary_stipendio_percepito_value"
-            )
-            _prime_mobile_salary_widget(
-                "mobile_salary_budget_da_stipendio_num",
-                "mobile_salary_budget_da_stipendio_value"
-            )
-            _prime_mobile_salary_widget(
-                "mobile_salary_risparmi_mese_precedente_num",
-                "mobile_salary_risparmi_mese_precedente_value"
-            )
-            salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
-            with salary_col1:
-                st.markdown('<div class="mobile-salary-field-title green">Stipendio percepito</div>', unsafe_allow_html=True)
-                stipendio_percepito = st.number_input(
-                    "Stipendio percepito",
-                    min_value=0.0,
-                    value=float(st.session_state["mobile_salary_stipendio_percepito_value"]),
-                    step=50.0,
-                    key="mobile_salary_stipendio_percepito_num",
-                    label_visibility="collapsed",
-                    format="%.0f",
-                    on_change=_store_mobile_salary_widget,
-                    args=(
-                        "mobile_salary_stipendio_percepito_value",
-                        "mobile_salary_stipendio_percepito_num",
-                        input_stipendio_percepito
-                    )
-                )
-            if "mobile_salary_budget_da_stipendio_num" in st.session_state:
-                st.session_state["mobile_salary_budget_da_stipendio_num"] = min(
-                    float(st.session_state["mobile_salary_budget_da_stipendio_num"]),
-                    float(stipendio_percepito)
-                )
-            with salary_col2:
-                st.markdown('<div class="mobile-salary-field-title blue">Quota stip. scelta</div>', unsafe_allow_html=True)
-                budget_da_stipendio = st.number_input(
-                    "Quota stip. scelta",
-                    min_value=0.0,
-                    max_value=float(stipendio_percepito),
-                    value=min(float(st.session_state["mobile_salary_budget_da_stipendio_value"]), float(stipendio_percepito)),
-                    step=50.0,
-                    key="mobile_salary_budget_da_stipendio_num",
-                    label_visibility="collapsed",
-                    format="%.0f",
-                    on_change=_store_mobile_salary_widget,
-                    args=(
-                        "mobile_salary_budget_da_stipendio_value",
-                        "mobile_salary_budget_da_stipendio_num",
-                        input_budget_da_stipendio,
-                        float(stipendio_percepito)
-                    )
-                )
-            with salary_col3:
-                st.markdown('<div class="mobile-salary-field-title yellow">Risparmi mese prec.</div>', unsafe_allow_html=True)
-                risparmi_mese_precedente = st.number_input(
-                    "Risparmi mese prec.",
-                    min_value=0.0,
-                    value=float(st.session_state["mobile_salary_risparmi_mese_precedente_value"]),
-                    step=50.0,
-                    key="mobile_salary_risparmi_mese_precedente_num",
-                    label_visibility="collapsed",
-                    format="%.0f",
-                    on_change=_store_mobile_salary_widget,
-                    args=(
-                        "mobile_salary_risparmi_mese_precedente_value",
-                        "mobile_salary_risparmi_mese_precedente_num",
-                        input_risparmi_mese_precedente
-                    )
-                )
-            st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
-            st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
-            st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
-            st.markdown(
-                '<div class="mobile-salary-note-grid">'
-                '<span class="mobile-compact-input-note">Stipendio mese precedente</span>'
-                '<span class="mobile-compact-input-note">Quota scelta mese precedente</span>'
-                '<span class="mobile-compact-input-note">Il resto andrà nei risparmi.</span>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            stipendio_percepito = _parse_mobile_amount(
-                st.session_state.get("mobile_salary_stipendio_percepito_value", input_stipendio_percepito),
-                input_stipendio_percepito
-            )
-            budget_da_stipendio = _parse_mobile_amount(
-                st.session_state.get("mobile_salary_budget_da_stipendio_value", input_budget_da_stipendio),
-                input_budget_da_stipendio,
-                max_value=stipendio_percepito
-            )
-            risparmi_mese_precedente = _parse_mobile_amount(
-                st.session_state.get("mobile_salary_risparmi_mese_precedente_value", input_risparmi_mese_precedente),
-                input_risparmi_mese_precedente
-            )
-            st.session_state["mobile_salary_stipendio_percepito_value"] = stipendio_percepito
-            st.session_state["mobile_salary_budget_da_stipendio_value"] = budget_da_stipendio
-            st.session_state["mobile_salary_risparmi_mese_precedente_value"] = risparmi_mese_precedente
+            with st.form("mobile_home_salary_form", border=False, enter_to_submit=False):
+                salary_col1, salary_col2, salary_col3 = st.columns(3, gap="small")
+                with salary_col1:
+                    st.markdown('<div class="mobile-salary-field-title green">Stipendio percepito</div>', unsafe_allow_html=True)
+                    draft_salary = st.number_input("Stipendio percepito", min_value=0.0, value=committed_salary, step=50.0,
+                        key="mobile_salary_stipendio_percepito_num", label_visibility="collapsed", format="%.0f")
+                with salary_col2:
+                    st.markdown('<div class="mobile-salary-field-title blue">Quota stip. scelta</div>', unsafe_allow_html=True)
+                    draft_budget = st.number_input("Quota stip. scelta", min_value=0.0, value=committed_budget, step=50.0,
+                        key="mobile_salary_budget_da_stipendio_num", label_visibility="collapsed", format="%.0f")
+                with salary_col3:
+                    st.markdown('<div class="mobile-salary-field-title yellow">Risparmi mese prec.</div>', unsafe_allow_html=True)
+                    draft_savings = st.number_input("Risparmi mese prec.", min_value=0.0, value=committed_savings, step=50.0,
+                        key="mobile_salary_risparmi_mese_precedente_num", label_visibility="collapsed", format="%.0f")
+                st.markdown(
+                    '<div class="mobile-salary-note-grid">'
+                    '<span class="mobile-compact-input-note">Stipendio mese precedente</span>'
+                    '<span class="mobile-compact-input-note">Quota scelta mese precedente</span>'
+                    '<span class="mobile-compact-input-note">Il resto andrà nei risparmi.</span></div>', unsafe_allow_html=True)
+                salva_stipendio_home = st.form_submit_button("✓ Salva riepilogo del mese", key="salva_stipendio_home", use_container_width=True, type="primary")
+            if salva_stipendio_home:
+                if draft_budget > draft_salary:
+                    st.error("La quota scelta non può superare lo stipendio percepito.")
+                    st.stop()
+                stipendio_percepito, budget_da_stipendio, risparmi_mese_precedente = draft_salary, draft_budget, draft_savings
+
     else:
         with col_stip_inserimento1:
             st.markdown('<div class="salary-input-label">Stipendio percepito</div>', unsafe_allow_html=True)
@@ -8019,13 +7930,7 @@ def main():
             )
             st.markdown('<div style="font-size:11px;color:rgba(255,255,255,.42);margin-top:4px;">Il resto andrà nei risparmi.</div>', unsafe_allow_html=True)
 
-    if MOBILE_VIEW:
-        salva_stipendio_home = st.button(
-            "✓ Salva riepilogo del mese",
-            key="salva_stipendio_home",
-            use_container_width=True,
-        type="primary" if MOBILE_VIEW else "secondary") if _mobile_show("Panoramica") else False
-    else:
+    if not MOBILE_VIEW:
         with col_stip_inserimento2:
             salva_stipendio_home = st.button(
                 "✓ Salva riepilogo del mese",
@@ -8221,7 +8126,7 @@ textarea {
         
             # ───────── UI BUDGET ─────────
             risparmio_desiderato_corrente = _nota_number("risparmio_desiderato", risparmio_mensile_desiderato)
-            if "risparmio_desiderato_promemoria" in st.session_state:
+            if not MOBILE_VIEW and "risparmio_desiderato_promemoria" in st.session_state:
                 risparmio_desiderato_corrente = float(st.session_state["risparmio_desiderato_promemoria"])
             target_budget = calcola_target_budget_dinamico(sum(SPESE["Fisse"].values()))
             budget_disponibile_target = target_budget["budget_disponibile_target"]
@@ -8275,8 +8180,8 @@ textarea {
                     </div>
                     """, unsafe_allow_html=True)
                 with obiettivi_col:
-                    with st.expander("Obiettivo risparmi", expanded=False):
-                        risparmio_desiderato_corrente = st.number_input(
+                    with st.expander("Obiettivo risparmi", expanded=False), _mobile_edit_form("mobile_savings_goal_form"):
+                        draft_savings_goal = st.number_input(
                             "Risparmio desiderato",
                             min_value=0.0,
                             value=float(risparmio_desiderato_corrente),
@@ -8284,7 +8189,9 @@ textarea {
                             help="Quanto vuoi riuscire a mettere da parte oltre al budget del mese.",
                             key="risparmio_desiderato_promemoria"
                         )
-                        salva_obiettivo = st.button(
+                        if not MOBILE_VIEW:
+                            risparmio_desiderato_corrente = draft_savings_goal
+                        salva_obiettivo = _editor_button(
                             "💾 Salva obiettivo",
                             use_container_width=True,
                             key="save_obiettivo_risparmi",
@@ -8296,11 +8203,13 @@ textarea {
                                 _nota_value("nota2"),
                                 _nota_value("nota3"),
                                 _nota_value("nota4"),
-                                risparmio_desiderato_corrente
+                                draft_savings_goal
                             )
                             if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                                 st.session_state.note_df_draft = df_note.copy()
                                 st.session_state.note_loaded_from_sheet = True
+                                if MOBILE_VIEW:
+                                    _mobile_save_refresh("Obiettivo salvato")
                                 st.success("Obiettivo salvato")
                             else:
                                 st.error("Errore salvataggio obiettivo")
@@ -8359,8 +8268,15 @@ textarea {
             risparmi_mese_precedente,
             risparmi_mensili,
         ):
+            if MOBILE_VIEW:
+                st.session_state.mobile_salary_stipendio_percepito_value = stipendio_percepito
+                st.session_state.mobile_salary_budget_da_stipendio_value = budget_da_stipendio
+                st.session_state.mobile_salary_risparmi_mese_precedente_value = risparmi_mese_precedente
+                _mobile_save_refresh("Riepilogo del mese salvato nello Storico stipendi.")
             home_salary_save_feedback.success("Riepilogo del mese salvato nello Storico stipendi.")
         else:
+            if MOBILE_VIEW:
+                _mobile_save_refresh("Non sono riuscito a salvare il riepilogo del mese. Restano validi i valori precedenti.", error=True)
             home_salary_save_feedback.error("Non sono riuscito a salvare il riepilogo del mese.")
 
     if MOBILE_VIEW and _mobile_show("Panoramica"):
@@ -8685,7 +8601,7 @@ textarea {
             else:
                 tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
 
-            with tab_decisioni_fisse:
+            with tab_decisioni_fisse, _mobile_edit_form("mobile_fixed_expenses_form"):
                 settings = SPESE["Fisse"].copy()
                 metadata = st.session_state.get("spese_fisse_metadata", {})
                 gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
@@ -8714,7 +8630,7 @@ textarea {
                 with add_meta_col2:
                     nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
                 with add_meta_col3:
-                    nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo")
+                    nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo", accept_new_options=MOBILE_VIEW)
 
                 st.markdown("#### Elimina spesa")
                 elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
@@ -8767,7 +8683,7 @@ textarea {
                                 "Gruppo visivo",
                                 gruppi_disponibili,
                                 index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
-                                key=f"spesa_fissa_gruppo_{voce}"
+                                key=f"spesa_fissa_gruppo_{voce}", accept_new_options=MOBILE_VIEW
                             ),
                         }
                         st.markdown("---")
@@ -8776,16 +8692,18 @@ textarea {
                 with save_col:
                     if MOBILE_VIEW:
                         st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
-                    if st.button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse", type="primary" if MOBILE_VIEW else "secondary"):
+                    if _editor_button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse", type="primary" if MOBILE_VIEW else "secondary"):
                         nome_nuova = nuova_spesa_nome.strip()
                         if nome_nuova:
                             editable_settings[nome_nuova] = float(nuova_spesa_importo)
                             editable_metadata[nome_nuova] = {
                                 "Categoria": nuova_spesa_categoria,
                                 "Carta": nuova_spesa_carta,
-                                "Gruppo": nuova_spesa_gruppo,
+                                "Gruppo": (nuovo_gruppo or nuova_spesa_gruppo) if MOBILE_VIEW else nuova_spesa_gruppo,
                             }
                         if save_spese_fisse_settings(editable_settings, editable_metadata):
+                            if MOBILE_VIEW:
+                                _mobile_save_refresh("Spese fisse salvate")
                             st.success("Spese fisse salvate")
                             st.rerun()
                         else:
@@ -8793,10 +8711,18 @@ textarea {
                 with delete_col:
                     if MOBILE_VIEW:
                         st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
-                    if st.button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=not bool(elimina_spesa)):
+                    if _editor_button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=(not bool(elimina_spesa)) if not MOBILE_VIEW else False):
+                        if not elimina_spesa:
+                            st.warning("Seleziona la spesa da eliminare.")
+                            st.stop()
+                        if MOBILE_VIEW:
+                            editable_settings = settings.copy()
+                            editable_metadata = metadata.copy()
                         editable_settings.pop(elimina_spesa, None)
                         editable_metadata.pop(elimina_spesa, None)
                         if save_spese_fisse_settings(editable_settings, editable_metadata):
+                            if MOBILE_VIEW:
+                                _mobile_save_refresh("Spesa eliminata")
                             st.success("Spesa eliminata")
                             st.rerun()
                         else:
@@ -9320,7 +9246,7 @@ textarea {
                 st.markdown('<div id="mobile-entrate" class="mobile-anchor"></div><div class="section-pill">➕ Altre Entrate</div>', unsafe_allow_html=True)
                 tab_altre_view, tab_altre_decisioni = st.tabs(["➕ Altre Entrate", "⚙️ Decisioni"])
 
-                with tab_altre_decisioni:
+                with tab_altre_decisioni, _mobile_edit_form("mobile_other_income_form"):
                     altre_settings = ALTRE_ENTRATE.copy()
                     st.markdown(
                         '<div style="border-top: 1px solid rgba(148, 163, 184, .28); margin: 8px 0 18px;"></div>'
@@ -9370,8 +9296,10 @@ textarea {
                     with save_altre_col:
                         if MOBILE_VIEW:
                             st.markdown('<span class="other-income-actions-marker"></span>', unsafe_allow_html=True)
-                        if st.button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate", type="primary" if MOBILE_VIEW else "secondary"):
+                        if _editor_button("💾 Salva altre entrate", use_container_width=True, key="save_altre_entrate", type="primary" if MOBILE_VIEW else "secondary"):
                             if save_altre_entrate_settings(edited_altre):
+                                if MOBILE_VIEW:
+                                    _mobile_save_refresh("Altre entrate salvate")
                                 st.success("Altre entrate salvate")
                                 st.rerun()
                             else:
@@ -9379,9 +9307,16 @@ textarea {
                     with delete_altre_col:
                         if MOBILE_VIEW:
                             st.markdown('<span class="other-income-actions-marker"></span>', unsafe_allow_html=True)
-                        if st.button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=not bool(elimina_entrata)):
+                        if _editor_button("🗑️ Elimina entrata", use_container_width=True, key="delete_altra_entrata", disabled=(not bool(elimina_entrata)) if not MOBILE_VIEW else False):
+                            if not elimina_entrata:
+                                st.warning("Seleziona l’entrata da eliminare.")
+                                st.stop()
+                            if MOBILE_VIEW:
+                                edited_altre = altre_settings.copy()
                             edited_altre.pop(elimina_entrata, None)
                             if save_altre_entrate_settings(edited_altre):
+                                if MOBILE_VIEW:
+                                    _mobile_save_refresh("Entrata eliminata")
                                 st.success("Entrata eliminata")
                                 st.rerun()
                             else:
@@ -10784,23 +10719,24 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         risparmi_val = float(record_esistente["Risparmi"].iloc[0]) if not record_esistente.empty else 0.0
         messi_da_parte_mese_corrente_val = float(record_esistente["Messi da parte Totali"].iloc[0]) if not record_esistente.empty else 0.0
         if MOBILE_VIEW:
-            with st.container(key="mobile-salary-history-inputs"):
-                col_input1, col_input2, col_input3, col_input4 = st.columns(4)
-            with col_input1:
-                stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
-            with col_input2:
-                quota_stipendio = st.number_input("Quota scelta (€)", min_value=0.0, max_value=stipendio, step=100.0, value=min(quota_stipendio_val, stipendio), key=f"quota_stipendio_input_{selected_mese}")
-            with col_input3:
-                risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
-            with col_input4:
-                messi_da_parte_mese_corrente = st.number_input("Messi da parte (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}", help="Messi da parte totali / risparmio su BNL")
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                st.markdown('<span class="mobile-stipendi-save-marker"></span>', unsafe_allow_html=True)
-                aggiungi_button = st.button("Salva mese", key="aggiorna_stipendi", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
-            with col_btn2:
-                st.markdown('<span class="mobile-stipendi-delete-marker"></span>', unsafe_allow_html=True)
-                elimina_button = st.button("Elimina mese", key="elimina_stipendi", use_container_width=True)
+            with st.form(f"mobile_salary_history_form::{selected_mese}", border=False, enter_to_submit=False):
+                with st.container(key="mobile-salary-history-inputs"):
+                    col_input1, col_input2, col_input3, col_input4 = st.columns(4)
+                with col_input1:
+                    stipendio = st.number_input("Stipendio (€)", min_value=0.0, step=100.0, value=stipendio_val, key=f"stipendio_input_{selected_mese}")
+                with col_input2:
+                    quota_stipendio = st.number_input("Quota scelta (€)", min_value=0.0, step=100.0, value=min(quota_stipendio_val, stipendio), key=f"quota_stipendio_input_{selected_mese}")
+                with col_input3:
+                    risparmi = st.number_input("Risparmi mese prec. (€)", min_value=0.0, step=100.0, value=risparmi_val, key=f"risparmi_input_{selected_mese}")
+                with col_input4:
+                    messi_da_parte_mese_corrente = st.number_input("Messi da parte (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}", help="Messi da parte totali / risparmio su BNL")
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    st.markdown('<span class="mobile-stipendi-save-marker"></span>', unsafe_allow_html=True)
+                    aggiungi_button = st.form_submit_button("Salva mese", key="aggiorna_stipendi", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
+                with col_btn2:
+                    st.markdown('<span class="mobile-stipendi-delete-marker"></span>', unsafe_allow_html=True)
+                    elimina_button = st.form_submit_button("Elimina mese", key="elimina_stipendi", use_container_width=True)
         else:
             st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
             col_input1, col_input2 = st.columns(2)
@@ -10813,46 +10749,70 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 messi_da_parte_mese_corrente = st.number_input("Messi da parte Totali (Risp. su BNL) (€)", min_value=0.0, step=100.0, value=messi_da_parte_mese_corrente_val, key=f"messi_da_parte_input_{selected_mese}")
                 elimina_button = st.button(f"Elimina Record per {selected_mese}", key="elimina_stipendi")
 
-        if aggiungi_button:
-            if stipendio > 0 or quota_stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
-                if not record_esistente.empty:
-                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
-                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Quota stipendio scelta"] = quota_stipendio
-                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
-                    data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Messi da parte Totali"] = messi_da_parte_mese_corrente
+        if MOBILE_VIEW:
+            if aggiungi_button:
+                if quota_stipendio > stipendio:
+                    st.error("La quota scelta non può superare lo stipendio.")
+                elif any(value > 0 for value in (stipendio, quota_stipendio, risparmi, messi_da_parte_mese_corrente)):
+                    candidate = data_stipendi[data_stipendi["Mese"] != mese_dt].copy()
+                    candidate = pd.concat([candidate, pd.DataFrame([{
+                        "Mese": mese_dt, "Stipendio": stipendio, "Quota stipendio scelta": quota_stipendio,
+                        "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente,
+                    }])], ignore_index=True).sort_values("Mese").reset_index(drop=True)
+                    if save_data_gsheets("Stipendi", STIPENDI_HEADERS, candidate):
+                        _mobile_save_refresh(f"Dati per {selected_mese} salvati.")
+                    else:
+                        st.error("Salvataggio non riuscito. Lo storico precedente resta valido.")
+                else:
+                    st.error("Inserisci valori validi per stipendio, risparmi o messi da parte.")
+            if elimina_button:
+                if record_esistente.empty:
+                    st.warning(f"Nessun record trovato per {selected_mese}.")
+                elif save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi[data_stipendi["Mese"] != mese_dt]):
+                    _mobile_save_refresh(f"Record per {selected_mese} eliminato.")
+                else:
+                    st.error("Eliminazione non riuscita. Lo storico precedente resta valido.")
+        else:
+            if aggiungi_button:
+                if stipendio > 0 or quota_stipendio > 0 or risparmi > 0 or messi_da_parte_mese_corrente > 0:
+                    if not record_esistente.empty:
+                        data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Stipendio"] = stipendio
+                        data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Quota stipendio scelta"] = quota_stipendio
+                        data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Risparmi"] = risparmi
+                        data_stipendi.loc[data_stipendi["Mese"] == mese_dt, "Messi da parte Totali"] = messi_da_parte_mese_corrente
+                        placeholder = st.empty()
+                        placeholder.success(f"Record per {selected_mese} aggiornato!")
+                        time.sleep(3)
+                        placeholder.empty()
+                    else:
+                        nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Quota stipendio scelta": quota_stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
+                        data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
+                        placeholder = st.empty()
+                        placeholder.success(f"Dati per {selected_mese} aggiunti!")
+                        time.sleep(3)
+                        placeholder.empty()
+
+                    data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
+                    save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
+                else:
                     placeholder = st.empty()
-                    placeholder.success(f"Record per {selected_mese} aggiornato!")
+                    placeholder.error("Inserisci valori validi per stipendio, risparmi o messi da parte!")
+                    time.sleep(3)
+                    placeholder.empty()
+
+            if elimina_button:
+                if not record_esistente.empty:
+                    data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
+                    save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
+                    placeholder = st.empty()
+                    placeholder.success(f"Record per {selected_mese} eliminato!")
                     time.sleep(3)
                     placeholder.empty()
                 else:
-                    nuovo_record = {"Mese": mese_dt, "Stipendio": stipendio, "Quota stipendio scelta": quota_stipendio, "Risparmi": risparmi, "Messi da parte Totali": messi_da_parte_mese_corrente}
-                    data_stipendi = pd.concat([data_stipendi, pd.DataFrame([nuovo_record])], ignore_index=True)
                     placeholder = st.empty()
-                    placeholder.success(f"Dati per {selected_mese} aggiunti!")
+                    placeholder.error(f"Nessun record trovato per {selected_mese}.")
                     time.sleep(3)
                     placeholder.empty()
-
-                data_stipendi = data_stipendi.sort_values(by="Mese").reset_index(drop=True)
-                save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
-            else:
-                placeholder = st.empty()
-                placeholder.error("Inserisci valori validi per stipendio, risparmi o messi da parte!")
-                time.sleep(3)
-                placeholder.empty()
-
-        if elimina_button:
-            if not record_esistente.empty:
-                data_stipendi = data_stipendi[data_stipendi["Mese"] != mese_dt]
-                save_data_gsheets("Stipendi", STIPENDI_HEADERS, data_stipendi)
-                placeholder = st.empty()
-                placeholder.success(f"Record per {selected_mese} eliminato!")
-                time.sleep(3)
-                placeholder.empty()
-            else:
-                placeholder = st.empty()
-                placeholder.error(f"Nessun record trovato per {selected_mese}.")
-                time.sleep(3)
-                placeholder.empty()
 
     data_stipendi = calcola_medie(data_stipendi, ["Stipendio", "Risparmi", "Messi da parte Totali"])
 
@@ -11178,27 +11138,28 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 st.caption("I campi sotto mostrano i valori salvati per il mese selezionato. Se il mese non esiste, verrà creato al salvataggio.")
 
             if MOBILE_VIEW:
-                col_bol_input1, col_bol_input2, col_bol_input3 = st.columns(3)
-                with col_bol_input1:
-                    elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
-                with col_bol_input2:
-                    gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
-                with col_bol_input3:
-                    acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
+                with st.form(f"mobile_bills_history_form::{selected_mese_bol}", border=False, enter_to_submit=False):
+                    col_bol_input1, col_bol_input2, col_bol_input3 = st.columns(3)
+                    with col_bol_input1:
+                        elettricita = st.number_input("Elettricità (€)", min_value=0.0, step=10.0, value=elettricita_val, key=f"elettricita_input_{selected_mese_bol}")
+                    with col_bol_input2:
+                        gas = st.number_input("Gas (€)", min_value=0.0, step=10.0, value=gas_val, key=f"gas_input_{selected_mese_bol}")
+                    with col_bol_input3:
+                        acqua = st.number_input("Acqua (€)", min_value=0.0, step=10.0, value=acqua_val, key=f"acqua_input_{selected_mese_bol}")
 
-                col_bol_input4, col_bol_input5 = st.columns(2)
-                with col_bol_input4:
-                    internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
-                with col_bol_input5:
-                    tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
+                    col_bol_input4, col_bol_input5 = st.columns(2)
+                    with col_bol_input4:
+                        internet = st.number_input("Internet (€)", min_value=0.0, step=10.0, value=internet_val, key=f"internet_input_{selected_mese_bol}")
+                    with col_bol_input5:
+                        tari = st.number_input("Tari (€)", min_value=0.0, step=10.0, value=tari_val, key=f"tari_input_{selected_mese_bol}")
 
-                col_bol_btn1, col_bol_btn2 = st.columns(2)
-                with col_bol_btn1:
-                    st.markdown('<span class="mobile-bollette-save-marker"></span>', unsafe_allow_html=True)
-                    aggiungi_bollette = st.button("Salva mese", key="aggiorna_bollette", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
-                with col_bol_btn2:
-                    st.markdown('<span class="mobile-bollette-delete-marker"></span>', unsafe_allow_html=True)
-                    elimina_bollette = st.button("Elimina mese", key="elimina_bollette", use_container_width=True)
+                    col_bol_btn1, col_bol_btn2 = st.columns(2)
+                    with col_bol_btn1:
+                        st.markdown('<span class="mobile-bollette-save-marker"></span>', unsafe_allow_html=True)
+                        aggiungi_bollette = st.form_submit_button("Salva mese", key="aggiorna_bollette", use_container_width=True, type="primary" if MOBILE_VIEW else "secondary")
+                    with col_bol_btn2:
+                        st.markdown('<span class="mobile-bollette-delete-marker"></span>', unsafe_allow_html=True)
+                        elimina_bollette = st.form_submit_button("Elimina mese", key="elimina_bollette", use_container_width=True)
             else:
                 col_bol_input1, col_bol_input2 = st.columns(2)
                 with col_bol_input1:
@@ -11213,7 +11174,7 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
 
             st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
             budget_bollette_corrente_mese = budget_bollette_per_mese(budget_bollette_df, mese_dt_bol)
-            with st.expander("Budget mensile bollette", expanded=False):
+            with st.expander("Budget mensile bollette", expanded=False), _mobile_edit_form(f"mobile_bill_budget_form::{selected_mese_bol}"):
                 nuovo_budget_bollette = st.number_input(
                     "Importo messo da parte al mese",
                     min_value=0.0,
@@ -11222,60 +11183,83 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                     key=f"budget_bollette_input_{selected_mese_bol}",
                     help="Vale dal mese selezionato in poi; i mesi precedenti restano calcolati con il budget precedente."
                 )
-                if st.button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}", type="primary" if MOBILE_VIEW else "secondary"):
+                if _editor_button("💾 Salva budget bollette da questo mese", use_container_width=True, key=f"save_budget_bollette_{selected_mese_bol}", type="primary" if MOBILE_VIEW else "secondary"):
                     if salva_budget_bollette_da_mese(budget_bollette_df, mese_dt_bol, nuovo_budget_bollette):
                         st.success("Budget bollette salvato")
                         st.rerun()
                     else:
                         st.error("Errore salvataggio budget bollette")
 
-            if aggiungi_bollette:
-                if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
-                    valori_bollette = {
-                        "Elettricità": _parse_bolletta_amount(elettricita),
-                        "Gas": _parse_bolletta_amount(gas),
-                        "Acqua": _parse_bolletta_amount(acqua),
-                        "Internet": _parse_bolletta_amount(internet),
-                        "Tari": _parse_bolletta_amount(tari),
-                    }
-                    data_bollette = normalizza_data_bollette(data_bollette)
-                    mask_bol = data_bollette["Mese"] == mese_dt_bol
-                    if mask_bol.any():
-                        for col, value in valori_bollette.items():
-                            data_bollette.loc[mask_bol, col] = value
+            if MOBILE_VIEW:
+                if aggiungi_bollette:
+                    if any(value > 0 for value in (elettricita, gas, acqua, internet, tari)):
+                        values = {"Elettricità": _parse_bolletta_amount(elettricita), "Gas": _parse_bolletta_amount(gas),
+                                  "Acqua": _parse_bolletta_amount(acqua), "Internet": _parse_bolletta_amount(internet),
+                                  "Tari": _parse_bolletta_amount(tari)}
+                        candidate = data_bollette[data_bollette["Mese"] != mese_dt_bol].copy()
+                        candidate = pd.concat([candidate, pd.DataFrame([{"Mese": mese_dt_bol, **values}])], ignore_index=True)
+                        candidate = normalizza_data_bollette(candidate).sort_values("Mese").reset_index(drop=True)
+                        if save_data_gsheets("Bollette", BOLLETTE_HEADERS, candidate):
+                            _mobile_save_refresh(f"Bollette per {selected_mese_bol} salvate.")
+                        else:
+                            st.error("Salvataggio non riuscito. Le bollette precedenti restano valide.")
+                    else:
+                        st.error("Inserisci valori validi per le bollette.")
+                if elimina_bollette:
+                    if record_bol.empty:
+                        st.warning(f"Nessun record trovato per {selected_mese_bol}.")
+                    elif save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette[data_bollette["Mese"] != mese_dt_bol]):
+                        _mobile_save_refresh(f"Record per {selected_mese_bol} eliminato.")
+                    else:
+                        st.error("Eliminazione non riuscita. Le bollette precedenti restano valide.")
+            else:
+                if aggiungi_bollette:
+                    if elettricita > 0 or gas > 0 or acqua > 0 or internet > 0 or tari > 0:
+                        valori_bollette = {
+                            "Elettricità": _parse_bolletta_amount(elettricita),
+                            "Gas": _parse_bolletta_amount(gas),
+                            "Acqua": _parse_bolletta_amount(acqua),
+                            "Internet": _parse_bolletta_amount(internet),
+                            "Tari": _parse_bolletta_amount(tari),
+                        }
+                        data_bollette = normalizza_data_bollette(data_bollette)
+                        mask_bol = data_bollette["Mese"] == mese_dt_bol
+                        if mask_bol.any():
+                            for col, value in valori_bollette.items():
+                                data_bollette.loc[mask_bol, col] = value
+                            placeholder = st.empty()
+                            placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
+                            time.sleep(3)
+                            placeholder.empty()
+                        else:
+                            nuovo_record_bol = {"Mese": mese_dt_bol, **valori_bollette}
+                            data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
+                            placeholder = st.empty()
+                            placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                            time.sleep(3)
+                            placeholder.empty()
+
+                        data_bollette = normalizza_data_bollette(data_bollette).sort_values(by="Mese").reset_index(drop=True)
+                        save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+                    else:
                         placeholder = st.empty()
-                        placeholder.success(f"Record per {selected_mese_bol} aggiornato!")
+                        placeholder.error("Inserisci valori validi per le bollette!")
+                        time.sleep(3)
+                        placeholder.empty()
+
+                if elimina_bollette:
+                    if not record_bol.empty:
+                        data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
+                        save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
+                        placeholder = st.empty()
+                        placeholder.success(f"Record per {selected_mese_bol} eliminato!")
                         time.sleep(3)
                         placeholder.empty()
                     else:
-                        nuovo_record_bol = {"Mese": mese_dt_bol, **valori_bollette}
-                        data_bollette = pd.concat([data_bollette, pd.DataFrame([nuovo_record_bol])], ignore_index=True)
                         placeholder = st.empty()
-                        placeholder.success(f"Bollette per {selected_mese_bol} aggiunte!")
+                        placeholder.error(f"Nessun record trovato per {selected_mese_bol}.")
                         time.sleep(3)
                         placeholder.empty()
-
-                    data_bollette = normalizza_data_bollette(data_bollette).sort_values(by="Mese").reset_index(drop=True)
-                    save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
-                else:
-                    placeholder = st.empty()
-                    placeholder.error("Inserisci valori validi per le bollette!")
-                    time.sleep(3)
-                    placeholder.empty()
-
-            if elimina_bollette:
-                if not record_bol.empty:
-                    data_bollette = data_bollette[data_bollette["Mese"] != mese_dt_bol]
-                    save_data_gsheets("Bollette", BOLLETTE_HEADERS, data_bollette)
-                    placeholder = st.empty()
-                    placeholder.success(f"Record per {selected_mese_bol} eliminato!")
-                    time.sleep(3)
-                    placeholder.empty()
-                else:
-                    placeholder = st.empty()
-                    placeholder.error(f"Nessun record trovato per {selected_mese_bol}.")
-                    time.sleep(3)
-                    placeholder.empty()
 
     if not MOBILE_VIEW:
         with col_dx_bol_chart:

@@ -344,7 +344,7 @@ def test_mobile_calendar_sync_removals_and_partial_failure_are_safe(app):
     pd.testing.assert_frame_equal(desktop, old)
 
 
-def test_mobile_model_parameters_ignore_old_widgets_but_contract_rules_stay_editable(app):
+def test_mobile_rule_drafts_do_not_override_committed_parameters(app):
     ns, _, _ = app
     class State(dict):
         __getattr__ = dict.__getitem__
@@ -358,7 +358,7 @@ def test_mobile_model_parameters_ignore_old_widgets_but_contract_rules_stay_edit
     updated = ns['_apply_turni_rules_from_widgets'](rules.copy())
     for key, value in rules.items():
         assert updated[key] == value
-    assert updated['notte_feriale_pct'] == 50.
+    assert 'notte_feriale_pct' not in updated
     ns['MOBILE_VIEW'] = False
     desktop = ns['_apply_turni_rules_from_widgets'](rules.copy())
     assert desktop['paga_oraria_lorda'] == 99.
