@@ -15,12 +15,49 @@ API = "https://www.googleapis.com/drive/v3/files"
 
 
 @dataclass(frozen=True)
+class PayslipItem:
+    code: str
+    description: str
+    competence_month: str
+    quantity: Decimal
+    unit_amount: Decimal
+    amount: Decimal
+
+
+def parse_payslip_items(text: str) -> tuple[PayslipItem, ...]:
+    """Read explicit quantity/rate/amount rows, never infer a per-item net.
+
+    The modern layout has a stable V_ code and competence column. Require all
+    three numeric columns; incomplete or unsupported rows stay unreported.
+    """
+    number = r"-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2,5}"
+    pattern = re.compile(
+        r"\b(V_[A-Z0-9]+)\s+(.+?)\s+(?:\d{2}/)?(\d{2})/(20\d{2})\s+"
+        + rf"({number})\s+({number})\s+({number})"
+        + r"\s*$")
+    items = []
+    for line in text.splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        code, description, month, year, quantity, rate, amount = match.groups()
+        if not re.search(r"retribuzione ordinaria|magg\.?|straordinari|indenn|festivit|tredicesima|13.? mens", description, re.I):
+            continue
+        if not 1 <= int(month) <= 12:
+            continue
+        values = [Decimal(v.replace(".", "").replace(",", ".")) for v in (quantity, rate, amount)]
+        items.append(PayslipItem(code, " ".join(description.split()), f"{year}-{month}", *values))
+    return tuple(items)
+
+
+@dataclass(frozen=True)
 class Payslip:
     month: str
     net: Decimal
     position: str
     file_id: str = ""
     name: str = ""
+    items: tuple[PayslipItem, ...] = ()
 
 
 def parse_payslip_text(text: str, name: str) -> Payslip:
@@ -82,7 +119,13 @@ def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
         raise ValueError("PDF non leggibile") from None
     if not text.strip():
         raise ValueError("PDF scansionato senza testo leggibile")
-    return parse_payslip_text(text, name)
+    slip = parse_payslip_text(text, name)
+    # Optional detail extraction must never prevent the established net import.
+    try:
+        layout = "\n".join(page.extract_text(extraction_mode="layout") or "" for page in reader.pages)
+        return replace(slip, items=parse_payslip_items(layout))
+    except Exception:
+        return slip
 
 
 def list_payslip_files(session, folder_id: str) -> list[dict]:
@@ -156,7 +199,18 @@ def collect_payslips(files: list[dict], read: Callable[[dict], Payslip]) -> dict
     for (month, _), slip in positions.items():
         if month not in rejected_months:
             salaries[month] = salaries.get(month, Decimal(0)) + slip.net
+    details = {}
+    for (month, _), slip in positions.items():
+        if month in rejected_months:
+            continue
+        details.setdefault(month, []).extend({
+            "code": item.code, "description": item.description,
+            "competence_month": item.competence_month,
+            "quantity": float(item.quantity), "unit_amount": float(item.unit_amount),
+            "amount": float(item.amount),
+        } for item in slip.items)
     return {
+        "details": details,
         "salaries": {month: float(value) for month, value in sorted(salaries.items())},
         "files": len(files), "positions": len(positions), "errors": errors,
     }

@@ -159,3 +159,62 @@ def test_drive_cache_only_downloads_new_or_changed_pdfs():
     load()
     assert calls["list"] == 5
     st.cache_data.clear()
+
+
+def test_item_reader_keeps_pdf_quantities_rates_and_competence_separate_from_net():
+    from payslip_drive import parse_payslip_items
+    # Invented amounts; no personal payslip data in the fixture.
+    rows = """
+1 S_MTM V_21000 Straordinario feriale 25% 30/09/2026 0,50 21,23456 10,62
+S_MTM V_22002 Maggiorazione Feriale 50% 09/2026 40,00 10,12345 404,94
+1 N_IT V_11000 Monetizzazione festività coincidente 10/2026 1,00 111,12345 111,12
+1 C_CLI V_NG80 Indennità terzo turno festiva 09/2026 1,00 23,00000 23,00
+"""
+    items = parse_payslip_items(rows)
+    assert len(items) == 4
+    assert items[0].competence_month == "2026-09"
+    assert items[0].quantity == Decimal("0.50")
+    assert items[0].unit_amount == Decimal("21.23456")
+    assert items[0].amount == Decimal("10.62")
+    assert items[2].competence_month == "2026-10"
+    slip = replace(parse_payslip_text(TEXT.replace("2.496,00", "2.345,00"), NAME), items=items)
+    result = collect_payslips([metadata(1), metadata(2)], lambda _: slip)
+    assert result["salaries"] == {"2026-10": 2345.0}
+    assert len(result["details"]["2026-10"]) == 4  # Copies not double counted.
+    assert result["details"]["2026-10"][1]["amount"] == 404.94
+
+
+def test_optional_items_ignore_incomplete_rows_and_unrelated_amounts():
+    from payslip_drive import parse_payslip_items
+    assert parse_payslip_items("""
+V_22002 Maggiorazione Feriale 50% 09/2026 40,00 10,12345
+V_22002 Maggiorazione Feriale 50% 13/2026 40,00 10,12345 404,94
+V_90001 Azioni Matching 10/2026 1,00 123,45000 123,45
+""") == ()
+
+
+def test_conflicting_net_excludes_component_details_too():
+    from payslip_drive import PayslipItem
+    first = Payslip("2026-10", Decimal("2345"), "p", items=(
+        PayslipItem("V_NG80", "Indennità", "2026-09", Decimal(1), Decimal(23), Decimal(23)),))
+    result = collect_payslips([metadata(1), metadata(2)],
+        lambda item: first if item["id"] == "1" else replace(first, net=Decimal("2400")))
+    assert result["details"] == {}
+
+
+@pytest.mark.parametrize('layout_fails', [False, True])
+def test_pdf_detail_extraction_does_not_change_or_block_net_import(monkeypatch, layout_fails):
+    from payslip_drive import parse_payslip_pdf
+    def extract_text(**kwargs):
+        if kwargs:
+            if layout_fails:
+                raise ValueError('unsupported layout')
+            return 'V_22002 Maggiorazione Feriale 50% 09/2026 40,00 10,12345 404,94'
+        return TEXT.replace("2.496,00", "2.345,00")
+    page = Mock()
+    page.extract_text.side_effect = extract_text
+    reader = Mock(is_encrypted=False, pages=[page])
+    monkeypatch.setattr('payslip_drive.PdfReader', lambda _: reader)
+    slip = parse_payslip_pdf(b'fake PDF', NAME)
+    assert slip.month == '2026-10' and slip.net == Decimal('2345')
+    assert len(slip.items) == (0 if layout_fails else 1)

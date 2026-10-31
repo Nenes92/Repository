@@ -114,7 +114,7 @@ def _load_drive_payslips(principal, folder_id, _credentials_info):
         result = collect_payslips(
             files, lambda item: _read_drive_payslip(
                 principal, item["id"], item["name"],
-                item.get("md5Checksum") or item.get("modifiedTime", ""), session))
+                "items-v1:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
         result["checked_at"] = _now_italy().strftime("%d/%m/%Y %H:%M")
         result["error"] = ""
         return result
@@ -4110,6 +4110,25 @@ def _render_saved_mobile_calibration(snapshot):
     st.markdown(_mobile_calibration_result_html(result, margin), unsafe_allow_html=True)
     if hasattr(result, "thirteenth_net"):
         st.caption("La quota di dicembre è stimata dai netti storici e può comprendere conguagli. Senza un dicembre confrontabile è provvisoria.")
+    with st.expander("Voci lette dai cedolini", on_change="ignore"):
+        detail_rows = [{
+            "Cedolino": _calibration_month_label(month),
+            "Voce": item["description"],
+            "Competenza": _calibration_month_label(item["competence_month"]),
+            "Quantità": item["quantity"], "Tariffa €": item["unit_amount"],
+            "Importo €": item["amount"],
+        } for month, items in sorted(drive.get("details", {}).items(), reverse=True)
+          for item in items]
+        if detail_rows:
+            st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True,
+                column_config={
+                    "Quantità": st.column_config.NumberColumn(format="%.2f"),
+                    "Tariffa €": st.column_config.NumberColumn(format="%.5f"),
+                    "Importo €": st.column_config.NumberColumn(format="%.2f"),
+                })
+            st.caption("Importi riportati nei PDF, non netti stimati per singola voce. Quantità come nel cedolino: ore decimali o giornate. La previsione mantiene la calibrazione attuale.")
+        else:
+            st.caption("Premi Sincronizza Drive per leggere anche le voci dei PDF. I formati non riconosciuti mantengono la sola lettura del netto.")
     rules = get_turni_rules()
     with st.expander("Parametri del cedolino · sola lettura"):
         st.markdown(
