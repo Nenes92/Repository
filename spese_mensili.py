@@ -4762,7 +4762,6 @@ def compute_turni_dashboard(df_turni, rules):
     now = _now_italy()
     today = now.strftime("%Y-%m-%d")
     current_m, prev_m = _turni_current_prev_months()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     live_month = 0.0
     current_base_full = 0.0
@@ -4866,16 +4865,6 @@ def compute_turni_dashboard(df_turni, rules):
         if has_turno and data[:7] == prev_m:
             calc_prev = compute_turno_net_estimate(data, turno, festivo, rules, prev_live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))
             prev_extras += calc_prev["extra"]
-            if turno not in {"Ferie", "Riposo"} and start < month_start < end:
-                # Only the post-midnight portion belongs to this month's live.
-                # Keep the hourly base of the month in which the shift started;
-                # only_day also prevents crediting its allowance a second time.
-                carry = compute_turno_net_estimate(
-                    data, turno, festivo, rules, prev_live_net_hourly, until=now,
-                    only_day=month_start.strftime("%Y-%m-%d"), straordinario_minuti=stra_minuti,
-                    **_turni_row_permesso_kwargs(row))
-                live_month += carry["total"]
-                hours_live += carry["hours"]
 
         if not has_turno:
             continue
@@ -4907,6 +4896,8 @@ def compute_turni_dashboard(df_turni, rules):
     payslip_estimate = float(payroll_v2.credited_net)
 
     return {
+        # Competenza del turno intero: anche dopo mezzanotte resta nel mese di inizio.
+        "live_month_accrues": current_shift_start_date[:7] == current_m,
         "live_month": live_month,
         "payslip_estimate": payslip_estimate,
         "live_today": live_today,
@@ -5939,6 +5930,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     <script>
       const start = Date.now();
       const startMonth = {live_month:.8f};
+      const accrueCurrentMonth = {json.dumps(bool(stats.get("live_month_accrues", True)))};
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
       const shiftEnd = {json.dumps(current_shift_end)};
@@ -6011,7 +6003,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         const rateChanged = rateChangeAt && Date.now() >= Date.parse(rateChangeAt);
         const shouldStart = !isInitiallyOnShift && !isOnLeave && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
-        monthEl.textContent = money(startMonth + extra);
+        monthEl.textContent = money(startMonth + (accrueCurrentMonth ? extra : 0));
         todayEl.textContent = money(startToday + extra);
         if ({json.dumps(MOBILE_VIEW)}) {{
           const activeShift = (isInitiallyOnShift && !ended) || shouldStart;
