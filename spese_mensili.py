@@ -6467,6 +6467,12 @@ def _render_turni_day_action_menu(df_turni, month_days):
 
 def _render_turni_report(report, previous_report=None, current_month_label="Corr.", previous_month_label="Prec."):
     previous_report = previous_report or {}
+    def overtime_duration(hours):
+        if not MOBILE_VIEW:
+            return f"{float(hours):.2f}h"
+        whole_hours, minutes = divmod(max(0, int(round(float(hours) * 60))), 60)
+        return f"{whole_hours}.{minutes:02d}h"
+
     def card(label, value, sub="", accent="#f8fafc"):
         return (
             f'<div class="turni-report-card" style="--accent:{html.escape(str(accent))};">'
@@ -6555,8 +6561,8 @@ def _render_turni_report(report, previous_report=None, current_month_label="Corr
     straordinario_percentages = sorted(set(straordinario_hours_by_pct) | set(previous_straordinario_hours_by_pct))
     straordinario_rows = "".join(
         f'<div class="turni-report-compare-row turni-report-straordinario"><span>Straord. {float(pct):g}%</span>'
-        f'<strong>{float(straordinario_hours_by_pct.get(pct, 0.0)):.2f}h</strong>'
-        f'<strong>{float(previous_straordinario_hours_by_pct.get(pct, 0.0)):.2f}h</strong></div>'
+        f'<strong>{overtime_duration(straordinario_hours_by_pct.get(pct, 0.0))}</strong>'
+        f'<strong>{overtime_duration(previous_straordinario_hours_by_pct.get(pct, 0.0))}</strong></div>'
         for pct in straordinario_percentages
         if abs(float(straordinario_hours_by_pct.get(pct, 0.0))) > 0.001 or abs(float(previous_straordinario_hours_by_pct.get(pct, 0.0))) > 0.001
     )
