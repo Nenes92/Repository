@@ -20,7 +20,7 @@ import payroll_engine as _payroll_engine
 # Streamlit reruns the app after a deploy but can retain an imported helper module.
 if ("paid_leave_minutes" not in _payroll_engine.Shift.__dataclass_fields__
         or "allowances_net" not in _payroll_engine.VariableBreakdown.__dataclass_fields__
-        or "holiday_gross" not in _payroll_engine.PayslipEstimate.__dataclass_fields__):
+        or "thirteenth_net" not in _payroll_engine.PayslipEstimate.__dataclass_fields__):
     importlib.reload(_payroll_engine)
 from payroll_engine import (
     DEFAULT_RULES as PAYROLL_V2_DEFAULTS,
@@ -32,6 +32,8 @@ from payroll_engine import (
     estimate_live_net_accrual,
     estimate_payslip,
     migrate_rules as migrate_payroll_rules,
+    thirteenth_month_net,
+    thirteenth_rules_from_snapshot,
 )
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
@@ -3564,6 +3566,8 @@ DEFAULT_TURNI_RULES = {
     "coefficiente_netto_variabili": 0.60,
     "errore_medio_calibrazione": 0.0,
     "finestra_calibrazione_mesi": 12.0,
+    "tredicesima_coeff_netto": 1.0,
+    "tredicesima_campioni": 0.0,
     "rettifica_mensile": -63.0,
     "ritardo_competenze_mesi": 1.0,
     "m_p_feriale_pct": 20.0,
@@ -3866,6 +3870,12 @@ def _payroll_v2_rules(rules):
         migrated["paga_oraria_lorda"] = PAYROLL_V2_DEFAULTS["paga_oraria_lorda"]
     migrated["indennita_nette"] = bool(MOBILE_VIEW)
     migrated["festivita_automatiche"] = bool(MOBILE_VIEW) and bool(rules.get("festivita_automatiche", 1))
+    if MOBILE_VIEW:
+        annual_rules = thirteenth_rules_from_snapshot(
+            rules, st.session_state.get("payroll_calibration_saved", {}).get("result", {}))
+        migrated.update(tredicesima_automatica=1.,
+                        tredicesima_coeff_netto=annual_rules.get("tredicesima_coeff_netto", 1.),
+                        tredicesima_campioni=annual_rules.get("tredicesima_campioni", 0.))
     return migrated
 
 
@@ -3899,11 +3909,14 @@ def _calibration_month_label(month):
 def _mobile_calibration_table(frame):
     view = frame[["Includi", "Mese cedolino", "Netto reale", "Netto stimato",
                   "Scarto reale − stima", "Motivo esclusione"]].copy()
+    if "Tredicesima stimata" in frame.columns:
+        view["Tredicesima stimata"] = frame["Tredicesima stimata"]
     labels = {_calibration_month_label(month): str(month) for month in view["Mese cedolino"]}
     view["Mese cedolino"] = view["Mese cedolino"].map(_calibration_month_label)
     styled = view.style.format({
         "Netto reale": _money_turni, "Netto stimato": _money_turni,
         "Scarto reale − stima": _signed_money_turni,
+        **({"Tredicesima stimata": _money_turni} if "Tredicesima stimata" in view.columns else {}),
     }).set_properties(subset=["Netto reale"], **{"font-weight": "700"}
     ).set_properties(subset=["Netto stimato"], **{"font-weight": "400", "color": "#94a3b8"}
     ).map(lambda value: "color: " + ("#f87171" if value < 0 else "#34d399" if value > 0 else "#94a3b8"),
@@ -3932,6 +3945,13 @@ def _mobile_calibration_result_html(calibrated, margin):
         ("Scarto medio storico", _money_turni(calibrated.mean_absolute_error), "differenza media dai cedolini", "#facc15"),
         ("Margine del modello", f"± {_money_turni(margin)}", "variabilità degli scarti storici", "#f472b6"),
     ]
+    if hasattr(calibrated, "thirteenth_net"):
+        samples = int(getattr(calibrated, "thirteenth_samples", 0))
+        source_label = (f"stimata da {samples} cedolino di dicembre" if samples == 1
+                        else f"stimata da {samples} cedolini di dicembre") if samples else "provvisoria: una quota fissa mensile"
+        items.append(("Tredicesima netta · dicembre", _money_turni(calibrated.thirteenth_net),
+                      source_label,
+                      "#c4b5fd"))
     content = "".join(
         '<div style="min-width:0;">'
         f'<div style="color:rgba(255,255,255,.65);font-size:11px;">{html.escape(label)}</div>'
@@ -3998,6 +4018,8 @@ def _render_saved_mobile_calibration(snapshot):
         "Netto reale": row["actual_net"], "Netto stimato": row["estimated_net"],
         "Scarto reale − stima": row["actual_net"] - row["estimated_net"],
         "Motivo esclusione": row["exclusion_reason"],
+        **({"Tredicesima stimata": row.get("thirteenth_net", 0.)}
+           if "thirteenth_net" in snapshot["result"] else {}),
     } for row in result.rows])
     styled, _ = _mobile_calibration_table(frame)
     with st.expander("Confronto dei cedolini"):
@@ -4008,9 +4030,12 @@ def _render_saved_mobile_calibration(snapshot):
             "Netto stimato": st.column_config.NumberColumn("Stimato", width="small"),
             "Scarto reale − stima": st.column_config.NumberColumn("Scarto", width="small"),
             "Motivo esclusione": st.column_config.TextColumn("Esclusione", width="medium"),
+            "Tredicesima stimata": st.column_config.NumberColumn("13ª stimata", width="small"),
         })
     margin = max(0., (result.confidence_high - result.confidence_low) / 2)
     st.markdown(_mobile_calibration_result_html(result, margin), unsafe_allow_html=True)
+    if hasattr(result, "thirteenth_net"):
+        st.caption("La quota di dicembre è stimata dai netti storici e può comprendere conguagli. Senza un dicembre confrontabile è provvisoria.")
     rules = get_turni_rules()
     with st.expander("Parametri del cedolino · sola lettura"):
         st.markdown(
@@ -4042,12 +4067,15 @@ def _render_mobile_calibration(rules):
                 holidays = {month: sum(event.gross for event in holiday_compensation(month, _payroll_v2_rules(rules)))
                             for month in salaries}
                 calibrated = calibrate_payroll(salaries, variables, delay=delay, adjustments=adjustments,
-                    recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))), automatic_gross=holidays)
+                    recency_months=int(round(rules.get("finestra_calibrazione_mesi", 12))), automatic_gross=holidays,
+                    include_thirteenth=True)
                 snapshot = {"version": 1, "drive": drive, "result": asdict(calibrated), "delay": delay,
                             "missing": sorted(month for month in salaries if add_payroll_months(month, -delay) not in variables)}
                 updated_rules = dict(rules, netto_fisso_mensile=float(calibrated.fixed_net),
                     coefficiente_netto_variabili=float(calibrated.variable_coefficient),
-                    errore_medio_calibrazione=float(calibrated.mean_absolute_error))
+                    errore_medio_calibrazione=float(calibrated.mean_absolute_error),
+                    tredicesima_coeff_netto=calibrated.thirteenth_net / calibrated.fixed_net if calibrated.fixed_net > 0 else 0.,
+                    tredicesima_campioni=float(calibrated.thirteenth_samples))
                 if not save_turni_rules(updated_rules, calibration_snapshot=snapshot):
                     raise ValueError("Salvataggio non riuscito: resta valida l’ultima calibrazione applicata. Riprova Sincronizza Drive.")
                 st.session_state.payroll_calibration_saved = snapshot
@@ -6034,6 +6062,12 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             net_caption += (
                 f'<br><span style="color:#fde68a;">Festività: +{html.escape(_money_turni(estimate.holiday_net))} nette stimate'
                 f' ({html.escape(_money_turni(estimate.holiday_gross))} lorde · {html.escape(holiday_names)})</span>'
+            )
+        if estimate.month.endswith("-12"):
+            annual_source = "stimata" if estimate.thirteenth_samples else "provvisoria · una quota fissa mensile"
+            net_caption += (
+                f'<br><span style="color:#c4b5fd;">Tredicesima: +{html.escape(_money_turni(estimate.thirteenth_net))}'
+                f' nette ({annual_source})</span>'
             )
         net_caption += (
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
@@ -10155,9 +10189,23 @@ def calcola_medie(data, colonne):
             if col == "Stipendio":
                 stipendio_per_media = data[col].where(~data.index.isin(salary_excluded_indexes))
                 data[f"Media {col}"] = stipendio_per_media.expanding().mean().round(2)
-                data[f"Media {col} NO 13°/PDR"] = stipendio_per_media.where(
-                    ~data["Mese"].dt.month.isin([7, 12])
-                ).expanding().mean().round(2)
+                if MOBILE_VIEW:
+                    # December contributes its ordinary portion rather than
+                    # disappearing from the average. July/PDR policy is unchanged.
+                    ordinary_salary = stipendio_per_media.where(data["Mese"].dt.month != 7).copy()
+                    annual_rules = _payroll_v2_rules(get_turni_rules())
+                    snapshot_rows = st.session_state.get("payroll_calibration_saved", {}).get("result", {}).get("rows", [])
+                    historical_extras = {row["month"]: float(row["thirteenth_net"])
+                                         for row in snapshot_rows if "thirteenth_net" in row}
+                    for index in data.index[data["Mese"].dt.month == 12]:
+                        month = data.at[index, "Mese"].strftime("%Y-%m")
+                        extra = historical_extras.get(month, thirteenth_month_net(month, annual_rules))
+                        ordinary_salary.at[index] = max(0., ordinary_salary.at[index] - extra) if pd.notna(ordinary_salary.at[index]) else float("nan")
+                    data[f"Media {col} NO 13°/PDR"] = ordinary_salary.expanding().mean().round(2)
+                else:
+                    data[f"Media {col} NO 13°/PDR"] = stipendio_per_media.where(
+                        ~data["Mese"].dt.month.isin([7, 12])
+                    ).expanding().mean().round(2)
             else:
                 data[f"Media {col}"] = data[col].expanding().mean().round(2)
     return data

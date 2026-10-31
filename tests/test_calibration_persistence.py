@@ -87,7 +87,8 @@ def test_no_background_work_and_failed_sync_keeps_applied_result(clicked):
 
 
 @pytest.mark.parametrize("save_ok", [False, True])
-def test_sync_applies_only_after_successful_persistence(save_ok):
+@pytest.mark.parametrize("with_december", [False, True])
+def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     from payroll_engine import VariableBreakdown, add_months
     ns, st = app_helpers()
     old_rules = dict(ns["DEFAULT_TURNI_RULES"])
@@ -106,10 +107,15 @@ def test_sync_applies_only_after_successful_persistence(save_ok):
     def save(rules, **kwargs):
         saves.append((rules, kwargs["calibration_snapshot"]))
         return save_ok
+    salaries = {"2026-09": 2500., "2026-10": 2600.}
+    variables = {"2026-08": VariableBreakdown(), "2026-09": VariableBreakdown()}
+    if with_december:
+        salaries["2026-12"] = 4700.
+        variables["2026-11"] = VariableBreakdown()
     ns.update(_render_saved_mobile_calibration=lambda snapshot: None,
-              _mobile_drive_payslips=lambda **kw: {"error": "", "salaries": {"2026-09": 2500., "2026-10": 2600.}},
+              _mobile_drive_payslips=lambda **kw: {"error": "", "salaries": salaries},
               load_turni_data=lambda **kw: pd.DataFrame(),
-              _payroll_variables_by_month=lambda *a: {"2026-08": VariableBreakdown(), "2026-09": VariableBreakdown()},
+              _payroll_variables_by_month=lambda *a: variables,
               load_payroll_adjustments=lambda **kw: {}, DEFAULT_PAYROLL_ADJUSTMENT=-63.,
               holiday_compensation=lambda *a: [], _payroll_v2_rules=lambda r: r,
               add_payroll_months=add_months, calibrate_payroll=calibrate,
@@ -121,6 +127,11 @@ def test_sync_applies_only_after_successful_persistence(save_ok):
         assert st.session_state.payroll_calibration_saved == saves[0][1]
         assert st.session_state.payroll_calibration_mae >= 0
         assert st.session_state.payroll_calibration_sync_success is True
+        result = saves[0][1]["result"]
+        assert result["thirteenth_samples"] == int(with_december)
+        assert saves[0][0]["tredicesima_coeff_netto"] == pytest.approx(result["thirteenth_net"] / result["fixed_net"])
+        restored = ns["_decode_calibration_snapshot"](ns["_encode_calibration_snapshot"](saves[0][1]))
+        assert restored["result"]["thirteenth_net"] == result["thirteenth_net"]
     else:
         ns["_render_mobile_calibration"](old_rules)
         assert st.session_state.turni_rules == old_rules

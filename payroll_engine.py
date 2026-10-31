@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from math import sqrt
-from statistics import mean
+from statistics import mean, median as statistical_median
 from typing import Iterable, Mapping, Sequence
 from payroll_holidays import PaidHoliday, holiday_compensation
 
@@ -101,6 +101,8 @@ class PayslipEstimate:
     holiday_gross: float = 0.0
     holiday_net: float = 0.0
     holiday_items: tuple[PaidHoliday, ...] = ()
+    thirteenth_net: float = 0.0
+    thirteenth_samples: int = 0
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,7 @@ class CalibrationRow:
     included: bool
     exclusion_reason: str = ""
     holiday_gross: float = 0.0
+    thirteenth_net: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -126,6 +129,8 @@ class CalibrationResult:
     confidence_low: float
     confidence_high: float
     rows: tuple[CalibrationRow, ...]
+    thirteenth_net: float = 0.0
+    thirteenth_samples: int = 0
 
 
 def migrate_rules(
@@ -309,7 +314,8 @@ def estimate_payslip(
     holidays = holiday_compensation(month, rules)
     holidays_gross = sum(event.gross for event in holidays)
     holidays_net = holidays_gross * coefficient
-    credited = fixed + variables_net + adjustment + holidays_net
+    thirteenth = thirteenth_month_net(month, rules)
+    credited = fixed + variables_net + adjustment + holidays_net + thirteenth
     spread = max(0.0, float(uncertainty))
     return PayslipEstimate(
         month=month,
@@ -326,7 +332,44 @@ def estimate_payslip(
         holiday_gross=holidays_gross,
         holiday_net=holidays_net,
         holiday_items=holidays,
+        thirteenth_net=thirteenth,
+        thirteenth_samples=int(rules.get("tredicesima_campioni", 0)),
     )
+
+
+def thirteenth_month_net(month: str, rules: Mapping[str, float]) -> float:
+    """Separate annual net estimate; never part of shift premiums or live pay."""
+    if not rules.get("tredicesima_automatica", 0) or not month.endswith("-12"):
+        return 0.0
+    return max(0.0, float(rules["netto_fisso_mensile"])) * max(
+        0.0, float(rules.get("tredicesima_coeff_netto", 1.0)))
+
+
+def thirteenth_rules_from_snapshot(rules: Mapping[str, float], result: Mapping) -> dict:
+    """Reuse an already downloaded calibration, including pre-feature snapshots.
+
+    A legacy snapshot has no annual component: the December residual is an
+    approximate net extra, not a tax calculation or an extracted PDF line.
+    Explicit annual-component results take precedence, even when zero.
+    """
+    updated = dict(rules)
+    fixed = float(result.get("fixed_net", 0.))
+    if fixed <= 0:
+        return updated
+    if "thirteenth_net" in result:
+        samples = int(result.get("thirteenth_samples", 0))
+        if samples:
+            updated.update(tredicesima_coeff_netto=max(0., float(result["thirteenth_net"])) / fixed,
+                           tredicesima_campioni=samples)
+        return updated
+    december_rows = sorted((row for row in result.get("rows", [])
+                            if str(row.get("month", "")).endswith("-12")), key=lambda row: row["month"])
+    if december_rows:
+        # Most recent December: avoid mixing older salary levels into this extra.
+        row = december_rows[-1]
+        extra = max(0., float(row["actual_net"]) - float(row["estimated_net"]))
+        updated.update(tredicesima_coeff_netto=extra / fixed, tredicesima_campioni=1)
+    return updated
 
 
 def estimate_live_net_accrual(
@@ -357,11 +400,14 @@ def calibrate(
     recency_months: int | None = 12,
     automatic_net: Mapping[str, float] | None = None,
     automatic_gross: Mapping[str, float] | None = None,
+    include_thirteenth: bool = False,
 ) -> CalibrationResult:
     """Fit actual net after adjustments and net allowances against gross income.
 
     Automatic holiday gross amounts enter the regressor alongside shift variables,
     so calibration does not absorb holiday payments into the fixed monthly net.
+    With include_thirteenth, a separate December-only net component is fitted;
+    it does not enter the gross variables or the ordinary monthly fixed pay.
     Obvious exceptional months are excluded with a robust median/MAD rule. By
     default only the latest 12 calendar months are fitted, so contractual pay
     growth is not diluted by older salary levels. Older rows remain visible and
@@ -383,7 +429,28 @@ def calibrate(
             ))
     if len(candidates) < 2:
         raise ValueError("Servono almeno due mensilità abbinate per calibrare il modello.")
-    actuals = sorted(item[2] - item[3] - item[5] for item in candidates)
+    # Fit ordinary months first, then distinguish the December-only net component.
+    # Without two ordinary months a December spike cannot identify the base pay.
+    seed_thirteenth = 0.0
+    ordinary_model = None
+    if include_thirteenth:
+        ordinary_model = calibrate(
+            {m: v for m, v in salaries.items() if not m.endswith("-12")},
+            variables_by_month, delay, manual_included, adjustments, recency_months,
+            automatic_net, automatic_gross,
+        )
+        latest = max(item[0] for item in candidates)
+        start = add_months(latest, -(max(2, int(recency_months)) - 1)) if recency_months else ""
+        residuals_december = [
+            actual - adjustment - net - ordinary_model.fixed_net
+            - ordinary_model.variable_coefficient * (gross + extra)
+            for m, _, actual, adjustment, gross, net, extra in candidates
+            if m.endswith("-12") and m >= start and (manual_included or {}).get(m, True)
+        ]
+        seed_thirteenth = max(0., statistical_median(residuals_december)) if residuals_december else max(0., ordinary_model.fixed_net)
+    actuals = sorted(item[2] - item[3] - item[5]
+                     - (seed_thirteenth if include_thirteenth and item[0].endswith("-12") else 0.)
+                     for item in candidates)
     median = actuals[len(actuals) // 2]
     deviations = sorted(abs(value - median) for value in actuals)
     mad = deviations[len(deviations) // 2] or max(1.0, median * 0.05)
@@ -396,6 +463,8 @@ def calibrate(
     reasons: list[str] = []
     for month, _, actual, adjustment, _, net_allowance, _ in candidates:
         normalized_actual = actual - adjustment - net_allowance
+        if include_thirteenth and month.endswith("-12"):
+            normalized_actual -= seed_thirteenth
         ordinary = abs(normalized_actual - median) <= max(3.5 * mad, median * 0.25)
         recent = not use_recency_window or month >= window_start
         automatic = ordinary and recent
@@ -418,24 +487,61 @@ def calibrate(
     coefficient = 0.60 if denominator <= 1e-12 else sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / denominator
     coefficient = min(1.0, max(0.0, coefficient))
     fixed = mean(y - coefficient * x for x, y in zip(xs, ys))
-    residuals = [y - (fixed + coefficient * x) for x, y in zip(xs, ys)]
+    december_flags = [include_thirteenth and row[0].endswith("-12") for row in selected]
+    thirteenth_samples = sum(december_flags)
+    thirteenth = 0.0
+    fitted_parameters = 2
+    if include_thirteenth:
+        if thirteenth_samples:
+            if all(december_flags):
+                raise ValueError("Servono anche mensilità ordinarie incluse per distinguere la tredicesima.")
+            # y = monthly fixed + coefficient * gross variables + December extra.
+            # Center within ordinary/December groups to avoid treating the extra
+            # as ordinary salary or as a change in the gross-to-net coefficient.
+            groups = [[i for i, flag in enumerate(december_flags) if flag == group] for group in (False, True)]
+            x_means = [mean(xs[i] for i in group) for group in groups]
+            y_means = [mean(ys[i] for i in group) for group in groups]
+            denominator = sum((xs[i] - x_means[g]) ** 2 for g, group in enumerate(groups) for i in group)
+            coefficient = ordinary_model.variable_coefficient if denominator <= 1e-12 else sum(
+                (xs[i] - x_means[g]) * (ys[i] - y_means[g])
+                for g, group in enumerate(groups) for i in group) / denominator
+            coefficient = min(1., max(0., coefficient))
+            fixed = y_means[0] - coefficient * x_means[0]
+            thirteenth = max(0., y_means[1] - coefficient * x_means[1] - fixed)
+            if thirteenth == 0.:
+                # Non-negative constrained fit: no annual extra found.
+                coefficient = 0.60 if sum((x - x_mean) ** 2 for x in xs) <= 1e-12 else sum(
+                    (x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / sum((x - x_mean) ** 2 for x in xs)
+                coefficient = min(1., max(0., coefficient))
+                fixed = mean(y - coefficient * x for x, y in zip(xs, ys))
+            else:
+                fitted_parameters = 3
+        else:
+            # Provisional only: a monthly ordinary net, explicitly labelled in UI.
+            thirteenth = max(0., fixed)
+    residuals = [y - (fixed + coefficient * x + (thirteenth if flag else 0.))
+                 for x, y, flag in zip(xs, ys, december_flags)]
     mae = mean(abs(value) for value in residuals)
-    std_error = sqrt(sum(value * value for value in residuals) / max(1, len(residuals) - 2))
+    std_error = sqrt(sum(value * value for value in residuals) / max(1, len(residuals) - fitted_parameters))
     margin = 1.96 * std_error
-    rows = tuple(
-        CalibrationRow(
+    rows = []
+    for (month, variables_month, actual, adjustment, variables, net_allowance, gross_extra), included, reason in zip(candidates, included_flags, reasons):
+        annual_extra = thirteenth if include_thirteenth and month.endswith("-12") else 0.
+        estimated = fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance + annual_extra
+        absolute_error = abs(actual - estimated)
+        rows.append(CalibrationRow(
             month=month,
             variables_month=variables_month,
             actual_net=actual,
             adjustment=adjustment,
             variables_gross=variables,
-            estimated_net=fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance,
-            absolute_error=abs(actual - (fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance)),
-            percentage_error=(abs(actual - (fixed + coefficient * (variables + gross_extra) + adjustment + net_allowance)) / actual * 100) if actual else None,
+            estimated_net=estimated,
+            absolute_error=absolute_error,
+            percentage_error=absolute_error / actual * 100 if actual else None,
             included=included,
             exclusion_reason="" if included else reason,
             holiday_gross=gross_extra,
-        )
-        for (month, variables_month, actual, adjustment, variables, net_allowance, gross_extra), included, reason in zip(candidates, included_flags, reasons)
-    )
-    return CalibrationResult(fixed, coefficient, mae, fixed - margin, fixed + margin, rows)
+            thirteenth_net=annual_extra,
+        ))
+    return CalibrationResult(fixed, coefficient, mae, fixed - margin, fixed + margin, tuple(rows),
+                             thirteenth, thirteenth_samples)
