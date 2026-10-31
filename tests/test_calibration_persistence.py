@@ -118,9 +118,12 @@ def test_sync_applies_only_after_successful_persistence(save_ok, with_december):
     if with_december:
         salaries["2026-12"] = 4700.
         variables["2026-11"] = VariableBreakdown()
+    def read_history(**kwargs):
+        assert kwargs == {"force_reload": True, "update_session": False}
+        return pd.DataFrame()
     ns.update(_render_saved_mobile_calibration=lambda snapshot: dict(snapshot["manual_included"], **{"2025-08": True}),
               _mobile_drive_payslips=lambda **kw: {"error": "", "salaries": salaries},
-              load_turni_data=lambda **kw: pd.DataFrame(),
+              load_turni_data=read_history,
               _payroll_variables_by_month=lambda *a: variables,
               load_payroll_adjustments=lambda **kw: {}, DEFAULT_PAYROLL_ADJUSTMENT=-63.,
               holiday_compensation=lambda *a: [], _payroll_v2_rules=lambda r: r,
@@ -174,3 +177,34 @@ def test_mobile_window_updates_saved_twelve_month_rules_and_current_sessions():
     assert ns["get_turni_rules"]()["finestra_calibrazione_mesi"] == 18.
     st.session_state.turni_rules["finestra_calibrazione_mesi"] = 12.
     assert ns["get_turni_rules"]()["finestra_calibrazione_mesi"] == 18.
+
+
+@pytest.mark.parametrize("read_fails", [False, True])
+def test_calibration_history_refresh_keeps_calendar_months_and_sync_flags(read_fails):
+    """Sheets can lack future calendar shifts: a calibration read is isolated."""
+    ns, st = app_helpers()
+    tree = ast.parse(SOURCE.read_text())
+    load = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "load_turni_data")
+    exec(compile(ast.Module(body=[load], type_ignores=[]), str(SOURCE), "exec"), ns)
+    calendar = pd.DataFrame([{"Data": "2026-11-03", "Turno": "Pomeriggio"}])
+    history = pd.DataFrame([{"Data": "2026-10-30", "Turno": "Notte"}])
+    flag = "turni_calendar_autosync_sede_v2::2026-11"
+    st.session_state.update(turni_df_draft=calendar.copy(), turni_dirty=False, **{flag: True})
+    def read(*args, **kwargs):
+        assert kwargs == {"force_reload": True}
+        if read_fails:
+            raise RuntimeError("temporary read failure")
+        return history.copy()
+    ns.update(load_data_gsheets=read, _normalize_turni_df=lambda df: df.copy(),
+              TURNI_WORKSHEET="TurniGuadagni", TURNI_HEADERS=["Data", "Turno"])
+    if read_fails:
+        with pytest.raises(RuntimeError):
+            ns["load_turni_data"](force_reload=True, update_session=False)
+    else:
+        pd.testing.assert_frame_equal(
+            ns["load_turni_data"](force_reload=True, update_session=False), history)
+    pd.testing.assert_frame_equal(st.session_state.turni_df_draft, calendar)
+    assert st.session_state[flag] is True
+    assert st.session_state.turni_dirty is False
+    # The following app rerun sees the synchronized November calendar instantly.
+    pd.testing.assert_frame_equal(ns["load_turni_data"](), calendar)

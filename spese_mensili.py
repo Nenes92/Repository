@@ -3685,13 +3685,18 @@ def _normalize_turni_df(df):
     return df.sort_values("Data").reset_index(drop=True)
 
 
-def load_turni_data(force_reload=False):
+def load_turni_data(force_reload=False, update_session=True):
     """Carica i turni una sola volta in sessione.
     Così cliccare più giorni nel calendario non fa una read Google Sheets ogni volta.
     """
     if force_reload or "turni_df_draft" not in st.session_state:
         df = load_data_gsheets(TURNI_WORKSHEET, TURNI_HEADERS, force_reload=force_reload)
-        st.session_state.turni_df_draft = _normalize_turni_df(df)
+        normalized = _normalize_turni_df(df)
+        if not update_session:
+            # La calibrazione legge lo storico senza sostituire i mesi già
+            # sincronizzati dai calendari, che possono mancare nel foglio.
+            return normalized
+        st.session_state.turni_df_draft = normalized
         st.session_state.turni_dirty = False
     return st.session_state.turni_df_draft.copy()
 
@@ -4009,7 +4014,8 @@ def _decode_calibration_snapshot(value):
 def _build_mobile_calibration(drive, rules, manual_included, force_reload=False):
     """Recalculate only on form submission; Drive is read by the caller."""
     salaries = drive["salaries"]
-    variables = _payroll_variables_by_month(load_turni_data(force_reload=force_reload), rules)
+    variables = _payroll_variables_by_month(
+        load_turni_data(force_reload=force_reload, update_session=False), rules)
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
     adjustments = {month: float(values.get("amount", 0.))
                    for month, values in load_payroll_adjustments(force_reload=force_reload).items()}
