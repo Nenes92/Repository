@@ -2,6 +2,7 @@
 import ast
 import base64
 import json
+import re
 import zlib
 from contextlib import nullcontext
 from dataclasses import asdict
@@ -30,11 +31,11 @@ def app_helpers():
     defaults = ast.literal_eval(defaults)
     names = {"_encode_calibration_snapshot", "_decode_calibration_snapshot", "get_turni_rules",
              "save_turni_rules", "_parse_float_turni", "_render_mobile_calibration",
-             "_build_mobile_calibration", "_save_mobile_calibration", "_mobile_calibration_selection"}
+             "_build_mobile_calibration", "_save_mobile_calibration", "_calibration_tax_adjustments", "_mobile_calibration_selection"}
     funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     state = State()
-    st = SimpleNamespace(session_state=state, fragment=lambda f: f)
-    ns = dict(st=st, pd=pd, json=json, base64=base64, zlib=zlib, asdict=asdict,
+    st = SimpleNamespace(session_state=state, fragment=lambda f: f, caption=lambda *a, **kw: None)
+    ns = dict(st=st, pd=pd, json=json, re=re, base64=base64, zlib=zlib, asdict=asdict,
               DEFAULT_TURNI_RULES=defaults, PAYROLL_V2_DEFAULTS=DEFAULT_RULES,
               TURNI_RULES_WORKSHEET="Regole Turni", CALIBRATION_STATE_HEADER="Calibrazione salvata",
               TURNI_RULES_HEADERS=list(defaults) + ["Calibrazione salvata"],
@@ -208,3 +209,42 @@ def test_calibration_history_refresh_keeps_calendar_months_and_sync_flags(read_f
     assert st.session_state.turni_dirty is False
     # The following app rerun sees the synchronized November calendar instantly.
     pd.testing.assert_frame_equal(ns["load_turni_data"](), calendar)
+
+
+@pytest.mark.parametrize('manual_730', [False, True])
+def test_pdf_730_is_removed_from_fit_once_and_kept_in_historical_comparison(manual_730):
+    from payroll_engine import VariableBreakdown, add_months
+    ns, st = app_helpers()
+    months = [f'2025-{m:02d}' for m in range(2, 7)]
+    variables = {add_months(month, -1): VariableBreakdown(premiums_gross=(i+1)*100., allowances_net=10.)
+                 for i, month in enumerate(months)}
+    tax_month = months[2]
+    salaries = {month: 2000. + .6*(i+1)*100 + 10. - 25. - (607. if month == tax_month else 0.)
+                for i, month in enumerate(months)}
+    manual = {tax_month: {'amount': -632., 'description': 'Rettifica totale comprensiva del 730'}} if manual_730 else {}
+    ns.update(load_turni_data=lambda **kw: pd.DataFrame(),
+        _payroll_variables_by_month=lambda *a: variables,
+        load_payroll_adjustments=lambda **kw: manual, DEFAULT_PAYROLL_ADJUSTMENT=-25.,
+        holiday_compensation=lambda *a: [], _payroll_v2_rules=lambda r: r,
+        add_payroll_months=add_months, calibrate_payroll=calibrate)
+    drive = {'salaries': salaries, 'tax_adjustments': {tax_month: -607.}}
+    fit, snapshot = ns['_build_mobile_calibration'](drive, {}, {tax_month: True}, force_reload=True)
+    assert fit.variable_coefficient == pytest.approx(.6)
+    assert fit.fixed_net == pytest.approx(2000.)
+    row = next(row for row in fit.rows if row.month == tax_month)
+    assert row.actual_net == salaries[tax_month]
+    assert row.estimated_net == pytest.approx(row.actual_net)
+    assert row.adjustment == (-632. if manual_730 else -25.)
+    assert snapshot['tax_adjustments'] == ({} if manual_730 else {tax_month: -607.})
+    assert snapshot['version'] == 2
+    assert ns['_decode_calibration_snapshot'](ns['_encode_calibration_snapshot'](snapshot)) == json.loads(json.dumps(snapshot))
+
+
+def test_ordinary_adjustments_do_not_suppress_pdf_730_and_non_730_months_are_untouched():
+    ns, _ = app_helpers()
+    drive = {'tax_adjustments': {'2025-07': -100., '2026-07': 50.}}
+    assert ns['_calibration_tax_adjustments'](drive, {
+        '2025-07': {'amount': -25., 'description': 'Soliti accrediti e trattenute'},
+        '2026-07': {'amount': 50., 'description': 'Rimborso 730'},
+    }) == {'2025-07': -100.}
+    assert ns['_calibration_tax_adjustments']({}, {}) == {}

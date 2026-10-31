@@ -218,3 +218,53 @@ def test_pdf_detail_extraction_does_not_change_or_block_net_import(monkeypatch, 
     slip = parse_payslip_pdf(b'fake PDF', NAME)
     assert slip.month == '2026-10' and slip.net == Decimal('2345')
     assert len(slip.items) == (0 if layout_fails else 1)
+
+
+TAX_TEXT = """
+4 E_FISC V_A0011 Tratt.mese. irpef 730 dich. 07/2025 640,00
+4 E_FISC V_A0041 Rimborso ad.reg. dich. 07/2025 18,00
+4 E_FISC V_A0081 Rimborso ad.co. dich. 07/2025 27,00
+4 E_FISC V_A0251 Tratt.mese. ac.co. dich. 07/2025 12,00
+"""  # Entirely invented amounts.
+
+
+def test_730_reader_signs_withholdings_and_refunds_without_touching_paid_net():
+    from payslip_drive import parse_payslip_tax_items
+    items = parse_payslip_tax_items(TAX_TEXT)
+    assert [item.amount for item in items] == list(map(Decimal, ['-640', '18', '27', '-12']))
+    assert sum(item.amount for item in items) == Decimal('-607')
+    slip = parse_payslip_text(TEXT.replace("2.496,00", "2.345,00") + '\n' + TAX_TEXT, NAME)
+    assert slip.net == Decimal('2345')
+    assert slip.tax_items == items
+
+
+def test_730_reader_ignores_ordinary_taxes_unknown_rows_and_preserves_reversals():
+    from payslip_drive import parse_payslip_tax_items
+    text = """
+5 E_FISC Q_O0032 Add.com.da tratt.A.P. 07/2025 20,00
+1 E_FISC V_A0011 Imposta ordinaria 07/2025 10,00
+1 E_FISC V_A0011 Voce non riconosciuta 730 07/2025 10,00
+4 E_FISC V_A0011 Tratt.mese. irpef 730 dich. 07/2025 -10,00
+4 E_FISC V_A0041 Rimborso ad.reg. dich. 07/2025 -5,00
+"""
+    assert [x.amount for x in parse_payslip_tax_items(text)] == [Decimal('10'), Decimal('-5')]
+
+
+def test_730_collection_deduplicates_files_sums_positions_and_rejects_conflicts():
+    first = parse_payslip_text(TEXT.replace("2.496,00", "2.345,00") + '\n' + TAX_TEXT, NAME)
+    other = replace(first, position='second-position', tax_items=first.tax_items[1:2])
+    files = [metadata(1), metadata(2), metadata(3)]
+    result = collect_payslips(files, lambda item: other if item['id'] == '3' else first)
+    assert result['tax_adjustments'] == {'2026-10': -589.0}
+    assert len(result['tax_details']['2026-10']) == 5
+    conflict = collect_payslips(files[:2], lambda item: first if item['id'] == '1' else replace(first, net=Decimal('2400')))
+    assert conflict['tax_adjustments'] == {} and conflict['tax_details'] == {}
+
+
+def test_730_survives_optional_layout_extraction_failure(monkeypatch):
+    from payslip_drive import parse_payslip_pdf
+    page = Mock()
+    page.extract_text.side_effect = [TEXT.replace("2.496,00", "2.345,00") + '\n' + TAX_TEXT, ValueError('unsupported layout')]
+    monkeypatch.setattr('payslip_drive.PdfReader', lambda _: Mock(is_encrypted=False, pages=[page]))
+    slip = parse_payslip_pdf(b'fake PDF', NAME)
+    assert sum(item.amount for item in slip.tax_items) == Decimal('-607')

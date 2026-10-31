@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 import mysql.connector
 import pandas as pd
 import json
+import re
 import base64
 import zlib
 from dataclasses import asdict
@@ -36,6 +37,9 @@ from payroll_engine import (
     thirteenth_month_net,
     thirteenth_rules_from_snapshot,
 )
+import payslip_drive as _payslip_drive
+if "tax_items" not in _payslip_drive.Payslip.__dataclass_fields__:
+    importlib.reload(_payslip_drive)
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
 from turni_excel_import import merge_turni_history, read_turni_excel
@@ -114,7 +118,7 @@ def _load_drive_payslips(principal, folder_id, _credentials_info):
         result = collect_payslips(
             files, lambda item: _read_drive_payslip(
                 principal, item["id"], item["name"],
-                "items-v1:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
+                "items-730-v2:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
         result["checked_at"] = _now_italy().strftime("%d/%m/%Y %H:%M")
         result["error"] = ""
         return result
@@ -4002,7 +4006,7 @@ def _decode_calibration_snapshot(value):
         snapshot = json.loads(zlib.decompress(base64.b64decode(value)))
         if not isinstance(snapshot, dict):
             return None
-        if snapshot.get("version") != 1 or not isinstance(snapshot.get("result"), dict):
+        if snapshot.get("version") not in (1, 2) or not isinstance(snapshot.get("result"), dict):
             return None
         if not isinstance(snapshot["result"].get("rows"), list):
             return None
@@ -4011,22 +4015,32 @@ def _decode_calibration_snapshot(value):
         return None
 
 
+def _calibration_tax_adjustments(drive, manual_adjustments):
+    # A manual correction explicitly mentioning 730 is a total override for that
+    # month. Ordinary corrections (e.g. the recurring -63) remain independent.
+    return {month: float(amount) for month, amount in drive.get("tax_adjustments", {}).items()
+            if not re.search(r"\b730\b", str(manual_adjustments.get(month, {}).get("description", "")))}
+
+
 def _build_mobile_calibration(drive, rules, manual_included, force_reload=False):
     """Recalculate only on form submission; Drive is read by the caller."""
     salaries = drive["salaries"]
     variables = _payroll_variables_by_month(
         load_turni_data(force_reload=force_reload, update_session=False), rules)
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
+    manual_adjustments = load_payroll_adjustments(force_reload=force_reload)
     adjustments = {month: float(values.get("amount", 0.))
-                   for month, values in load_payroll_adjustments(force_reload=force_reload).items()}
+                   for month, values in manual_adjustments.items()}
+    tax_adjustments = _calibration_tax_adjustments(drive, manual_adjustments)
     for month in salaries:
         adjustments.setdefault(month, DEFAULT_PAYROLL_ADJUSTMENT)
     holidays = {month: sum(event.gross for event in holiday_compensation(month, _payroll_v2_rules(rules)))
                 for month in salaries}
     calibrated = calibrate_payroll(salaries, variables, delay=delay, adjustments=adjustments,
-        recency_months=18, automatic_gross=holidays,
+        recency_months=18, automatic_gross=holidays, automatic_net=tax_adjustments,
         include_thirteenth=True, manual_included=manual_included)
-    snapshot = {"version": 1, "drive": drive, "result": asdict(calibrated), "delay": delay,
+    snapshot = {"version": 2, "drive": drive, "result": asdict(calibrated), "delay": delay,
+                "tax_adjustments": tax_adjustments,
                 "manual_included": dict(manual_included),
                 "missing": sorted(month for month in salaries if add_payroll_months(month, -delay) not in variables)}
     return calibrated, snapshot
@@ -4125,6 +4139,13 @@ def _render_saved_mobile_calibration(snapshot):
             "Importo €": item["amount"],
         } for month, items in sorted(drive.get("details", {}).items(), reverse=True)
           for item in items]
+        tax_rows = [{
+            "Cedolino": _calibration_month_label(month), "Voce": item["description"],
+            "Competenza": _calibration_month_label(month), "Quantità": None, "Tariffa €": None,
+            "Importo €": item["amount"],
+        } for month, items in sorted(drive.get("tax_details", {}).items(), reverse=True)
+          for item in items]
+        detail_rows.extend(tax_rows)
         if detail_rows:
             st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True,
                 column_config={
@@ -4132,9 +4153,16 @@ def _render_saved_mobile_calibration(snapshot):
                     "Tariffa €": st.column_config.NumberColumn(format="%.5f"),
                     "Importo €": st.column_config.NumberColumn(format="%.2f"),
                 })
-            st.caption("Importi riportati nei PDF, non netti stimati per singola voce. Quantità come nel cedolino: ore decimali o giornate. La previsione mantiene la calibrazione attuale.")
+            st.caption("Importi riportati nei PDF, non netti stimati per singola voce. Quantità come nel cedolino: ore decimali o giornate. Le voci 730 sono separate dalle entrate ordinarie nella calibrazione.")
         else:
             st.caption("Premi Sincronizza Drive per leggere anche le voci dei PDF. I formati non riconosciuti mantengono la sola lettura del netto.")
+        if drive.get("tax_adjustments"):
+            st.dataframe(pd.DataFrame([{
+                "Cedolino": _calibration_month_label(month), "Saldo 730 €": amount,
+                "Gestione": "Separato automaticamente" if month in snapshot.get("tax_adjustments", {}) else "Incluso nella rettifica manuale 730",
+            } for month, amount in sorted(drive["tax_adjustments"].items(), reverse=True)]),
+                hide_index=True, use_container_width=True,
+                column_config={"Saldo 730 €": st.column_config.NumberColumn(format="%.2f")})
     rules = get_turni_rules()
     with st.expander("Parametri del cedolino · sola lettura"):
         st.markdown(
@@ -4154,6 +4182,8 @@ def _render_mobile_calibration(rules):
         refresh = st.form_submit_button("🔄 Sincronizza Drive", key="refresh_payroll_calibration", use_container_width=True,
                             help="Applica le spunte, legge i cedolini e salva la previsione aggiornata.")
         snapshot = st.session_state.get("payroll_calibration_saved")
+        if snapshot and snapshot.get("version", 1) < 2:
+            st.caption("Premi Sincronizza Drive per separare anche trattenute e rimborsi del 730.")
         manual = _render_saved_mobile_calibration(snapshot) if snapshot else {}
         if not snapshot:
             st.info("Premi Sincronizza Drive una prima volta: il risultato verrà applicato e resterà disponibile alle prossime aperture.")

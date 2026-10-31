@@ -51,6 +51,41 @@ def parse_payslip_items(text: str) -> tuple[PayslipItem, ...]:
 
 
 @dataclass(frozen=True)
+class PayslipTaxItem:
+    code: str
+    description: str
+    amount: Decimal  # Signed effect on the paid net: refund +, withholding -.
+
+
+def parse_payslip_tax_items(text: str) -> tuple[PayslipTaxItem, ...]:
+    """Read explicit 730 assistance rows, not ordinary IRPEF or contributions.
+
+    Do not deduplicate rows: identical amounts on separate rows can be real.
+    Whole PDF copies are already deduplicated by month/position at collection.
+    """
+    pattern = re.compile(
+        r"\b(V_A\d{4})\s+(.+?)\s+(?:\d{2}/)?(?:0[1-9]|1[0-2])/20\d{2}\s+(-?"
+        + MONEY + r")\s*$", re.I)
+    items = []
+    for line in text.splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        code, description, value = match.groups()
+        if not re.search(r"\b730\b|\bdich\b", description, re.I):
+            continue
+        if re.match(r"rimborso\b|rimb\.", description, re.I):
+            sign = 1
+        elif re.match(r"tratt[.\s]|trattenuta\b", description, re.I):
+            sign = -1
+        else:
+            continue
+        amount = Decimal(value.replace(".", "").replace(",", ".")) * sign
+        items.append(PayslipTaxItem(code.upper(), " ".join(description.split()), amount))
+    return tuple(items)
+
+
+@dataclass(frozen=True)
 class Payslip:
     month: str
     net: Decimal
@@ -58,6 +93,7 @@ class Payslip:
     file_id: str = ""
     name: str = ""
     items: tuple[PayslipItem, ...] = ()
+    tax_items: tuple[PayslipTaxItem, ...] = ()
 
 
 def parse_payslip_text(text: str, name: str) -> Payslip:
@@ -100,7 +136,7 @@ def parse_payslip_text(text: str, name: str) -> Payslip:
     net = nets.pop()
     if net <= 0:
         raise ValueError("Netto a pagare non positivo")
-    return Payslip(month, net, positions.pop(), name=name)
+    return Payslip(month, net, positions.pop(), name=name, tax_items=parse_payslip_tax_items(text))
 
 
 def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
@@ -123,7 +159,8 @@ def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
     # Optional detail extraction must never prevent the established net import.
     try:
         layout = "\n".join(page.extract_text(extraction_mode="layout") or "" for page in reader.pages)
-        return replace(slip, items=parse_payslip_items(layout))
+        return replace(slip, items=parse_payslip_items(layout),
+                       tax_items=parse_payslip_tax_items(layout) or slip.tax_items)
     except Exception:
         return slip
 
@@ -200,9 +237,17 @@ def collect_payslips(files: list[dict], read: Callable[[dict], Payslip]) -> dict
         if month not in rejected_months:
             salaries[month] = salaries.get(month, Decimal(0)) + slip.net
     details = {}
+    tax_details = {}
+    tax_adjustments = {}
     for (month, _), slip in positions.items():
         if month in rejected_months:
             continue
+        if slip.tax_items:
+            tax_adjustments[month] = tax_adjustments.get(month, Decimal(0)) + sum(
+                (item.amount for item in slip.tax_items), Decimal(0))
+            tax_details.setdefault(month, []).extend({
+                "code": item.code, "description": item.description, "amount": float(item.amount),
+            } for item in slip.tax_items)
         details.setdefault(month, []).extend({
             "code": item.code, "description": item.description,
             "competence_month": item.competence_month,
@@ -211,6 +256,8 @@ def collect_payslips(files: list[dict], read: Callable[[dict], Payslip]) -> dict
         } for item in slip.items)
     return {
         "details": details,
+        "tax_details": tax_details,
+        "tax_adjustments": {month: float(value) for month, value in sorted(tax_adjustments.items())},
         "salaries": {month: float(value) for month, value in sorted(salaries.items())},
         "files": len(files), "positions": len(positions), "errors": errors,
     }
