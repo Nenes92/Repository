@@ -1592,7 +1592,8 @@ if MOBILE_VIEW:
         gap: 8px;
         width: 100%;
         max-width: 100%;
-        margin-bottom: 10px;
+        padding-bottom: 16px;
+        margin-bottom: 0;
     }
     .mobile-notes-html-grid .memo-card {
         min-width: 0;
@@ -1614,7 +1615,9 @@ if MOBILE_VIEW:
         line-height: 1.3;
     }
     .st-key-mobile_notes_edit_action {
-        margin-top: 12px;
+        padding-top: 16px;
+        margin-top: 0;
+        flex-shrink: 0;
         clear: both;
     }
     .mobile-objective-block {
@@ -9606,6 +9609,8 @@ textarea {
     
         def _render_promemoria_block():
             st.markdown('<div id="mobile-promemoria" class="mobile-anchor"></div><div class="section-pill">📝 Note</div>', unsafe_allow_html=True)
+            if MOBILE_VIEW and st.session_state.pop("mobile_notes_saved", False):
+                st.success("Note salvate")
 
             def _memo_card(label, value):
                 raw_text = str(value or "").strip()
@@ -9691,7 +9696,11 @@ textarea {
                 if save_data_gsheets(worksheet_name, NOTE_HEADERS, df_note):
                     st.session_state.note_df_draft = df_note.copy()
                     st.session_state.note_loaded_from_sheet = True
-                    st.success("Note salvate")
+                    if MOBILE_VIEW:
+                        st.session_state.mobile_notes_saved = True
+                        st.rerun(scope="app")
+                    else:
+                        st.success("Note salvate")
                 else:
                     st.error("Errore salvataggio")
             
