@@ -252,9 +252,11 @@ def test_real_payslip_card_replaces_forecast_and_uncertainty_with_paid_net():
     env['render_payroll_v2_details'](estimate)
     text = rendered[-1]
     assert 'Cedolino effettivo' in text and 'Netto cedolino effettivo' in text
-    assert '2.490,00' in text and 'Netto letto dal cedolino sincronizzato' in text
+    assert '2.490,00' in text and 'Scarto:' in text
     assert 'Previsione cedolino' not in text and 'Intervallo realistico' not in text
-    assert 'Stima del modello' in text and 'Variabili lorde / nette stimate' in text
+    assert 'fisso netto' in text and 'variabili' in text and 'rettifica' in text
+    assert 'Variabili lorde / nette stimate' in text
+    assert 'Stima del modello' not in text and 'Netto letto dal cedolino sincronizzato' not in text
 
 
 def test_invalid_pdf_net_is_not_used_as_monthly_reference():

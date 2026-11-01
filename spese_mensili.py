@@ -6270,17 +6270,16 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                 f'<br><span style="color:#c4b5fd;">Tredicesima: +{html.escape(_money_turni(estimate.thirteenth_net))}'
                 f' nette ({annual_source})</span>'
             )
-        net_caption += (
-            f'<br>Intervallo realistico: <strong style="color:#34d399;">'
-            f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
-        )
         if reference["actual"]:
             delta = reference["net"] - float(estimate.credited_net)
             delta_color = "#34d399" if delta >= 0 else "#f87171"
-            net_caption = (
-                'Netto letto dal cedolino sincronizzato<br>'
-                f'Stima del modello: {html.escape(_money_turni(estimate.credited_net))}<br>'
-                f'Scarto: <span style="color:{delta_color};">{html.escape(_signed_money_turni(delta))}</span>'
+            net_caption += (
+                f'<br>Scarto: <span style="color:{delta_color};">{html.escape(_signed_money_turni(delta))}</span>'
+            )
+        else:
+            net_caption += (
+                f'<br>Intervallo realistico: <strong style="color:#34d399;">'
+                f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
             )
         mobile_cards = [
             (net_label, _money_turni(reference["net"]), net_caption, "#34d399", "16,185,129"),
