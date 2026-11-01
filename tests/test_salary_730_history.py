@@ -74,3 +74,19 @@ def test_mobile_trend_displays_exactly_sixteen_months_without_recomputing_statis
     months = {row['Mese'][:7] for rows in plots[0]['datasets'].values() for row in rows if 'Mese' in row}
     assert len(months) == 16 and min(months) == '2025-08' and max(months) == '2026-11'
     pd.testing.assert_frame_equal(data,before)
+
+
+def test_fifteen_months_end_at_latest_saved_salary_and_keep_august_labels():
+    env, st, plots, errors = helpers()
+    st.session_state['payroll_calibration_saved'] = {}
+    dates = pd.date_range('2025-05-01', '2026-10-01', freq='MS')
+    data = pd.DataFrame({'Mese':dates, 'Stipendio':2400., 'Risparmi':10.,
+        'Messi da parte Totali':100., 'Media Stipendio':2400.,
+        'Media Stipendio NO 13°/PDR':2400., 'Media Risparmi':10., 'Media Messi da parte Totali':100.})
+    env['render_grafico_stipendi_desktop_style'](data, months_back=15)
+    assert not errors
+    months = {row['Mese'][:7] for rows in plots[0]['datasets'].values() for row in rows if 'Mese' in row}
+    assert len(months) == 15
+    assert min(months) == '2025-08' and max(months) == '2026-10'
+    assert '2026-08' in months
+    assert '"labelOverlap": false' in json.dumps(plots[0])

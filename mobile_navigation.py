@@ -103,14 +103,14 @@ def render_mobile_live_refresh(stats, now):
              on_refresh_change=lambda: _refresh_live_in_session(key, stats.get('live_month_key', ''), bool(stats.get('month_handoff_at'))))
 
 
-SALARY_SWIPE_JS = """
-export default function() {
+CHART_SWIPE_JS = """
+export default function({data}) {
   let dispose = () => {};
   function attach() {
-    const root = document.querySelector('.st-key-mobile-salary-chart-pages');
+    const root = document.querySelector('.st-key-' + data.track);
     const track = root?.matches('[data-testid="stHorizontalBlock"]') ? root : root?.querySelector('[data-testid="stHorizontalBlock"]');
-    const pages = [document.querySelector('.st-key-mobile-salary-chart-trend'), document.querySelector('.st-key-mobile-salary-chart-years')];
-    const buttons = [...document.querySelectorAll('[data-salary-page]')];
+    const pages = data.pages.map(key => document.querySelector('.st-key-' + key));
+    const buttons = [...document.querySelectorAll('[data-chart-carousel="' + data.id + '"] [data-chart-page]')];
     if (!track || pages.some(page => !page) || buttons.length !== 2) return false;
     Object.assign(track.style, {flexWrap:'nowrap',gap:'0px',overflowX:'auto',overflowY:'hidden',paddingBottom:'16px',scrollSnapType:'x mandatory',scrollbarWidth:'none',overscrollBehaviorX:'contain',touchAction:'pan-y pinch-zoom'});
     for (const page of pages) {
@@ -121,7 +121,7 @@ export default function() {
       child.style.setProperty('max-width', '100%', 'important');
       child.style.scrollSnapAlign = 'start';
     }
-    let index = Number(track.dataset.salaryPage || 0);
+    let index = Number(track.dataset.chartPage || 0);
     const label = () => buttons.forEach((button, i) => {
       button.setAttribute('aria-selected', String(i === index));
       button.tabIndex = i === index ? 0 : -1;
@@ -130,11 +130,11 @@ export default function() {
     function go(next, smooth=true) {
       hideTooltip();
       index = Math.max(0, Math.min(1, next));
-      track.dataset.salaryPage = String(index);
+      track.dataset.chartPage = String(index);
       track.scrollTo({left: index * track.clientWidth, behavior: smooth ? 'smooth' : 'instant'});
       label();
     }
-    const click = event => go(Number(event.currentTarget.dataset.salaryPage));
+    const click = event => go(Number(event.currentTarget.dataset.chartPage));
     const key = event => {
       if (!['ArrowLeft','ArrowRight'].includes(event.key)) return;
       event.preventDefault(); go(index + (event.key === 'ArrowRight' ? 1 : -1)); buttons[index].focus();
@@ -158,7 +158,7 @@ export default function() {
     const touchEnd = event => { if (event.changedTouches[0]) end(event.changedTouches[0], event); };
     const pointerDown = event => { if (event.pointerType !== 'touch') start(event); };
     const pointerUp = event => { if (event.pointerType !== 'touch') end(event, event); };
-    const scroll = () => { hideTooltip(); index = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); track.dataset.salaryPage = String(index); label(); };
+    const scroll = () => { hideTooltip(); index = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); track.dataset.chartPage = String(index); label(); };
     buttons.forEach(button => { button.addEventListener('click',click); button.addEventListener('keydown',key); });
     track.addEventListener('touchstart',touchStart,{passive:true});
     track.addEventListener('touchmove',touchMove,{passive:false});
@@ -183,7 +183,30 @@ export default function() {
 """
 
 
-def render_mobile_salary_swipe():
-    version = sha256(SALARY_SWIPE_JS.encode()).hexdigest()[:12]
-    renderer = component(f'mobile_salary_swipe_{version}', js=SALARY_SWIPE_JS)
-    renderer(key=f'mobile_salary_swipe::{version}', height=0)
+def render_mobile_chart_styles(track_key):
+    st.html(f"""<style>
+      .st-key-{track_key} {{flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:16px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}}
+      .st-key-{track_key}::-webkit-scrollbar {{display:none;}}
+      .st-key-{track_key} > [data-testid="stLayoutWrapper"] {{flex:0 0 100%!important;min-width:100%!important;max-width:100%!important;scroll-snap-align:start;}}
+      .st-key-{track_key} canvas {{touch-action:pan-y pinch-zoom!important;}}
+      .mobile-chart-dots {{display:flex;justify-content:center;gap:2px;margin:0;}}
+      .mobile-chart-dots button {{width:26px;height:26px;padding:8px;border:0;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;}}
+      .mobile-chart-dots button span {{width:7px;height:7px;border-radius:50%;background:#64748b;display:block;}}
+      .mobile-chart-dots button[aria-selected="true"] span {{background:#60a5fa;}}
+      .mobile-chart-dots button:focus-visible {{outline:1px solid #60a5fa;}}
+    </style>""")
+
+
+def render_mobile_chart_dots(carousel_id, labels):
+    from html import escape
+    dots = ''.join(
+        f'<button type="button" role="tab" aria-label="{escape(label, quote=True)}" aria-selected="{str(i == 0).lower()}" data-chart-page="{i}"><span aria-hidden="true"></span></button>'
+        for i, label in enumerate(labels))
+    st.html(f'<div class="mobile-chart-dots" role="tablist" aria-label="Pagine del grafico" data-chart-carousel="{escape(carousel_id, quote=True)}">{dots}</div>')
+
+
+def render_mobile_chart_swipe(carousel_id, track_key, page_keys):
+    version = sha256(CHART_SWIPE_JS.encode()).hexdigest()[:12]
+    renderer = component(f'mobile_chart_swipe_{version}', js=CHART_SWIPE_JS)
+    renderer(key=f'mobile_chart_swipe::{carousel_id}::{version}', height=0,
+             data={'id': carousel_id, 'track': track_key, 'pages': page_keys})

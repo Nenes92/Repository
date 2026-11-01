@@ -10488,9 +10488,11 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
         chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
         chart_data = chart_data.dropna(subset=["Mese"])
         current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-        chart_start = (current_month_start - pd.DateOffset(months=max(1, int(months_back)) - 1)
+        available = chart_data[chart_data["Mese"] <= current_month_start]
+        chart_end = available["Mese"].max() if months_back and not available.empty else current_month_start
+        chart_start = (chart_end - pd.DateOffset(months=max(1, int(months_back)) - 1)
                        if months_back else current_month_start - pd.DateOffset(years=years_back))
-        chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
+        chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= chart_end)]
         if chart_data.empty:
             st.info("Nessun dato disponibile nel periodo selezionato.")
             return
@@ -10506,7 +10508,7 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
             "Mese_str:N",
             sort=ordine_mesi,
             title="Mese",
-            axis=alt.Axis(labelAngle=-45, labelFontSize=10)
+            axis=alt.Axis(labelAngle=-45, labelFontSize=10, **({"labelOverlap": False} if MOBILE_VIEW else {}))
         )
 
         line_stipendi = alt.Chart(chart_data).mark_line(
@@ -11021,21 +11023,10 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
 
     if MOBILE_VIEW:
         st.markdown("---")
-        st.html("""<style>
-          .salary-chart-pager {display:flex;gap:8px;margin:0 0 8px;}
-          .salary-chart-pager button {flex:1;padding:9px 8px;border:1px solid rgba(148,163,184,.25);border-radius:10px;background:rgba(148,163,184,.06);color:#94a3b8;font:inherit;font-size:12px;cursor:pointer;}
-          .salary-chart-pager button[aria-selected="true"] {border-color:rgba(96,165,250,.65);background:rgba(59,130,246,.12);color:#bfdbfe;}
-          .st-key-mobile-salary-chart-pages {flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:16px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}
-          .st-key-mobile-salary-chart-pages::-webkit-scrollbar {display:none;}
-          .st-key-mobile-salary-chart-pages > [data-testid="stLayoutWrapper"] {flex:0 0 100%!important;min-width:100%!important;max-width:100%!important;scroll-snap-align:start;}
-          .st-key-mobile-salary-chart-pages canvas {touch-action:pan-y pinch-zoom!important;}
-        </style><div class="salary-chart-pager" role="tablist" aria-label="Grafici stipendi">
-          <button type="button" role="tab" aria-selected="true" data-salary-page="0">Andamento · 16 mesi</button>
-          <button type="button" role="tab" aria-selected="false" data-salary-page="1">Confronto anni ↔</button>
-        </div>""")
+        _mobile_navigation.render_mobile_chart_styles("mobile-salary-chart-pages")
         with st.container(key="mobile-salary-chart-pages", horizontal=True, gap=None):
             with st.container(key="mobile-salary-chart-trend"):
-                render_grafico_stipendi_desktop_style(data_stipendi, height=430, months_back=16)
+                render_grafico_stipendi_desktop_style(data_stipendi, height=430, months_back=15)
             with st.container(key="mobile-salary-chart-years"):
                 if not data_stipendi.empty:
                     confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(
@@ -11043,7 +11034,9 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     st.altair_chart(confronto_chart, use_container_width=True)
                 else:
                     st.info("Nessun dato disponibile ancora.")
-        _mobile_navigation.render_mobile_salary_swipe()
+        _mobile_navigation.render_mobile_chart_dots("salary", ["Andamento stipendi", "Confronto stipendi tra anni"])
+        _mobile_navigation.render_mobile_chart_swipe("salary", "mobile-salary-chart-pages",
+            ["mobile-salary-chart-trend", "mobile-salary-chart-years"])
         _render_stipendi_kpi_cards(data_stipendi)
         _render_730_history()
 
@@ -11535,7 +11528,16 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
         st.markdown("---")
         st.markdown("### Storico Bollette")
         if not data_completa_bollette.empty:
-            st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
+            _mobile_navigation.render_mobile_chart_styles("mobile-bills-chart-pages")
+            with st.container(key="mobile-bills-chart-pages", horizontal=True, gap=None):
+                with st.container(key="mobile-bills-chart-trend"):
+                    st.altair_chart(crea_grafico_bollette_linea_continua(data_completa_bollette, ordine).properties(height=420), use_container_width=True)
+                with st.container(key="mobile-bills-chart-years"):
+                    st.altair_chart(crea_confronto_anno_su_anno_bollette(data_bollette).properties(
+                        title="Confronto bollette tra anni", height=420), use_container_width=True)
+            _mobile_navigation.render_mobile_chart_dots("bills", ["Andamento bollette", "Confronto bollette tra anni"])
+            _mobile_navigation.render_mobile_chart_swipe("bills", "mobile-bills-chart-pages",
+                ["mobile-bills-chart-trend", "mobile-bills-chart-years"])
             st.markdown(f"""
             <div class="mobile-bills-summary" style="display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:18px;row-gap:4px;align-items:start;margin-top:8px;line-height:1.55;">
                 <div style="min-width:0;"><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
@@ -11648,13 +11650,5 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
-    if MOBILE_VIEW:
-        st.markdown("---")
-        st.markdown("### Confronto Anno su Anno delle Bollette")
-        if not data_bollette.empty:
-            st.altair_chart(crea_confronto_anno_su_anno_bollette(data_bollette).properties(height=320), use_container_width=True)
-        else:
-            st.info("Nessun dato disponibile ancora.")
 
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
