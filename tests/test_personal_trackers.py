@@ -117,3 +117,107 @@ def test_failed_write_or_corrupt_record_does_not_update_cache():
         save, writes, errors, caches = save_helper(rows, fail=fail)
         assert not save('loan', loan())
         assert errors and not writes and not caches
+
+
+def investment(name='Moneyfarm', **changes):
+    item = tracker.investment_record(dict(id='holding', kind='investments', name=name,
+                                        invested=None, current_value=None, withdrawn=0.))
+    item.update(changes)
+    return item
+
+
+def test_investment_presets_and_legacy_migration_preserve_money():
+    item = investment('Allianz / Alleanza', invested=2500.)
+    # Simulate a previously saved row with no new contribution fields.
+    item = tracker.investment_record(dict(id='legacy', kind='investments', name='Allianz / Alleanza',
+                                         invested=2500., current_value=2700., withdrawn=0.))
+    assert item['name'] == 'Alleanza Assicurazioni'
+    assert item['contribution_mode'] == 'monthly'
+    summary = tracker.investment_summary(item, TODAY)
+    assert summary['total'] == 2500. and summary['unallocated'] == 2500.
+    assert summary['personal'] == summary['company'] == 0.
+    assert summary['gain'] == 200.
+    assert tracker.decode_rows(tracker.encode_rows([item])) == [item]
+    assert tracker.investment_record(item) == item
+    cometa = investment('Cometa')
+    assert (cometa['monthly_personal'], cometa['monthly_company']) == (30., 70.)
+
+
+def test_monthly_investments_count_dates_and_separate_personal_company():
+    item = investment('Cometa', contribution_start='2026-01-31', opening_personal=300., opening_company=700.)
+    february = tracker.investment_summary(item, date(2026, 2, 27))
+    assert (february['count'], february['personal'], february['company'], february['total']) == (1, 330., 770., 1100.)
+    february = tracker.investment_summary(item, date(2026, 2, 28))
+    assert (february['count'], february['personal'], february['company'], february['total']) == (2, 360., 840., 1200.)
+    assert february['next_due'] == date(2026, 3, 31)
+    assert tracker.investment_summary(item, date(2025, 12, 31))['total'] == 1000.
+
+
+def test_monthly_investments_stop_and_manual_correction_continues():
+    item = investment(contribution_start='2026-01-05')
+    corrected = tracker.validate_record(item, TODAY, paid_today=8)
+    assert tracker.investment_summary(corrected, TODAY)['total'] == 800.
+    assert tracker.investment_summary(corrected, date(2026, 11, 5))['total'] == 900.
+    assert tracker.validate_record(corrected, TODAY)['contribution_offset'] == -2
+    stopped = investment(contribution_start='2026-01-05', contribution_end='2026-03-05')
+    summary = tracker.investment_summary(stopped, TODAY)
+    assert summary['count'] == 3 and summary['total'] == 300. and summary['next_due'] is None
+
+
+def test_annual_investments_only_count_configured_dates_not_future_deposits():
+    item = investment('Leonardo · JP Morgan', annual_contributions=[
+        dict(year=2025, date='2025-06-15', personal=1000., company=200.),
+        dict(year=2026, date='2026-06-15', personal=1500., company=300.),
+        dict(year=2027, date='2027-06-15', personal=2000., company=400.)])
+    item = tracker.validate_record(item, TODAY)
+    summary = tracker.investment_summary(item, TODAY)
+    assert (summary['personal'], summary['company'], summary['total'], summary['count']) == (2500., 500., 3000., 2)
+    assert summary['next_due'] == date(2027, 6, 15)
+    assert [row['counted'] for row in summary['schedule']] == [True, True, False]
+    assert tracker.investment_summary(item, date(2027, 6, 15))['total'] == 5400.
+    assert tracker.investment_summary(item, date(2028, 12, 31))['total'] == 5400.
+    item['annual_contributions'][0]['date'] = None
+    assert tracker.investment_summary(item, TODAY)['total'] == 1800.
+
+
+def test_updated_value_is_manual_and_historical_gain_uses_same_date():
+    item = investment(contribution_start='2026-01-01', current_value=1100., value_date='2026-10-01', withdrawn=50.)
+    summary = tracker.investment_summary(item, date(2026, 11, 1))
+    assert summary['total'] == 1100. and summary['gain'] == 150.
+    assert item['current_value'] == 1100.
+    item['value_date'] = '2026-11-01'
+    assert tracker.investment_summary(item, TODAY)['gain'] == 50.
+
+
+@pytest.mark.parametrize('changes', [
+    dict(monthly_personal=-1.), dict(monthly_company=float('inf')),
+    dict(contribution_start='2026-06-01', contribution_end='2026-05-01'),
+    dict(contribution_end='2026-05-01'), dict(contribution_mode='invalid'),
+])
+def test_invalid_investment_settings_cannot_be_saved(changes):
+    with pytest.raises(ValueError):
+        tracker.validate_record(investment(**changes), TODAY)
+
+
+@pytest.mark.parametrize('rows,redemption', [
+    ([dict(year=2025, date='2026-01-01', personal=100., company=10.)], 2028),
+    ([dict(year=2025, date=None, personal=-100., company=10.)], 2028),
+    ([dict(year=2025, date=None, personal=100., company=10.)]*2, 2028),
+    ([dict(year=2027, date=None, personal=100., company=10.)], 2026),
+])
+def test_invalid_annual_years_amounts_or_withdrawal_rejected(rows, redemption):
+    with pytest.raises(ValueError):
+        tracker.validate_record(investment('Leonardo · JP Morgan', annual_contributions=rows, redemption_year=redemption), TODAY)
+
+
+def test_investment_save_keeps_dates_splits_and_other_records():
+    records = tracker.initial_records()
+    save, writes, errors, caches = save_helper(tracker.encode_rows(records))
+    item = investment('Cometa', contribution_start='2026-01-05', current_value=1100.)
+    assert save(item['id'], item)
+    output = [dict(zip(writes[0][0], row)) for row in writes[0][1:]]
+    saved = tracker.decode_rows(output)
+    assert saved[:-1] == records
+    summary = tracker.investment_summary(saved[-1], TODAY)
+    assert (summary['personal'], summary['company'], summary['total']) == (300., 700., 1000.)
+    assert len(caches) == 1 and not errors

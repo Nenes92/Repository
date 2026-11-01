@@ -35,9 +35,9 @@ def initial_records():
     for name, interval in [("Bollo", 12), ("Assicurazione auto", 12), ("Tagliando", 12), ("Cambio gomme", 6)]:
         records.append(dict(id="auto-" + str(len(records)), kind="auto", name=name,
                             last_date=None, next_date=None, interval_months=interval, reminder_days=30, amount=None, notes=""))
-    for index, name in enumerate(["Moneyfarm", "Allianz / Alleanza", "Cometa", "Leonardo · JP Morgan"]):
-        records.append(dict(id=f"investment-{index}", kind="investments", name=name,
-                            invested=None, current_value=None, withdrawn=0., notes=""))
+    for index, name in enumerate(["Moneyfarm", "Alleanza Assicurazioni", "Cometa", "Leonardo · JP Morgan"]):
+        records.append(investment_record(dict(id=f"investment-{index}", kind="investments", name=name,
+                            invested=None, current_value=None, withdrawn=0., notes="")))
     for index, name in enumerate(["Mutuo casa", "Assicurazione vita mutuo", "Rata auto", "Finanziamento cucina"]):
         records.append(dict(id=f"instalment-{index}", kind="installments", name=name,
                             start_date=None, end_date=None, count=None, due_day=None, amount=None, paid_offset=0, notes=""))
@@ -61,7 +61,8 @@ def decode_rows(rows):
         except (KeyError, TypeError, ValueError):
             raise ValueError("Una voce del registro non è leggibile. Il registro non verrà sovrascritto.") from None
         seen.add(identifier)
-        result.append(dict(record, id=identifier, kind=kind, name=name))
+        item = dict(record, id=identifier, kind=kind, name=name)
+        result.append(investment_record(item) if kind == "investments" else item)
     return result
 
 
@@ -133,6 +134,8 @@ def validate_record(record, today, paid_today=None):
                 raise ValueError("Le rate pagate devono essere comprese tra zero e il totale delle rate.")
             item["paid_offset"] = int(paid_today) - sum(day <= today for day in schedule)
         item["paid_offset"] = int(item.get("paid_offset", 0))
+    if item["kind"] == "investments":
+        item = validate_investment(item, today, paid_today)
     return item
 
 
@@ -194,7 +197,134 @@ def deadline_status(deadline, today, notice=30):
     return f"Tra {days} giorni", "#fbbf24" if days <= notice else "#34d399"
 
 
-def holding_result(record):
+def investment_record(record):
+    """Upgrade the old register without discarding balances or guessing their split."""
+    item = deepcopy(record)
+    name = item.get("name", "").strip().casefold()
+    if name == "allianz / alleanza":
+        item["name"] = "Alleanza Assicurazioni"
+        name = item["name"].casefold()
+    preset = {"moneyfarm": ("monthly", "PAC", 100., 0.),
+              "alleanza assicurazioni": ("monthly", "PAC", 100., 0.),
+              "cometa": ("monthly", "Pensione integrativa", 30., 70.),
+              "leonardo · jp morgan": ("annual", "Azioni Leonardo", None, None)}.get(name)
+    mode, product, personal, company = preset or ("manual", "Investimento", None, None)
+    for key, value in dict(contribution_mode=mode, product=product, monthly_personal=personal,
+                           monthly_company=company, contribution_start=None, contribution_end=None,
+                           contribution_offset=0, opening_personal=0., opening_company=0.,
+                           opening_unallocated=item.get("invested") or 0., redemption_year=2028 if mode == "annual" else None,
+                           redemption_date=None, annual_contributions=[dict(year=year, date=None, personal=None, company=None)
+                               for year in (2025, 2026, 2027)] if mode == "annual" else []).items():
+        item.setdefault(key, value)
+    return item
+
+
+def monthly_contributions(record, today):
+    start, end = as_date(record.get("contribution_start")), as_date(record.get("contribution_end"))
+    if not start:
+        return dict(calendar_count=0, count=0, next_due=None)
+    if end and end < start:
+        raise ValueError("La fine dei versamenti precede il primo versamento.")
+    stop = min(today, end) if end else today
+    count = max(0, (stop.year-start.year)*12 + stop.month-start.month + 1)
+    if count and month_date(start, count-1) > stop:
+        count -= 1
+    next_due = month_date(start, count)
+    if end and next_due > end:
+        next_due = None
+    return dict(calendar_count=count, count=max(0, count+int(record.get("contribution_offset", 0))), next_due=next_due)
+
+
+def investment_summary(record, today):
+    item = investment_record(record)
+    mode = item["contribution_mode"]
+    personal, company = item["opening_personal"] or 0., item["opening_company"] or 0.
+    legacy = item["opening_unallocated"] or 0.
+    count, next_due, schedule = 0, None, []
+    if mode == "manual":
+        total = item.get("invested")
+        personal, company, legacy = 0., 0., total or 0.
+    elif mode == "monthly":
+        monthly = monthly_contributions(item, today)
+        count, next_due = monthly["count"], monthly["next_due"]
+        personal += count * (item.get("monthly_personal") or 0.)
+        company += count * (item.get("monthly_company") or 0.)
+        total = personal+company+legacy
+    else:
+        for row in sorted(item["annual_contributions"], key=lambda row: row["year"]):
+            due = as_date(row.get("date"))
+            configured = row.get("personal") is not None or row.get("company") is not None
+            counted = bool(due and due <= today and configured)
+            schedule.append(dict(row, counted=counted))
+            if counted:
+                count += 1
+                personal += row.get("personal") or 0.
+                company += row.get("company") or 0.
+            elif due and due > today and (next_due is None or due < next_due):
+                next_due = due
+        total = personal+company+legacy
+    value = item.get("current_value")
+    value_date = as_date(item.get("value_date"))
+    valuation_total = total
+    if value is not None and value_date and value_date < today:
+        valuation_total = investment_summary(dict(item, current_value=None), value_date)["total"]
+    gain = round(value+(item.get("withdrawn") or 0.)-valuation_total, 2) if value is not None and valuation_total is not None else None
+    return dict(mode=mode, personal=round(personal, 2), company=round(company, 2), unallocated=legacy,
+                total=round(total, 2) if total is not None else None, count=count, next_due=next_due,
+                schedule=schedule, gain=gain)
+
+
+def validate_investment(record, today, paid_today=None):
+    item = investment_record(record)
+    mode = item["contribution_mode"]
+    if mode not in {"manual", "monthly", "annual"}:
+        raise ValueError("Tipo di versamento non valido.")
+    item["product"] = str(item.get("product", ""))[:60]
+    for key in ("monthly_personal", "monthly_company", "opening_personal", "opening_company", "opening_unallocated"):
+        item[key] = _number(item.get(key))
+    for key in ("contribution_start", "contribution_end", "redemption_date", "value_date"):
+        value = as_date(item.get(key))
+        item[key] = value.isoformat() if value else None
+    if item.get("redemption_year") is not None:
+        year = int(item["redemption_year"])
+        if year != float(item["redemption_year"]) or not 1980 <= year <= 2100:
+            raise ValueError("Anno di ritiro non valido.")
+        item["redemption_year"] = year
+    if item.get("redemption_date"):
+        item["redemption_year"] = as_date(item["redemption_date"]).year
+    if mode == "monthly":
+        if item.get("contribution_end") and not item.get("contribution_start"):
+            raise ValueError("Inserisci anche la data del primo versamento.")
+        monthly = monthly_contributions(item, today)
+        if paid_today is not None:
+            if not item.get("contribution_start"):
+                raise ValueError("Imposta il primo versamento prima di correggere il conteggio.")
+            if float(paid_today) != int(paid_today) or not 0 <= int(paid_today) <= 1500:
+                raise ValueError("Controlla il numero dei versamenti già effettuati.")
+            item["contribution_offset"] = int(paid_today)-monthly["calendar_count"]
+    if mode == "annual":
+        rows, seen = [], set()
+        for row in item["annual_contributions"]:
+            year = int(row["year"])
+            if year != float(row["year"]) or not 1980 <= year <= 2100 or year in seen:
+                raise ValueError("Gli anni dei versamenti devono essere validi e diversi.")
+            seen.add(year)
+            due = as_date(row.get("date"))
+            if due and due.year != year:
+                raise ValueError(f"La data del versamento {year} deve appartenere allo stesso anno.")
+            if item.get("redemption_date") and due and due > as_date(item["redemption_date"]):
+                raise ValueError("Un versamento non può essere successivo al ritiro previsto.")
+            rows.append(dict(year=year, date=due.isoformat() if due else None,
+                             personal=_number(row.get("personal")), company=_number(row.get("company"))))
+        item["annual_contributions"] = sorted(rows, key=lambda row: row["year"])
+        if item.get("redemption_year") and seen and max(seen) > item["redemption_year"]:
+            raise ValueError("Il ritiro previsto precede un anno di versamento.")
+    return item
+
+
+def holding_result(record, today=None):
+    if today is not None:
+        return investment_summary(record, today)["gain"]
     invested, value = record.get("invested"), record.get("current_value")
     if invested is None or value is None:
         return None
@@ -248,9 +378,32 @@ def cards_html(records, kind, today):
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
         elif kind == "investments":
-            gain = holding_result(item)
-            content = f'<div class="tracker-note">Versato</div><div class="tracker-value">{money(item.get("invested"))}</div>'
+            item = investment_record(item)
+            summary = investment_summary(item, today)
+            gain = summary["gain"]
+            content = f'<div class="tracker-note">{escape(item["product"])} · versato</div><div class="tracker-value">{money(summary["total"])}</div>'
+            if summary["mode"] != "manual":
+                content += f'<div class="tracker-note">Tu: {money(summary["personal"])}<br>Azienda: {money(summary["company"])}</div>'
+                if summary["unallocated"]:
+                    content += f'<div class="tracker-note">Precedenti da ripartire: {money(summary["unallocated"])}</div>'
+            if summary["mode"] == "monthly":
+                monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)
+                content += f'<div class="tracker-note">Ogni mese: {money(monthly)}<br>Tu {money(item.get("monthly_personal"))} · azienda {money(item.get("monthly_company"))}<br>{summary["count"]} versamenti conteggiati</div>'
+                if item.get("contribution_start"):
+                    content += f'<div class="tracker-note">Prossimo: {date_label(summary["next_due"])}' + (f'<br>Fine versamenti: {date_label(item["contribution_end"])}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
+                else:
+                    content += '<div class="tracker-note">Imposta la data del primo versamento</div>'
+            elif summary["mode"] == "annual":
+                for row in summary["schedule"]:
+                    amount = (row.get("personal") or 0.)+(row.get("company") or 0.)
+                    label = ("conteggiato" if row["counted"] else "data da impostare" if not row.get("date")
+                             else "importo da impostare" if row.get("personal") is None and row.get("company") is None else "previsto")
+                    content += f'<div class="tracker-note">{row["year"]}: {money(amount) if row.get("personal") is not None or row.get("company") is not None else "—"} · {label}<br>Tu {money(row.get("personal"))} · azienda {money(row.get("company"))}</div>'
+                redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
+                content += f'<div class="tracker-note">Ritiro previsto: {redemption}</div>'
             content += f'<div>Valore attuale: {money(item.get("current_value"))}</div>'
+            if item.get("value_date"):
+                content += f'<div class="tracker-note">Aggiornato al {date_label(item["value_date"])}</div>'
             if gain is not None:
                 content += f'<div style="color:{"#34d399" if gain >= 0 else "#f87171"};">Risultato: {money(gain)}</div>'
             if item.get("withdrawn"):
@@ -275,6 +428,54 @@ def _date_input(label, value, key):
     return st.date_input(label, value=as_date(value), min_value=date(1980, 1, 1), max_value=date(2100, 12, 31), format="DD/MM/YYYY", key=key)
 
 
+def _investment_fields(item, old, prefix, mode, today):
+    """All money/date inputs are drafts inside the caller's save form."""
+    item["contribution_mode"] = mode
+    item["product"] = st.text_input("Tipo di piano", value=old["product"], max_chars=60)
+    paid_today = None
+    if mode == "monthly":
+        c1, c2 = st.columns(2)
+        with c1:item["monthly_personal"] = st.number_input("Quota tua mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10.)
+        with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10.)
+        item["contribution_start"] = _date_input("Primo versamento da conteggiare", old.get("contribution_start"), prefix+"contribution_start")
+        item["contribution_end"] = _date_input("Ultimo versamento, solo se interrompi il piano", old.get("contribution_end"), prefix+"contribution_end")
+        st.caption("Il versamento si ripete ogni mese nello stesso giorno; nei mesi più corti, l’ultimo giorno. Lascia vuota la fine per continuare ad accumulare.")
+        paid_today = st.number_input("Correggi versamenti già conteggiati, facoltativo", min_value=0, max_value=1500, value=None,
+            help="Lascia vuoto per il conteggio automatico. Una correzione resta valida e il conteggio continua nei mesi successivi.")
+    elif mode == "annual":
+        st.caption("I tre versamenti entrano nel totale alla data indicata. Per quelli futuri puoi già inserire gli importi previsti.")
+        rows = old.get("annual_contributions") or [dict(year=year, date=None, personal=None, company=None) for year in (2025, 2026, 2027)]
+        item["annual_contributions"] = []
+        for index, row in enumerate(rows):
+            st.markdown(f"**Versamento {index+1}**")
+            c1, c2 = st.columns(2)
+            with c1:year = st.number_input("Anno", min_value=1980, max_value=2100, value=int(row["year"]), key=prefix+f"year{index}")
+            with c2:due = _date_input("Data versamento", row.get("date"), prefix+f"annual_date{index}")
+            c1, c2 = st.columns(2)
+            with c1:personal = st.number_input("Tu · premio di produzione (€)", min_value=0., value=row.get("personal"), step=100., key=prefix+f"personal{index}")
+            with c2:company = st.number_input("Quota azienda (€)", min_value=0., value=row.get("company"), step=100., key=prefix+f"company{index}")
+            item["annual_contributions"].append(dict(year=year, date=due, personal=personal, company=company))
+        item["redemption_year"] = st.number_input("Anno del ritiro previsto", min_value=1980, max_value=2100, value=old.get("redemption_year") or 2028)
+        item["redemption_date"] = _date_input("Data del ritiro, se già nota", old.get("redemption_date"), prefix+"redemption")
+    if mode == "manual":
+        baseline = old.get("invested") if old["contribution_mode"] == "manual" else investment_summary(old, today)["total"]
+        item["invested"] = st.number_input("Totale versato (€)", min_value=0., value=baseline, step=100.)
+    else:
+        st.markdown("**Versato prima del conteggio**")
+        st.caption("Inserisci qui solo gli importi precedenti alla prima data conteggiata, per non contarli due volte.")
+        c1, c2 = st.columns(2)
+        with c1:item["opening_personal"] = st.number_input("Già versato da te (€)", min_value=0., value=float(old.get("opening_personal") or 0.), step=100.)
+        with c2:item["opening_company"] = st.number_input("Già versato dall’azienda (€)", min_value=0., value=float(old.get("opening_company") or 0.), step=100.)
+        if old.get("opening_unallocated"):
+            item["opening_unallocated"] = st.number_input("Versamenti precedenti da ripartire (€)", min_value=0., value=float(old["opening_unallocated"]), step=100.,
+                help="È il totale che avevi già salvato. Ripartiscilo fra le due quote qui sopra e azzera questo campo, oppure tienilo qui senza duplicarlo.")
+    item["current_value"] = st.number_input("Valore attuale (€), facoltativo", min_value=0., value=old.get("current_value"), step=100.)
+    if item["current_value"] != old.get("current_value"):
+        item["value_date"] = today.isoformat() if item["current_value"] is not None else None
+    item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
+    return paid_today
+
+
 @st.fragment
 def render_tracker(records, kind, save_record, saved, today):
     with st.container(key=f"personal-tracker-{kind}"):
@@ -283,20 +484,22 @@ def render_tracker(records, kind, save_record, saved, today):
         if records is None:
             st.info("Registro non disponibile. Riprova il caricamento prima di modificare i dati.")
             return
-        items = [item for item in records if item["kind"] == kind]
+        items = [investment_record(item) if kind == "investments" else item for item in records if item["kind"] == kind]
         if kind == "auto":
             upcoming = sorted((car_deadline(item), item["name"]) for item in items if car_deadline(item) is not None)
             if upcoming:
                 st.caption(f"Prima scadenza: {upcoming[0][1]} · {date_label(upcoming[0][0])}. Gli avvisi compaiono qui nell’app.")
         elif kind == "investments":
-            known = [item for item in items if item.get("invested") is not None]
-            st.caption(f"Versato complessivo: {money(sum(item['invested'] for item in known)) if known else '—'} · {len(known)} strumenti compilati")
+            summaries = [investment_summary(item, today) for item in items]
+            totals = [row["total"] for row in summaries if row["total"] is not None]
+            st.caption(f"Versato complessivo: {money(sum(totals)) if totals else '—'} · quote mensili e annuali conteggiate alle date previste")
         else:
             summaries = [instalment_summary(item, today) for item in items]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
             st.caption(f"Rate residue complessive: {money(sum(remaining)) if remaining else '—'} · conteggio automatico alle date previste")
         st.html("""<style>
           [class*="st-key-personal-tracker-"] [data-testid="stCaptionContainer"] {color:#94a3b8;}
+          [class*="st-key-personal-tracker-"] [data-testid="stWidgetLabel"] p {white-space:normal!important;font-size:11px!important;color:#cbd5e1!important;}
           .tracker-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
           .tracker-card {min-width:0;padding:12px;border:.5px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.05);font-size:12px;color:#cbd5e1;overflow-wrap:anywhere;}
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
@@ -315,6 +518,13 @@ def render_tracker(records, kind, save_record, saved, today):
             selection = st.selectbox("Voce", identifiers, format_func=lambda key: "＋ Nuova voce" if key == "__new__" else lookup[key]["name"], key=f"tracker_select_{kind}")
             old = lookup.get(selection, dict(id="", kind=kind, name="", notes=""))
             prefix = f"tracker_{kind}_{selection}"
+            if kind == "investments":
+                old = investment_record(old)
+                modes = {"monthly": "Versamenti mensili", "annual": "Tre versamenti annuali", "manual": "Totale manuale"}
+                mode = st.selectbox("Versamenti", list(modes), index=list(modes).index(old["contribution_mode"]),
+                                    format_func=modes.get, key=prefix+"mode")
+                if old["contribution_mode"] == "manual" and mode != "manual":
+                    old.update(opening_personal=0., opening_company=0., opening_unallocated=old.get("invested") or 0.)
             with st.form(prefix, border=False, enter_to_submit=False):
                 item = deepcopy(old)
                 item["name"] = st.text_input("Nome", value=old["name"], max_chars=80)
@@ -327,9 +537,7 @@ def render_tracker(records, kind, save_record, saved, today):
                     item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
                     item["amount"] = st.number_input("Importo (€)", min_value=0., value=old.get("amount"), step=10.)
                 elif kind == "investments":
-                    item["invested"] = st.number_input("Totale versato (€)", min_value=0., value=old.get("invested"), step=100.)
-                    item["current_value"] = st.number_input("Valore attuale (€), facoltativo", min_value=0., value=old.get("current_value"), step=100.)
-                    item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
+                    paid_today = _investment_fields(item, old, prefix, mode, today)
                 else:
                     item["amount"] = st.number_input("Importo della rata (€)", min_value=0., value=old.get("amount"), step=10.)
                     item["start_date"] = _date_input("Data della prima rata", old.get("start_date"), prefix+"start")
