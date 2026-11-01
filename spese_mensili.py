@@ -11039,8 +11039,8 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     st.altair_chart(confronto_chart, use_container_width=True)
                 else:
                     st.info("Nessun dato disponibile ancora.")
-        _render_mobile_salary_legend()
         _mobile_navigation.render_mobile_chart_dots("salary", ["Andamento stipendi", "Confronto stipendi tra anni"])
+        _render_mobile_salary_legend()
         _mobile_navigation.render_mobile_chart_swipe("salary", "mobile-salary-chart-pages",
             ["mobile-salary-chart-trend", "mobile-salary-chart-years"])
         _render_stipendi_kpi_cards(data_stipendi)
@@ -11268,7 +11268,8 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         else:
             st.info("Nessun dato disponibile. Aggiungi i dati nella sezione a sinistra.")
 
-    st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+    if not MOBILE_VIEW:
+        st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
 
 
 if (not MOBILE_VIEW) or mobile_section == "Bollette":
@@ -11657,4 +11658,5 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
+    if not MOBILE_VIEW:
+        st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
