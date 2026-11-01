@@ -10462,10 +10462,12 @@ def _render_730_history():
     if st.session_state.get("salary_730_year", years[default]) not in years:
         del st.session_state["salary_730_year"]
     st.html("""<style>
+      .st-key-salary-730-layout {margin-top:8px;}
       .st-key-salary-730-layout [data-testid="stHorizontalBlock"] {display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
       .st-key-salary-730-layout [data-testid="stColumn"] {width:auto!important;min-width:0!important;}
       .st-key-salary-730-card [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
-      .st-key-salary-730-card {gap:6px!important;}
+      .st-key-salary-730-card {gap:6px!important;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem .9rem!important;}
+      .salary-730-history strong {font-family:"DM Mono",monospace;font-weight:500;}
       .st-key-salary-730-card [data-testid="stSelectbox"] {font-size:12px;}
       .st-key-salary-730-card [data-testid="stMarkdownContainer"] p,
       .st-key-salary-730-card [data-baseweb="select"] * {color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}
@@ -10473,7 +10475,7 @@ def _render_730_history():
     with st.container(key="salary-730-layout"):
         card_column, _ = st.columns(2, gap="small")
         with card_column:
-            with st.container(key="salary-730-card", border=True):
+            with st.container(key="salary-730-card", border=False):
                 title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
                 with title_column:
                     st.markdown("**730**")
