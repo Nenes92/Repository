@@ -63,3 +63,19 @@ def test_live_timer_ignores_expired_leave_end_and_schedules_next_work(monkeypatc
     calls.clear()
     nav.render_mobile_live_refresh(stats, '2026-11-03T00:00:00')
     assert not calls
+
+
+def test_fixed_morning_handoff_keeps_month_after_work_and_refreshes_at_eight(monkeypatch):
+    state = {'timer': {'refresh': {'kind': 'end', 'at': 123}}}
+    query = Query(turni_month='2026-10')
+    monkeypatch.setattr(nav, 'st', SimpleNamespace(session_state=state, query_params=query))
+    nav._refresh_live_in_session('timer', '2026-10', hold_month=True)
+    assert query['turni_month'] == '2026-10'
+    state['timer']['refresh']['kind'] = 'month'
+    nav._refresh_live_in_session('timer', '2026-10', hold_month=True)
+    assert 'turni_month' not in query
+    calls = []
+    monkeypatch.setattr(nav, 'component', lambda *a, **kw: lambda **data: calls.append(data))
+    nav.render_mobile_live_refresh({'is_on_shift':False, 'live_month_key':'2026-10',
+        'month_handoff_at':'2026-11-01T08:00:00'}, '2026-11-01T06:30:00')
+    assert calls[0]['data']['deadlines'] == [{'kind':'month','at':'2026-11-01T08:00:00'}]

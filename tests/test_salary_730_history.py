@@ -59,3 +59,18 @@ def test_chart_marks_only_matching_months_and_keeps_salary_values_and_means():
     fiscal_rows = [row for values in plots[0]['datasets'].values() for row in values if 'Saldo 730' in row]
     assert len(fiscal_rows) == 1
     assert fiscal_rows[0]['Stipendio'] == 2600. and fiscal_rows[0]['Saldo 730'] == 200.
+
+
+def test_mobile_trend_displays_exactly_sixteen_months_without_recomputing_statistics():
+    env, st, plots, errors = helpers()
+    st.session_state['payroll_calibration_saved'] = {}
+    dates = pd.date_range('2025-06-01', '2026-11-01', freq='MS')
+    data = pd.DataFrame({'Mese': dates, 'Stipendio':range(2100,2100+len(dates)),
+        'Risparmi':10., 'Messi da parte Totali':100., 'Media Stipendio':2200.,
+        'Media Stipendio NO 13°/PDR':2150., 'Media Risparmi':10., 'Media Messi da parte Totali':100.})
+    before = data.copy(deep=True)
+    env['render_grafico_stipendi_desktop_style'](data, months_back=16)
+    assert not errors
+    months = {row['Mese'][:7] for rows in plots[0]['datasets'].values() for row in rows if 'Mese' in row}
+    assert len(months) == 16 and min(months) == '2025-08' and max(months) == '2026-11'
+    pd.testing.assert_frame_equal(data,before)

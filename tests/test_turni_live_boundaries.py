@@ -180,7 +180,13 @@ def test_mobile_live_month_follows_start_month_until_actual_end(start_day, overt
         assert live['rate_min'] == pytest.approx(expected_rate)
     env['_now_italy'] = lambda: end
     month = env['_turni_live_month'](frame)
-    assert month == end.strftime('%Y-%m')
+    handoff = end.replace(hour=8, minute=0)
+    assert month == (start_day[:7] if end < handoff else end.strftime('%Y-%m'))
     ended = env['compute_turni_dashboard'](frame, rules, month)
     assert not ended['is_on_shift']
-    assert ended['live_month'] == 0
+    if end < handoff:
+        assert ended['live_month'] > 0 and ended['rate_min'] == 0
+        assert ended['month_handoff_at'] == handoff.isoformat()
+    env['_now_italy'] = lambda: handoff
+    assert env['_turni_live_month'](frame) == handoff.strftime('%Y-%m')
+    assert env['compute_turni_dashboard'](frame, rules, handoff.strftime('%Y-%m'))['live_month'] == 0

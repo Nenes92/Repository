@@ -4805,14 +4805,19 @@ def _turni_work_bounds(row):
     return start, end
 
 
-def _turni_live_month(df_turni, now=None):
+def _turni_month_handoff(df_turni, now=None):
     now = _now_italy() if now is None else now
     for _, row in df_turni.iterrows():
         if row["Turno"] == "Notte":
-            start, end = _turni_work_bounds(row)
-            if start <= now < end:
-                return start.strftime("%Y-%m")
-    return now.strftime("%Y-%m")
+            start, _ = _shift_bounds(row["Data"], "Notte")
+            handoff = (start + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+            if start.strftime("%Y-%m") != now.strftime("%Y-%m") and start <= now < handoff:
+                return start.strftime("%Y-%m"), handoff.isoformat()
+    return now.strftime("%Y-%m"), ""
+
+
+def _turni_live_month(df_turni, now=None):
+    return _turni_month_handoff(df_turni, now)[0]
 
 
 def _turni_current_prev_months():
@@ -4980,6 +4985,7 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
     return {
         # Competenza del turno intero: anche dopo mezzanotte resta nel mese di inizio.
         "live_month_key": current_m,
+        "month_handoff_at": _turni_month_handoff(df_turni, now)[1] if MOBILE_VIEW else "",
         "live_month_accrues": current_shift_start_date[:7] == current_m,
         "live_month": live_month,
         "payslip_estimate": payslip_estimate,
@@ -10473,7 +10479,7 @@ def _render_730_history():
         + months + '</div>', unsafe_allow_html=True)
 
 
-def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3):
+def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3, months_back=None):
     if data_stipendi is None or data_stipendi.empty:
         st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
         return
@@ -10482,7 +10488,8 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
         chart_data["Mese"] = pd.to_datetime(chart_data["Mese"], errors="coerce")
         chart_data = chart_data.dropna(subset=["Mese"])
         current_month_start = pd.Timestamp(_now_italy().date()).to_period("M").to_timestamp()
-        chart_start = current_month_start - pd.DateOffset(years=years_back)
+        chart_start = (current_month_start - pd.DateOffset(months=max(1, int(months_back)) - 1)
+                       if months_back else current_month_start - pd.DateOffset(years=years_back))
         chart_data = chart_data[(chart_data["Mese"] >= chart_start) & (chart_data["Mese"] <= current_month_start)]
         if chart_data.empty:
             st.info("Nessun dato disponibile nel periodo selezionato.")
@@ -11014,7 +11021,29 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
 
     if MOBILE_VIEW:
         st.markdown("---")
-        render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=1)
+        st.html("""<style>
+          .salary-chart-pager {display:flex;gap:8px;margin:0 0 8px;}
+          .salary-chart-pager button {flex:1;padding:9px 8px;border:1px solid rgba(148,163,184,.25);border-radius:10px;background:rgba(148,163,184,.06);color:#94a3b8;font:inherit;font-size:12px;cursor:pointer;}
+          .salary-chart-pager button[aria-selected="true"] {border-color:rgba(96,165,250,.65);background:rgba(59,130,246,.12);color:#bfdbfe;}
+          .st-key-mobile-salary-chart-pages {flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:16px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}
+          .st-key-mobile-salary-chart-pages::-webkit-scrollbar {display:none;}
+          .st-key-mobile-salary-chart-pages > [data-testid="stLayoutWrapper"] {flex:0 0 100%!important;min-width:100%!important;max-width:100%!important;scroll-snap-align:start;}
+          .st-key-mobile-salary-chart-pages canvas {touch-action:pan-y pinch-zoom!important;}
+        </style><div class="salary-chart-pager" role="tablist" aria-label="Grafici stipendi">
+          <button type="button" role="tab" aria-selected="true" data-salary-page="0">Andamento · 16 mesi</button>
+          <button type="button" role="tab" aria-selected="false" data-salary-page="1">Confronto anni ↔</button>
+        </div>""")
+        with st.container(key="mobile-salary-chart-pages", horizontal=True, gap=None):
+            with st.container(key="mobile-salary-chart-trend"):
+                render_grafico_stipendi_desktop_style(data_stipendi, height=430, months_back=16)
+            with st.container(key="mobile-salary-chart-years"):
+                if not data_stipendi.empty:
+                    confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(
+                        title="Confronto stipendi tra anni", height=430)
+                    st.altair_chart(confronto_chart, use_container_width=True)
+                else:
+                    st.info("Nessun dato disponibile ancora.")
+        _mobile_navigation.render_mobile_salary_swipe()
         _render_stipendi_kpi_cards(data_stipendi)
         _render_730_history()
 
@@ -11239,15 +11268,6 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                 st.error(f"Errore nel grafico: {e}")
         else:
             st.info("Nessun dato disponibile. Aggiungi i dati nella sezione a sinistra.")
-
-    if MOBILE_VIEW:
-        st.markdown("---")
-        st.markdown("### Confronto Anno su Anno degli Stipendi")
-        if not data_stipendi.empty:
-            confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(height=320)
-            st.altair_chart(confronto_chart, use_container_width=True)
-        else:
-            st.info("Nessun dato disponibile ancora.")
 
     st.markdown('<hr style="width: 100%; height:1px;border-width:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);">', unsafe_allow_html=True)
 
