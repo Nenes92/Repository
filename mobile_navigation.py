@@ -126,6 +126,11 @@ export default function({data}) {
       button.setAttribute('aria-selected', String(i === index));
       button.tabIndex = i === index ? 0 : -1;
     });
+    const updateHeight = () => {
+      if (!data.autoHeight) return;
+      const height = Math.ceil(pages[index].getBoundingClientRect().height) + 4;
+      if (Math.abs(track.getBoundingClientRect().height-height)>1) track.style.height = height+'px';
+    };
     const hideTooltip = () => document.querySelectorAll('.vg-tooltip.visible').forEach(tip => tip.classList.remove('visible'));
     function go(next, smooth=true) {
       hideTooltip();
@@ -133,6 +138,7 @@ export default function({data}) {
       track.dataset.chartPage = String(index);
       track.scrollTo({left: index * track.clientWidth, behavior: smooth ? 'smooth' : 'instant'});
       label();
+      if (!smooth) updateHeight();
     }
     const click = event => go(Number(event.currentTarget.dataset.chartPage));
     const key = event => {
@@ -158,7 +164,7 @@ export default function({data}) {
     const touchEnd = event => { if (event.changedTouches[0]) end(event.changedTouches[0], event); };
     const pointerDown = event => { if (event.pointerType !== 'touch') start(event); };
     const pointerUp = event => { if (event.pointerType !== 'touch') end(event, event); };
-    const scroll = () => { hideTooltip(); index = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); track.dataset.chartPage = String(index); label(); };
+    const scroll = () => { hideTooltip(); index = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); track.dataset.chartPage = String(index); label(); updateHeight(); };
     buttons.forEach(button => { button.addEventListener('click',click); button.addEventListener('keydown',key); });
     track.addEventListener('touchstart',touchStart,{passive:true});
     track.addEventListener('touchmove',touchMove,{passive:false});
@@ -166,7 +172,14 @@ export default function({data}) {
     track.addEventListener('pointerdown',pointerDown);
     track.addEventListener('pointerup',pointerUp);
     track.addEventListener('scroll',scroll,{passive:true});
-    const resize = new ResizeObserver(() => go(index,false)); resize.observe(track);
+    let previousWidth = track.clientWidth;
+    const resize = new ResizeObserver(() => {
+      const width = track.clientWidth;
+      if (width !== previousWidth) { previousWidth = width; go(index,false); }
+      else updateHeight();
+    });
+    resize.observe(track);
+    if (data.autoHeight) pages.forEach(page => resize.observe(page));
     go(index,false);
     dispose = () => {
       resize.disconnect();
@@ -183,7 +196,7 @@ export default function({data}) {
 """
 
 
-def render_mobile_chart_styles(track_key):
+def render_mobile_chart_styles(track_key, auto_height=False):
     st.html(f"""<style>
       .st-key-{track_key} {{flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}}
       .st-key-{track_key}::-webkit-scrollbar {{display:none;}}
@@ -195,19 +208,30 @@ def render_mobile_chart_styles(track_key):
       .mobile-chart-dots button span {{width:7px;height:7px;border-radius:50%;background:#64748b;display:block;}}
       .mobile-chart-dots button[aria-selected="true"] span {{background:#60a5fa;}}
       .mobile-chart-dots button:focus-visible {{outline:1px solid #60a5fa;}}
+      .mobile-chart-dashes {{gap:6px;}}
+      .mobile-chart-dashes button {{width:30px;padding:4px;border-radius:5px;}}
+      .mobile-chart-dashes button span {{width:18px;height:3px;border-radius:2px;}}
     </style>""")
+    if auto_height:
+        st.html(f"""<style>
+          .st-key-{track_key} {{align-items:flex-start!important;flex:0 0 auto!important;min-height:0!important;}}
+          .st-key-{track_key} > [data-testid="stLayoutWrapper"] {{align-self:flex-start;}}
+          .st-key-{track_key} [data-testid="stMarkdownContainer"]:has(> div) {{margin-bottom:0!important;}}
+        </style>""")
 
 
-def render_mobile_chart_dots(carousel_id, labels):
+def render_mobile_chart_dots(carousel_id, labels, indicator="dots"):
     from html import escape
     dots = ''.join(
         f'<button type="button" role="tab" aria-label="{escape(label, quote=True)}" aria-selected="{str(i == 0).lower()}" data-chart-page="{i}"><span aria-hidden="true"></span></button>'
         for i, label in enumerate(labels))
-    st.html(f'<div class="mobile-chart-dots" role="tablist" aria-label="Pagine del grafico" data-chart-carousel="{escape(carousel_id, quote=True)}">{dots}</div>')
+    classes = "mobile-chart-dots mobile-chart-dashes" if indicator == "dashes" else "mobile-chart-dots"
+    aria_label = "Pagine del riepilogo" if indicator == "dashes" else "Pagine del grafico"
+    st.html(f'<div class="{classes}" role="tablist" aria-label="{aria_label}" data-chart-carousel="{escape(carousel_id, quote=True)}">{dots}</div>')
 
 
-def render_mobile_chart_swipe(carousel_id, track_key, page_keys):
+def render_mobile_chart_swipe(carousel_id, track_key, page_keys, auto_height=False):
     version = sha256(CHART_SWIPE_JS.encode()).hexdigest()[:12]
     renderer = component(f'mobile_chart_swipe_{version}', js=CHART_SWIPE_JS)
     renderer(key=f'mobile_chart_swipe::{carousel_id}::{version}', height=0,
-             data={'id': carousel_id, 'track': track_key, 'pages': page_keys})
+             data={'id': carousel_id, 'track': track_key, 'pages': page_keys, 'autoHeight': auto_height})

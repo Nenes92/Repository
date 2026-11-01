@@ -11303,8 +11303,16 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         _render_mobile_salary_legend()
         _mobile_navigation.render_mobile_chart_swipe("salary", "mobile-salary-chart-pages",
             ["mobile-salary-chart-trend", "mobile-salary-chart-years"])
-        _render_stipendi_kpi_cards(data_stipendi)
-        _render_730_history()
+        _mobile_navigation.render_mobile_chart_styles("mobile-salary-data-pages", auto_height=True)
+        with st.container(key="mobile-salary-data-pages", horizontal=True, gap=None):
+            salary_stats_page = st.container(key="mobile-salary-data-summary")
+            salary_history_page = st.container(key="mobile-salary-data-history")
+        with salary_stats_page:
+            _render_stipendi_kpi_cards(data_stipendi)
+            _render_730_history()
+        _mobile_navigation.render_mobile_chart_dots("salary-data", ["Riepilogo stipendi", "Dati storici stipendi"], indicator="dashes")
+        _mobile_navigation.render_mobile_chart_swipe("salary-data", "mobile-salary-data-pages",
+            ["mobile-salary-data-summary", "mobile-salary-data-history"], auto_height=True)
 
     if not MOBILE_VIEW:
         with col_dx_stip_chart:
@@ -11315,13 +11323,15 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
             else:
                 st.info("Nessun dato disponibile ancora.")
 
-    st.markdown("---")
-    st.subheader("Dati Storici Stipendi/Risparmi")
-
     if MOBILE_VIEW:
-        col_table = st.container()
-        col_chart = st.container()
+        with salary_history_page:
+            st.markdown("---")
+            st.subheader("Dati Storici Stipendi/Risparmi")
+            col_table = st.container()
+            col_chart = st.container()
     else:
+        st.markdown("---")
+        st.subheader("Dati Storici Stipendi/Risparmi")
         col_table, col_chart = st.columns(LAYOUT_COLONNE["storico_tabella_grafico"])
 
     with col_table:
@@ -11805,6 +11815,14 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
             _mobile_navigation.render_mobile_chart_dots("bills", ["Andamento bollette", "Confronto bollette tra anni"])
             _mobile_navigation.render_mobile_chart_swipe("bills", "mobile-bills-chart-pages",
                 ["mobile-bills-chart-trend", "mobile-bills-chart-years"])
+        else:
+            st.info("Nessun dato disponibile ancora.")
+
+        _mobile_navigation.render_mobile_chart_styles("mobile-bills-data-pages", auto_height=True)
+        with st.container(key="mobile-bills-data-pages", horizontal=True, gap=None):
+            bills_stats_page = st.container(key="mobile-bills-data-summary")
+            bills_history_page = st.container(key="mobile-bills-data-history")
+        with bills_stats_page:
             st.markdown(f"""
             <div class="mobile-bills-summary" style="display:grid;grid-template-columns:minmax(0,1fr) max-content;column-gap:18px;row-gap:4px;align-items:start;margin-top:8px;line-height:1.55;">
                 <div style="min-width:0;"><b>Media mensile bollette:</b> <span style="color:#FFA500;">{media_annua:,.2f} €</span></div>
@@ -11813,44 +11831,48 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 <div style="white-space:nowrap;"><b>Budget mensile:</b> <span style="color:#a8b0bd;">{budget_bollette_attuale:,.2f} €</span> / <b>stimato:</b> <span style="color:#84B6F4;">{budget_bollette_stimato:,.2f} €</span></div>
             </div>
             """, unsafe_allow_html=True)
-        else:
-            st.info("Nessun dato disponibile ancora.")
+            st.markdown(
+                '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
+                unsafe_allow_html=True
+            )
+            st.markdown(f"""
+            <div class="mobile-bollette-kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Elettricità</div>
+                    <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Gas</div>
+                    <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Acqua</div>
+                    <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Tari</div>
+                    <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Somma Internet</div>
+                    <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown(
-            '<div style="height:18px;margin:12px 0 16px;border-top:1px solid rgba(255,255,255,.08);"></div>',
-            unsafe_allow_html=True
-        )
-        st.markdown(f"""
-        <div class="mobile-bollette-kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Elettricità</div>
-                <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Gas</div>
-                <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Acqua</div>
-                <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Tari</div>
-                <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Somma Internet</div>
-                <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        _mobile_navigation.render_mobile_chart_dots("bills-data", ["Riepilogo bollette", "Dati storici bollette"], indicator="dashes")
+        _mobile_navigation.render_mobile_chart_swipe("bills-data", "mobile-bills-data-pages",
+            ["mobile-bills-data-summary", "mobile-bills-data-history"], auto_height=True)
 
-    st.markdown("---")
-    st.subheader("Dati Storici Bollette")
     if MOBILE_VIEW:
-        col_bol_table = st.container()
-        col_bol_chart = st.container()
+        with bills_history_page:
+            st.markdown("---")
+            st.subheader("Dati Storici Bollette")
+            col_bol_table = st.container()
+            col_bol_chart = st.container()
     else:
+        st.markdown("---")
+        st.subheader("Dati Storici Bollette")
         col_bol_table, col_bol_chart = st.columns(LAYOUT_COLONNE["bollette_tabella_grafico"])
     with col_bol_table:
         df_bol = data_bollette.copy()
