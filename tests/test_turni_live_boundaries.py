@@ -3,6 +3,7 @@ import ast
 import calendar
 import html
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,7 +11,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from payroll_engine import estimate_live_net_accrual, estimate_payslip
+from payroll_engine import estimate_live_net_accrual, estimate_payslip, thirteenth_month_net
 
 
 def app_at(now):
@@ -27,8 +28,8 @@ def app_at(now):
             node.decorator_list = []
             nodes.append(node)
     env = dict(pd=pd, datetime=datetime, timedelta=timedelta, calendar=calendar,
-               html=html, json=json, MOBILE_VIEW=True,
-               estimate_live_net_accrual=estimate_live_net_accrual,
+               html=html, json=json, re=re, MOBILE_VIEW=True,
+               estimate_live_net_accrual=estimate_live_net_accrual, thirteenth_month_net=thirteenth_month_net,
                st=SimpleNamespace(session_state={}))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), env)
     env["_now_italy"] = lambda: now
@@ -265,3 +266,33 @@ def test_invalid_pdf_net_is_not_used_as_monthly_reference():
         env['st'].session_state['payroll_calibration_saved'] = {'drive': {'salaries': {'2026-10': invalid}}}
         assert env['_payroll_month_reference']('2026-10', 2400.) == {'net': 2400., 'actual': False}
     assert env['_payroll_month_progress'](5., 0., 2400.) == {'live': 0., 'target': 2400., 'scale': 0.}
+
+
+def test_payslip_card_shows_paid_annual_and_730_extras_only_in_the_matching_month():
+    env = app_at(datetime(2026, 11, 1, 2))
+    snapshot = {'drive': {'salaries': {'2025-12': 4300.},
+        'details': {'2025-12': [{'description': 'Tredicesima mensilità', 'amount': 2300.}],
+                    '2024-12': [{'description': 'Tredicesima mensilità', 'amount': 2100.}]},
+        'tax_details': {'2025-12': [{'amount': 400.}, {'amount': -100.}],
+                       '2026-09': [{'amount': 200.}]}},
+        'result': {'rows': [{'month': '2025-12', 'included': True, 'thirteenth_net': 1600.}]}}
+    rules = dict(env['DEFAULT_TURNI_RULES'], tredicesima_automatica=1., tredicesima_coeff_netto=.75)
+    env['st'].session_state.update(payroll_calibration_saved=snapshot, turni_rules=rules)
+    assert env['_payroll_month_extras'](snapshot, '2025-12') == {
+        'refund': 400., 'withheld': 100., 'thirteenth_gross': 2300.}
+    assert env['_payroll_month_extras'](snapshot, '2026-10') == {
+        'refund': 0., 'withheld': 0., 'thirteenth_gross': None}
+    rendered = []
+    env['st'].markdown = lambda content, **kw: rendered.append(content)
+    estimate = estimate_payslip('2025-12', {}, rules)
+    env['render_payroll_v2_details'](estimate)
+    text = rendered[-1]
+    assert '4.300,00' in text and 'Netto cedolino effettivo' in text
+    assert text.count('Tredicesima:') == 1
+    assert '2.300,00' in text and 'lorde da cedolino' in text
+    assert '1.600,00' in text and 'nette stimate' in text
+    assert 'Rimborso 730: +€400,00' in text and 'Trattenuta 730: −€100,00' in text
+    residual = 4300. - estimate.credited_net - 300. - (1600. - estimate.thirteenth_net)
+    assert 'Scarto: ' in text and env['_signed_money_turni'](residual) in text
+    assert estimate.credited_net + 300. + (1600. - estimate.thirteenth_net) + residual == pytest.approx(4300.)
+    assert env['_payroll_month_reference']('2025-12', estimate.credited_net) == {'net': 4300., 'actual': True}

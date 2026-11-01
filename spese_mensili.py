@@ -6184,6 +6184,90 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         _mobile_navigation.render_mobile_live_refresh(stats, _now_italy().isoformat())
 
 
+def _payroll_730_history(snapshot):
+    """Actual PDF cash flows, including months with a manual 730 override."""
+    drive = (snapshot or {}).get("drive", {})
+    details = drive.get("tax_details", {})
+    balances = drive.get("tax_adjustments", {})
+    rows = []
+    for month in sorted(set(details) | set(balances)):
+        amounts = [float(item["amount"]) for item in details.get(month, [])]
+        if not amounts:
+            amounts = [float(balances.get(month, 0.))]
+        if not any(amounts):
+            continue
+        rows.append({"Mese": month, "Anno": int(month[:4]),
+                     "Rimborsi": sum(max(0., amount) for amount in amounts),
+                     "Trattenute": -sum(min(0., amount) for amount in amounts),
+                     "Saldo 730": sum(amounts)})
+    return rows
+
+
+def _payroll_thirteenth_history(snapshot):
+    """Only explicit paid PDF rows are actual amounts; item amounts are gross."""
+    drive = (snapshot or {}).get("drive", {})
+    history = {}
+    for month, items in drive.get("details", {}).items():
+        if not re.fullmatch(r"20\d{2}-[01]\d", str(month)):
+            continue
+        for item in items:
+            description = str(item.get("description", ""))
+            if not re.search(r"tredicesima|13[ªa°^.]?\s*(?:mens|ma)", description, re.I):
+                continue
+            if re.search(r"rate[oi]|accanton|figurativ", description, re.I):
+                continue
+            amount = float(item.get("amount", 0.))
+            if not amount:
+                continue
+            year = int(month[:4])
+            row = history.setdefault(year, {"gross": 0., "months": set()})
+            row["gross"] += amount
+            row["months"].add(month)
+    return history
+
+
+def _thirteenth_card_amounts(year, snapshot, rules):
+    """Display-only estimates: use annual calibration, never marginal variable tax."""
+    history = _payroll_thirteenth_history(snapshot)
+    current_year = _now_italy().year
+    forecast_net = thirteenth_month_net(f"{current_year}-12", rules)
+    ratio = None
+    rows = (snapshot or {}).get("result", {}).get("rows", [])
+    for row in sorted(rows, key=lambda item: str(item.get("month", "")), reverse=True):
+        month = str(row.get("month", ""))
+        if not month.endswith("-12") or not row.get("included", False):
+            continue
+        reference = history.get(int(month[:4]))
+        net = float(row.get("thirteenth_net", 0.))
+        if reference and 0 < net <= reference["gross"]:
+            ratio = net / reference["gross"]
+            break
+    if ratio is None and history and forecast_net > 0:
+        # Provisional bridge for old snapshots without annual calibration rows.
+        latest = history[max(history)]["gross"]
+        if forecast_net <= latest:
+            ratio = forecast_net / latest
+    actual = history.get(year)
+    if actual is not None:
+        gross = actual["gross"]
+        return {"gross": gross, "net": gross * ratio if ratio else None, "actual": True}
+    if year == current_year and forecast_net > 0:
+        return {"gross": forecast_net / ratio if ratio else None,
+                "net": forecast_net, "actual": False}
+    return {"gross": None, "net": None, "actual": False}
+
+
+def _payroll_month_extras(snapshot, month_key):
+    """Read paid extras for this exact payslip month; never add them to its net."""
+    tax = next((row for row in _payroll_730_history(snapshot) if row["Mese"] == month_key), {})
+    details = (snapshot or {}).get("drive", {}).get("details", {}).get(month_key, [])
+    annual = _payroll_thirteenth_history({"drive": {"details": {month_key: details}}})
+    thirteenth = annual.get(int(month_key[:4]), {}).get("gross")
+    return {"refund": float(tax.get("Rimborsi", 0.)),
+            "withheld": float(tax.get("Trattenute", 0.)),
+            "thirteenth_gross": thirteenth}
+
+
 def render_payroll_v2_details(estimate, adjustment_description=""):
     reference = _payroll_month_reference(estimate.month, estimate.credited_net) if MOBILE_VIEW else {"net": estimate.credited_net, "actual": False}
     net_label = "Netto cedolino effettivo" if reference["actual"] else "Netto cedolino stimato"
@@ -6264,14 +6348,42 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                 f'<br><span style="color:#fde68a;">Festività: +{html.escape(_money_turni(estimate.holiday_net))} nette stimate'
                 f' ({html.escape(_money_turni(estimate.holiday_gross))} lorde · {html.escape(holiday_names)})</span>'
             )
-        if estimate.month.endswith("-12"):
+        snapshot = st.session_state.get("payroll_calibration_saved", {})
+        extras = _payroll_month_extras(snapshot, estimate.month)
+        displayed_thirteenth_net = float(estimate.thirteenth_net)
+        if extras["thirteenth_gross"] is not None:
+            annual = _thirteenth_card_amounts(int(estimate.month[:4]), snapshot,
+                st.session_state.get("turni_rules", {}))
+            annual_gross = _payroll_thirteenth_history(snapshot)[int(estimate.month[:4])]["gross"]
+            annual_net = annual["net"]
+            net_amount = annual_net * extras["thirteenth_gross"] / annual_gross if annual_net is not None and annual_gross > 0 else None
+            if net_amount is None and estimate.month.endswith("-12") and estimate.thirteenth_net > 0:
+                net_amount = estimate.thirteenth_net
+            if net_amount is not None:
+                displayed_thirteenth_net = float(net_amount)
+            net_detail = f' · {html.escape(_money_turni(net_amount))} nette stimate' if net_amount is not None else ''
+            net_caption += (
+                f'<br><span style="color:#c4b5fd;">Tredicesima: {html.escape(_money_turni(extras["thirteenth_gross"]))}'
+                f' lorde da cedolino{net_detail}</span>'
+            )
+        elif estimate.month.endswith("-12"):
             annual_source = "stimata" if estimate.thirteenth_samples else "provvisoria · una quota fissa mensile"
             net_caption += (
                 f'<br><span style="color:#c4b5fd;">Tredicesima: +{html.escape(_money_turni(estimate.thirteenth_net))}'
                 f' nette ({annual_source})</span>'
             )
+        for label, amount, color in (
+            ("Rimborso 730", extras["refund"], "#34d399"),
+            ("Trattenuta 730", -extras["withheld"], "#f87171"),
+        ):
+            if amount:
+                net_caption += f'<br><span style="color:{color};">{label}: {html.escape(_signed_money_turni(amount))}</span>'
         if reference["actual"]:
-            delta = reference["net"] - float(estimate.credited_net)
+            # The residual balances the displayed components, including paid 730
+            # and the displayed annual estimate; the credited net never changes.
+            explicit_net = extras["refund"] - extras["withheld"]
+            explicit_net += displayed_thirteenth_net - float(estimate.thirteenth_net)
+            delta = reference["net"] - float(estimate.credited_net) - explicit_net
             delta_color = "#34d399" if delta >= 0 else "#f87171"
             net_caption += (
                 f'<br>Scarto: <span style="color:{delta_color};">{html.escape(_signed_money_turni(delta))}</span>'
@@ -10457,25 +10569,6 @@ def crea_grafico_stipendi(data):
     return final_chart
 
 
-def _payroll_730_history(snapshot):
-    """Actual PDF cash flows, including months with a manual 730 override."""
-    drive = (snapshot or {}).get("drive", {})
-    details = drive.get("tax_details", {})
-    balances = drive.get("tax_adjustments", {})
-    rows = []
-    for month in sorted(set(details) | set(balances)):
-        amounts = [float(item["amount"]) for item in details.get(month, [])]
-        if not amounts:
-            amounts = [float(balances.get(month, 0.))]
-        if not any(amounts):
-            continue
-        rows.append({"Mese": month, "Anno": int(month[:4]),
-                     "Rimborsi": sum(max(0., amount) for amount in amounts),
-                     "Trattenute": -sum(min(0., amount) for amount in amounts),
-                     "Saldo 730": sum(amounts)})
-    return rows
-
-
 def _saved_730_history():
     # Rules restore the persisted calibration too. No Drive/PDF access here.
     if "payroll_calibration_saved" not in st.session_state:
@@ -10495,60 +10588,6 @@ def _salary_730_markers(chart_data, history):
         rows.append({**row, "Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
                      "Etichetta": "730 " + _signed_money_turni(row["Saldo 730"])})
     return pd.DataFrame(rows)
-
-
-def _payroll_thirteenth_history(snapshot):
-    """Only explicit paid PDF rows are actual amounts; item amounts are gross."""
-    drive = (snapshot or {}).get("drive", {})
-    history = {}
-    for month, items in drive.get("details", {}).items():
-        if not re.fullmatch(r"20\d{2}-[01]\d", str(month)):
-            continue
-        for item in items:
-            description = str(item.get("description", ""))
-            if not re.search(r"tredicesima|13[ªa°^.]?\s*(?:mens|ma)", description, re.I):
-                continue
-            if re.search(r"rate[oi]|accanton|figurativ", description, re.I):
-                continue
-            amount = float(item.get("amount", 0.))
-            if not amount:
-                continue
-            year = int(month[:4])
-            row = history.setdefault(year, {"gross": 0., "months": set()})
-            row["gross"] += amount
-            row["months"].add(month)
-    return history
-
-
-def _thirteenth_card_amounts(year, snapshot, rules):
-    """Display-only estimates: use annual calibration, never marginal variable tax."""
-    history = _payroll_thirteenth_history(snapshot)
-    current_year = _now_italy().year
-    forecast_net = thirteenth_month_net(f"{current_year}-12", rules)
-    ratio = None
-    rows = (snapshot or {}).get("result", {}).get("rows", [])
-    for row in sorted(rows, key=lambda item: str(item.get("month", "")), reverse=True):
-        month = str(row.get("month", ""))
-        if not month.endswith("-12") or not row.get("included", False):
-            continue
-        reference = history.get(int(month[:4]))
-        net = float(row.get("thirteenth_net", 0.))
-        if reference and 0 < net <= reference["gross"]:
-            ratio = net / reference["gross"]
-            break
-    if ratio is None and history and forecast_net > 0:
-        # Provisional bridge for old snapshots without annual calibration rows.
-        latest = history[max(history)]["gross"]
-        if forecast_net <= latest:
-            ratio = forecast_net / latest
-    actual = history.get(year)
-    if actual is not None:
-        gross = actual["gross"]
-        return {"gross": gross, "net": gross * ratio if ratio else None, "actual": True}
-    if year == current_year and forecast_net > 0:
-        return {"gross": forecast_net / ratio if ratio else None,
-                "net": forecast_net, "actual": False}
-    return {"gross": None, "net": None, "actual": False}
 
 
 def _render_thirteenth_history(snapshot):
