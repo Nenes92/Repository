@@ -38,7 +38,7 @@ from payroll_engine import (
     thirteenth_rules_from_snapshot,
 )
 import payslip_drive as _payslip_drive
-if "tax_items" not in _payslip_drive.Payslip.__dataclass_fields__:
+if not {"tax_items", "pension_items"}.issubset(_payslip_drive.Payslip.__dataclass_fields__):
     importlib.reload(_payslip_drive)
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
@@ -110,7 +110,7 @@ def _get_payslip_drive_session(principal, _credentials_info):
 
 
 @st.cache_data(ttl=86400, max_entries=256, show_spinner=False)
-def _read_drive_payslip(principal, file_id, name, revision, _session, parser_version=2):
+def _read_drive_payslip(principal, file_id, name, revision, _session, parser_version=3):
     return download_payslip(_session, file_id, name)
 
 
@@ -122,7 +122,7 @@ def _load_drive_payslips(principal, folder_id, _credentials_info):
         result = collect_payslips(
             files, lambda item: _read_drive_payslip(
                 principal, item["id"], item["name"],
-                "items-730-v2:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
+                "items-730-cometa-v3:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
         result["checked_at"] = _now_italy().strftime("%d/%m/%Y %H:%M")
         result["error"] = ""
         return result
@@ -4268,7 +4268,11 @@ def _payroll_month_progress(accrued, total, target):
 def _load_personal_tracker_records():
     frame = load_data_gsheets(_personal_trackers.SHEET, _personal_trackers.HEADERS)
     try:
-        return _personal_trackers.decode_rows(frame.to_dict(orient="records"))
+        records = _personal_trackers.decode_rows(frame.to_dict(orient="records"))
+        if "payroll_calibration_saved" not in st.session_state:
+            get_turni_rules()
+        history = (st.session_state.get("payroll_calibration_saved") or {}).get("drive", {}).get("pension_details", {})
+        return _personal_trackers.apply_pension_history(records, history, _now_italy().date())
     except ValueError as exc:
         st.error(str(exc))
         return None
@@ -10742,6 +10746,7 @@ def _salary_extra_markers(chart_data, history):
             continue
         salary = match.iloc[0]
         markers.append({**row, "Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
+                        "Speso": row["Importo"]-row["Quota Leonardo"] if row.get("Residuo speso") and row.get("Quota Leonardo") is not None else None,
                         "Voce": _salary_extras.TYPES[row["Tipo"]],
                         "Prefisso": "Premio produzione:" if row["Tipo"] == "production" else "Welfare:",
                         "Segno": "+", "Importo etichetta": _money_turni(row["Importo"])})
@@ -10763,6 +10768,8 @@ def _salary_extra_chart_layers(chart_data, x_axis):
                 color=alt.value(color), tooltip=[alt.Tooltip("Voce:N", title="Voce"),
                     alt.Tooltip("Importo:Q", title="Importo dichiarato (€)", format=",.2f"),
                     alt.Tooltip("Tipo importo:N", title="Tipo di importo"), alt.Tooltip("Stato:N", title="Stato"),
+                    alt.Tooltip("Quota Leonardo:Q", title="Investito in Leonardo (€)", format=",.2f"),
+                    alt.Tooltip("Speso:Q", title="Residuo speso (€)", format=",.2f"),
                     alt.Tooltip("Note:N", title="Nota"),
                     alt.Tooltip("Stipendio:Q", title="Stipendio registrato, invariato (€)", format=",.2f")]),
             *_salary_marker_label_layers(extra_base, alt.value(color), -46),

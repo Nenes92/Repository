@@ -86,6 +86,35 @@ def parse_payslip_tax_items(text: str) -> tuple[PayslipTaxItem, ...]:
 
 
 @dataclass(frozen=True)
+class PayslipPensionItem:
+    code: str
+    description: str
+    competence_month: str
+    side: str
+    amount: Decimal
+
+
+def parse_payslip_pension_items(text: str) -> tuple[PayslipPensionItem, ...]:
+    """Read only explicit monthly COMETA rows; never annual totals or TFR."""
+    pattern = re.compile(r"\b(V_70004|V_70006)\s+(.+?)\s+(?:\d{2}/)?(0[1-9]|1[0-2])/(20\d{2})\s+("+MONEY+r")\s*$", re.I)
+    rows = []
+    for line in text.splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        code, description, month, year, amount = match.groups()
+        if code.upper() == "V_70004" and not re.search(r"C/Dip\.?\s*:\s*COMETA\b", description, re.I):
+            continue
+        if code.upper() == "V_70006" and not re.search(r"C/Azienda", description, re.I):
+            continue
+        rows.append(PayslipPensionItem(code.upper(), " ".join(description.split()), f"{year}-{month}",
+            "personal" if code.upper() == "V_70004" else "company", Decimal(amount.replace(".", "").replace(",", "."))))
+    # The company row omits the fund name: only pair it with an explicit COMETA row.
+    months = {row.competence_month for row in rows if row.side == "personal"}
+    return tuple(dict.fromkeys(row for row in rows if row.competence_month in months))
+
+
+@dataclass(frozen=True)
 class Payslip:
     month: str
     net: Decimal
@@ -94,6 +123,7 @@ class Payslip:
     name: str = ""
     items: tuple[PayslipItem, ...] = ()
     tax_items: tuple[PayslipTaxItem, ...] = ()
+    pension_items: tuple[PayslipPensionItem, ...] = ()
 
 
 def parse_payslip_text(text: str, name: str) -> Payslip:
@@ -136,7 +166,7 @@ def parse_payslip_text(text: str, name: str) -> Payslip:
     net = nets.pop()
     if net <= 0:
         raise ValueError("Netto a pagare non positivo")
-    return Payslip(month, net, positions.pop(), name=name, tax_items=parse_payslip_tax_items(text))
+    return Payslip(month, net, positions.pop(), name=name, tax_items=parse_payslip_tax_items(text), pension_items=parse_payslip_pension_items(text))
 
 
 def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
@@ -160,7 +190,8 @@ def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
     try:
         layout = "\n".join(page.extract_text(extraction_mode="layout") or "" for page in reader.pages)
         return replace(slip, items=parse_payslip_items(layout),
-                       tax_items=parse_payslip_tax_items(layout) or slip.tax_items)
+                       tax_items=parse_payslip_tax_items(layout) or slip.tax_items,
+                       pension_items=parse_payslip_pension_items(layout) or slip.pension_items)
     except Exception:
         return slip
 
@@ -239,9 +270,15 @@ def collect_payslips(files: list[dict], read: Callable[[dict], Payslip]) -> dict
     details = {}
     tax_details = {}
     tax_adjustments = {}
+    pension_details = {}
     for (month, _), slip in positions.items():
         if month in rejected_months:
             continue
+        for item in slip.pension_items:
+            pension_details.setdefault(item.competence_month, []).append({
+                "code": item.code, "description": item.description, "side": item.side,
+                "amount": float(item.amount), "source_month": month,
+            })
         if slip.tax_items:
             tax_adjustments[month] = tax_adjustments.get(month, Decimal(0)) + sum(
                 (item.amount for item in slip.tax_items), Decimal(0))
@@ -256,6 +293,7 @@ def collect_payslips(files: list[dict], read: Callable[[dict], Payslip]) -> dict
         } for item in slip.items)
     return {
         "details": details,
+        "pension_details": pension_details,
         "tax_details": tax_details,
         "tax_adjustments": {month: float(value) for month, value in sorted(tax_adjustments.items())},
         "salaries": {month: float(value) for month, value in sorted(salaries.items())},

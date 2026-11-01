@@ -69,7 +69,7 @@ def decode_rows(rows):
 def encode_rows(records):
     rows = [{"ID": "__settings__", "Sezione": "settings", "Nome": "Registro personale", "Dati": '{"version":1}'}]
     for item in records:
-        data = {key: value for key, value in item.items() if key not in {"id", "kind", "name"}}
+        data = {key: value for key, value in item.items() if key not in {"id", "kind", "name"} and not key.startswith("_")}
         rows.append(dict(zip(HEADERS, [item["id"], item["kind"], item["name"],
             json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(",", ":"))])))
     return rows
@@ -209,7 +209,7 @@ def investment_record(record):
         name = item["name"].casefold()
     preset = {"moneyfarm · pac 7": ("monthly", "PAC · rischio 7", 100., 0.),
               "alleanza assicurazioni": ("monthly", "PAC", 100., 0.),
-              "cometa": ("monthly", "Pensione integrativa", 30., 70.),
+              "cometa": ("monthly", "Pensione integrativa", 30.52, 68.66),
               "leonardo · jp morgan": ("annual", "Azioni Leonardo", None, None)}.get(name)
     mode, product, personal, company = preset or ("manual", "Investimento", None, None)
     for key, value in dict(contribution_mode=mode, product=product, monthly_personal=personal,
@@ -227,17 +227,54 @@ def investment_record(record):
         item["monthly_company"] = 0.
         item["opening_personal"] = (item.get("opening_personal") or 0.)+(item.get("opening_company") or 0.)
         item["opening_company"] = 0.
-    if name == "leonardo · jp morgan" and not item.get("production_source_initialized"):
+    if name == "cometa":
+        item.setdefault("cometa_auto_quotes", True)
+        if not item.get("cometa_rate_initialized"):
+            if (item.get("monthly_personal"), item.get("monthly_company")) in {(30., 70.), (30.52, 68.66)}:
+                item.update(monthly_personal=30.52, monthly_company=68.66, monthly_source_month="2026-10")
+            item["cometa_rate_initialized"] = True
+    if name == "leonardo · jp morgan" and item.get("production_source_version", 0) < 2:
         for row in item["annual_contributions"]:
-            if row["year"] == 2026:
+            if row["year"] in {2025, 2026}:
                 if row.get("personal") is None:
                     row["personal"] = 2000.
                     row["confirmed"] = True
                 elif row["personal"] == 2000.:
                     row.setdefault("confirmed", True)
-                row.setdefault("source", "Premio di produzione")
+                if not row.get("source"):
+                    row["source"] = "Premio di produzione"
         item["production_source_initialized"] = True
+        item["production_source_version"] = 2
     return item
+
+
+def apply_pension_history(records, history, today=None):
+    """Overlay the saved payslip snapshot; no Drive access or persisted duplicate."""
+    result = deepcopy(records)
+    today = today or date.today()
+    complete = {}
+    for month, rows in (history or {}).items():
+        if not isinstance(month, str) or len(month) != 7:
+            continue
+        try:
+            period = as_date(month+"-01")
+        except ValueError:
+            continue
+        if period > today:
+            continue
+        values = {}
+        for row in rows:
+            side = row.get("side")
+            if side in {"personal", "company"}:
+                values[side] = values.get(side, 0.)+(_number(row.get("amount")) or 0.)
+        if set(values) == {"personal", "company"}:
+            complete[month] = values
+    for item in result:
+        if item.get("kind") == "investments" and item.get("name", "").casefold() == "cometa" and item.get("cometa_auto_quotes", True) and complete:
+            latest = max(complete)
+            item.update(monthly_personal=complete[latest]["personal"], monthly_company=complete[latest]["company"],
+                        monthly_source_month=latest, _pension_history=complete, contribution_offset=0)
+    return result
 
 
 def monthly_contributions(record, today):
@@ -270,6 +307,21 @@ def investment_summary(record, today):
         count, next_due = monthly["count"], monthly["next_due"]
         personal += count * (item.get("monthly_personal") or 0.)
         company += count * (item.get("monthly_company") or 0.)
+        history = item.get("_pension_history", {}) if item.get("cometa_auto_quotes", True) else {}
+        start, end = as_date(item.get("contribution_start")), as_date(item.get("contribution_end"))
+        for month, amounts in history.items():
+            period = as_date(month+"-01")
+            if start:
+                offset = (period.year-start.year)*12+period.month-start.month
+                due = month_date(start, offset)
+                if due < start or due > today or (end and due > end):
+                    continue
+                personal += amounts["personal"]-(item.get("monthly_personal") or 0.)
+                company += amounts["company"]-(item.get("monthly_company") or 0.)
+            elif not (legacy or item["opening_personal"] or item["opening_company"]) and month <= today.strftime("%Y-%m") and (not end or period <= end):
+                count += 1
+                personal += amounts["personal"]
+                company += amounts["company"]
         total = personal+company+legacy
     else:
         for row in sorted(item["annual_contributions"], key=lambda row: row["year"]):
@@ -291,6 +343,8 @@ def investment_summary(record, today):
     if value is not None and value_date and value_date < today:
         valuation_total = investment_summary(dict(item, current_value=None), value_date)["total"]
     gain = round(value+(item.get("withdrawn") or 0.)-valuation_total, 2) if value is not None and valuation_total is not None else None
+    if item.get("name", "").casefold() == "cometa":
+        gain = None  # The contribution-only cost basis deliberately excludes TFR.
     return dict(mode=mode, personal=round(personal, 2), company=round(company, 2), unallocated=legacy,
                 total=round(total, 2) if total is not None else None, count=count, next_due=next_due,
                 schedule=schedule, gain=gain)
@@ -418,9 +472,13 @@ def cards_html(records, kind, today):
                 monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)
                 breakdown = '' if item.get("personal_only") else f'<br>Tu {money(item.get("monthly_personal"))} · azienda {money(item.get("monthly_company"))}'
                 content += f'<div class="tracker-note">Ogni mese: {money(monthly)}{breakdown}<br>{summary["count"]} versamenti conteggiati</div>'
+                if item.get("monthly_source_month") and item.get("cometa_auto_quotes", True):
+                    content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}<br>TFR escluso</div>'
                 if item.get("contribution_start"):
                     content += f'<div class="tracker-note">Prossimo: {date_label(summary["next_due"])}' + (f'<br>Fine versamenti: {date_label(item["contribution_end"])}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
-                else:
+                elif item.get("_pension_history") and (summary["unallocated"] or item.get("opening_personal") or item.get("opening_company")):
+                    content += '<div class="tracker-note">Imposta la data iniziale per aggiornare il saldo precedente</div>'
+                elif not item.get("_pension_history"):
                     content += '<div class="tracker-note">Imposta la data del primo versamento</div>'
             elif summary["mode"] == "annual":
                 for row in summary["schedule"]:
@@ -469,13 +527,14 @@ def _investment_fields(item, old, prefix, mode, today):
             item["monthly_personal"] = st.number_input("Versamento mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10.)
         else:
             c1, c2 = st.columns(2)
-            with c1:item["monthly_personal"] = st.number_input("Quota tua mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10.)
-            with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10.)
+            with c1:item["monthly_personal"] = st.number_input("Quota tua mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10., disabled=old.get("cometa_auto_quotes", False))
+            with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10., disabled=old.get("cometa_auto_quotes", False))
         item["contribution_start"] = _date_input("Primo versamento da conteggiare", old.get("contribution_start"), prefix+"contribution_start")
         item["contribution_end"] = _date_input("Ultimo versamento, solo se interrompi il piano", old.get("contribution_end"), prefix+"contribution_end")
         st.caption("Il versamento si ripete ogni mese nello stesso giorno; nei mesi più corti, l’ultimo giorno. Lascia vuota la fine per continuare ad accumulare.")
-        paid_today = st.number_input("Correggi versamenti già conteggiati, facoltativo", min_value=0, max_value=1500, value=None,
-            help="Lascia vuoto per il conteggio automatico. Una correzione resta valida e il conteggio continua nei mesi successivi.")
+        if not old.get("cometa_auto_quotes", False):
+            paid_today = st.number_input("Correggi versamenti già conteggiati, facoltativo", min_value=0, max_value=1500, value=None,
+                help="Lascia vuoto per il conteggio automatico. Una correzione resta valida e il conteggio continua nei mesi successivi.")
     elif mode == "annual":
         st.caption("I tre versamenti entrano nel totale alla data indicata. Per quelli futuri puoi già inserire gli importi previsti.")
         rows = old.get("annual_contributions") or [dict(year=year, date=None, personal=None, company=None) for year in (2025, 2026, 2027)]
@@ -567,6 +626,8 @@ def render_tracker(records, kind, save_record, saved, today):
                                     format_func=modes.get, key=prefix+"mode")
                 if old["contribution_mode"] == "manual" and mode != "manual":
                     old.update(opening_personal=0., opening_company=0., opening_unallocated=old.get("invested") or 0.)
+                if old.get("name", "").casefold() == "cometa":
+                    old["cometa_auto_quotes"] = st.checkbox("Usa le quote dei cedolini sincronizzati", value=old.get("cometa_auto_quotes", True), key=prefix+"cometa_auto")
             with st.form(prefix, border=False, enter_to_submit=False):
                 item = deepcopy(old)
                 item["name"] = st.text_input("Nome", value=old["name"], max_chars=80)

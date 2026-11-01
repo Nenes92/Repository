@@ -17,7 +17,7 @@ def app_functions(*names):
 def test_declared_defaults_are_year_specific_and_future_prize_unknown():
     assert extras.for_year(extras.initial_rows(),2026,'production')['Importo'] == 3500.
     old = extras.for_year(extras.initial_rows(),2025,'production')
-    assert old['Importo']==2800. and old['Stato']=='Indicativo'
+    assert old['Importo']==2800. and old['Stato']=='Confermato' and old['Tipo importo']=='Netto'
     assert extras.for_year([],2027,'production')['Importo'] is None
     assert extras.for_year([],2026,'welfare')['Tipo importo']=='Credito welfare'
     assert extras.for_year([],2025,'welfare')['Importo'] is None
@@ -117,7 +117,7 @@ def test_known_2026_share_deposit_counts_without_inventing_an_exact_date():
     from datetime import date
     item=next(row for row in trackers.initial_records() if row['name']=='Leonardo · JP Morgan')
     summary=trackers.investment_summary(item,date(2026,11,1))
-    assert summary['personal']==2000. and summary['total']==2000.
+    assert summary['personal']==4000. and summary['total']==4000.
     row=next(row for row in item['annual_contributions'] if row['year']==2026)
     assert row['date'] is None and row['confirmed']
     row['year']=2027
