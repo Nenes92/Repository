@@ -9,11 +9,12 @@ import pytest
 from payroll_engine import thirteenth_month_net
 import pandas as pd
 import altair as alt
+import salary_extras
 
 
 def helpers():
     tree = ast.parse((Path(__file__).parents[1] / 'spese_mensili.py').read_text())
-    names = {'_thirteenth_card_amounts', '_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers', '_salary_thirteenth_markers', '_salary_marker_label_layers',
+    names = {'_thirteenth_card_amounts', '_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers', '_salary_thirteenth_markers', '_salary_marker_label_layers', '_salary_extra_markers', '_salary_extra_chart_layers',
              'render_grafico_stipendi_desktop_style', '_render_mobile_salary_legend', '_signed_money_turni', '_money_turni'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for node in nodes:
@@ -23,6 +24,7 @@ def helpers():
         info=lambda *a, **kw: None, error=errors.append,
         altair_chart=lambda chart, **kw: plots.append(chart.to_dict()))
     env = dict(st=st, pd=pd, alt=alt, re=re, MOBILE_VIEW=True,
+               _salary_extras=salary_extras, _load_salary_extras=lambda: [],
                thirteenth_month_net=thirteenth_month_net,
                _now_italy=lambda: datetime(2026, 11, 1),
                get_turni_rules=lambda: (_ for _ in ()).throw(AssertionError('Unexpected external read')))
@@ -196,3 +198,21 @@ def test_chart_labels_730_and_thirteenth_with_colons_and_smaller_separate_signs(
     text = [mark for mark in marks(plots[0]) if mark['mark']['type']=='text']
     assert [mark['mark']['fontSize'] for mark in text if mark['encoding']['text']['field']=='Segno'] == [7,7]
     assert all(mark['mark']['fontSize']==10 for mark in text if mark['encoding']['text']['field']!='Segno')
+
+
+def test_production_and_welfare_markers_leave_salary_and_average_values_unchanged():
+    env, st, plots, errors = helpers()
+    st.session_state['payroll_calibration_saved'] = {}
+    env['_load_salary_extras'] = salary_extras.initial_rows
+    data = pd.DataFrame({'Mese': pd.to_datetime(['2026-02-01','2026-07-01']),
+        'Stipendio': [2500.,2800.], 'Risparmi': 0., 'Messi da parte Totali': 100.,
+        'Media Stipendio': 2600., 'Media Stipendio NO 13°/PDR': 2400.,
+        'Media Risparmi': 0., 'Media Messi da parte Totali': 100.})
+    before = data.copy(deep=True)
+    env['render_grafico_stipendi_desktop_style'](data, months_back=15)
+    assert not errors
+    datasets = [row for rows in plots[0]['datasets'].values() for row in rows]
+    extra_rows = [row for row in datasets if row.get('Prefisso') in {'Premio produzione:', 'Welfare:'}]
+    assert {row['Importo'] for row in extra_rows} == {250., 3500.}
+    assert {row['Stipendio'] for row in extra_rows} == {2500., 2800.}
+    pd.testing.assert_frame_equal(before, data)

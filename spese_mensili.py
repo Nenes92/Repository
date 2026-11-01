@@ -52,6 +52,8 @@ importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
 import personal_trackers as _personal_trackers
 importlib.reload(_personal_trackers)
+import salary_extras as _salary_extras
+importlib.reload(_salary_extras)
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -4300,6 +4302,38 @@ def _save_personal_tracker_record(identifier, replacement):
         return True
     except Exception:
         st.error("Salvataggio non riuscito. Il registro non è stato cancellato: riprova.")
+        return False
+
+
+def _load_salary_extras():
+    frame = load_data_gsheets(_salary_extras.SHEET, _salary_extras.HEADERS)
+    try:
+        return _salary_extras.decode_rows(frame.astype(object).where(pd.notna(frame), None).to_dict(orient="records"))
+    except (ValueError, KeyError, TypeError):
+        st.error("Il registro premi non è leggibile. Nessun dato verrà sovrascritto.")
+        return None
+
+
+def _save_salary_extras(replacements):
+    client = get_gsheet_client()
+    if client is None:
+        st.error("Google Sheets non disponibile. Premi e welfare non salvati.")
+        return False
+    try:
+        headers = _salary_extras.HEADERS
+        worksheet = get_or_create_worksheet(client, SHEET_URL, _salary_extras.SHEET, headers)
+        rows = _salary_extras.decode_rows(worksheet.get_all_records())
+        rows = _salary_extras.merge_rows(rows, replacements)
+        values = [headers]+[[row.get(key) if row.get(key) is not None else "" for key in headers] for row in rows]
+        try:
+            worksheet.update(values=values, range_name="A1")
+        except TypeError:
+            worksheet.update("A1", values)
+        _mobile_sheet_records.clear(SHEET_URL, _salary_extras.SHEET, tuple(headers))
+        _set_gsheets_cache(_salary_extras.SHEET, pd.DataFrame(rows, columns=headers))
+        return True
+    except Exception:
+        st.error("Premi e welfare non salvati. Il registro non è stato cancellato: riprova.")
         return False
 
 
@@ -10696,6 +10730,46 @@ def _salary_marker_label_layers(base, color, dy):
     ]
 
 
+def _salary_extra_markers(chart_data, history):
+    salaries = chart_data.copy()
+    salaries["month_key"] = pd.to_datetime(salaries["Mese"]).dt.strftime("%Y-%m")
+    markers = []
+    for row in history or []:
+        if row["Importo"] is None or row["Importo"] == 0:
+            continue
+        match = salaries[salaries["month_key"] == f'{row["Anno"]}-{row["Mese erogazione"]:02d}']
+        if match.empty:
+            continue
+        salary = match.iloc[0]
+        markers.append({**row, "Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
+                        "Voce": _salary_extras.TYPES[row["Tipo"]],
+                        "Prefisso": "Premio produzione:" if row["Tipo"] == "production" else "Welfare:",
+                        "Segno": "+", "Importo etichetta": _money_turni(row["Importo"])})
+    return pd.DataFrame(markers)
+
+
+def _salary_extra_chart_layers(chart_data, x_axis):
+    layers = []
+    extra_markers = _salary_extra_markers(chart_data, _load_salary_extras())
+    for kind, color in [("production", "#fbbf24"), ("welfare", "#2dd4bf")]:
+        if extra_markers.empty:
+            break
+        selected = extra_markers[extra_markers["Tipo"] == kind]
+        if selected.empty:
+            continue
+        extra_base = alt.Chart(selected).encode(x=x_axis, y=alt.Y("Stipendio:Q"))
+        layers.extend([
+            extra_base.mark_point(shape="circle", size=150, filled=True, stroke="#0f172a", strokeWidth=1).encode(
+                color=alt.value(color), tooltip=[alt.Tooltip("Voce:N", title="Voce"),
+                    alt.Tooltip("Importo:Q", title="Importo dichiarato (€)", format=",.2f"),
+                    alt.Tooltip("Tipo importo:N", title="Tipo di importo"), alt.Tooltip("Stato:N", title="Stato"),
+                    alt.Tooltip("Note:N", title="Nota"),
+                    alt.Tooltip("Stipendio:Q", title="Stipendio registrato, invariato (€)", format=",.2f")]),
+            *_salary_marker_label_layers(extra_base, alt.value(color), -46),
+        ])
+    return layers
+
+
 def _render_thirteenth_history(snapshot):
     history = _payroll_thirteenth_history(snapshot)
     current_year = _now_italy().year
@@ -10958,6 +11032,7 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
                             alt.Tooltip("Stipendio:Q", title="Stipendio registrato (€)", format=",.2f")]),
                     *_salary_marker_label_layers(annual_base, annual_color, -30),
                 ])
+        salary_layers.extend(_salary_extra_chart_layers(chart_data, x_axis))
         stipendi_chart = alt.layer(*salary_layers)
         risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
         grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
@@ -11375,6 +11450,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         with salary_stats_page:
             _render_stipendi_kpi_cards(data_stipendi)
             _render_730_history()
+            _salary_extras.render_history(_load_salary_extras(), _save_salary_extras, _mobile_save_refresh, _now_italy().date())
         _mobile_navigation.render_mobile_chart_dots("salary-data", ["Riepilogo stipendi", "Dati storici stipendi"], indicator="dashes")
         _mobile_navigation.render_mobile_chart_swipe("salary-data", "mobile-salary-data-pages",
             ["mobile-salary-data-summary", "mobile-salary-data-history"], auto_height=True)
@@ -11426,6 +11502,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
 
         if not MOBILE_VIEW:
             _render_stipendi_kpi_cards(data_stipendi)
+            _salary_extras.render_history(_load_salary_extras(), _save_salary_extras, _mobile_save_refresh, _now_italy().date())
 
     with col_chart:
         if MOBILE_VIEW:
@@ -11561,7 +11638,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
                 )
 
-                stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+                stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13, *_salary_extra_chart_layers(chart_data, x_axis))
                 risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
 
                 grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(

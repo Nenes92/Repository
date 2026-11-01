@@ -196,7 +196,7 @@ def test_updated_value_is_manual_and_historical_gain_uses_same_date():
 ])
 def test_invalid_investment_settings_cannot_be_saved(changes):
     with pytest.raises(ValueError):
-        tracker.validate_record(investment(**changes), TODAY)
+        tracker.validate_record(investment('Cometa', **changes), TODAY)
 
 
 @pytest.mark.parametrize('rows,redemption', [
