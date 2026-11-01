@@ -10479,7 +10479,26 @@ def _render_730_history():
         + months + '</div>', unsafe_allow_html=True)
 
 
-def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3, months_back=None):
+def _render_mobile_salary_legend():
+    st.markdown("""
+    <div class="mobile-salary-legend" style="display:grid;text-align:left;gap:12px;margin-top:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;">
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi</span>
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi (no 13°)</span>
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi (+13°)</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente</span>
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte</span>
+    <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte al mese</span>
+    </div></div>
+    """, unsafe_allow_html=True)
+
+
+def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3, months_back=None, show_legend=True):
     if data_stipendi is None or data_stipendi.empty:
         st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
         return
@@ -10623,22 +10642,8 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
 
         st.altair_chart(grafico_finale, use_container_width=True)
         if MOBILE_VIEW:
-            st.markdown("""
-            <div class="mobile-salary-legend" style="display:grid;text-align:left;gap:12px;margin-top:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;">
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:3px;background:#5792E8;display:inline-block;border-radius:2px;"></span>Stipendi</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #fb923c;display:inline-block;"></span>Media stipendi (no 13°)</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #f87171;display:inline-block;"></span>Media Stipendi (+13°)</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span>Risparmi mese precedente</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #FFA040;display:inline-block;"></span>Media risparmi mese precedente</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:14px;height:14px;border-radius:3px;background:#1D9E75;opacity:0.7;display:inline-block;"></span>Messi da parte</span>
-            <span style="display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:rgba(255,255,255,0.7);"><span style="flex-shrink:0;width:28px;height:2px;border-top:2px dashed #90EE90;display:inline-block;"></span>Media Messi da parte al mese</span>
-            </div></div>
-            """, unsafe_allow_html=True)
+            if show_legend:
+                _render_mobile_salary_legend()
         else:
             st.markdown("""
             <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px; padding:10px 16px;
@@ -11026,7 +11031,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         _mobile_navigation.render_mobile_chart_styles("mobile-salary-chart-pages")
         with st.container(key="mobile-salary-chart-pages", horizontal=True, gap=None):
             with st.container(key="mobile-salary-chart-trend"):
-                render_grafico_stipendi_desktop_style(data_stipendi, height=430, months_back=15)
+                render_grafico_stipendi_desktop_style(data_stipendi, height=430, months_back=15, show_legend=False)
             with st.container(key="mobile-salary-chart-years"):
                 if not data_stipendi.empty:
                     confronto_chart = crea_confronto_anno_su_anno_stipendi(data_stipendi).properties(
@@ -11034,6 +11039,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
                     st.altair_chart(confronto_chart, use_container_width=True)
                 else:
                     st.info("Nessun dato disponibile ancora.")
+        _render_mobile_salary_legend()
         _mobile_navigation.render_mobile_chart_dots("salary", ["Andamento stipendi", "Confronto stipendi tra anni"])
         _mobile_navigation.render_mobile_chart_swipe("salary", "mobile-salary-chart-pages",
             ["mobile-salary-chart-trend", "mobile-salary-chart-years"])

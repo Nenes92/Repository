@@ -11,7 +11,7 @@ import altair as alt
 def helpers():
     tree = ast.parse((Path(__file__).parents[1] / 'spese_mensili.py').read_text())
     names = {'_payroll_730_history', '_saved_730_history', '_salary_730_markers',
-             'render_grafico_stipendi_desktop_style', '_signed_money_turni', '_money_turni'}
+             'render_grafico_stipendi_desktop_style', '_render_mobile_salary_legend', '_signed_money_turni', '_money_turni'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for node in nodes:
         node.decorator_list = []
@@ -90,3 +90,24 @@ def test_fifteen_months_end_at_latest_saved_salary_and_keep_august_labels():
     assert min(months) == '2025-08' and max(months) == '2026-10'
     assert '2026-08' in months
     assert '"labelOverlap": false' in json.dumps(plots[0])
+
+
+def test_first_month_keeps_salary_when_saved_savings_are_zero():
+    env, st, plots, errors = helpers()
+    st.session_state['payroll_calibration_saved'] = {}
+    dates = pd.date_range('2025-08-01', '2026-10-01', freq='MS')
+    data = pd.DataFrame({'Mese': dates, 'Stipendio': 2300., 'Risparmi': 0.,
+        'Messi da parte Totali': 0., 'Media Stipendio': 2300.,
+        'Media Stipendio NO 13°/PDR': 2300., 'Media Risparmi': 0., 'Media Messi da parte Totali': 0.})
+    data.loc[0, 'Stipendio'] = 2371.
+    data.loc[1:, 'Messi da parte Totali'] = 150.
+    legends = []
+    st.markdown = lambda content, **kw: legends.append(content)
+    env['render_grafico_stipendi_desktop_style'](data, months_back=15, show_legend=False)
+    assert not errors and not legends
+    first = [row for rows in plots[0]['datasets'].values() for row in rows
+             if row.get('Mese', '').startswith('2025-08') and 'Stipendio' in row]
+    assert first and all(row['Stipendio'] == 2371. for row in first)
+    assert all(row['Risparmi'] == 0. and row['Messi da parte Totali'] == 0. for row in first)
+    env['_render_mobile_salary_legend']()
+    assert len(legends) == 1 and 'mobile-salary-legend' in legends[0]
