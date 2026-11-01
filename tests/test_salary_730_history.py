@@ -5,13 +5,15 @@ from pathlib import Path
 from types import SimpleNamespace
 import json
 import re
+import pytest
+from payroll_engine import thirteenth_month_net
 import pandas as pd
 import altair as alt
 
 
 def helpers():
     tree = ast.parse((Path(__file__).parents[1] / 'spese_mensili.py').read_text())
-    names = {'_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers',
+    names = {'_thirteenth_card_amounts', '_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers',
              'render_grafico_stipendi_desktop_style', '_render_mobile_salary_legend', '_signed_money_turni', '_money_turni'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for node in nodes:
@@ -21,6 +23,7 @@ def helpers():
         info=lambda *a, **kw: None, error=errors.append,
         altair_chart=lambda chart, **kw: plots.append(chart.to_dict()))
     env = dict(st=st, pd=pd, alt=alt, re=re, MOBILE_VIEW=True,
+               thirteenth_month_net=thirteenth_month_net,
                _now_italy=lambda: datetime(2026, 11, 1),
                get_turni_rules=lambda: (_ for _ in ()).throw(AssertionError('Unexpected external read')))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), 'salary-history', 'exec'), env)
@@ -129,3 +132,34 @@ def test_thirteenth_history_uses_explicit_gross_rows_and_not_calibrated_estimate
                     2025: {'gross': 2250., 'months': {'2025-12'}}}
     assert env['_payroll_thirteenth_history'](None) == {}
     assert env['_payroll_thirteenth_history']({'result': saved['result']}) == {}
+
+
+def test_historical_and_forecast_net_use_annual_calibration_not_variable_coefficient():
+    env, _, _, _ = helpers()
+    snapshot = {'drive': {'details': {
+        '2024-12': [{'description': 'Tredicesima', 'amount': 2000.}],
+        '2025-12': [{'description': 'Tredicesima', 'amount': 2500.}]}},
+        'result': {'rows': [{'month': '2025-12', 'included': True, 'thirteenth_net': 1750.}]}}
+    rules = dict(tredicesima_automatica=1, netto_fisso_mensile=2300.,
+                 tredicesima_coeff_netto=.8, coefficiente_netto_variabili=.1)
+    before = json.dumps(snapshot)
+    amounts = env['_thirteenth_card_amounts'](2024, snapshot, rules)
+    assert amounts == {'gross': 2000., 'net': 1400., 'actual': True}
+    forecast = env['_thirteenth_card_amounts'](2026, snapshot, rules)
+    assert forecast['net'] == thirteenth_month_net('2026-12', rules) == 1840.
+    assert forecast['gross'] == pytest.approx(1840. / .7)
+    assert not forecast['actual']
+    snapshot['drive']['details']['2026-12'] = [{'description': 'Tredicesima', 'amount': 2600.}]
+    paid = env['_thirteenth_card_amounts'](2026, snapshot, rules)
+    assert paid == {'gross': 2600., 'net': pytest.approx(1820.), 'actual': True}
+    snapshot['drive']['details'].pop('2026-12')
+    assert json.dumps(snapshot) == before
+
+
+def test_thirteenth_display_does_not_invent_gross_without_pdf_reference():
+    env, _, _, _ = helpers()
+    rules = dict(tredicesima_automatica=1, netto_fisso_mensile=2000., tredicesima_coeff_netto=.8)
+    assert env['_thirteenth_card_amounts'](2026, {}, rules) == {'gross': None, 'net': 1600., 'actual': False}
+    assert env['_thirteenth_card_amounts'](2025, {}, rules) == {'gross': None, 'net': None, 'actual': False}
+    saved = {'drive': {'details': {'2025-12': [{'description': 'Tredicesima', 'amount': 2500.}]}}}
+    assert env['_thirteenth_card_amounts'](2025, saved, rules)['net'] == 1600.

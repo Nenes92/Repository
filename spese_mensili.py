@@ -10473,6 +10473,37 @@ def _payroll_thirteenth_history(snapshot):
     return history
 
 
+def _thirteenth_card_amounts(year, snapshot, rules):
+    """Display-only estimates: use annual calibration, never marginal variable tax."""
+    history = _payroll_thirteenth_history(snapshot)
+    current_year = _now_italy().year
+    forecast_net = thirteenth_month_net(f"{current_year}-12", rules)
+    ratio = None
+    rows = (snapshot or {}).get("result", {}).get("rows", [])
+    for row in sorted(rows, key=lambda item: str(item.get("month", "")), reverse=True):
+        month = str(row.get("month", ""))
+        if not month.endswith("-12") or not row.get("included", False):
+            continue
+        reference = history.get(int(month[:4]))
+        net = float(row.get("thirteenth_net", 0.))
+        if reference and 0 < net <= reference["gross"]:
+            ratio = net / reference["gross"]
+            break
+    if ratio is None and history and forecast_net > 0:
+        # Provisional bridge for old snapshots without annual calibration rows.
+        latest = history[max(history)]["gross"]
+        if forecast_net <= latest:
+            ratio = forecast_net / latest
+    actual = history.get(year)
+    if actual is not None:
+        gross = actual["gross"]
+        return {"gross": gross, "net": gross * ratio if ratio else None, "actual": True}
+    if year == current_year and forecast_net > 0:
+        return {"gross": forecast_net / ratio if ratio else None,
+                "net": forecast_net, "actual": False}
+    return {"gross": None, "net": None, "actual": False}
+
+
 def _render_thirteenth_history(snapshot):
     history = _payroll_thirteenth_history(snapshot)
     current_year = _now_italy().year
@@ -10488,24 +10519,25 @@ def _render_thirteenth_history(snapshot):
         with year_column:
             year = st.selectbox("Anno tredicesima", years, index=years.index(current_year),
                 key="salary_thirteenth_year", label_visibility="collapsed")
-        actual = history.get(year)
-        if actual is not None:
-            dates = " · ".join(_turni_month_label(pd.Timestamp(month)).rsplit(" ", 1)[0]
-                               for month in sorted(actual["months"]))
-            content = ('Tredicesima · lordo'
-                f'<div class="salary-thirteenth-value">{html.escape(_money_turni(actual["gross"]))}</div>'
-                f'<div class="salary-thirteenth-source">Da cedolino · {html.escape(dates)}</div>')
-        elif year == current_year:
-            rules = _payroll_v2_rules(get_turni_rules())
-            amount = thirteenth_month_net(f"{year}-12", rules)
-            if amount > 0:
-                content = ('Tredicesima · netto stimato'
-                    f'<div class="salary-thirteenth-value">{html.escape(_money_turni(amount))}</div>'
-                    '<div class="salary-thirteenth-source">In attesa del cedolino</div>')
+        amounts = _thirteenth_card_amounts(year, snapshot, _payroll_v2_rules(get_turni_rules()))
+        if amounts["gross"] is not None or amounts["net"] is not None:
+            gross = html.escape(_money_turni(amounts["gross"])) if amounts["gross"] is not None else "—"
+            net = html.escape(_money_turni(amounts["net"])) if amounts["net"] is not None else "—"
+            gross_label = "Lordo" if amounts["actual"] else "Lordo stim."
+            if amounts["actual"]:
+                dates = " · ".join(_turni_month_label(pd.Timestamp(month)).rsplit(" ", 1)[0]
+                                   for month in sorted(history[year]["months"]))
+                source = "Lordo da cedolino · " + html.escape(dates)
             else:
-                content = 'Tredicesima<div class="salary-thirteenth-source">Stima non disponibile</div>'
+                source = "Previsione · in attesa del cedolino"
+            content = ('Tredicesima<div class="salary-thirteenth-amounts">'
+                f'<div><span>{gross_label}</span><div class="salary-thirteenth-value">{gross}</div></div>'
+                f'<div><span>Netto stim.</span><div class="salary-thirteenth-value salary-thirteenth-net">{net}</div></div></div>'
+                f'<div class="salary-thirteenth-source">{source}</div>')
         else:
-            content = ('Tredicesima<div class="salary-thirteenth-source">Voce non disponibile nei cedolini sincronizzati</div>')
+            content = ('Tredicesima<div class="salary-thirteenth-source">'
+                + ('Stima non disponibile' if year == current_year else 'Voce non disponibile nei cedolini sincronizzati')
+                + '</div>')
         st.markdown('<div class="salary-thirteenth-history">' + content + '</div>', unsafe_allow_html=True)
 
 
@@ -10525,7 +10557,10 @@ def _render_730_history():
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) {gap:6px!important;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem .9rem!important;}
       .salary-thirteenth-history {font-size:12px;color:#cbd5e1;}
-      .salary-thirteenth-value {font-family:"DM Mono",monospace;font-size:17px;font-weight:500;color:#c4b5fd;margin:5px 0 8px;}
+      .salary-thirteenth-amounts {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:7px;}
+      .salary-thirteenth-amounts span {font-size:11px;color:#94a3b8;}
+      .salary-thirteenth-value {font-family:"DM Mono",monospace;font-size:clamp(12px,2.65vw,15px);font-weight:500;color:#c4b5fd;margin:4px 0 8px;white-space:nowrap;}
+      .salary-thirteenth-net {color:#60a5fa;}
       .salary-thirteenth-source {font-size:11px;color:#94a3b8;line-height:1.4;}
       .salary-730-history strong {font-family:"DM Mono",monospace;font-weight:500;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stSelectbox"] {font-size:12px;}
