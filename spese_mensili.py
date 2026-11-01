@@ -10598,7 +10598,7 @@ def _render_thirteenth_history(snapshot):
     years = sorted(set(history) | paid_years | {current_year}, reverse=True)
     if st.session_state.get("salary_thirteenth_year", current_year) not in years:
         del st.session_state["salary_thirteenth_year"]
-    with st.container(key="salary-thirteenth-card", border=False):
+    with st.container(key="salary-thirteenth-card", border=False, height="stretch"):
         title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
         with title_column:
             st.markdown("**13ª**")
@@ -10642,12 +10642,13 @@ def _render_730_history():
       .st-key-salary-730-layout [data-testid="stColumn"] {width:auto!important;min-width:0!important;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) {gap:6px!important;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem .9rem!important;}
+      .st-key-salary-730-layout [data-testid="stMarkdownContainer"]:has(> :is(.salary-730-history,.salary-thirteenth-history)) {margin-bottom:0!important;}
       .salary-thirteenth-history {font-size:12px;color:#cbd5e1;}
       .salary-thirteenth-amounts {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:7px;}
       .salary-thirteenth-amounts span {font-size:11px;color:#94a3b8;}
       .salary-thirteenth-value {font-family:"DM Mono",monospace;font-size:clamp(12px,2.65vw,15px);font-weight:500;color:#c4b5fd;margin:4px 0 8px;white-space:nowrap;}
       .salary-thirteenth-net {color:#60a5fa;}
-      .salary-thirteenth-source {font-size:11px;color:#94a3b8;line-height:1.4;}
+      .salary-thirteenth-source {font-size:11px;color:#94a3b8;line-height:1.4;padding-bottom:4px;}
       .salary-730-history strong {font-family:"DM Mono",monospace;font-weight:500;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stSelectbox"] {font-size:12px;}
       :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stMarkdownContainer"] p,
@@ -10658,7 +10659,7 @@ def _render_730_history():
     with st.container(key="salary-730-layout"):
         card_column, thirteenth_column = st.columns(2, gap="small")
         with card_column:
-            with st.container(key="salary-730-card", border=False):
+            with st.container(key="salary-730-card", border=False, height="stretch"):
                 title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
                 with title_column:
                     st.markdown("**730**")
