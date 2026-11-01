@@ -146,9 +146,9 @@ def test_investment_presets_and_legacy_migration_preserve_money():
 def test_monthly_investments_count_dates_and_separate_personal_company():
     item = investment('Cometa', contribution_start='2026-01-31', opening_personal=300., opening_company=700.)
     february = tracker.investment_summary(item, date(2026, 2, 27))
-    assert (february['count'], february['personal'], february['company'], february['total']) == (1, 330.52, 768.66, 1099.18)
+    assert (february['count'], february['personal'], february['company'], february['total']) == (1, 330.52, 768.66, 1319.2)
     february = tracker.investment_summary(item, date(2026, 2, 28))
-    assert (february['count'], february['personal'], february['company'], february['total']) == (2, 361.04, 837.32, 1198.36)
+    assert (february['count'], february['personal'], february['company'], february['total']) == (2, 361.04, 837.32, 1638.4)
     assert february['next_due'] == date(2026, 3, 31)
     assert tracker.investment_summary(item, date(2025, 12, 31))['total'] == 1000.
 
@@ -219,5 +219,5 @@ def test_investment_save_keeps_dates_splits_and_other_records():
     saved = tracker.decode_rows(output)
     assert saved[:-1] == records
     summary = tracker.investment_summary(saved[-1], TODAY)
-    assert (summary['personal'], summary['company'], summary['total']) == (305.2, 686.6, 991.8)
+    assert (summary['personal'], summary['company'], summary['total']) == (305.2, 686.6, 3192.0)
     assert len(caches) == 1 and not errors

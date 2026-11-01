@@ -12,6 +12,7 @@ MONTHS = {name: i for i, name in enumerate(
      "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"), 1)}
 MONEY = r"(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}"
 API = "https://www.googleapis.com/drive/v3/files"
+PARSER_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -94,8 +95,38 @@ class PayslipPensionItem:
     amount: Decimal
 
 
-def parse_payslip_pension_items(text: str) -> tuple[PayslipPensionItem, ...]:
-    """Read only explicit monthly COMETA rows; never annual totals or TFR."""
+def parse_payslip_tfr(text: str) -> Decimal | None:
+    """Read the monthly amount destined to FPC, not accrued TFR or annual totals."""
+    label = r"Quota\s+TFR\s+dest\.\s*F\.P\.C\.?"
+    values = set()
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        header = re.search(label, line, re.I)
+        if not header:
+            continue
+        inline = re.fullmatch(r"\s*"+label+r"\s+("+MONEY+r")\s*", line, re.I)
+        if inline:
+            values.add(Decimal(inline[1].replace(".", "").replace(",", ".")))
+            continue
+        following = next((row for row in lines[index+1:index+4] if row.strip()), "")
+        if re.fullmatch(r"\s*(?:"+MONEY+r"\s*)+", following):
+            if line.strip().lower().startswith("quota tfr dest") and re.fullmatch(r"\s*"+label+r"\s*", line, re.I):
+                candidates = list(re.finditer(MONEY, following))
+            else:
+                # Layout extraction retains column positions. Require the next
+                # column boundary to avoid borrowing the accrued TFR amount.
+                boundary = re.search(r"TFR\s+a\s+Tesoreria", line[header.end():], re.I)
+                if not boundary:
+                    continue
+                right = header.end()+boundary.start()
+                candidates = [m for m in re.finditer(MONEY, following) if m.start() >= header.start() and m.end() <= right]
+            if len(candidates) == 1:
+                values.add(Decimal(candidates[0][0].replace(".", "").replace(",", ".")))
+    return values.pop() if len(values) == 1 else None
+
+
+def parse_payslip_pension_items(text: str, payroll_month: str | None = None) -> tuple[PayslipPensionItem, ...]:
+    """Read COMETA contributions and monthly TFR destined to the same fund."""
     pattern = re.compile(r"\b(V_70004|V_70006)\s+(.+?)\s+(?:\d{2}/)?(0[1-9]|1[0-2])/(20\d{2})\s+("+MONEY+r")\s*$", re.I)
     rows = []
     for line in text.splitlines():
@@ -111,7 +142,12 @@ def parse_payslip_pension_items(text: str) -> tuple[PayslipPensionItem, ...]:
             "personal" if code.upper() == "V_70004" else "company", Decimal(amount.replace(".", "").replace(",", "."))))
     # The company row omits the fund name: only pair it with an explicit COMETA row.
     months = {row.competence_month for row in rows if row.side == "personal"}
-    return tuple(dict.fromkeys(row for row in rows if row.competence_month in months))
+    rows = list(dict.fromkeys(row for row in rows if row.competence_month in months))
+    period = payroll_month or (next(iter(months)) if len(months) == 1 else None)
+    tfr = parse_payslip_tfr(text) if period and period in months else None
+    if tfr is not None:
+        rows.append(PayslipPensionItem("TFR_FPC", "Quota TFR destinata a F.P.C.", period, "tfr", tfr))
+    return tuple(rows)
 
 
 @dataclass(frozen=True)
@@ -166,7 +202,7 @@ def parse_payslip_text(text: str, name: str) -> Payslip:
     net = nets.pop()
     if net <= 0:
         raise ValueError("Netto a pagare non positivo")
-    return Payslip(month, net, positions.pop(), name=name, tax_items=parse_payslip_tax_items(text), pension_items=parse_payslip_pension_items(text))
+    return Payslip(month, net, positions.pop(), name=name, tax_items=parse_payslip_tax_items(text), pension_items=parse_payslip_pension_items(text, month))
 
 
 def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
@@ -191,7 +227,7 @@ def parse_payslip_pdf(data: bytes, name: str) -> Payslip:
         layout = "\n".join(page.extract_text(extraction_mode="layout") or "" for page in reader.pages)
         return replace(slip, items=parse_payslip_items(layout),
                        tax_items=parse_payslip_tax_items(layout) or slip.tax_items,
-                       pension_items=parse_payslip_pension_items(layout) or slip.pension_items)
+                       pension_items=parse_payslip_pension_items(layout, slip.month) or slip.pension_items)
     except Exception:
         return slip
 

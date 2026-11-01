@@ -229,6 +229,10 @@ def investment_record(record):
         item["opening_company"] = 0.
     if name == "cometa":
         item.setdefault("cometa_auto_quotes", True)
+        item.setdefault("monthly_tfr", 220.02 if item["cometa_auto_quotes"] else None)
+        item.setdefault("opening_tfr", 0.)
+        if item["monthly_tfr"] == 220.02:
+            item.setdefault("monthly_tfr_source_month", "2026-10")
         if not item.get("cometa_rate_initialized"):
             if (item.get("monthly_personal"), item.get("monthly_company")) in {(30., 70.), (30.52, 68.66)}:
                 item.update(monthly_personal=30.52, monthly_company=68.66, monthly_source_month="2026-10")
@@ -265,15 +269,19 @@ def apply_pension_history(records, history, today=None):
         values = {}
         for row in rows:
             side = row.get("side")
-            if side in {"personal", "company"}:
+            if side in {"personal", "company", "tfr"}:
                 values[side] = values.get(side, 0.)+(_number(row.get("amount")) or 0.)
-        if set(values) == {"personal", "company"}:
+        if {"personal", "company"}.issubset(values):
             complete[month] = values
     for item in result:
         if item.get("kind") == "investments" and item.get("name", "").casefold() == "cometa" and item.get("cometa_auto_quotes", True) and complete:
             latest = max(complete)
             item.update(monthly_personal=complete[latest]["personal"], monthly_company=complete[latest]["company"],
                         monthly_source_month=latest, _pension_history=complete, contribution_offset=0)
+            tfr_months = [month for month in complete if "tfr" in complete[month]]
+            if tfr_months:
+                month = max(tfr_months)
+                item.update(monthly_tfr=complete[month]["tfr"], monthly_tfr_source_month=month)
     return result
 
 
@@ -297,6 +305,8 @@ def investment_summary(record, today):
     item = investment_record(record)
     mode = item["contribution_mode"]
     personal, company = item["opening_personal"] or 0., item["opening_company"] or 0.
+    tfr = item.get("opening_tfr") or 0.
+    tfr_incomplete = False
     legacy = item["opening_unallocated"] or 0.
     count, next_due, schedule = 0, None, []
     if mode == "manual":
@@ -307,6 +317,8 @@ def investment_summary(record, today):
         count, next_due = monthly["count"], monthly["next_due"]
         personal += count * (item.get("monthly_personal") or 0.)
         company += count * (item.get("monthly_company") or 0.)
+        tfr += count * (item.get("monthly_tfr") or 0.)
+        tfr_incomplete = item.get("name", "").casefold() == "cometa" and count > 0 and item.get("monthly_tfr") is None
         history = item.get("_pension_history", {}) if item.get("cometa_auto_quotes", True) else {}
         start, end = as_date(item.get("contribution_start")), as_date(item.get("contribution_end"))
         for month, amounts in history.items():
@@ -318,11 +330,15 @@ def investment_summary(record, today):
                     continue
                 personal += amounts["personal"]-(item.get("monthly_personal") or 0.)
                 company += amounts["company"]-(item.get("monthly_company") or 0.)
-            elif not (legacy or item["opening_personal"] or item["opening_company"]) and month <= today.strftime("%Y-%m") and (not end or period <= end):
+                tfr += amounts.get("tfr", 0.)-(item.get("monthly_tfr") or 0.)
+                tfr_incomplete |= "tfr" not in amounts
+            elif not (legacy or item["opening_personal"] or item["opening_company"] or item.get("opening_tfr")) and month <= today.strftime("%Y-%m") and (not end or period <= end):
                 count += 1
                 personal += amounts["personal"]
                 company += amounts["company"]
-        total = personal+company+legacy
+                tfr += amounts.get("tfr", 0.)
+                tfr_incomplete |= "tfr" not in amounts
+        total = personal+company+tfr+legacy
     else:
         for row in sorted(item["annual_contributions"], key=lambda row: row["year"]):
             due = as_date(row.get("date"))
@@ -344,10 +360,10 @@ def investment_summary(record, today):
         valuation_total = investment_summary(dict(item, current_value=None), value_date)["total"]
     gain = round(value+(item.get("withdrawn") or 0.)-valuation_total, 2) if value is not None and valuation_total is not None else None
     if item.get("name", "").casefold() == "cometa":
-        gain = None  # The contribution-only cost basis deliberately excludes TFR.
+        gain = None  # Historical coverage and opening balances may still be partial.
     return dict(mode=mode, personal=round(personal, 2), company=round(company, 2), unallocated=legacy,
                 total=round(total, 2) if total is not None else None, count=count, next_due=next_due,
-                schedule=schedule, gain=gain)
+                schedule=schedule, gain=gain, tfr=round(tfr, 2), tfr_incomplete=tfr_incomplete)
 
 
 def validate_investment(record, today, paid_today=None):
@@ -358,6 +374,9 @@ def validate_investment(record, today, paid_today=None):
     item["product"] = str(item.get("product", ""))[:60]
     for key in ("monthly_personal", "monthly_company", "opening_personal", "opening_company", "opening_unallocated"):
         item[key] = _number(item.get(key))
+    for key in ("monthly_tfr", "opening_tfr"):
+        if key in item:
+            item[key] = _number(item[key])
     for key in ("contribution_start", "contribution_end", "redemption_date", "value_date"):
         value = as_date(item.get(key))
         item[key] = value.isoformat() if value else None
@@ -466,17 +485,25 @@ def cards_html(records, kind, today):
             content = f'<div class="tracker-note">{escape(item["product"])} · versato</div><div class="tracker-value">{money(summary["total"])}</div>'
             if summary["mode"] != "manual":
                 content += f'<div class="tracker-note">Tu: {money(summary["personal"])}' + (f'<br>Azienda: {money(summary["company"])}' if not item.get("personal_only") else '') + '</div>'
+                if item.get("name", "").casefold() == "cometa":
+                    content += f'<div class="tracker-note">TFR: {money(summary["tfr"])}</div>'
+                    if summary["tfr_incomplete"]:
+                        content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
                 if summary["unallocated"]:
                     content += f'<div class="tracker-note">Precedenti da ripartire: {money(summary["unallocated"])}</div>'
             if summary["mode"] == "monthly":
-                monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)
+                monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)+(item.get("monthly_tfr") or 0.)
                 breakdown = '' if item.get("personal_only") else f'<br>Tu {money(item.get("monthly_personal"))} · azienda {money(item.get("monthly_company"))}'
+                if item.get("name", "").casefold() == "cometa":
+                    breakdown += f'<br>TFR {money(item.get("monthly_tfr"))}'
                 content += f'<div class="tracker-note">Ogni mese: {money(monthly)}{breakdown}<br>{summary["count"]} versamenti conteggiati</div>'
                 if item.get("monthly_source_month") and item.get("cometa_auto_quotes", True):
-                    content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}<br>TFR escluso</div>'
+                    content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}</div>'
+                    if item.get("monthly_tfr_source_month"):
+                        content += f'<div class="tracker-note">TFR da cedolino: {escape(item["monthly_tfr_source_month"])}</div>'
                 if item.get("contribution_start"):
                     content += f'<div class="tracker-note">Prossimo: {date_label(summary["next_due"])}' + (f'<br>Fine versamenti: {date_label(item["contribution_end"])}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
-                elif item.get("_pension_history") and (summary["unallocated"] or item.get("opening_personal") or item.get("opening_company")):
+                elif item.get("_pension_history") and (summary["unallocated"] or item.get("opening_personal") or item.get("opening_company") or item.get("opening_tfr")):
                     content += '<div class="tracker-note">Imposta la data iniziale per aggiornare il saldo precedente</div>'
                 elif not item.get("_pension_history"):
                     content += '<div class="tracker-note">Imposta la data del primo versamento</div>'
@@ -529,6 +556,8 @@ def _investment_fields(item, old, prefix, mode, today):
             c1, c2 = st.columns(2)
             with c1:item["monthly_personal"] = st.number_input("Quota tua mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10., disabled=old.get("cometa_auto_quotes", False))
             with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10., disabled=old.get("cometa_auto_quotes", False))
+        if old.get("name", "").casefold() == "cometa":
+            item["monthly_tfr"] = st.number_input("Quota TFR mensile al fondo (€)", min_value=0., value=old.get("monthly_tfr"), step=10., disabled=old.get("cometa_auto_quotes", False))
         item["contribution_start"] = _date_input("Primo versamento da conteggiare", old.get("contribution_start"), prefix+"contribution_start")
         item["contribution_end"] = _date_input("Ultimo versamento, solo se interrompi il piano", old.get("contribution_end"), prefix+"contribution_end")
         st.caption("Il versamento si ripete ogni mese nello stesso giorno; nei mesi più corti, l’ultimo giorno. Lascia vuota la fine per continuare ad accumulare.")
@@ -565,6 +594,8 @@ def _investment_fields(item, old, prefix, mode, today):
             c1, c2 = st.columns(2)
             with c1:item["opening_personal"] = st.number_input("Già versato da te (€)", min_value=0., value=float(old.get("opening_personal") or 0.), step=100.)
             with c2:item["opening_company"] = st.number_input("Già versato dall’azienda (€)", min_value=0., value=float(old.get("opening_company") or 0.), step=100.)
+        if old.get("name", "").casefold() == "cometa":
+            item["opening_tfr"] = st.number_input("TFR già versato prima del conteggio (€)", min_value=0., value=float(old.get("opening_tfr") or 0.), step=100.)
         if old.get("opening_unallocated"):
             allocation_help = ("È il totale che avevi già salvato. Spostalo in ‘Già versato da te’ e azzera questo campo, oppure tienilo qui senza duplicarlo."
                                if old.get("personal_only") else "È il totale che avevi già salvato. Ripartiscilo fra le due quote qui sopra e azzera questo campo, oppure tienilo qui senza duplicarlo.")

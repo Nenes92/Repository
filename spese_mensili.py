@@ -38,7 +38,7 @@ from payroll_engine import (
     thirteenth_rules_from_snapshot,
 )
 import payslip_drive as _payslip_drive
-if not {"tax_items", "pension_items"}.issubset(_payslip_drive.Payslip.__dataclass_fields__):
+if getattr(_payslip_drive, "PARSER_VERSION", 0) < 4:
     importlib.reload(_payslip_drive)
 from payslip_drive import collect_payslips, download_payslip, list_payslip_files
 from payroll_holidays import paid_holidays, holiday_compensation
@@ -110,7 +110,7 @@ def _get_payslip_drive_session(principal, _credentials_info):
 
 
 @st.cache_data(ttl=86400, max_entries=256, show_spinner=False)
-def _read_drive_payslip(principal, file_id, name, revision, _session, parser_version=3):
+def _read_drive_payslip(principal, file_id, name, revision, _session, parser_version=4):
     return download_payslip(_session, file_id, name)
 
 
@@ -122,7 +122,7 @@ def _load_drive_payslips(principal, folder_id, _credentials_info):
         result = collect_payslips(
             files, lambda item: _read_drive_payslip(
                 principal, item["id"], item["name"],
-                "items-730-cometa-v3:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
+                "items-730-cometa-tfr-v4:" + (item.get("md5Checksum") or item.get("modifiedTime", "")), session))
         result["checked_at"] = _now_italy().strftime("%d/%m/%Y %H:%M")
         result["error"] = ""
         return result
