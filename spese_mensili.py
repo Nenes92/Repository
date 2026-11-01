@@ -10468,7 +10468,7 @@ def _render_730_history():
       .st-key-salary-730-card {gap:6px!important;}
       .st-key-salary-730-card [data-testid="stSelectbox"] {font-size:12px;}
       .st-key-salary-730-card [data-testid="stMarkdownContainer"] p,
-      .st-key-salary-730-card [data-baseweb="select"] > div {color:#e2e8f0!important;}
+      .st-key-salary-730-card [data-baseweb="select"] * {color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}
     </style>""")
     with st.container(key="salary-730-layout"):
         card_column, _ = st.columns(2, gap="small")
