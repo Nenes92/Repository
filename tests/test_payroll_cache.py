@@ -36,11 +36,11 @@ def test_monthly_cache_reuses_only_matching_turns_rules_and_engine_version():
 def test_nearest_shift_selection_keeps_overnight_boundaries(hour,next_day,last_day):
     from datetime import datetime,timedelta
     tree=ast.parse((Path(__file__).parents[1]/'spese_mensili.py').read_text())
-    names={'_nearest_turni_shift_times','_shift_bounds','_dt_for_turno'}
+    names={'_nearest_turni_shift_times','_shift_bounds','_dt_for_turno','_turni_work_bounds'}
     nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
     hours=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign)
                and any(isinstance(t,ast.Name) and t.id=='TURNI_ORARI' for t in n.targets))
-    ns=dict(pd=pd,datetime=datetime,timedelta=timedelta,TURNI_ORARI=hours)
+    ns=dict(pd=pd,datetime=datetime,timedelta=timedelta,TURNI_ORARI=hours, MOBILE_VIEW=True, _turni_row_straordinario_minuti=lambda row: 0)
     exec(compile(ast.Module(body=nodes,type_ignores=[]),'nearest-shift','exec'),ns)
     data=pd.DataFrame([
         {'Data':'2026-10-31','Turno':'Mattina'},

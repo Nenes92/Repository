@@ -158,3 +158,29 @@ def test_month_report_attributes_all_eight_hours_and_premiums_to_shift_start_mon
     assert october["month_total"] == pytest.approx(whole_shift["total"])
     assert november["hours_by_pct"] == {}
     assert november["month_total"] == 0
+
+
+@pytest.mark.parametrize('start_day', ['2026-10-31', '2026-12-31'])
+@pytest.mark.parametrize('overtime', [0, 60, 120])
+def test_mobile_live_month_follows_start_month_until_actual_end(start_day, overtime):
+    start = datetime.fromisoformat(start_day + 'T22:00')
+    end = (start + timedelta(days=1)).replace(hour=6) + timedelta(minutes=overtime)
+    env = app_at(end - timedelta(minutes=1))
+    frame, rules = calendar_with_night(env, start_day)
+    frame.loc[frame['Data'] == start_day, 'Straordinario minuti'] = overtime
+    month = env['_turni_live_month'](frame)
+    assert month == start_day[:7]
+    live = env['compute_turni_dashboard'](frame, rules, month)
+    assert live['live_month_key'] == start_day[:7]
+    assert live['live_month_accrues'] and live['live_month'] > 0
+    assert live['is_on_shift'] and live['current_shift_end'] == end.isoformat()
+    assert live['rate_min'] > 0
+    if overtime:
+        expected_rate = rules['paga_oraria'] * (1 + env['_pct_for_straordinario']('Notte', end-timedelta(minutes=1), False, rules)/100) * rules['coefficiente_netto_variabili']/60
+        assert live['rate_min'] == pytest.approx(expected_rate)
+    env['_now_italy'] = lambda: end
+    month = env['_turni_live_month'](frame)
+    assert month == end.strftime('%Y-%m')
+    ended = env['compute_turni_dashboard'](frame, rules, month)
+    assert not ended['is_on_shift']
+    assert ended['live_month'] == 0

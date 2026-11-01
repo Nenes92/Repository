@@ -4778,6 +4778,13 @@ def compute_turno_net_estimate(
         gross_hourly = max(0.0, float(rules.get("paga_oraria_lorda", rules.get("paga_oraria", 0.0))))
         premium_gross_hourly = max(0.0, gross_rate_min * 60.0 - gross_hourly)
         rate_min = (ordinary_net_hourly + premium_gross_hourly * coefficient) / 60.0
+    if MOBILE_VIEW and turno not in {"", "Ferie", "Riposo"}:
+        _, ordinary_end = _shift_bounds(data_str, turno)
+        overtime_end = ordinary_end + timedelta(minutes=min(120, max(0, straordinario_minuti)))
+        moment = _now_italy()
+        if ordinary_end <= moment < overtime_end and (only_day is None or only_day == moment.strftime("%Y-%m-%d")):
+            pct = _pct_for_straordinario(turno, moment, forced_festivo, rules)
+            rate_min = float(rules["paga_oraria"]) * (1 + pct / 100) * coefficient / 60
     return {
         **gross,
         "total": total_net,
@@ -4789,6 +4796,23 @@ def compute_turno_net_estimate(
         "allowance_net": allowance_net,
         "overtime_net": overtime_net,
     }
+
+
+def _turni_work_bounds(row):
+    start, end = _shift_bounds(row["Data"], row["Turno"])
+    if MOBILE_VIEW and row["Turno"] not in {"Ferie", "Riposo", ""}:
+        end += timedelta(minutes=min(120, max(0, _turni_row_straordinario_minuti(row))))
+    return start, end
+
+
+def _turni_live_month(df_turni, now=None):
+    now = _now_italy() if now is None else now
+    for _, row in df_turni.iterrows():
+        if row["Turno"] == "Notte":
+            start, end = _turni_work_bounds(row)
+            if start <= now < end:
+                return start.strftime("%Y-%m")
+    return now.strftime("%Y-%m")
 
 
 def _turni_current_prev_months():
@@ -4805,7 +4829,7 @@ def _nearest_turni_shift_times(df_turni, now):
         shift = str(row.get("Turno", ""))
         if shift not in TURNI_ORARI or shift in {"", "Ferie", "Riposo"}:
             continue
-        start, end = _shift_bounds(row["Data"], shift)
+        start, end = _turni_work_bounds(row)
         if start > now:
             upcoming.append(start)
         if end <= now:
@@ -4813,10 +4837,13 @@ def _nearest_turni_shift_times(df_turni, now):
     return min(upcoming) if upcoming else None, max(completed) if completed else None
 
 
-def compute_turni_dashboard(df_turni, rules):
+def compute_turni_dashboard(df_turni, rules, live_month_key=None):
     now = _now_italy()
     today = now.strftime("%Y-%m-%d")
     current_m, prev_m = _turni_current_prev_months()
+    if live_month_key is not None:
+        current_m = live_month_key
+        prev_m = _add_months_turni(pd.Timestamp(current_m).date(), -1).strftime("%Y-%m")
 
     live_month = 0.0
     current_base_full = 0.0
@@ -4855,7 +4882,7 @@ def compute_turni_dashboard(df_turni, rules):
         festivo = bool(row["Festivo"])
         stra_minuti = _turni_row_straordinario_minuti(row)
         has_turno = turno in TURNI_ORARI and turno != ""
-        start, end = _shift_bounds(data, turno) if has_turno else (None, None)
+        start, end = _turni_work_bounds(row) if has_turno else (None, None)
         active_work = has_turno and turno not in {"Ferie", "Riposo"} and start <= now < end
         shift_net_hourly = prev_live_net_hourly if data[:7] == prev_m else live_net_hourly
 
@@ -4912,7 +4939,7 @@ def compute_turni_dashboard(df_turni, rules):
                 current_shift_end = end
                 current_rate_change_at = _next_rate_checkpoint(now, end)
                 leave_start, leave_end = _turni_permesso_bounds(data, turno, **_turni_row_permesso_kwargs(row))
-                boundaries = [t for t in (current_rate_change_at, leave_start, leave_end) if t is not None and now < t < end]
+                boundaries = [t for t in (current_rate_change_at, leave_start, leave_end, _shift_bounds(data, turno)[1]) if t is not None and now < t < end]
                 current_rate_change_at = min(boundaries) if boundaries else None
                 live_today = calc_live["total"]
                 expected_today = calc_full["total"]
@@ -4927,7 +4954,7 @@ def compute_turni_dashboard(df_turni, rules):
             next_shift_start = start
             next_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
             next_shift_type = f"{turno.lower()} {'festivo' if _is_festive_at(start, festivo) else 'feriale'} {'in sede' if _turni_row_sede(row) else 'in smart'}"
-            next_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, live_net_hourly, until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
+            next_shift_total = compute_turno_net_estimate(data, turno, festivo, rules, (_live_net_hourly_base(df_turni, rules, data[:7]) if MOBILE_VIEW else live_net_hourly), until=datetime.max.replace(tzinfo=None), straordinario_minuti=stra_minuti, **_turni_row_permesso_kwargs(row))["total"]
         if turno not in ["Ferie", "Riposo"] and end == nearest_last_end and last_shift_end is None:
             last_shift_end = end
             last_shift_label = f"{turno} {start.strftime('%d/%m %H:%M')}"
@@ -4952,6 +4979,7 @@ def compute_turni_dashboard(df_turni, rules):
 
     return {
         # Competenza del turno intero: anche dopo mezzanotte resta nel mese di inizio.
+        "live_month_key": current_m,
         "live_month_accrues": current_shift_start_date[:7] == current_m,
         "live_month": live_month,
         "payslip_estimate": payslip_estimate,
@@ -5681,14 +5709,15 @@ def _mobile_turni_snapshot(selected_month):
     delay = int(round(rules.get("ritardo_competenze_mesi", 1)))
     # Il cedolino usa anche i turni del mese di competenza, che potrebbero
     # esistere soltanto nei calendari e non ancora nel foglio Google.
-    months = [selected_month, _add_months_turni(selected_month, -1),
+    months = [_now_italy().date().replace(day=1), _add_months_turni(_now_italy().date(), -1),
+              selected_month, _add_months_turni(selected_month, -1),
               _add_months_turni(selected_month, -delay)]
     df_turni = None
     errors = []
     for month in dict.fromkeys(months):
         df_turni, month_errors = ensure_turni_month_synced(month, df_turni)
         errors.extend(month_errors)
-    return df_turni, rules, compute_turni_dashboard(df_turni, rules), list(dict.fromkeys(errors))
+    return df_turni, rules, compute_turni_dashboard(df_turni, rules, _turni_live_month(df_turni)), list(dict.fromkeys(errors))
 
 
 def render_live_turni_kpis(stats, side_html="", compact_home=False):
@@ -5767,7 +5796,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     status_caption_html = '<div class="turni-subline">Valori netti stimati da fisso e maggiorazioni</div>'
     shift_label_style = "font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;"
     if MOBILE_VIEW:
-        month_name = html.escape(_turni_month_label(_now_italy().date()).rsplit(" ", 1)[0].lower())
+        month_name = html.escape(_turni_month_label(pd.Timestamp(stats.get("live_month_key", _now_italy().strftime("%Y-%m")))).rsplit(" ", 1)[0].lower())
         month_heading_html = (
             '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">'
             '<div class="kpi-label">Netto maturato / cedolino stimato</div>'
@@ -6042,6 +6071,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
       }}
 
       function refreshParentSoon() {{
+        if ({json.dumps(MOBILE_VIEW)}) return; // Inline component refreshes this session.
         if (refreshQueued) return;
         refreshQueued = true;
         setTimeout(() => {{
@@ -6105,6 +6135,10 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
       setInterval(tick, 1000);
     </script>
     """, height=component_height)
+
+
+    if MOBILE_VIEW:
+        _mobile_navigation.render_mobile_live_refresh(stats, _now_italy().isoformat())
 
 
 def render_payroll_v2_details(estimate, adjustment_description=""):
@@ -6287,7 +6321,7 @@ def _turni_month_summary_html(df_turni, month_key, rules, current_work_day=""):
     if current_work_day and current_work_day[:7] != month_key and month_key == now.strftime("%Y-%m"):
         for _, row in df_turni[df_turni["Data"] == current_work_day].iterrows():
             if row["Turno"] in TURNI_ORARI and row["Turno"] not in {"", "Ferie", "Riposo"}:
-                start, end = _shift_bounds(row["Data"], row["Turno"])
+                start, end = _turni_work_bounds(row)
                 if start <= now < end:
                     month_mask |= df_turni["Data"] == current_work_day
     month_df = df_turni[month_mask].copy()
@@ -7000,9 +7034,17 @@ def render_turni_guadagni_section():
             parsed_month = datetime.strptime(turni_month_param, "%Y-%m").date()
             st.session_state.turni_calendar_month = datetime(parsed_month.year, parsed_month.month, 1).date()
         except ValueError:
-            pass
+            turni_month_param = None
     selected_month = st.session_state.turni_calendar_month
     month_key = selected_month.strftime("%Y-%m")
+    if MOBILE_VIEW:
+        df_turni, rules, stats, calendar_errors = _mobile_turni_snapshot(selected_month)
+        if not turni_month_param and month_key != stats["live_month_key"]:
+            selected_month = pd.Timestamp(stats["live_month_key"]).date()
+            st.session_state.turni_calendar_month = selected_month
+            month_key = selected_month.strftime("%Y-%m")
+            # Its payroll can require one further month of variable components.
+            df_turni, rules, stats, calendar_errors = _mobile_turni_snapshot(selected_month)
     title_prev = title_next = ""
     if MOBILE_VIEW:
         prev_month = _add_months_turni(selected_month, -1).strftime("%Y-%m")
@@ -7021,16 +7063,14 @@ def render_turni_guadagni_section():
         unsafe_allow_html=True,
     )
 
-    if MOBILE_VIEW:
-        df_turni, rules, stats, calendar_errors = _mobile_turni_snapshot(selected_month)
-    else:
+    if not MOBILE_VIEW:
         df_turni, calendar_errors = ensure_turni_month_synced(selected_month)
     if calendar_errors:
         st.warning("Alcuni calendari non sono raggiungibili: " + " | ".join(calendar_errors))
 
     today = _now_italy().date()
     current_month_key = today.strftime("%Y-%m")
-    is_selected_current_month = month_key == current_month_key
+    is_selected_current_month = month_key == (stats["live_month_key"] if MOBILE_VIEW else current_month_key)
     if not MOBILE_VIEW:
         stats = compute_turni_dashboard(df_turni, rules)
     current_work_day = (
@@ -10364,6 +10404,75 @@ def crea_grafico_stipendi(data):
     return final_chart
 
 
+def _payroll_730_history(snapshot):
+    """Actual PDF cash flows, including months with a manual 730 override."""
+    drive = (snapshot or {}).get("drive", {})
+    details = drive.get("tax_details", {})
+    balances = drive.get("tax_adjustments", {})
+    rows = []
+    for month in sorted(set(details) | set(balances)):
+        amounts = [float(item["amount"]) for item in details.get(month, [])]
+        if not amounts:
+            amounts = [float(balances.get(month, 0.))]
+        if not any(amounts):
+            continue
+        rows.append({"Mese": month, "Anno": int(month[:4]),
+                     "Rimborsi": sum(max(0., amount) for amount in amounts),
+                     "Trattenute": -sum(min(0., amount) for amount in amounts),
+                     "Saldo 730": sum(amounts)})
+    return rows
+
+
+def _saved_730_history():
+    # Rules restore the persisted calibration too. No Drive/PDF access here.
+    if "payroll_calibration_saved" not in st.session_state:
+        get_turni_rules()
+    return _payroll_730_history(st.session_state.get("payroll_calibration_saved"))
+
+
+def _salary_730_markers(chart_data, history):
+    rows = []
+    salaries = chart_data.copy()
+    salaries["month_key"] = pd.to_datetime(salaries["Mese"]).dt.strftime("%Y-%m")
+    for row in history:
+        match = salaries[salaries["month_key"] == row["Mese"]]
+        if match.empty:
+            continue
+        salary = match.iloc[0]
+        rows.append({**row, "Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
+                     "Etichetta": "730 " + _signed_money_turni(row["Saldo 730"])})
+    return pd.DataFrame(rows)
+
+
+@st.fragment
+def _render_730_history():
+    history = _saved_730_history()
+    if not history:
+        st.caption("Storico 730: sincronizza i cedolini in Turni → Calibrazione per leggere rimborsi e trattenute.")
+        return
+    years = sorted({row["Anno"] for row in history}, reverse=True)
+    current_year = _now_italy().year
+    default = years.index(current_year) if current_year in years else 0
+    if st.session_state.get("salary_730_year", years[default]) not in years:
+        del st.session_state["salary_730_year"]
+    year = st.selectbox("Anno storico 730", years, index=default, key="salary_730_year")
+    selected = [row for row in history if row["Anno"] == year]
+    refund = sum(row["Rimborsi"] for row in selected)
+    withheld = sum(row["Trattenute"] for row in selected)
+    months = "".join(
+        '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid rgba(148,163,184,.15);">'
+        f'<span>{html.escape(_turni_month_label(pd.Timestamp(row["Mese"])))}</span>'
+        f'<strong style="color:{"#34d399" if row["Saldo 730"] >= 0 else "#f87171"};">{html.escape(_signed_money_turni(row["Saldo 730"]))}</strong></div>'
+        for row in selected)
+    st.markdown(
+        '<div class="salary-730-history" style="padding:14px;border:1px solid rgba(148,163,184,.2);border-radius:15px;background:rgba(148,163,184,.07);">'
+        f'<strong>730 · {year}</strong>'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;">'
+        f'<div>Rimborsi<br><strong style="color:#34d399;">{html.escape(_signed_money_turni(refund))}</strong></div>'
+        f'<div>Trattenute<br><strong style="color:#f87171;">{html.escape(_signed_money_turni(-withheld) if withheld else _money_turni(0))}</strong></div></div>'
+        + months + '</div>', unsafe_allow_html=True)
+
+
 def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=3):
     if data_stipendi is None or data_stipendi.empty:
         st.info("Nessun dato disponibile. Aggiungi i dati nella sezione Gestisci mese.")
@@ -10481,7 +10590,22 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
             tooltip=[alt.Tooltip("Mese_str:N", title="Mese"), alt.Tooltip("Media Messi da parte Totali:Q", title="Media messi da parte", format=",.2f")]
         )
 
-        stipendi_chart = alt.layer(line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13)
+        salary_layers = [line_stipendi, point_stipendi, line_media_stip, point_media_stip, line_media_no13, point_media_no13]
+        if MOBILE_VIEW:
+            fiscal_markers = _salary_730_markers(chart_data, _saved_730_history())
+            if not fiscal_markers.empty:
+                fiscal_base = alt.Chart(fiscal_markers).encode(x=x_axis, y=alt.Y("Stipendio:Q"))
+                fiscal_color = alt.condition("datum['Saldo 730'] >= 0", alt.value("#34d399"), alt.value("#f87171"))
+                salary_layers.extend([
+                    fiscal_base.mark_point(shape="diamond", size=140, filled=True, stroke="#0f172a", strokeWidth=1).encode(
+                        color=fiscal_color, tooltip=[alt.Tooltip("Mese_str:N", title="Mese"),
+                            alt.Tooltip("Saldo 730:Q", title="Saldo 730 (€)", format="+,.2f"),
+                            alt.Tooltip("Rimborsi:Q", title="Rimborsi (€)", format=",.2f"),
+                            alt.Tooltip("Trattenute:Q", title="Trattenute (€)", format=",.2f"),
+                            alt.Tooltip("Stipendio:Q", title="Stipendio registrato (€)", format=",.2f")]),
+                    fiscal_base.mark_text(dy=-16, fontSize=10, fontWeight="bold").encode(color=fiscal_color, text="Etichetta:N"),
+                ])
+        stipendi_chart = alt.layer(*salary_layers)
         risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)
         grafico_finale = alt.layer(risparmi_chart, stipendi_chart).properties(
             title="Storico Stipendi e Risparmi",
@@ -10892,6 +11016,7 @@ if (not MOBILE_VIEW) or mobile_section == "Storico":
         st.markdown("---")
         render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=1)
         _render_stipendi_kpi_cards(data_stipendi)
+        _render_730_history()
 
     if not MOBILE_VIEW:
         with col_dx_stip_chart:

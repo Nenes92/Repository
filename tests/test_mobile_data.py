@@ -157,7 +157,10 @@ def test_snapshot_uses_synced_data_widget_rules_and_recomputes_live(app):
     ns["_apply_turni_rules_from_widgets"] = lambda old: {"rate": 2}
     ns["ensure_turni_month_synced"] = lambda month, df=None: (empty, ["calendar unavailable"])
 
-    def calculate(df, actual_rules):
+    ns['_now_italy'] = lambda: datetime(2026, 9, 15)
+    ns['_turni_live_month'] = lambda df: '2026-09'
+    def calculate(df, actual_rules, month):
+        assert month == '2026-09'
         assert df is empty
         assert actual_rules == {"rate": 2}
         calls["live"] += 1
@@ -216,7 +219,10 @@ def test_snapshot_loads_competence_before_estimating(app, selected, delay, expec
         previous = pd.DataFrame(columns=['month']) if df is None else df
         return pd.concat([previous, pd.DataFrame([{'month': month_key}])]), []
 
-    def calculate(df, rules):
+    ns['_now_italy'] = lambda: datetime.fromisoformat(selected + '-15T12:00:00')
+    ns['_turni_live_month'] = lambda df: selected
+    def calculate(df, rules, live_month):
+        assert live_month == selected
         variables = {month: VariableBreakdown(premiums_gross=100) for month in df['month']}
         return estimate_payslip(selected, variables, rules)
 
