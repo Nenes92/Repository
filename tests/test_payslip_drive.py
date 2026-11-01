@@ -268,3 +268,11 @@ def test_730_survives_optional_layout_extraction_failure(monkeypatch):
     monkeypatch.setattr('payslip_drive.PdfReader', lambda _: Mock(is_encrypted=False, pages=[page]))
     slip = parse_payslip_pdf(b'fake PDF', NAME)
     assert sum(item.amount for item in slip.tax_items) == Decimal('-607')
+
+
+@pytest.mark.parametrize("description", ["Tredicesima mensilità", "13ma mensilità", "13a mensilità", "13° mensilità"])
+def test_explicit_thirteenth_component_is_retained_for_history(description):
+    from payslip_drive import parse_payslip_items
+    items = parse_payslip_items(f"V_13000 {description} 12/2025 1,00 2300,00000 2300,00")
+    assert len(items) == 1
+    assert items[0].amount == Decimal('2300.00')

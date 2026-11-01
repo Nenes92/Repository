@@ -4,13 +4,14 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 import json
+import re
 import pandas as pd
 import altair as alt
 
 
 def helpers():
     tree = ast.parse((Path(__file__).parents[1] / 'spese_mensili.py').read_text())
-    names = {'_payroll_730_history', '_saved_730_history', '_salary_730_markers',
+    names = {'_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers',
              'render_grafico_stipendi_desktop_style', '_render_mobile_salary_legend', '_signed_money_turni', '_money_turni'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for node in nodes:
@@ -19,7 +20,7 @@ def helpers():
     st = SimpleNamespace(session_state={}, markdown=lambda *a, **kw: None,
         info=lambda *a, **kw: None, error=errors.append,
         altair_chart=lambda chart, **kw: plots.append(chart.to_dict()))
-    env = dict(st=st, pd=pd, alt=alt, MOBILE_VIEW=True,
+    env = dict(st=st, pd=pd, alt=alt, re=re, MOBILE_VIEW=True,
                _now_italy=lambda: datetime(2026, 11, 1),
                get_turni_rules=lambda: (_ for _ in ()).throw(AssertionError('Unexpected external read')))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), 'salary-history', 'exec'), env)
@@ -111,3 +112,20 @@ def test_first_month_keeps_salary_when_saved_savings_are_zero():
     assert all(row['Risparmi'] == 0. and row['Messi da parte Totali'] == 0. for row in first)
     env['_render_mobile_salary_legend']()
     assert len(legends) == 1 and 'mobile-salary-legend' in legends[0]
+
+
+def test_thirteenth_history_uses_explicit_gross_rows_and_not_calibrated_estimates():
+    env, _, _, _ = helpers()
+    saved = {'result': {'thirteenth_net': 1500., 'rows': [
+        {'month': '2025-12', 'thirteenth_net': 1500.}]}, 'drive': {'details': {
+        '2024-12': [{'description': 'Tredicesima mensilità', 'amount': 2100.},
+                    {'description': 'Retribuzione ordinaria', 'amount': 2500.}],
+        '2025-12': [{'description': '13ma mensilità', 'amount': 2300.},
+                    {'description': 'Conguaglio tredicesima', 'amount': -50.},
+                    {'description': 'Ratei tredicesima', 'amount': 200.}],
+        '2026-10': [{'description': 'Rateo tredicesima', 'amount': 300.}]}}}
+    rows = env['_payroll_thirteenth_history'](saved)
+    assert rows == {2024: {'gross': 2100., 'months': {'2024-12'}},
+                    2025: {'gross': 2250., 'months': {'2025-12'}}}
+    assert env['_payroll_thirteenth_history'](None) == {}
+    assert env['_payroll_thirteenth_history']({'result': saved['result']}) == {}

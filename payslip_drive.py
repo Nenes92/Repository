@@ -41,7 +41,7 @@ def parse_payslip_items(text: str) -> tuple[PayslipItem, ...]:
         if not match:
             continue
         code, description, month, year, quantity, rate, amount = match.groups()
-        if not re.search(r"retribuzione ordinaria|magg\.?|straordinari|indenn|festivit|tredicesima|13.? mens", description, re.I):
+        if not re.search(r"retribuzione ordinaria|magg\.?|straordinari|indenn|festivit|tredicesima|13[ªa°^.]?\s*(?:mens|ma)", description, re.I):
             continue
         if not 1 <= int(month) <= 12:
             continue

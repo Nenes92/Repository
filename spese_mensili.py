@@ -106,7 +106,7 @@ def _get_payslip_drive_session(principal, _credentials_info):
 
 
 @st.cache_data(ttl=86400, max_entries=256, show_spinner=False)
-def _read_drive_payslip(principal, file_id, name, revision, _session):
+def _read_drive_payslip(principal, file_id, name, revision, _session, parser_version=2):
     return download_payslip(_session, file_id, name)
 
 
@@ -10450,14 +10450,71 @@ def _salary_730_markers(chart_data, history):
     return pd.DataFrame(rows)
 
 
+def _payroll_thirteenth_history(snapshot):
+    """Only explicit paid PDF rows are actual amounts; item amounts are gross."""
+    drive = (snapshot or {}).get("drive", {})
+    history = {}
+    for month, items in drive.get("details", {}).items():
+        if not re.fullmatch(r"20\d{2}-[01]\d", str(month)):
+            continue
+        for item in items:
+            description = str(item.get("description", ""))
+            if not re.search(r"tredicesima|13[ªa°^.]?\s*(?:mens|ma)", description, re.I):
+                continue
+            if re.search(r"rate[oi]|accanton|figurativ", description, re.I):
+                continue
+            amount = float(item.get("amount", 0.))
+            if not amount:
+                continue
+            year = int(month[:4])
+            row = history.setdefault(year, {"gross": 0., "months": set()})
+            row["gross"] += amount
+            row["months"].add(month)
+    return history
+
+
+def _render_thirteenth_history(snapshot):
+    history = _payroll_thirteenth_history(snapshot)
+    current_year = _now_italy().year
+    paid_years = {int(month[:4]) for month in (snapshot or {}).get("drive", {}).get("salaries", {})
+                  if str(month).endswith("-12")}
+    years = sorted(set(history) | paid_years | {current_year}, reverse=True)
+    if st.session_state.get("salary_thirteenth_year", current_year) not in years:
+        del st.session_state["salary_thirteenth_year"]
+    with st.container(key="salary-thirteenth-card", border=False):
+        title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
+        with title_column:
+            st.markdown("**13ª**")
+        with year_column:
+            year = st.selectbox("Anno tredicesima", years, index=years.index(current_year),
+                key="salary_thirteenth_year", label_visibility="collapsed")
+        actual = history.get(year)
+        if actual is not None:
+            dates = " · ".join(_turni_month_label(pd.Timestamp(month)).rsplit(" ", 1)[0]
+                               for month in sorted(actual["months"]))
+            content = ('Tredicesima · lordo'
+                f'<div class="salary-thirteenth-value">{html.escape(_money_turni(actual["gross"]))}</div>'
+                f'<div class="salary-thirteenth-source">Da cedolino · {html.escape(dates)}</div>')
+        elif year == current_year:
+            rules = _payroll_v2_rules(get_turni_rules())
+            amount = thirteenth_month_net(f"{year}-12", rules)
+            if amount > 0:
+                content = ('Tredicesima · netto stimato'
+                    f'<div class="salary-thirteenth-value">{html.escape(_money_turni(amount))}</div>'
+                    '<div class="salary-thirteenth-source">In attesa del cedolino</div>')
+            else:
+                content = 'Tredicesima<div class="salary-thirteenth-source">Stima non disponibile</div>'
+        else:
+            content = ('Tredicesima<div class="salary-thirteenth-source">Voce non disponibile nei cedolini sincronizzati</div>')
+        st.markdown('<div class="salary-thirteenth-history">' + content + '</div>', unsafe_allow_html=True)
+
+
 @st.fragment
 def _render_730_history():
     history = _saved_730_history()
-    if not history:
-        st.caption("Storico 730: sincronizza i cedolini in Turni → Calibrazione per leggere rimborsi e trattenute.")
-        return
-    years = sorted({row["Anno"] for row in history}, reverse=True)
+    snapshot = st.session_state.get("payroll_calibration_saved", {})
     current_year = _now_italy().year
+    years = sorted({row["Anno"] for row in history} or {current_year}, reverse=True)
     default = years.index(current_year) if current_year in years else 0
     if st.session_state.get("salary_730_year", years[default]) not in years:
         del st.session_state["salary_730_year"]
@@ -10465,15 +10522,20 @@ def _render_730_history():
       .st-key-salary-730-layout {margin-top:8px;}
       .st-key-salary-730-layout [data-testid="stHorizontalBlock"] {display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
       .st-key-salary-730-layout [data-testid="stColumn"] {width:auto!important;min-width:0!important;}
-      .st-key-salary-730-card [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
-      .st-key-salary-730-card {gap:6px!important;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem .9rem!important;}
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) {gap:6px!important;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:14px;padding:.8rem .9rem!important;}
+      .salary-thirteenth-history {font-size:12px;color:#cbd5e1;}
+      .salary-thirteenth-value {font-family:"DM Mono",monospace;font-size:17px;font-weight:500;color:#c4b5fd;margin:5px 0 8px;}
+      .salary-thirteenth-source {font-size:11px;color:#94a3b8;line-height:1.4;}
       .salary-730-history strong {font-family:"DM Mono",monospace;font-weight:500;}
-      .st-key-salary-730-card [data-testid="stSelectbox"] {font-size:12px;}
-      .st-key-salary-730-card [data-testid="stMarkdownContainer"] p,
-      .st-key-salary-730-card [data-baseweb="select"] * {color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stSelectbox"] {font-size:12px;}
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stMarkdownContainer"] p,
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stSelectbox"] input,
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-testid="stSelectbox"] button,
+      :is(.st-key-salary-730-card,.st-key-salary-thirteenth-card) [data-baseweb="select"] * {color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}
     </style>""")
     with st.container(key="salary-730-layout"):
-        card_column, _ = st.columns(2, gap="small")
+        card_column, thirteenth_column = st.columns(2, gap="small")
         with card_column:
             with st.container(key="salary-730-card", border=False):
                 title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
@@ -10496,6 +10558,8 @@ def _render_730_history():
                     f'<div>Rimborsi<br><strong style="color:#34d399;">{html.escape(_signed_money_turni(refund))}</strong></div>'
                     f'<div>Trattenute<br><strong style="color:#f87171;">{html.escape(_signed_money_turni(-withheld) if withheld else _money_turni(0))}</strong></div></div>'
                     + months + '</div>', unsafe_allow_html=True)
+        with thirteenth_column:
+            _render_thirteenth_history(snapshot)
 
 
 def _render_mobile_salary_legend():
