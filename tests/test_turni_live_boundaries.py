@@ -190,3 +190,28 @@ def test_mobile_live_month_follows_start_month_until_actual_end(start_day, overt
     env['_now_italy'] = lambda: handoff
     assert env['_turni_live_month'](frame) == handoff.strftime('%Y-%m')
     assert env['compute_turni_dashboard'](frame, rules, handoff.strftime('%Y-%m'))['live_month'] == 0
+
+
+def test_live_month_target_uses_same_month_shifts_instead_of_delayed_payslip():
+    from payroll_engine import VariableBreakdown
+    env = app_at(datetime(2026, 11, 1, 2, 10))
+    frame, rules = calendar_with_night(env)
+    rules = dict(rules, coefficiente_netto_variabili=.6)
+    payslip = estimate_payslip('2026-10', {'2026-09': VariableBreakdown(premiums_gross=10.)}, rules)
+    env['_payroll_estimate_for_month'] = lambda *args: payslip
+    result = env['compute_turni_dashboard'](frame, rules, '2026-10')
+    # The old comparison crossed two competence months. It is valid for the
+    # accrued October work to exceed an October payslip with September extras.
+    assert result['live_month'] > result['payslip_estimate']
+    assert result['payslip_estimate'] == payslip.credited_net
+    assert result['expected_month'] > result['live_month']
+    hourly = env['_live_net_hourly_base'](frame, rules, '2026-10')
+    full = sum(env['compute_turno_net_estimate'](
+        row['Data'], row['Turno'], bool(row['Festivo']), rules, hourly, until=datetime.max)['total']
+        for _, row in frame[frame['Data'].str.startswith('2026-10')].iterrows())
+    assert result['expected_month'] == pytest.approx(full)
+    env['_now_italy'] = lambda: datetime(2026, 11, 1, 6)
+    ended = env['compute_turni_dashboard'](frame, rules, '2026-10')
+    assert ended['live_month'] == pytest.approx(ended['expected_month'])
+    assert ended['expected_month'] == pytest.approx(result['expected_month'])
+    assert ended['payslip_estimate'] == payslip.credited_net

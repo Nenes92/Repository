@@ -4851,6 +4851,7 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
         prev_m = _add_months_turni(pd.Timestamp(current_m).date(), -1).strftime("%Y-%m")
 
     live_month = 0.0
+    expected_month = 0.0
     current_base_full = 0.0
     prev_extras = 0.0
     live_today = 0.0
@@ -4915,6 +4916,7 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
             )
             if data[:7] == current_m:
                 current_base_full += calc_full["base"]
+                expected_month += calc_full["total"]
             if turno == "Ferie" and start.strftime("%Y-%m-%d") == today and not (current_shift_end and not is_on_leave):
                 is_on_leave = True
                 rate_min = calc_live["rate_min"]
@@ -4988,6 +4990,7 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
         "month_handoff_at": _turni_month_handoff(df_turni, now)[1] if MOBILE_VIEW else "",
         "live_month_accrues": current_shift_start_date[:7] == current_m,
         "live_month": live_month,
+        "expected_month": expected_month,
         "payslip_estimate": payslip_estimate,
         "live_today": live_today,
         "expected_today": expected_today,
@@ -5733,6 +5736,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     rate_hour = rate_min * 60
     rate_sec = rate_min / 60
     payslip_estimate = _money_turni(stats["payslip_estimate"])
+    month_reference = _money_turni(stats.get("expected_month", stats["payslip_estimate"])) if MOBILE_VIEW else payslip_estimate
     expected_today = _money_turni(stats["expected_today"])
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_type = str(stats.get("current_shift_type", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -5805,7 +5809,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         month_name = html.escape(_turni_month_label(pd.Timestamp(stats.get("live_month_key", _now_italy().strftime("%Y-%m")))).rsplit(" ", 1)[0].lower())
         month_heading_html = (
             '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">'
-            '<div class="kpi-label">Netto maturato / cedolino stimato</div>'
+            '<div class="kpi-label" title="Guadagni dei turni dello stesso mese; le variabili saranno pagate secondo il ritardo previsto nelle regole.">Netto maturato / totale turni</div>'
             f'<div class="turni-subline" style="margin-top:0;">{month_name}</div></div>'
         )
         month_days_html = (
@@ -5830,7 +5834,7 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
       <div class="turni-live-grid">
         <div class="kpi-card" style="border-color:rgba(52,211,153,0.25);">
           {month_heading_html}
-          <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month" style="opacity:{0.7 if MOBILE_VIEW else 1};"></span> / <span style="font-weight:{900 if MOBILE_VIEW else 'inherit'};">{payslip_estimate}</span></div>
+          <div class="kpi-value" style="color:#34d399;"><span id="turni-live-month" style="opacity:{0.7 if MOBILE_VIEW else 1};"></span> / <span id="turni-month-total" style="font-weight:{900 if MOBILE_VIEW else 'inherit'};">{month_reference}</span></div>
           {month_days_html}
         </div>
         <div class="kpi-card" style="border-color:rgba(96,165,250,0.25);">
@@ -8536,7 +8540,7 @@ textarea {
             st.warning(f"Riepilogo turni non disponibile: {error}")
 
         turni_cards_home = (
-            _recap_card("Mese corrente — netto maturato / cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
+            _recap_card("Netto maturato / totale turni", "Dati non caricati", "#34d399", "apri la sezione turni")
             + _recap_card("Turno — netto live / totale netto", "—", "#60a5fa", "nessun dato")
             + _recap_card("Stato turno", "—", "#fef3c7", "nessun dato")
         )
@@ -8548,7 +8552,7 @@ textarea {
             ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
             month_value_home = (
                 f"{_money_turni(turni_stats_home.get('live_month', 0))} / "
-                f"{_money_turni(turni_stats_home.get('payslip_estimate', 0))}"
+                f"{_money_turni(turni_stats_home.get('expected_month', 0))}"
             )
             month_sub_home = f"Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}"
 
@@ -8588,7 +8592,7 @@ textarea {
             status_sub_home = f"{rate_min_home:.2f} €/min · {rate_hour_home:.2f} €/h"
 
             turni_cards_home = (
-                _recap_card("Mese corrente — netto maturato / cedolino", month_value_home, "#34d399", month_sub_home)
+                _recap_card("Netto maturato / totale turni", month_value_home, "#34d399", month_sub_home)
                 + _recap_card(turno_label_home, turno_value_home, "#60a5fa", turno_sub_home)
                 + _recap_card("Stato turno", status_value_home, "#fef3c7", status_sub_home)
             )
