@@ -10586,8 +10586,49 @@ def _salary_730_markers(chart_data, history):
             continue
         salary = match.iloc[0]
         rows.append({**row, "Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
-                     "Etichetta": "730 " + _signed_money_turni(row["Saldo 730"])})
+                     "Prefisso": "730:", "Segno": "+" if row["Saldo 730"] >= 0 else "−",
+                     "Importo etichetta": _money_turni(abs(row["Saldo 730"])),
+                     "Etichetta": "730: " + _signed_money_turni(row["Saldo 730"])})
     return pd.DataFrame(rows)
+
+
+def _salary_thirteenth_markers(chart_data, snapshot, rules):
+    rows = []
+    history = _payroll_thirteenth_history(snapshot)
+    if not history:
+        return pd.DataFrame()
+    salaries = chart_data.copy()
+    salaries["month_key"] = pd.to_datetime(salaries["Mese"]).dt.strftime("%Y-%m")
+    for month, items in (snapshot or {}).get("drive", {}).get("details", {}).items():
+        match = salaries[salaries["month_key"] == month]
+        if match.empty:
+            continue
+        year = int(month[:4])
+        monthly = _payroll_thirteenth_history({"drive": {"details": {month: items}}}).get(year)
+        if monthly is None:
+            continue
+        gross = monthly["gross"]
+        annual = _thirteenth_card_amounts(year, snapshot, rules)
+        net = annual["net"] * gross / history[year]["gross"] if annual["net"] is not None and history[year]["gross"] > 0 else None
+        amount = net if net is not None else gross
+        salary = match.iloc[0]
+        suffix = "" if net is not None else " lordi"
+        rows.append({"Mese_str": salary["Mese_str"], "Stipendio": float(salary["Stipendio"]),
+            "Tredicesima lorda": gross, "Importo tredicesima": amount,
+            "Tipo importo": "Netto stimato" if net is not None else "Lordo da cedolino",
+            "Prefisso": "13ª:", "Segno": "+" if amount >= 0 else "−",
+            "Importo etichetta": _money_turni(abs(amount)) + suffix,
+            "Etichetta": "13ª: " + _signed_money_turni(amount) + suffix})
+    return pd.DataFrame(rows)
+
+
+def _salary_marker_label_layers(base, color, dy):
+    # Separate text marks let the sign be smaller than the prefix and amount.
+    return [
+        base.mark_text(dy=dy, dx=-7, align="right", fontSize=10, fontWeight="bold").encode(color=color, text="Prefisso:N"),
+        base.mark_text(dy=dy, dx=-3, align="center", fontSize=7, fontWeight="bold").encode(color=color, text="Segno:N"),
+        base.mark_text(dy=dy, dx=2, align="left", fontSize=10, fontWeight="bold").encode(color=color, text="Importo etichetta:N"),
+    ]
 
 
 def _render_thirteenth_history(snapshot):
@@ -10836,7 +10877,21 @@ def render_grafico_stipendi_desktop_style(data_stipendi, height=430, years_back=
                             alt.Tooltip("Rimborsi:Q", title="Rimborsi (€)", format=",.2f"),
                             alt.Tooltip("Trattenute:Q", title="Trattenute (€)", format=",.2f"),
                             alt.Tooltip("Stipendio:Q", title="Stipendio registrato (€)", format=",.2f")]),
-                    fiscal_base.mark_text(dy=-16, fontSize=10, fontWeight="bold").encode(color=fiscal_color, text="Etichetta:N"),
+                    *_salary_marker_label_layers(fiscal_base, fiscal_color, -16),
+                ])
+            annual_markers = _salary_thirteenth_markers(chart_data,
+                st.session_state.get("payroll_calibration_saved", {}), st.session_state.get("turni_rules", {}))
+            if not annual_markers.empty:
+                annual_base = alt.Chart(annual_markers).encode(x=x_axis, y=alt.Y("Stipendio:Q"))
+                annual_color = alt.value("#c4b5fd")
+                salary_layers.extend([
+                    annual_base.mark_point(shape="triangle-up", size=130, filled=True, stroke="#0f172a", strokeWidth=1).encode(
+                        color=annual_color, tooltip=[alt.Tooltip("Mese_str:N", title="Mese"),
+                            alt.Tooltip("Tredicesima lorda:Q", title="Tredicesima lorda da cedolino (€)", format=",.2f"),
+                            alt.Tooltip("Importo tredicesima:Q", title="Importo indicato (€)", format=",.2f"),
+                            alt.Tooltip("Tipo importo:N", title="Tipo di importo"),
+                            alt.Tooltip("Stipendio:Q", title="Stipendio registrato (€)", format=",.2f")]),
+                    *_salary_marker_label_layers(annual_base, annual_color, -30),
                 ])
         stipendi_chart = alt.layer(*salary_layers)
         risparmi_chart = alt.layer(bars_risparmi, line_media_risp, point_media_risp, line_media_messi, point_media_messi)

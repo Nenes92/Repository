@@ -13,7 +13,7 @@ import altair as alt
 
 def helpers():
     tree = ast.parse((Path(__file__).parents[1] / 'spese_mensili.py').read_text())
-    names = {'_thirteenth_card_amounts', '_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers',
+    names = {'_thirteenth_card_amounts', '_payroll_thirteenth_history', '_payroll_730_history', '_saved_730_history', '_salary_730_markers', '_salary_thirteenth_markers', '_salary_marker_label_layers',
              'render_grafico_stipendi_desktop_style', '_render_mobile_salary_legend', '_signed_money_turni', '_money_turni'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for node in nodes:
@@ -59,7 +59,7 @@ def test_chart_marks_only_matching_months_and_keeps_salary_values_and_means():
     assert not errors
     pd.testing.assert_frame_equal(data, before)
     encoded = json.dumps(plots[0])
-    assert 'Saldo 730' in encoded and 'diamond' in encoded and '730 +' in encoded
+    assert 'Saldo 730' in encoded and 'diamond' in encoded and '730: +' in encoded
     fiscal_rows = [row for values in plots[0]['datasets'].values() for row in values if 'Saldo 730' in row]
     assert len(fiscal_rows) == 1
     assert fiscal_rows[0]['Stipendio'] == 2600. and fiscal_rows[0]['Saldo 730'] == 200.
@@ -163,3 +163,36 @@ def test_thirteenth_display_does_not_invent_gross_without_pdf_reference():
     assert env['_thirteenth_card_amounts'](2025, {}, rules) == {'gross': None, 'net': None, 'actual': False}
     saved = {'drive': {'details': {'2025-12': [{'description': 'Tredicesima', 'amount': 2500.}]}}}
     assert env['_thirteenth_card_amounts'](2025, saved, rules)['net'] == 1600.
+
+
+def test_chart_labels_730_and_thirteenth_with_colons_and_smaller_separate_signs():
+    env, st, plots, errors = helpers()
+    st.session_state['payroll_calibration_saved'] = {
+        'drive': {'details': {'2025-12': [{'description': 'Tredicesima', 'amount': 2500.}],
+                             '2024-12': [{'description': 'Tredicesima', 'amount': 2100.}]},
+                  'tax_adjustments': {'2025-12': -100.}},
+        'result': {'rows': [{'month': '2025-12', 'included': True, 'thirteenth_net': 1700.}]}}
+    data = pd.DataFrame({'Mese': pd.to_datetime(['2025-12-01','2026-01-01']),
+        'Stipendio': [4100.,2500.], 'Risparmi': 0., 'Messi da parte Totali': 100.,
+        'Media Stipendio': 3000., 'Media Stipendio NO 13°/PDR': 2400.,
+        'Media Risparmi': 0., 'Media Messi da parte Totali': 100.})
+    before = data.copy(deep=True)
+    env['render_grafico_stipendi_desktop_style'](data, months_back=15)
+    assert not errors
+    pd.testing.assert_frame_equal(data, before)
+    rows = [row for values in plots[0]['datasets'].values() for row in values]
+    annual = [row for row in rows if 'Tredicesima lorda' in row]
+    tax = [row for row in rows if 'Saldo 730' in row]
+    assert len(annual) == 1 and annual[0]['Prefisso'] == '13ª:'
+    assert annual[0]['Importo tredicesima'] == pytest.approx(1700.) and annual[0]['Tipo importo'] == 'Netto stimato'
+    assert annual[0]['Tredicesima lorda'] == 2500. and annual[0]['Segno'] == '+'
+    assert len(tax) == 1 and tax[0]['Prefisso'] == '730:' and tax[0]['Segno'] == '−'
+    def marks(value):
+        if isinstance(value, dict):
+            if isinstance(value.get('mark'), dict):yield value
+            for child in value.values():yield from marks(child)
+        elif isinstance(value,list):
+            for child in value:yield from marks(child)
+    text = [mark for mark in marks(plots[0]) if mark['mark']['type']=='text']
+    assert [mark['mark']['fontSize'] for mark in text if mark['encoding']['text']['field']=='Segno'] == [7,7]
+    assert all(mark['mark']['fontSize']==10 for mark in text if mark['encoding']['text']['field']!='Segno')
