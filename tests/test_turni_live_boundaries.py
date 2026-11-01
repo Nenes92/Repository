@@ -215,3 +215,51 @@ def test_live_month_target_uses_same_month_shifts_instead_of_delayed_payslip():
     assert ended['live_month'] == pytest.approx(ended['expected_month'])
     assert ended['expected_month'] == pytest.approx(result['expected_month'])
     assert ended['payslip_estimate'] == payslip.credited_net
+
+
+@pytest.mark.parametrize('actual', [None, 2490.])
+def test_monthly_live_reaches_the_same_paid_or_forecast_net_as_the_payslip_card(actual):
+    env = app_at(datetime(2026, 11, 1, 2, 10))
+    frame, rules = calendar_with_night(env)
+    salaries = {} if actual is None else {'2026-10': actual}
+    env['st'].session_state['payroll_calibration_saved'] = {'drive': {'salaries': salaries}}
+    result = env['compute_turni_dashboard'](frame, rules, '2026-10')
+    target = result['payslip_estimate'] if actual is None else actual
+    assert result['credited_month_target'] == target
+    assert result['has_actual_payslip'] == (actual is not None)
+    assert 0 < result['credited_month_live'] < target
+    assert result['credited_month_live'] == pytest.approx(target * result['live_month'] / result['expected_month'])
+    assert result['credited_month_scale'] == pytest.approx(target / result['expected_month'])
+    env['_now_italy'] = lambda: datetime(2026, 11, 1, 6)
+    ended = env['compute_turni_dashboard'](frame, rules, '2026-10')
+    assert ended['credited_month_live'] == pytest.approx(target)
+    assert ended['credited_month_target'] == target
+    # PDF arrival on the next manual synchronization takes precedence immediately.
+    salaries['2026-10'] = 2510.
+    synced = env['compute_turni_dashboard'](frame, rules, '2026-10')
+    assert synced['credited_month_live'] == pytest.approx(2510.)
+    assert synced['credited_month_target'] == 2510.
+    assert synced['payslip_estimate'] == result['payslip_estimate']
+    assert synced['live_today'] == ended['live_today']  # Per-shift engine is unchanged.
+
+
+def test_real_payslip_card_replaces_forecast_and_uncertainty_with_paid_net():
+    env = app_at(datetime(2026, 11, 1, 2))
+    env['st'].session_state['payroll_calibration_saved'] = {'drive': {'salaries': {'2026-10': 2490.}}}
+    rendered = []
+    env['st'].markdown = lambda content, **kw: rendered.append(content)
+    estimate = estimate_payslip('2026-10', {}, env['DEFAULT_TURNI_RULES'], uncertainty=50.)
+    env['render_payroll_v2_details'](estimate)
+    text = rendered[-1]
+    assert 'Cedolino effettivo' in text and 'Netto cedolino effettivo' in text
+    assert '2.490,00' in text and 'Netto letto dal cedolino sincronizzato' in text
+    assert 'Previsione cedolino' not in text and 'Intervallo realistico' not in text
+    assert 'Stima del modello' in text and 'Variabili lorde / nette stimate' in text
+
+
+def test_invalid_pdf_net_is_not_used_as_monthly_reference():
+    env = app_at(datetime(2026, 11, 1, 2))
+    for invalid in (None, '', 'not a number', 0, -10, float('nan'), float('inf')):
+        env['st'].session_state['payroll_calibration_saved'] = {'drive': {'salaries': {'2026-10': invalid}}}
+        assert env['_payroll_month_reference']('2026-10', 2400.) == {'net': 2400., 'actual': False}
+    assert env['_payroll_month_progress'](5., 0., 2400.) == {'live': 0., 'target': 2400., 'scale': 0.}

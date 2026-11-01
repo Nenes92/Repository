@@ -4241,6 +4241,26 @@ def _payroll_estimate_for_month(df_turni, rules, month_key):
     )
 
 
+def _payroll_month_reference(month_key, forecast_net):
+    """Use the synchronized paid net without new Drive/Sheet reads."""
+    saved = st.session_state.get("payroll_calibration_saved", {}) or {}
+    amount = saved.get("drive", {}).get("salaries", {}).get(month_key)
+    try:
+        actual = float(amount)
+    except (TypeError, ValueError):
+        actual = 0.
+    if 0 < actual < float("inf"):
+        return {"net": actual, "actual": True}
+    return {"net": max(0., float(forecast_net)), "actual": False}
+
+
+def _payroll_month_progress(accrued, total, target):
+    """Apportion the monthly credited net over the scheduled shift weights."""
+    scale = max(0., float(target)) / float(total) if total > 0 else 0.
+    return {"live": min(max(0., float(target)), max(0., float(accrued)) * scale),
+            "target": max(0., float(target)), "scale": scale}
+
+
 def _apply_turni_rules_from_widgets(rules):
     if globals().get("MOBILE_VIEW", False):
         # Mobile rule widgets are drafts; only the matching form may commit them.
@@ -4983,6 +5003,8 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
     # variabili del mese di competenza vengono convertite col coefficiente
     # configurabile; i buoni pasto restano separati dal netto accreditato.
     payslip_estimate = float(payroll_v2.credited_net)
+    reference = _payroll_month_reference(current_m, payslip_estimate) if MOBILE_VIEW else {"net": payslip_estimate, "actual": False}
+    credited_progress = _payroll_month_progress(live_month, expected_month, reference["net"])
 
     return {
         # Competenza del turno intero: anche dopo mezzanotte resta nel mese di inizio.
@@ -4991,6 +5013,10 @@ def compute_turni_dashboard(df_turni, rules, live_month_key=None):
         "live_month_accrues": current_shift_start_date[:7] == current_m,
         "live_month": live_month,
         "expected_month": expected_month,
+        "credited_month_live": credited_progress["live"],
+        "credited_month_target": credited_progress["target"],
+        "credited_month_scale": credited_progress["scale"],
+        "has_actual_payslip": reference["actual"],
         "payslip_estimate": payslip_estimate,
         "live_today": live_today,
         "expected_today": expected_today,
@@ -5234,7 +5260,8 @@ def render_selected_month_turni_kpis(
     month_date = datetime.strptime(f"{month_key}-01", "%Y-%m-%d").date()
     month_label = html.escape(_turni_month_label(month_date))
     summary = _turni_month_money_summary(df_turni, rules, month_key)
-    storico_stipendio = _storico_stipendio_for_month(month_key)
+    reference = _payroll_month_reference(month_key, payroll_estimate.credited_net)
+    storico_stipendio = reference["net"] if MOBILE_VIEW and reference["actual"] else _storico_stipendio_for_month(month_key)
     actual_value = "—" if storico_stipendio is None else _money_turni(storico_stipendio)
     actual_subline = "Netto accreditato da storico" if storico_stipendio is not None else "Cedolino reale non presente nello storico"
     if storico_stipendio is None:
@@ -5730,13 +5757,15 @@ def _mobile_turni_snapshot(selected_month):
 
 
 def render_live_turni_kpis(stats, side_html="", compact_home=False):
-    live_month = float(stats["live_month"])
+    live_month = float(stats.get("credited_month_live", stats["live_month"]) if MOBILE_VIEW else stats["live_month"])
     live_today = float(stats["live_today"])
     rate_min = float(stats["rate_min"])
     rate_hour = rate_min * 60
     rate_sec = rate_min / 60
     payslip_estimate = _money_turni(stats["payslip_estimate"])
-    month_reference = _money_turni(stats.get("expected_month", stats["payslip_estimate"])) if MOBILE_VIEW else payslip_estimate
+    month_target = float(stats.get("credited_month_target", stats["payslip_estimate"]))
+    month_reference = _money_turni(month_target) if MOBILE_VIEW else payslip_estimate
+    month_scale = float(stats.get("credited_month_scale", 1.)) if MOBILE_VIEW else 1.
     expected_today = _money_turni(stats["expected_today"])
     current_shift = str(stats["current_shift"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     current_shift_type = str(stats.get("current_shift_type", "—")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -5807,9 +5836,10 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     shift_label_style = "font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;"
     if MOBILE_VIEW:
         month_name = html.escape(_turni_month_label(pd.Timestamp(stats.get("live_month_key", _now_italy().strftime("%Y-%m")))).rsplit(" ", 1)[0].lower())
+        reference_label = "cedolino effettivo" if stats.get("has_actual_payslip") else "cedolino stimato"
         month_heading_html = (
             '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">'
-            '<div class="kpi-label" title="Guadagni dei turni dello stesso mese; le variabili saranno pagate secondo il ritardo previsto nelle regole.">Netto maturato / totale turni</div>'
+            f'<div class="kpi-label" title="Netto del cedolino ripartito proporzionalmente ai turni svolti nel mese.">Netto maturato / {reference_label}</div>'
             f'<div class="turni-subline" style="margin-top:0;">{month_name}</div></div>'
         )
         month_days_html = (
@@ -6024,6 +6054,8 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
     <script>
       const start = Date.now();
       const startMonth = {live_month:.8f};
+      const monthTarget = {month_target:.8f};
+      const monthScale = {month_scale:.10f};
       const accrueCurrentMonth = {json.dumps(bool(stats.get("live_month_accrues", True)))};
       const startToday = {live_today:.8f};
       const rateSec = {rate_sec:.10f};
@@ -6098,7 +6130,8 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
         const rateChanged = rateChangeAt && Date.now() >= Date.parse(rateChangeAt);
         const shouldStart = !isInitiallyOnShift && !isOnLeave && nextShiftStart && Date.now() >= Date.parse(nextShiftStart);
         const extra = elapsedSeconds() * rateSec;
-        monthEl.textContent = money(startMonth + (accrueCurrentMonth ? extra : 0));
+        const accruedMonth = startMonth + (accrueCurrentMonth ? extra * monthScale : 0);
+        monthEl.textContent = money({json.dumps(MOBILE_VIEW)} ? Math.min(monthTarget, accruedMonth) : accruedMonth);
         todayEl.textContent = money(startToday + extra);
         if ({json.dumps(MOBILE_VIEW)}) {{
           const activeShift = (isInitiallyOnShift && !ended) || shouldStart;
@@ -6152,6 +6185,9 @@ def render_live_turni_kpis(stats, side_html="", compact_home=False):
 
 
 def render_payroll_v2_details(estimate, adjustment_description=""):
+    reference = _payroll_month_reference(estimate.month, estimate.credited_net) if MOBILE_VIEW else {"net": estimate.credited_net, "actual": False}
+    net_label = "Netto cedolino effettivo" if reference["actual"] else "Netto cedolino stimato"
+    heading = "Cedolino effettivo" if reference["actual"] else "Previsione cedolino"
     adjustment_label = _signed_money_turni(estimate.adjustment)
     adjustment_formula = (
         f"+ {_money_turni(estimate.adjustment)}"
@@ -6238,8 +6274,16 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
             f'<br>Intervallo realistico: <strong style="color:#34d399;">'
             f'{html.escape(_money_turni(estimate.realistic_low))} – {html.escape(_money_turni(estimate.realistic_high))}</strong>'
         )
+        if reference["actual"]:
+            delta = reference["net"] - float(estimate.credited_net)
+            delta_color = "#34d399" if delta >= 0 else "#f87171"
+            net_caption = (
+                'Netto letto dal cedolino sincronizzato<br>'
+                f'Stima del modello: {html.escape(_money_turni(estimate.credited_net))}<br>'
+                f'Scarto: <span style="color:{delta_color};">{html.escape(_signed_money_turni(delta))}</span>'
+            )
         mobile_cards = [
-            ("Netto cedolino stimato", _money_turni(estimate.credited_net), net_caption, "#34d399", "16,185,129"),
+            (net_label, _money_turni(reference["net"]), net_caption, "#34d399", "16,185,129"),
             ("Variabili lorde / nette stimate",
              f"{_money_turni(estimate.variables_gross)} / {_money_turni(estimate.variables_net)}",
              '<br>'.join(
@@ -6263,14 +6307,14 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
                 f'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
                 f'<div class="payroll-v2-label" style="min-height:0;">{html.escape(label)}</div>'
                 f'<div class="payroll-v2-value" style="text-align:right;white-space:nowrap;">{html.escape(value)}</div></div>'
-                if label == "Netto cedolino stimato" else
+                if label == net_label else
                 f'<div class="payroll-v2-label">{html.escape(label)}</div>'
                 f'<div class="payroll-mobile-variable-columns" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;">'
                 f'<div style="min-width:0;"><div class="payroll-v2-value">{variables_value_html}</div>'
                 f'<div class="payroll-v2-sub">Maturate in {html.escape(competence_label)},<br>pagate in {html.escape(payment_label)}.</div></div>'
                 f'<div class="payroll-v2-sub" style="min-width:0;margin-top:0;">{caption}</div></div>'
             )
-            + (f'<div class="payroll-v2-sub">{caption}</div>' if label == "Netto cedolino stimato" else '')
+            + (f'<div class="payroll-v2-sub">{caption}</div>' if label == net_label else '')
             + '</div>'
             for label, value, caption, color, rgb in mobile_cards
         )
@@ -6314,7 +6358,7 @@ def render_payroll_v2_details(estimate, adjustment_description=""):
       }}
     </style>
     {'<div style="border-top:1px solid rgba(148,163,184,.28);margin:4px 0 14px;"></div>' if MOBILE_VIEW else ''}
-    <div class="payroll-v2-heading">🧾 Previsione cedolino</div>
+    <div class="payroll-v2-heading">🧾 {html.escape(heading)}</div>
     <div class="payroll-v2-grid">{cards_html}</div>
     """, unsafe_allow_html=True)
     if not MOBILE_VIEW:
@@ -8540,7 +8584,7 @@ textarea {
             st.warning(f"Riepilogo turni non disponibile: {error}")
 
         turni_cards_home = (
-            _recap_card("Netto maturato / totale turni", "Dati non caricati", "#34d399", "apri la sezione turni")
+            _recap_card("Netto maturato / cedolino", "Dati non caricati", "#34d399", "apri la sezione turni")
             + _recap_card("Turno — netto live / totale netto", "—", "#60a5fa", "nessun dato")
             + _recap_card("Stato turno", "—", "#fef3c7", "nessun dato")
         )
@@ -8551,8 +8595,8 @@ textarea {
             month_days_total = work_days_total + ferie_days_total
             ferie_suffix = f" + {ferie_days_total} ferie = {month_days_total}" if ferie_days_total else ""
             month_value_home = (
-                f"{_money_turni(turni_stats_home.get('live_month', 0))} / "
-                f"{_money_turni(turni_stats_home.get('expected_month', 0))}"
+                f"{_money_turni(turni_stats_home.get('credited_month_live', turni_stats_home.get('live_month', 0)))} / "
+                f"{_money_turni(turni_stats_home.get('credited_month_target', turni_stats_home.get('payslip_estimate', 0)))}"
             )
             month_sub_home = f"Giorni lavorati: {work_days_done} / {work_days_total}{ferie_suffix}"
 
@@ -8592,7 +8636,7 @@ textarea {
             status_sub_home = f"{rate_min_home:.2f} €/min · {rate_hour_home:.2f} €/h"
 
             turni_cards_home = (
-                _recap_card("Netto maturato / totale turni", month_value_home, "#34d399", month_sub_home)
+                _recap_card("Netto maturato / cedolino " + ("effettivo" if turni_stats_home.get("has_actual_payslip") else "stimato"), month_value_home, "#34d399", month_sub_home)
                 + _recap_card(turno_label_home, turno_value_home, "#60a5fa", turno_sub_home)
                 + _recap_card("Stato turno", status_value_home, "#fef3c7", status_sub_home)
             )
