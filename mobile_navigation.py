@@ -111,8 +111,10 @@ export default function({data}) {
     const track = root?.matches('[data-testid="stHorizontalBlock"]') ? root : root?.querySelector('[data-testid="stHorizontalBlock"]');
     const pages = data.pages.map(key => document.querySelector('.st-key-' + key));
     const buttons = [...document.querySelectorAll('[data-chart-carousel="' + data.id + '"] [data-chart-page]')];
-    if (!track || pages.some(page => !page) || buttons.length !== 2) return false;
+    if (!track || pages.some(page => !page) || (buttons.length !== pages.length || pages.length < 2)) return false;
     Object.assign(track.style, {flexWrap:'nowrap',gap:'0px',overflowX:'auto',overflowY:'hidden',paddingBottom:'4px',scrollSnapType:'x mandatory',scrollbarWidth:'none',overscrollBehaviorX:'contain',touchAction:'pan-y pinch-zoom'});
+    // Ancestor :has() rules for input grids must not turn the carousel into a grid.
+    track.style.setProperty('display', 'flex', 'important');
     for (const page of pages) {
       let child = page;
       while (child.parentElement && child.parentElement !== track) child = child.parentElement;
@@ -134,7 +136,7 @@ export default function({data}) {
     const hideTooltip = () => document.querySelectorAll('.vg-tooltip.visible').forEach(tip => tip.classList.remove('visible'));
     function go(next, smooth=true) {
       hideTooltip();
-      index = Math.max(0, Math.min(1, next));
+      index = Math.max(0, Math.min(pages.length-1, next));
       track.dataset.chartPage = String(index);
       track.scrollTo({left: index * track.clientWidth, behavior: smooth ? 'smooth' : 'instant'});
       label();
@@ -164,7 +166,7 @@ export default function({data}) {
     const touchEnd = event => { if (event.changedTouches[0]) end(event.changedTouches[0], event); };
     const pointerDown = event => { if (event.pointerType !== 'touch') start(event); };
     const pointerUp = event => { if (event.pointerType !== 'touch') end(event, event); };
-    const scroll = () => { hideTooltip(); index = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); track.dataset.chartPage = String(index); label(); updateHeight(); };
+    const scroll = () => { hideTooltip(); index = Math.max(0, Math.min(pages.length-1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth)))); track.dataset.chartPage = String(index); label(); updateHeight(); };
     buttons.forEach(button => { button.addEventListener('click',click); button.addEventListener('keydown',key); });
     track.addEventListener('touchstart',touchStart,{passive:true});
     track.addEventListener('touchmove',touchMove,{passive:false});

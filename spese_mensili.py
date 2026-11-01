@@ -50,6 +50,8 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
+import personal_trackers as _personal_trackers
+importlib.reload(_personal_trackers)
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -4259,6 +4261,46 @@ def _payroll_month_progress(accrued, total, target):
     scale = max(0., float(target)) / float(total) if total > 0 else 0.
     return {"live": min(max(0., float(target)), max(0., float(accrued)) * scale),
             "target": max(0., float(target)), "scale": scale}
+
+
+def _load_personal_tracker_records():
+    frame = load_data_gsheets(_personal_trackers.SHEET, _personal_trackers.HEADERS)
+    try:
+        return _personal_trackers.decode_rows(frame.to_dict(orient="records"))
+    except ValueError as exc:
+        st.error(str(exc))
+        return None
+
+
+def _save_personal_tracker_record(identifier, replacement):
+    """Merge with a fresh read; overwrite the range once, without clearing first."""
+    client = get_gsheet_client()
+    if client is None:
+        st.error("Google Sheets non disponibile. La voce non è stata salvata.")
+        return False
+    try:
+        worksheet = get_or_create_worksheet(client, SHEET_URL, _personal_trackers.SHEET, _personal_trackers.HEADERS)
+        if worksheet is None:
+            raise ValueError("Registro non disponibile")
+        old_rows = worksheet.get_all_records()
+        records = _personal_trackers.decode_rows(old_rows)
+        if replacement is not None:
+            replacement = _personal_trackers.validate_record(replacement, _now_italy().date())
+        records = _personal_trackers.merge_record(records, identifier, replacement)
+        encoded = _personal_trackers.encode_rows(records)
+        headers = _personal_trackers.HEADERS
+        rows = [headers] + [[row.get(key, "") for key in headers] for row in encoded]
+        rows += [[""] * len(headers) for _ in range(max(0, len(old_rows) - len(encoded)))]
+        try:
+            worksheet.update(values=rows, range_name="A1")
+        except TypeError:
+            worksheet.update("A1", rows)
+        _mobile_sheet_records.clear(SHEET_URL, _personal_trackers.SHEET, tuple(headers))
+        _set_gsheets_cache(_personal_trackers.SHEET, pd.DataFrame(encoded, columns=headers))
+        return True
+    except Exception:
+        st.error("Salvataggio non riuscito. Il registro non è stato cancellato: riprova.")
+        return False
 
 
 def _apply_turni_rules_from_widgets(rules):
@@ -8867,393 +8909,416 @@ textarea {
 
     df_fisse_percentuali = df_fisse.rename(columns={'Importo': 'Valore €'})
     df_fisse['Valore €'] = df_fisse['Importo'].apply(lambda x: f"€ {x:.2f}")
-    
+
     # --- COLONNA 1: SPESE FISSE ---
     with col1:
         if _mobile_show("Spese"):
             st.markdown('<div id="mobile-spese" class="mobile-anchor"></div><div class="section-pill">🏠 Spese Fisse</div>', unsafe_allow_html=True)
             if MOBILE_VIEW:
-                with st.container(key="mobile-fixed-tabs"):
-                    tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
+                tracker_records = _load_personal_tracker_records()
+                _mobile_navigation.render_mobile_chart_styles("mobile-fixed-pages", auto_height=True)
+                _mobile_navigation.render_mobile_chart_dots("fixed", ["Spese fisse", "Auto", "Investimenti", "Rate"], indicator="dashes")
+                with st.container(key="mobile-fixed-pages", horizontal=True, gap=None):
+                    fixed_expenses_page = st.container(key="mobile-fixed-expenses")
+                    auto_page = st.container(key="mobile-fixed-auto")
+                    holdings_page = st.container(key="mobile-fixed-investments")
+                    instalments_page = st.container(key="mobile-fixed-installments")
+                for tracker_kind, tracker_page in [("auto", auto_page), ("investments", holdings_page), ("installments", instalments_page)]:
+                    with tracker_page:
+                        _personal_trackers.render_tracker(tracker_records, tracker_kind,
+                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date())
+                _mobile_navigation.render_mobile_chart_swipe("fixed", "mobile-fixed-pages",
+                    ["mobile-fixed-expenses", "mobile-fixed-auto", "mobile-fixed-investments", "mobile-fixed-installments"], auto_height=True)
             else:
-                tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
-
-            with tab_decisioni_fisse, _mobile_edit_form("mobile_fixed_expenses_form"):
-                settings = SPESE["Fisse"].copy()
-                metadata = st.session_state.get("spese_fisse_metadata", {})
-                gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
-
-                st.markdown("#### Aggiungi spesa")
-                add_nome_col, add_importo_col, add_gruppo_nuovo_col = st.columns(3, gap="small")
-                with add_nome_col:
-                    if MOBILE_VIEW:
-                        st.markdown('<span class="fixed-expense-add-main-marker"></span>', unsafe_allow_html=True)
-                    nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
-                with add_importo_col:
-                    nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
-                with add_gruppo_nuovo_col:
-                    nuovo_gruppo = st.text_input(
-                        "Nuovo gruppo visivo da aggiungere",
-                        key="nuovo_gruppo_spese_fisse",
-                        placeholder="Es. Animali, Viaggi, Donazioni..."
-                    ).strip()
-                if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
-                    gruppi_disponibili.append(nuovo_gruppo)
-                add_meta_col1, add_meta_col2, add_meta_col3 = st.columns(3, gap="small")
-                with add_meta_col1:
-                    if MOBILE_VIEW:
-                        st.markdown('<span class="fixed-expense-add-meta-marker"></span>', unsafe_allow_html=True)
-                    nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
-                with add_meta_col2:
-                    nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
-                with add_meta_col3:
-                    nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo", accept_new_options=MOBILE_VIEW)
-
-                st.markdown("#### Elimina spesa")
-                elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
-                st.markdown(
-                    '<div style="border-top: 1px solid rgba(148, 163, 184, .28); margin: 26px 0 18px;"></div>'
-                    '<h4 style="text-align: center; margin: 0 0 18px;">Modifica spese esistenti</h4>',
-                    unsafe_allow_html=True,
-                )
-
-                editor_cols = st.columns(3 if MOBILE_VIEW else 2)
-                editable_settings = {}
-                editable_metadata = {}
+                fixed_expenses_page, auto_page, holdings_page, instalments_page = st.tabs(["Spese fisse", "Auto", "Investimenti", "Rate"])
+                tracker_records = _load_personal_tracker_records()
+                for tracker_kind, tracker_page in [("auto", auto_page), ("investments", holdings_page), ("installments", instalments_page)]:
+                    with tracker_page:
+                        _personal_trackers.render_tracker(tracker_records, tracker_kind,
+                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date())
+            with fixed_expenses_page:
                 if MOBILE_VIEW:
-                    for editor_col in editor_cols:
-                        with editor_col:
-                            st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
-                for idx, (voce, importo) in enumerate(settings.items()):
-                    with editor_cols[idx % len(editor_cols)]:
-                        current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                        current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                        current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
-                        titolo_colore = SPESA_FISSA_CATEGORIA_COLORI.get(current_categoria, "#f8fafc")
-                        st.markdown(
-                            f'<div style="font-weight: 800; color: {titolo_colore}; margin: 0 0 8px; line-height: 1.15;">{html.escape(str(voce))}</div>',
-                            unsafe_allow_html=True,
-                        )
-                        editable_settings[voce] = st.number_input(
-                            "Importo",
-                            min_value=0.0,
-                            value=float(importo),
-                            step=5.0,
-                            key=f"spesa_fissa_importo_{voce}"
-                        )
-                        if current_gruppo not in gruppi_disponibili:
-                            gruppi_disponibili.append(current_gruppo)
-                        editable_metadata[voce] = {
-                            "Categoria": st.selectbox(
-                                "Colore categoria",
-                                SPESA_FISSA_CATEGORIE,
-                                index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
-                                key=f"spesa_fissa_categoria_{voce}"
-                            ),
-                            "Carta": st.selectbox(
-                                "Carta",
-                                SPESA_FISSA_CARTE,
-                                index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
-                                key=f"spesa_fissa_carta_{voce}"
-                            ),
-                            "Gruppo": st.selectbox(
-                                "Gruppo visivo",
-                                gruppi_disponibili,
-                                index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
-                                key=f"spesa_fissa_gruppo_{voce}", accept_new_options=MOBILE_VIEW
-                            ),
-                        }
-                        st.markdown("---")
-
-                save_col, delete_col = st.columns(2)
-                with save_col:
-                    if MOBILE_VIEW:
-                        st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
-                    if _editor_button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse", type="primary" if MOBILE_VIEW else "secondary"):
-                        nome_nuova = nuova_spesa_nome.strip()
-                        if nome_nuova:
-                            editable_settings[nome_nuova] = float(nuova_spesa_importo)
-                            editable_metadata[nome_nuova] = {
-                                "Categoria": nuova_spesa_categoria,
-                                "Carta": nuova_spesa_carta,
-                                "Gruppo": (nuovo_gruppo or nuova_spesa_gruppo) if MOBILE_VIEW else nuova_spesa_gruppo,
-                            }
-                        if save_spese_fisse_settings(editable_settings, editable_metadata):
-                            if MOBILE_VIEW:
-                                _mobile_save_refresh("Spese fisse salvate")
-                            st.success("Spese fisse salvate")
-                            st.rerun()
-                        else:
-                            st.error("Errore salvataggio spese fisse")
-                with delete_col:
-                    if MOBILE_VIEW:
-                        st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
-                    if _editor_button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=(not bool(elimina_spesa)) if not MOBILE_VIEW else False):
-                        if not elimina_spesa:
-                            st.warning("Seleziona la spesa da eliminare.")
-                            st.stop()
-                        if MOBILE_VIEW:
-                            editable_settings = settings.copy()
-                            editable_metadata = metadata.copy()
-                        editable_settings.pop(elimina_spesa, None)
-                        editable_metadata.pop(elimina_spesa, None)
-                        if save_spese_fisse_settings(editable_settings, editable_metadata):
-                            if MOBILE_VIEW:
-                                _mobile_save_refresh("Spesa eliminata")
-                            st.success("Spesa eliminata")
-                            st.rerun()
-                        else:
-                            st.error("Errore eliminazione spesa")
-
-            with tab_spese_fisse:
-                st.subheader("Spese Fisse:")
-
-                spese_meta = st.session_state.get("spese_fisse_metadata", {})
-                rendered_voci = set()
-                ordered_groups = _ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)
-                if MOBILE_VIEW:
-                    mobile_cols = ["", ""]
-                    for group_index, group_name in enumerate(ordered_groups):
-                        group_items = [
-                            (voce, importo)
-                            for voce, importo in SPESE["Fisse"].items()
-                            if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
-                        ]
-                        if not group_items:
-                            continue
-                        group_html = (
-                            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{html.escape(str(group_name))}</div>'
-                        )
-                        for voce, importo in group_items:
-                            categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                            carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                            group_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
-                            rendered_voci.add(voce)
-                        mobile_cols[group_index % 2] += group_html
-
-                    altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
-                    if altre_voci:
-                        altre_html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>'
-                        for voce, importo in altre_voci:
-                            categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
-                            carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                            altre_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
-                        mobile_cols[1] += altre_html
-
-                    st.markdown(
-                        f'<div class="mobile-fixed-expenses-grid"><div class="mobile-fixed-expenses-col">{mobile_cols[0]}</div><div class="mobile-fixed-expenses-col">{mobile_cols[1]}</div></div>',
-                        unsafe_allow_html=True
-                    )
+                    with st.container(key="mobile-fixed-tabs"):
+                        tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
                 else:
-                    col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
-                    group_columns = [col_left, col_right]
-                    for group_index, group_name in enumerate(ordered_groups):
-                        group_items = [
-                            (voce, importo)
-                            for voce, importo in SPESE["Fisse"].items()
-                            if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
-                        ]
-                        if not group_items:
-                            continue
-                        with group_columns[group_index % 2]:
-                            if group_index > 1:
-                                st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                    tab_spese_fisse, tab_decisioni_fisse = st.tabs(["📋 Spese", "⚙️ Decisioni"])
+
+                with tab_decisioni_fisse, _mobile_edit_form("mobile_fixed_expenses_form"):
+                    settings = SPESE["Fisse"].copy()
+                    metadata = st.session_state.get("spese_fisse_metadata", {})
+                    gruppi_disponibili = _spesa_fissa_gruppi_disponibili(metadata)
+
+                    st.markdown("#### Aggiungi spesa")
+                    add_nome_col, add_importo_col, add_gruppo_nuovo_col = st.columns(3, gap="small")
+                    with add_nome_col:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="fixed-expense-add-main-marker"></span>', unsafe_allow_html=True)
+                        nuova_spesa_nome = st.text_input("Nome nuova spesa", key="nuova_spesa_fissa_nome")
+                    with add_importo_col:
+                        nuova_spesa_importo = st.number_input("Importo nuova spesa", min_value=0.0, value=0.0, step=5.0, key="nuova_spesa_fissa_importo")
+                    with add_gruppo_nuovo_col:
+                        nuovo_gruppo = st.text_input(
+                            "Nuovo gruppo visivo da aggiungere",
+                            key="nuovo_gruppo_spese_fisse",
+                            placeholder="Es. Animali, Viaggi, Donazioni..."
+                        ).strip()
+                    if nuovo_gruppo and nuovo_gruppo not in gruppi_disponibili:
+                        gruppi_disponibili.append(nuovo_gruppo)
+                    add_meta_col1, add_meta_col2, add_meta_col3 = st.columns(3, gap="small")
+                    with add_meta_col1:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="fixed-expense-add-meta-marker"></span>', unsafe_allow_html=True)
+                        nuova_spesa_categoria = st.selectbox("Colore categoria nuova spesa", SPESA_FISSA_CATEGORIE, key="nuova_spesa_fissa_categoria")
+                    with add_meta_col2:
+                        nuova_spesa_carta = st.selectbox("Carta nuova spesa", SPESA_FISSA_CARTE, key="nuova_spesa_fissa_carta")
+                    with add_meta_col3:
+                        nuova_spesa_gruppo = st.selectbox("Gruppo visivo nuova spesa", gruppi_disponibili, key="nuova_spesa_fissa_gruppo", accept_new_options=MOBILE_VIEW)
+
+                    st.markdown("#### Elimina spesa")
+                    elimina_spesa = st.selectbox("Voce da eliminare", [""] + list(settings.keys()), key="elimina_spesa_fissa")
+                    st.markdown(
+                        '<div style="border-top: 1px solid rgba(148, 163, 184, .28); margin: 26px 0 18px;"></div>'
+                        '<h4 style="text-align: center; margin: 0 0 18px;">Modifica spese esistenti</h4>',
+                        unsafe_allow_html=True,
+                    )
+
+                    editor_cols = st.columns(3 if MOBILE_VIEW else 2)
+                    editable_settings = {}
+                    editable_metadata = {}
+                    if MOBILE_VIEW:
+                        for editor_col in editor_cols:
+                            with editor_col:
+                                st.markdown('<span class="fixed-expense-editor-marker"></span>', unsafe_allow_html=True)
+                    for idx, (voce, importo) in enumerate(settings.items()):
+                        with editor_cols[idx % len(editor_cols)]:
+                            current_categoria = metadata.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                            current_carta = metadata.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                            current_gruppo = metadata.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce))
+                            titolo_colore = SPESA_FISSA_CATEGORIA_COLORI.get(current_categoria, "#f8fafc")
                             st.markdown(
-                                f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
-                                unsafe_allow_html=True
+                                f'<div style="font-weight: 800; color: {titolo_colore}; margin: 0 0 8px; line-height: 1.15;">{html.escape(str(voce))}</div>',
+                                unsafe_allow_html=True,
+                            )
+                            editable_settings[voce] = st.number_input(
+                                "Importo",
+                                min_value=0.0,
+                                value=float(importo),
+                                step=5.0,
+                                key=f"spesa_fissa_importo_{voce}"
+                            )
+                            if current_gruppo not in gruppi_disponibili:
+                                gruppi_disponibili.append(current_gruppo)
+                            editable_metadata[voce] = {
+                                "Categoria": st.selectbox(
+                                    "Colore categoria",
+                                    SPESA_FISSA_CATEGORIE,
+                                    index=SPESA_FISSA_CATEGORIE.index(current_categoria) if current_categoria in SPESA_FISSA_CATEGORIE else 0,
+                                    key=f"spesa_fissa_categoria_{voce}"
+                                ),
+                                "Carta": st.selectbox(
+                                    "Carta",
+                                    SPESA_FISSA_CARTE,
+                                    index=SPESA_FISSA_CARTE.index(current_carta) if current_carta in SPESA_FISSA_CARTE else 0,
+                                    key=f"spesa_fissa_carta_{voce}"
+                                ),
+                                "Gruppo": st.selectbox(
+                                    "Gruppo visivo",
+                                    gruppi_disponibili,
+                                    index=gruppi_disponibili.index(current_gruppo) if current_gruppo in gruppi_disponibili else 0,
+                                    key=f"spesa_fissa_gruppo_{voce}", accept_new_options=MOBILE_VIEW
+                                ),
+                            }
+                            st.markdown("---")
+
+                    save_col, delete_col = st.columns(2)
+                    with save_col:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
+                        if _editor_button("💾 Salva spese fisse", use_container_width=True, key="save_spese_fisse", type="primary" if MOBILE_VIEW else "secondary"):
+                            nome_nuova = nuova_spesa_nome.strip()
+                            if nome_nuova:
+                                editable_settings[nome_nuova] = float(nuova_spesa_importo)
+                                editable_metadata[nome_nuova] = {
+                                    "Categoria": nuova_spesa_categoria,
+                                    "Carta": nuova_spesa_carta,
+                                    "Gruppo": (nuovo_gruppo or nuova_spesa_gruppo) if MOBILE_VIEW else nuova_spesa_gruppo,
+                                }
+                            if save_spese_fisse_settings(editable_settings, editable_metadata):
+                                if MOBILE_VIEW:
+                                    _mobile_save_refresh("Spese fisse salvate")
+                                st.success("Spese fisse salvate")
+                                st.rerun()
+                            else:
+                                st.error("Errore salvataggio spese fisse")
+                    with delete_col:
+                        if MOBILE_VIEW:
+                            st.markdown('<span class="fixed-expense-actions-marker"></span>', unsafe_allow_html=True)
+                        if _editor_button("🗑️ Elimina spesa", use_container_width=True, key="delete_spesa_fissa", disabled=(not bool(elimina_spesa)) if not MOBILE_VIEW else False):
+                            if not elimina_spesa:
+                                st.warning("Seleziona la spesa da eliminare.")
+                                st.stop()
+                            if MOBILE_VIEW:
+                                editable_settings = settings.copy()
+                                editable_metadata = metadata.copy()
+                            editable_settings.pop(elimina_spesa, None)
+                            editable_metadata.pop(elimina_spesa, None)
+                            if save_spese_fisse_settings(editable_settings, editable_metadata):
+                                if MOBILE_VIEW:
+                                    _mobile_save_refresh("Spesa eliminata")
+                                st.success("Spesa eliminata")
+                                st.rerun()
+                            else:
+                                st.error("Errore eliminazione spesa")
+
+                with tab_spese_fisse:
+                    st.subheader("Spese Fisse:")
+
+                    spese_meta = st.session_state.get("spese_fisse_metadata", {})
+                    rendered_voci = set()
+                    ordered_groups = _ordered_spesa_fissa_groups(SPESE["Fisse"], spese_meta)
+                    if MOBILE_VIEW:
+                        mobile_cols = ["", ""]
+                        for group_index, group_name in enumerate(ordered_groups):
+                            group_items = [
+                                (voce, importo)
+                                for voce, importo in SPESE["Fisse"].items()
+                                if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                            ]
+                            if not group_items:
+                                continue
+                            group_html = (
+                                f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{html.escape(str(group_name))}</div>'
                             )
                             for voce, importo in group_items:
                                 categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                                 carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                                st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                                group_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
                                 rendered_voci.add(voce)
+                            mobile_cols[group_index % 2] += group_html
 
-                    altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
-                    if altre_voci:
-                        with col_right:
-                            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-                            st.markdown(
-                                '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
-                                unsafe_allow_html=True
-                            )
+                        altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                        if altre_voci:
+                            altre_html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>'
                             for voce, importo in altre_voci:
                                 categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
                                 carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
-                                st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                                altre_html += _spesa_fissa_row_html(voce, importo, categoria, carta)
+                            mobile_cols[1] += altre_html
 
-            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-            _sf = f"€{spese_fisse_totali:.2f}"
-            _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
-            _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
-            _ri = f"€{risparmiabili:.2f}"
-            _rip = f"{(risparmiabili)/stipendio*100:.1f}"
-            _ripo = f"{(risparmiabili)/tot_stipendio*100:.1f}"
-            st.markdown(f"""
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
-                <div class="kpi-card">
-                    <div class="kpi-label">Totale Spese Fisse</div>
-                    <div class="kpi-value" style="color:#f87171;">{_sf}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% del budget mensile disponibile</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Budget dopo spese fisse</div>
-                    <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                        st.markdown(
+                            f'<div class="mobile-fixed-expenses-grid"><div class="mobile-fixed-expenses-col">{mobile_cols[0]}</div><div class="mobile-fixed-expenses-col">{mobile_cols[1]}</div></div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        col_left, col_right = st.columns(LAYOUT_COLONNE["spese_fisse_lista"], gap="large")
+                        group_columns = [col_left, col_right]
+                        for group_index, group_name in enumerate(ordered_groups):
+                            group_items = [
+                                (voce, importo)
+                                for voce, importo in SPESE["Fisse"].items()
+                                if spese_meta.get(voce, {}).get("Gruppo", _infer_spesa_fissa_gruppo(voce)) == group_name
+                            ]
+                            if not group_items:
+                                continue
+                            with group_columns[group_index % 2]:
+                                if group_index > 1:
+                                    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                                st.markdown(
+                                    f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">{group_name}</div>',
+                                    unsafe_allow_html=True
+                                )
+                                for voce, importo in group_items:
+                                    categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                                    carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                                    st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
+                                    rendered_voci.add(voce)
 
-            df_totale = pd.DataFrame({
-                'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
-                'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
-            })
-            df_utilizzare = pd.DataFrame({
-                'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
-                'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
-            })
+                        altre_voci = [(voce, importo) for voce, importo in SPESE["Fisse"].items() if voce not in rendered_voci]
+                        if altre_voci:
+                            with col_right:
+                                st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+                                st.markdown(
+                                    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.46);margin:8px 0 3px;">Altre</div>',
+                                    unsafe_allow_html=True
+                                )
+                                for voce, importo in altre_voci:
+                                    categoria = spese_meta.get(voce, {}).get("Categoria", _infer_spesa_fissa_categoria(voce))
+                                    carta = spese_meta.get(voce, {}).get("Carta", _infer_spesa_fissa_carta(voce))
+                                    st.markdown(_spesa_fissa_row_html(voce, importo, categoria, carta), unsafe_allow_html=True)
 
-            df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
-            df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
-
-            # FIX 3: Entrate mensili totali donut - labels outside
-            chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=60).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal", 
-                    scale=alt.Scale(
-                        domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'], 
-                        range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
-                    ),
-                    legend=None
-                ),
-                tooltip=[
-                    alt.Tooltip("Component:N", title="Categoria"),
-                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                    alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
-                ]
-            ).properties(title="Entrate mensili totali", width=150, height=150)
-
-            # Filter zero/negative values to avoid broken donuts
-            df_totale_clean = df_totale[df_totale["Value"] > 0].copy()
-            df_utilizzare_clean = df_utilizzare[df_utilizzare["Value"] > 0].copy()
-
-            chart_totale_clean = alt.Chart(df_totale_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal",
-                    scale=alt.Scale(
-                        domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
-                        range=['#FF6464', '#fef3c7', '#888888']
-                    ),
-                    legend=alt.Legend(
-                        title=None, orient='bottom', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
-                        symbolSize=60, padding=4
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip("Component:N", title="Categoria"),
-                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                    alt.Tooltip("Percentuale:Q", title="% sulle entrate", format=".1f")
-                ]
-            ).properties(
-                title=alt.TitleParams(
-                    "Entrate mensili totali",
-                    anchor='middle',   # <-- centra il titolo
-                    color='rgba(255,255,255,0.7)',
-                    fontSize=12
-                ),
-                width=160,
-                height=160
-            )
-
-            chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
-                theta=alt.Theta(field="Value", type="quantitative"),
-                color=alt.Color(
-                    field="Component", type="nominal",
-                    scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
-                    legend=alt.Legend(
-                        title=None, orient='bottom', direction='vertical',
-                        labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
-                        symbolSize=60, padding=4
-                    )
-                ),
-                tooltip=[
-                    alt.Tooltip("Component:N", title="Categoria"),
-                    alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
-                    alt.Tooltip("Percentuale:Q", title="% sul budget", format=".1f")
-                ]
-            ).properties(
-                title=alt.TitleParams(
-                    "Budget mensile disponibile",
-                    anchor='middle',   # <-- centra il titolo
-                    color='rgba(255,255,255,0.7)',
-                    fontSize=12
-                ),
-                width=160,
-                height=160
-            )
-
-
-            chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
-
-            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-            if MOBILE_VIEW:
-                fisse_donut_html = _mobile_donut_html(
-                    "Distribuzione",
-                    df_fisse["Categoria"].tolist(),
-                    df_fisse["Importo"].tolist(),
-                    df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
-                )
-                entrate_donut_html = _mobile_donut_html(
-                    "Entrate mensili totali",
-                    df_totale_clean["Component"].tolist(),
-                    df_totale_clean["Value"].tolist(),
-                    df_totale_clean["Component"].map({
-                        "Spese Fisse": "#FF6464",
-                        "Budget dopo spese fisse": "#fef3c7",
-                        "Risparmio Stipendi": "#888888",
-                    }).fillna("#94a3b8").tolist()
-                )
-                budget_donut_html = _mobile_donut_html(
-                    "Budget mensile disponibile",
-                    df_utilizzare_clean["Component"].tolist(),
-                    df_utilizzare_clean["Value"].tolist(),
-                    df_utilizzare_clean["Component"].map({
-                        "Spese Fisse": "#FF6961",
-                        "Budget dopo spese fisse": "#fef3c7",
-                    }).fillna("#94a3b8").tolist()
-                )
-                st.markdown(
-                    f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
-                    unsafe_allow_html=True
-                )
-                st.subheader("Dettaglio Spese Fisse:")
-                dettaglio_df = df_fisse.copy()
-                dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
-                dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
-                dettaglio_rows = []
-                for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
-                    categoria = str(row["Categoria"])
-                    valore = float(row["Importo"])
-                    colore = color_map.get(categoria, "#999999")
-                    dettaglio_rows.append(f"""
-                    <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
-                                padding:7px 9px;margin:5px 0;border-radius:8px;
-                                background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
-                        <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
-                        <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+                st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+                _sf = f"€{spese_fisse_totali:.2f}"
+                _sfp = f"{(spese_fisse_totali)/stipendio*100:.1f}"
+                _sfpo = f"{(spese_fisse_totali)/tot_stipendio*100:.1f}"
+                _ri = f"€{risparmiabili:.2f}"
+                _rip = f"{(risparmiabili)/stipendio*100:.1f}"
+                _ripo = f"{(risparmiabili)/tot_stipendio*100:.1f}"
+                st.markdown(f"""
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.5rem;">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Totale Spese Fisse</div>
+                        <div class="kpi-value" style="color:#f87171;">{_sf}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfp}% del budget mensile disponibile</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_sfpo}% delle entrate mensili totali</div>
                     </div>
-                    """)
-                st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
-            else:
-                st.markdown("**💶 Distribuzione entrate e budget:**")
-                st.altair_chart(chart_donut, use_container_width=True)
+                    <div class="kpi-card">
+                        <div class="kpi-label">Budget dopo spese fisse</div>
+                        <div class="kpi-value" style="color:#fef3c7;">{_ri}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_rip}% del budget mensile disponibile</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.34);margin-top:3px;">{_ripo}% delle entrate mensili totali</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                df_totale = pd.DataFrame({
+                    'Component': ['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
+                    'Value': [spese_fisse_totali, risparmiabili, risparmio_stipendi]
+                })
+                df_utilizzare = pd.DataFrame({
+                    'Component': ['Spese Fisse', 'Budget dopo spese fisse'],
+                    'Value': [spese_fisse_totali, stipendio_utilizzare - spese_fisse_totali]
+                })
+
+                df_totale["Percentuale"] = (df_totale["Value"] / df_totale["Value"].sum()) * 100
+                df_utilizzare["Percentuale"] = (df_utilizzare["Value"] / df_utilizzare["Value"].sum()) * 100
+
+                # FIX 3: Entrate mensili totali donut - labels outside
+                chart_totale = alt.Chart(df_totale).mark_arc(innerRadius=35, outerRadius=60).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Component", type="nominal",
+                        scale=alt.Scale(
+                            domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
+                            range=['rgba(255, 100, 100, 0.3)', 'rgba(184, 192, 112, 0.3)', 'rgba(128, 128, 128, 0.3)']
+                        ),
+                        legend=None
+                    ),
+                    tooltip=[
+                        alt.Tooltip("Component:N", title="Categoria"),
+                        alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                        alt.Tooltip("Percentuale:Q", title="Percentuale", format=".2f")
+                    ]
+                ).properties(title="Entrate mensili totali", width=150, height=150)
+
+                # Filter zero/negative values to avoid broken donuts
+                df_totale_clean = df_totale[df_totale["Value"] > 0].copy()
+                df_utilizzare_clean = df_utilizzare[df_utilizzare["Value"] > 0].copy()
+
+                chart_totale_clean = alt.Chart(df_totale_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Component", type="nominal",
+                        scale=alt.Scale(
+                            domain=['Spese Fisse', 'Budget dopo spese fisse', 'Risparmio Stipendi'],
+                            range=['#FF6464', '#fef3c7', '#888888']
+                        ),
+                        legend=alt.Legend(
+                            title=None, orient='bottom', direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                            symbolSize=60, padding=4
+                        )
+                    ),
+                    tooltip=[
+                        alt.Tooltip("Component:N", title="Categoria"),
+                        alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                        alt.Tooltip("Percentuale:Q", title="% sulle entrate", format=".1f")
+                    ]
+                ).properties(
+                    title=alt.TitleParams(
+                        "Entrate mensili totali",
+                        anchor='middle',   # <-- centra il titolo
+                        color='rgba(255,255,255,0.7)',
+                        fontSize=12
+                    ),
+                    width=160,
+                    height=160
+                )
+
+                chart_utilizzare_clean = alt.Chart(df_utilizzare_clean).mark_arc(innerRadius=40, outerRadius=70).encode(
+                    theta=alt.Theta(field="Value", type="quantitative"),
+                    color=alt.Color(
+                        field="Component", type="nominal",
+                        scale=alt.Scale(domain=['Spese Fisse', 'Budget dopo spese fisse'], range=['#FF6961', '#fef3c7']),
+                        legend=alt.Legend(
+                            title=None, orient='bottom', direction='vertical',
+                            labelColor='rgba(255,255,255,0.65)', labelFontSize=10,
+                            symbolSize=60, padding=4
+                        )
+                    ),
+                    tooltip=[
+                        alt.Tooltip("Component:N", title="Categoria"),
+                        alt.Tooltip("Value:Q", title="Valore (€)", format=".2f"),
+                        alt.Tooltip("Percentuale:Q", title="% sul budget", format=".1f")
+                    ]
+                ).properties(
+                    title=alt.TitleParams(
+                        "Budget mensile disponibile",
+                        anchor='middle',   # <-- centra il titolo
+                        color='rgba(255,255,255,0.7)',
+                        fontSize=12
+                    ),
+                    width=160,
+                    height=160
+                )
+
+
+                chart_donut = (chart_totale_clean | chart_utilizzare_clean).resolve_scale(color='independent')
+
+                st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
+                if MOBILE_VIEW:
+                    fisse_donut_html = _mobile_donut_html(
+                        "Distribuzione",
+                        df_fisse["Categoria"].tolist(),
+                        df_fisse["Importo"].tolist(),
+                        df_fisse["Categoria"].map(lambda c: color_map.get(str(c), "#999999")).tolist()
+                    )
+                    entrate_donut_html = _mobile_donut_html(
+                        "Entrate mensili totali",
+                        df_totale_clean["Component"].tolist(),
+                        df_totale_clean["Value"].tolist(),
+                        df_totale_clean["Component"].map({
+                            "Spese Fisse": "#FF6464",
+                            "Budget dopo spese fisse": "#fef3c7",
+                            "Risparmio Stipendi": "#888888",
+                        }).fillna("#94a3b8").tolist()
+                    )
+                    budget_donut_html = _mobile_donut_html(
+                        "Budget mensile disponibile",
+                        df_utilizzare_clean["Component"].tolist(),
+                        df_utilizzare_clean["Value"].tolist(),
+                        df_utilizzare_clean["Component"].map({
+                            "Spese Fisse": "#FF6961",
+                            "Budget dopo spese fisse": "#fef3c7",
+                        }).fillna("#94a3b8").tolist()
+                    )
+                    st.markdown(
+                        f'<div class="mobile-three-donut-row">{entrate_donut_html}{budget_donut_html}{fisse_donut_html}</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.subheader("Dettaglio Spese Fisse:")
+                    dettaglio_df = df_fisse.copy()
+                    dettaglio_df["PctTotale"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_totale * 100) if stipendio_totale else 0)
+                    dettaglio_df["PctScelto"] = dettaglio_df["Importo"].apply(lambda x: (x / stipendio_utilizzare * 100) if stipendio_utilizzare else 0)
+                    dettaglio_rows = []
+                    for _, row in dettaglio_df.sort_values("Importo", ascending=False).iterrows():
+                        categoria = str(row["Categoria"])
+                        valore = float(row["Importo"])
+                        colore = color_map.get(categoria, "#999999")
+                        dettaglio_rows.append(f"""
+                        <div style="display:grid;grid-template-columns:6px 1.15fr .72fr .58fr .58fr;gap:8px;align-items:center;
+                                    padding:7px 9px;margin:5px 0;border-radius:8px;
+                                    background:rgba(255,255,255,.045);border:0.5px solid rgba(255,255,255,.08);">
+                            <div style="height:100%;min-height:24px;border-radius:999px;background:{colore};"></div>
+                            <div style="font-size:12px;font-weight:600;color:{colore};">{categoria}</div>
+                            <div style="font-size:12px;color:rgba(255,255,255,.84);font-family:DM Mono, monospace;text-align:right;">€{valore:.2f}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctTotale"]:.1f}% entr.</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,.50);text-align:right;">{row["PctScelto"]:.1f}% budg.</div>
+                        </div>
+                        """)
+                    st.markdown("".join(dettaglio_rows), unsafe_allow_html=True)
+                else:
+                    st.markdown("**💶 Distribuzione entrate e budget:**")
+                    st.altair_chart(chart_donut, use_container_width=True)
 
         # --- COLONNA 2: SPESE VARIABILI ---
     with col2:
@@ -9267,7 +9332,7 @@ textarea {
                 st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
                 st.markdown('<div id="mobile-variabili" class="mobile-anchor"></div><div class="section-pill">💸 Spese Variabili</div>', unsafe_allow_html=True)
                 st.subheader("Spese Variabili:")
-    
+
                 da_spendere = 0
                 spese_quotidiane = 0
                 spese_variabili_totali = SPESE["Variabili"]["Emergenze/Compleanni"] + SPESE["Variabili"]["Viaggi"] + SPESE["Variabili"]["Da spendere"] + SPESE["Variabili"]["Spese quotidiane"]
@@ -9281,7 +9346,7 @@ textarea {
                     ]
                 })
                 df_spese_variabili_mobile = df_spese_variabili_mobile[df_spese_variabili_mobile["Value"] > 0].copy()
-    
+
                 risparmio_stipendi = stipendio_originale - stipendio_scelto
                 risparmio_da_spendere = 0
                 risparmio_spese_quotidiane = 0
