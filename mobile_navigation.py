@@ -112,7 +112,7 @@ export default function({data}) {
     const pages = data.pages.map(key => document.querySelector('.st-key-' + key));
     const buttons = [...document.querySelectorAll('[data-chart-carousel="' + data.id + '"] [data-chart-page]')];
     if (!track || pages.some(page => !page) || buttons.length !== 2) return false;
-    Object.assign(track.style, {flexWrap:'nowrap',gap:'0px',overflowX:'auto',overflowY:'hidden',paddingBottom:'16px',scrollSnapType:'x mandatory',scrollbarWidth:'none',overscrollBehaviorX:'contain',touchAction:'pan-y pinch-zoom'});
+    Object.assign(track.style, {flexWrap:'nowrap',gap:'0px',overflowX:'auto',overflowY:'hidden',paddingBottom:'4px',scrollSnapType:'x mandatory',scrollbarWidth:'none',overscrollBehaviorX:'contain',touchAction:'pan-y pinch-zoom'});
     for (const page of pages) {
       let child = page;
       while (child.parentElement && child.parentElement !== track) child = child.parentElement;
@@ -185,10 +185,11 @@ export default function({data}) {
 
 def render_mobile_chart_styles(track_key):
     st.html(f"""<style>
-      .st-key-{track_key} {{flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:16px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}}
+      .st-key-{track_key} {{flex-wrap:nowrap!important;gap:0!important;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom;}}
       .st-key-{track_key}::-webkit-scrollbar {{display:none;}}
       .st-key-{track_key} > [data-testid="stLayoutWrapper"] {{flex:0 0 100%!important;min-width:100%!important;max-width:100%!important;scroll-snap-align:start;}}
       .st-key-{track_key} canvas {{touch-action:pan-y pinch-zoom!important;}}
+      [data-testid="stElementContainer"]:has(> [data-testid="stHtml"] .mobile-chart-dots) {{margin-top:-6px;margin-bottom:-6px;}}
       .mobile-chart-dots {{display:flex;justify-content:center;gap:2px;margin:0;}}
       .mobile-chart-dots button {{width:26px;height:26px;padding:8px;border:0;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;}}
       .mobile-chart-dots button span {{width:7px;height:7px;border-radius:50%;background:#64748b;display:block;}}
