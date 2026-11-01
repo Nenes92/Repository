@@ -10461,22 +10461,39 @@ def _render_730_history():
     default = years.index(current_year) if current_year in years else 0
     if st.session_state.get("salary_730_year", years[default]) not in years:
         del st.session_state["salary_730_year"]
-    year = st.selectbox("Anno storico 730", years, index=default, key="salary_730_year")
-    selected = [row for row in history if row["Anno"] == year]
-    refund = sum(row["Rimborsi"] for row in selected)
-    withheld = sum(row["Trattenute"] for row in selected)
-    months = "".join(
-        '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid rgba(148,163,184,.15);">'
-        f'<span>{html.escape(_turni_month_label(pd.Timestamp(row["Mese"])))}</span>'
-        f'<strong style="color:{"#34d399" if row["Saldo 730"] >= 0 else "#f87171"};">{html.escape(_signed_money_turni(row["Saldo 730"]))}</strong></div>'
-        for row in selected)
-    st.markdown(
-        '<div class="salary-730-history" style="padding:14px;border:1px solid rgba(148,163,184,.2);border-radius:15px;background:rgba(148,163,184,.07);">'
-        f'<strong>730 · {year}</strong>'
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;">'
-        f'<div>Rimborsi<br><strong style="color:#34d399;">{html.escape(_signed_money_turni(refund))}</strong></div>'
-        f'<div>Trattenute<br><strong style="color:#f87171;">{html.escape(_signed_money_turni(-withheld) if withheld else _money_turni(0))}</strong></div></div>'
-        + months + '</div>', unsafe_allow_html=True)
+    st.html("""<style>
+      .st-key-salary-730-layout [data-testid="stHorizontalBlock"] {display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
+      .st-key-salary-730-layout [data-testid="stColumn"] {width:auto!important;min-width:0!important;}
+      .st-key-salary-730-card [data-testid="stHorizontalBlock"] {grid-template-columns:.6fr 1.4fr!important;}
+      .st-key-salary-730-card {gap:6px!important;}
+      .st-key-salary-730-card [data-testid="stSelectbox"] {font-size:12px;}
+      .st-key-salary-730-card [data-testid="stMarkdownContainer"] p,
+      .st-key-salary-730-card [data-baseweb="select"] > div {color:#e2e8f0!important;}
+    </style>""")
+    with st.container(key="salary-730-layout"):
+        card_column, _ = st.columns(2, gap="small")
+        with card_column:
+            with st.container(key="salary-730-card", border=True):
+                title_column, year_column = st.columns([0.7, 1.3], gap="small", vertical_alignment="center")
+                with title_column:
+                    st.markdown("**730**")
+                with year_column:
+                    year = st.selectbox("Anno storico 730", years, index=default,
+                        key="salary_730_year", label_visibility="collapsed")
+                selected = [row for row in history if row["Anno"] == year]
+                refund = sum(row["Rimborsi"] for row in selected)
+                withheld = sum(row["Trattenute"] for row in selected)
+                months = "".join(
+                    '<div style="display:flex;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid rgba(148,163,184,.15);">'
+                    f'<span>{html.escape(_turni_month_label(pd.Timestamp(row["Mese"])).rsplit(" ", 1)[0])}</span>'
+                    f'<strong style="white-space:nowrap;color:{"#34d399" if row["Saldo 730"] >= 0 else "#f87171"};">{html.escape(_signed_money_turni(row["Saldo 730"]))}</strong></div>'
+                    for row in selected)
+                st.markdown(
+                    '<div class="salary-730-history" style="font-size:12px;color:#cbd5e1;">'
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 8px;">'
+                    f'<div>Rimborsi<br><strong style="color:#34d399;">{html.escape(_signed_money_turni(refund))}</strong></div>'
+                    f'<div>Trattenute<br><strong style="color:#f87171;">{html.escape(_signed_money_turni(-withheld) if withheld else _money_turni(0))}</strong></div></div>'
+                    + months + '</div>', unsafe_allow_html=True)
 
 
 def _render_mobile_salary_legend():
