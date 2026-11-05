@@ -126,23 +126,24 @@ def test_sync_failures_have_specific_safe_messages(status,body,reason):
     assert 'sensitive raw response' not in message
 
 
-def test_connection_save_persists_id_and_clears_previous_sync_failure():
-    import ast
-    from pathlib import Path
-    from types import SimpleNamespace
-    import pandas as pd
-    rows=tracker.encode_rows(tracker.initial_records())
-    writes=[];errors=[]
-    ws=SimpleNamespace(get_all_records=lambda:deepcopy(rows),update=lambda **kwargs:writes.append(kwargs['values']))
-    state=dict(auto_calendar_failed_token='old',auto_calendar_sync_error='old error',auto_calendar_sync_token='old')
-    source=Path(__file__).parents[1]/'spese_mensili.py'
-    node=next(node for node in ast.parse(source.read_text()).body if isinstance(node,ast.FunctionDef) and node.name=='_save_auto_calendar_settings')
-    ns=dict(st=SimpleNamespace(session_state=state,error=errors.append),_personal_trackers=tracker,get_gsheet_client=lambda:object(),get_or_create_worksheet=lambda *args:ws,SHEET_URL='mock',_mobile_sheet_records=SimpleNamespace(clear=lambda *args:None),_set_gsheets_cache=lambda *args:None,pd=pd)
-    exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),ns)
-    assert ns['_save_auto_calendar_settings'](' events@example.test ')
-    output=[dict(zip(writes[0][0],row)) for row in writes[0][1:]]
-    assert tracker.decode_settings(output)['calendar_id']=='events@example.test'
-    assert tracker.decode_rows(output)==tracker.initial_records()
-    assert state['auto_calendar_settings']['calendar_id']=='events@example.test'
-    assert not any(key in state for key in ('auto_calendar_failed_token','auto_calendar_sync_error','auto_calendar_sync_token'))
-    assert not errors
+
+def test_save_triggers_calendar_only_for_successful_auto_changes():
+    from test_personal_trackers import save_helper
+    items=tracker.initial_records()
+    rows=tracker.encode_rows(items,dict(calendar_id='events@example.test'))
+    calls=[]
+    save,writes,errors,caches=save_helper(rows,calendar_calls=calls)
+    updated=dict(items[0],notes='Nuovo bollo')
+    assert save(updated['id'],updated)
+    assert len(calls)==1
+    assert calls[0][1]['calendar_id']=='events@example.test'
+    assert next(item for item in calls[0][0] if item['id']==updated['id'])['notes']=='Nuovo bollo'
+    assert save(items[1]['id'],None)
+    assert len(calls)==2
+    assert not any(item['id']==items[1]['id'] for item in calls[-1][0])
+    investment=next(item for item in items if item['kind']=='investments')
+    assert save(investment['id'],investment)
+    assert len(calls)==2
+    failed,_,_,_=save_helper(rows,fail=True,calendar_calls=calls)
+    assert not failed(updated['id'],updated)
+    assert len(calls)==2

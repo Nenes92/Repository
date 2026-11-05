@@ -83,7 +83,7 @@ def test_invalid_installments_cannot_be_saved(changes):
         tracker.validate_record(record, TODAY)
 
 
-def save_helper(rows, fail=False):
+def save_helper(rows, fail=False, calendar_calls=None):
     writes, errors, caches = [], [], []
     def update(**kwargs):
         if fail:raise RuntimeError('offline')
@@ -92,6 +92,7 @@ def save_helper(rows, fail=False):
     source = Path(__file__).parents[1] / 'spese_mensili.py'
     node = next(n for n in ast.parse(source.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == '_save_personal_tracker_record')
     ns = dict(_personal_trackers=tracker, get_gsheet_client=lambda: object(),
+              _sync_auto_calendar_after_save=lambda *args: calendar_calls.append(args) if calendar_calls is not None else None,
               get_or_create_worksheet=lambda *a: ws, SHEET_URL='mock',
               _now_italy=lambda: SimpleNamespace(date=lambda: TODAY), pd=pd,
               _mobile_sheet_records=SimpleNamespace(clear=lambda *a: None),

@@ -634,7 +634,7 @@ def _investment_fields(item, old, prefix, mode, today):
 
 
 @st.fragment
-def render_tracker(records, kind, save_record, saved, today, calendar_panel=None):
+def render_tracker(records, kind, save_record, saved, today):
     with st.container(key=f"personal-tracker-{kind}"):
         title = {"auto": "🚗 Auto · scadenze e manutenzione", "investments": "📈 Investimenti", "installments": "🗓️ Rate e finanziamenti"}[kind]
         st.subheader(title)
@@ -678,8 +678,6 @@ def render_tracker(records, kind, save_record, saved, today, calendar_panel=None
             st.html(cards_html(records, kind, today))
         else:
             st.info("Nessuna voce. Aggiungila dal menu qui sotto.")
-        if kind == "auto" and calendar_panel is not None:
-            calendar_panel(items)
         with st.expander("Aggiungi o modifica", expanded=False):
             identifiers = ["__new__"] + [item["id"] for item in items]
             lookup = {item["id"]: item for item in items}
