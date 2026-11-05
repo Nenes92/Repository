@@ -523,7 +523,14 @@ def _card(item, content):
     paid = ''
     if item.get('kind') == 'auto':
         paid = f'<div class="car-paid-total" title="Totale di tutti i pagamenti registrati nello storico, escluse le previsioni"><span>Totale pagato</span><strong style="color:{car_history.card_color(item)}">{money(car_history.total_paid(item))}</strong></div>'
-    return '<div class="tracker-card"><strong>'+escape(item["name"])+"</strong>"+paid+content+notes+'</div>'
+    title = escape(item["name"])
+    if item.get("kind") == "installments":
+        name = item["name"].casefold()
+        icon = ("🛡️" if "assicuraz" in name else "🍽️" if "cucina" in name
+                else "🚗" if "auto" in name or "macchina" in name
+                else "🏠" if "mutuo" in name or "casa" in name else "💳")
+        title = f'<span aria-hidden="true">{icon}</span> '+title
+    return '<div class="tracker-card"><strong>'+title+"</strong>"+paid+content+notes+'</div>'
 
 
 def cards_html(records, kind, today):
@@ -862,11 +869,3 @@ def render_tracker(records, kind, save_record, saved, today):
             if delete and save_record(old["id"], None):
                 st.session_state.pop(f"tracker_select_{kind}", None)
                 saved("Voce eliminata.")
-        if kind == "installments" and items:
-            with st.expander("Promemoria nel calendario", expanded=False):
-                selected = st.selectbox("Scadenza", items, format_func=lambda item: item["name"], key=f"tracker_calendar_{kind}")
-                content = calendar_reminder(selected, today)
-                if content:
-                    st.download_button("Scarica promemoria (.ics)", content, file_name=f"promemoria-{selected['id']}.ics", mime="text/calendar", on_click="ignore", use_container_width=True)
-                    st.caption("Importa il file nel tuo calendario per ricevere l’avviso. L’app non invia notifiche in autonomia.")
-                else:st.caption("Imposta prima una scadenza.")
