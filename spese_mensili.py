@@ -4357,14 +4357,13 @@ def _render_auto_calendar(records):
     calendar_id = str(settings.get('calendar_id') or st.secrets.get('GOOGLE_CALENDAR_AUTO_ID','')).strip()
     scope = sha256(SHEET_URL.encode()).hexdigest()[:24]
     token = calendar_id+':'+_car_calendar.fingerprint(_car_calendar.event_bodies(records,scope))
-    retry = False
-    with st.expander('Google Calendar · scadenze Auto',expanded=False):
+    retry = st.button('🔄 Sincronizza Google Calendar',key='auto_calendar_retry',disabled=not calendar_id,use_container_width=True,help='Prima salva l’ID del calendario Eventi qui sotto.' if not calendar_id else None)
+    with st.expander('Google Calendar · scadenze Auto',expanded=not bool(calendar_id)):
         if calendar_id:
             st.caption('Storico e prossima scadenza come eventi di tutto il giorno. Si aggiornano quando salvi; le semplici letture non ricreano eventi.')
             st.caption('Calendario salvato: '+calendar_id)
         else:
             st.info('Nessun ID calendario salvato. Inserisci qui sotto l’email del calendario Eventi e premi Salva collegamento.')
-        retry = st.button('Riprova sincronizzazione Calendar',key='auto_calendar_retry',disabled=not calendar_id,use_container_width=True,help='Prima salva l’ID del calendario Eventi.' if not calendar_id else None)
         with st.form('auto_calendar_connection',border=False):
             chosen = st.text_input('ID del calendario Eventi',value=calendar_id,placeholder='Di solito è la tua email Google')
             st.caption('Condividi quel calendario con questo account dell’app, con il permesso “Apportare modifiche agli eventi”:')
@@ -4377,7 +4376,7 @@ def _render_auto_calendar(records):
     if retry or st.session_state.get('auto_calendar_sync_token')!=token:
         # Failures are shown and retried explicitly, not on every read/navigation.
         if not retry and st.session_state.get('auto_calendar_failed_token')==token:
-            st.warning(st.session_state.get('auto_calendar_sync_error','Dati Auto salvati; Calendar non è ancora aggiornato. Apri “Google Calendar · scadenze Auto” per riprovare.'))
+            st.warning(st.session_state.get('auto_calendar_sync_error','Dati Auto salvati; Calendar non è ancora aggiornato. Premi Sincronizza Google Calendar per riprovare.'))
             return
         try:
             session = _get_auto_calendar_session(CREDENTIALS_INFO['client_email'],CREDENTIALS_INFO)

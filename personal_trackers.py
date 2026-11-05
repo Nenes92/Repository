@@ -678,6 +678,8 @@ def render_tracker(records, kind, save_record, saved, today, calendar_panel=None
             st.html(cards_html(records, kind, today))
         else:
             st.info("Nessuna voce. Aggiungila dal menu qui sotto.")
+        if kind == "auto" and calendar_panel is not None:
+            calendar_panel(items)
         with st.expander("Aggiungi o modifica", expanded=False):
             identifiers = ["__new__"] + [item["id"] for item in items]
             lookup = {item["id"]: item for item in items}
@@ -743,8 +745,6 @@ def render_tracker(records, kind, save_record, saved, today, calendar_panel=None
             if delete and save_record(old["id"], None):
                 st.session_state.pop(f"tracker_select_{kind}", None)
                 saved("Voce eliminata.")
-        if kind == "auto" and calendar_panel is not None:
-            calendar_panel(items)
         if kind == "installments" and items:
             with st.expander("Promemoria nel calendario", expanded=False):
                 selected = st.selectbox("Scadenza", items, format_func=lambda item: item["name"], key=f"tracker_calendar_{kind}")

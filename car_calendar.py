@@ -93,11 +93,11 @@ def sync_error_message(exc):
         try:detail=json.dumps(response.json().get('error',{})).casefold()
         except (ValueError,TypeError,AttributeError):pass
     if status==403 and any(word in detail for word in ('accessnotconfigured','service_disabled','servicedisabled','not been used','disabled')):
-        return 'api_disabled','Google Calendar API non è attiva nel progetto Google dell’app. Attivala, poi premi Riprova sincronizzazione Calendar.'
+        return 'api_disabled','Google Calendar API non è attiva nel progetto Google dell’app. Attivala, poi premi Sincronizza Google Calendar.'
     if status==404:
         return 'calendar_missing','Calendario non trovato: verifica l’ID di Eventi e che sia condiviso con l’account tecnico mostrato qui sopra.'
     if status==403:
-        return 'permission','L’account tecnico non può modificare questo calendario. Verifica la condivisione di Eventi con il permesso di modifica degli eventi, poi premi Riprova.'
+        return 'permission','L’account tecnico non può modificare questo calendario. Verifica la condivisione di Eventi con il permesso di modifica degli eventi, poi premi Sincronizza Google Calendar.'
     if status==401:
         return 'authentication','Autenticazione Google non riuscita. Occorre verificare le credenziali dell’account tecnico dell’app.'
-    return 'other','Sincronizzazione Calendar non riuscita. I dati Auto sono salvati; premi Riprova sincronizzazione Calendar.'
+    return 'other','Sincronizzazione Calendar non riuscita. I dati Auto sono salvati; premi Sincronizza Google Calendar.'
