@@ -50,6 +50,9 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
+# Keep car-history assets in the entry-point dependency graph across Cloud deploys.
+import car_history as _car_history
+importlib.reload(_car_history)
 import personal_trackers as _personal_trackers
 importlib.reload(_personal_trackers)
 import salary_extras as _salary_extras

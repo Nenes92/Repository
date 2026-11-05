@@ -8,9 +8,7 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 from html import escape
 import json
-import importlib
 import car_history
-importlib.reload(car_history)
 import math
 from uuid import uuid4
 
