@@ -135,8 +135,9 @@ def test_investment_presets_and_legacy_migration_preserve_money():
     assert item['name'] == 'Alleanza Assicurazioni'
     assert item['contribution_mode'] == 'monthly'
     summary = tracker.investment_summary(item, TODAY)
-    assert summary['total'] == 2500. and summary['unallocated'] == 2500.
-    assert summary['personal'] == summary['company'] == 0.
+    assert summary['total'] == 2500. and summary['personal'] == 2500.
+    assert summary['unallocated'] == 0.
+    assert summary['company'] == 0.
     assert summary['gain'] == 200.
     assert tracker.decode_rows(tracker.encode_rows([item])) == [item]
     assert tracker.investment_record(item) == item
@@ -233,3 +234,66 @@ def test_record_save_keeps_calendar_connection_settings():
     assert tracker.decode_settings(output)['calendar_id']=='events@example.test'
     assert tracker.decode_rows(output)[0]['notes']=='Scadenza aggiornata'
     assert not errors
+
+
+def test_corrected_balance_adds_only_later_monthly_payments():
+    item = investment('Moneyfarm', contribution_start='2022-05-20',
+                      balance_date='2026-11-05', balance_personal=12100., balance_company=0.,
+                      leonardo_personal=1000., current_value=15912.14, leonardo_value=940.99)
+    item = tracker.validate_record(item, date(2026,11,5))
+    assert tracker.investment_summary(item,date(2026,11,5))['total']==12100.
+    assert tracker.investment_summary(item,date(2026,11,20))['total']==12200.
+    assert tracker.investment_summary(item,date(2026,12,20))['total']==12300.
+    # A larger one-off contribution corrects the actual balance, without
+    # increasing the standing monthly payment or re-counting old instalments.
+    item.update(balance_date='2026-11-20',balance_personal=12300.)
+    assert tracker.investment_summary(item,date(2026,12,20))['total']==12400.
+    restored=tracker.decode_rows(tracker.encode_rows([item]))[0]
+    assert tracker.investment_summary(restored,date(2026,12,20))['total']==12400.
+
+
+def test_closed_plan_and_titles_are_parts_of_total_not_added_twice():
+    item = investment('Alleanza Assicurazioni',contribution_start='2024-12-01',
+                      balance_date='2026-11-05',balance_personal=5431.,balance_company=0.,
+                      closed_personal=2005.,closed_value=3200.,current_value=6500.)
+    item=tracker.validate_record(item,date(2026,11,5))
+    assert tracker.investment_summary(item,date(2026,11,5))['total']==5431.
+    assert tracker.investment_summary(item,date(2026,12,1))['total']==5531.
+    html=tracker.cards_html([item],'investments',date(2026,11,5))
+    assert 'Risultato:' not in html
+    assert 'Piano precedente' in html and '€3.426,00' in html
+    with pytest.raises(ValueError,match='controvalore totale'):
+        tracker.validate_record(dict(item,closed_value=7000.),date(2026,11,5))
+    with pytest.raises(ValueError,match='versato totale'):
+        tracker.validate_record(dict(item,closed_personal=6000.),date(2026,11,5))
+
+
+def test_simple_investment_form_preserves_balance_and_saves_only_on_submit(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    script=tmp_path/'simple_investment.py'
+    script.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+if 'records' not in st.session_state:
+    st.session_state.records=[t.investment_record(dict(id='mf',kind='investments',name='Moneyfarm',invested=12100.,current_value=15912.14,contribution_start='2022-05-20'))]
+    st.session_state.saves=0
+def save(identifier,item):
+    st.session_state.records=t.merge_record(st.session_state.records,identifier,item)
+    st.session_state.saves+=1
+    return True
+t.render_tracker(st.session_state.records,'investments',save,lambda _:None,date(2026,11,5))
+''')
+    at=AppTest.from_file(str(script)).run()
+    at.selectbox(key='tracker_select_investments').set_value('mf').run()
+    assert not at.exception
+    assert [field.label for field in at.selectbox]==['Voce']
+    next(field for field in at.number_input if field.label=='Versato da te a oggi (€)').set_value(12100.)
+    next(field for field in at.number_input if field.label=='Controvalore Leonardo (€)').set_value(940.99)
+    assert at.session_state.saves==0
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception
+    assert at.session_state.saves==1
+    record=at.session_state.records[0]
+    assert record['balance_personal']==12100. and record['leonardo_personal']==1000.
+    assert record['current_value']==15912.14
+    assert tracker.investment_summary(record,date(2026,11,20))['total']==12200.

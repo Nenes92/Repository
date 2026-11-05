@@ -245,8 +245,11 @@ def investment_record(record):
         item["personal_only"] = True
     if item.get("personal_only"):
         item["monthly_company"] = 0.
-        item["opening_personal"] = (item.get("opening_personal") or 0.)+(item.get("opening_company") or 0.)
+        item["opening_personal"] = (item.get("opening_personal") or 0.)+(item.get("opening_company") or 0.)+(item.get("opening_unallocated") or 0.)
         item["opening_company"] = 0.
+        item["opening_unallocated"] = 0.
+    if name == "moneyfarm · pac 7" and (item.get("opening_personal") or 0.) >= 1000.:
+        item.setdefault("leonardo_personal", 1000.)
     if name == "cometa":
         item.setdefault("cometa_auto_quotes", True)
         item.setdefault("monthly_tfr", 220.02 if item["cometa_auto_quotes"] else None)
@@ -373,6 +376,14 @@ def investment_summary(record, today):
             elif due and due > today and (next_due is None or due < next_due):
                 next_due = due
         total = personal+company+legacy
+    if mode == "monthly" and item.get("balance_date") and item.get("name", "").casefold() != "cometa":
+        anchor = as_date(item["balance_date"])
+        if today >= anchor:
+            later = max(0, monthly_contributions(item, today)["count"]-monthly_contributions(item, anchor)["count"])
+            personal = (item.get("balance_personal") or 0.)+later*(item.get("monthly_personal") or 0.)
+            company = (item.get("balance_company") or 0.)+later*(item.get("monthly_company") or 0.)
+            legacy = 0.
+            total = personal+company+tfr
     value = item.get("current_value")
     value_date = as_date(item.get("value_date"))
     valuation_total = total
@@ -394,6 +405,14 @@ def validate_investment(record, today, paid_today=None):
     item["product"] = str(item.get("product", ""))[:60]
     for key in ("monthly_personal", "monthly_company", "opening_personal", "opening_company", "opening_unallocated"):
         item[key] = _number(item.get(key))
+    for key in ("balance_personal", "balance_company", "leonardo_personal", "leonardo_value", "closed_personal", "closed_value"):
+        if key in item:
+            item[key] = _number(item[key])
+    if item.get("balance_date"):
+        anchor = as_date(item["balance_date"])
+        if anchor > today:
+            raise ValueError("Il saldo versato non può avere una data futura.")
+        item["balance_date"] = anchor.isoformat()
     for key in ("monthly_tfr", "opening_tfr"):
         if key in item:
             item[key] = _number(item[key])
@@ -440,6 +459,12 @@ def validate_investment(record, today, paid_today=None):
         item["annual_contributions"] = sorted(rows, key=lambda row: row["year"])
         if item.get("redemption_year") and seen and max(seen) > item["redemption_year"]:
             raise ValueError("Il ritiro previsto precede un anno di versamento.")
+    summary = investment_summary(item, today)
+    for personal_key, value_key in (("leonardo_personal", "leonardo_value"), ("closed_personal", "closed_value")):
+        if item.get(personal_key) is not None and summary["total"] is not None and item[personal_key] > summary["total"]:
+            raise ValueError("La quota del singolo piano è già compresa nel versato totale e non può superarlo.")
+        if item.get(value_key) is not None and item.get("current_value") is not None and item[value_key] > item["current_value"]:
+            raise ValueError("Il controvalore del singolo piano non può superare il controvalore totale.")
     return item
 
 
@@ -523,8 +548,7 @@ def cards_html(records, kind, today):
         elif kind == "investments":
             item = investment_record(item)
             summary = investment_summary(item, today)
-            gain = summary["gain"]
-            content = f'<div class="tracker-note">{escape(item["product"])} · versato</div><div class="tracker-value tracker-ink-paid">{money(summary["total"])}</div>'
+            content = f'<div class="tracker-note">Totale versato</div><div class="tracker-value tracker-ink-paid">{money(summary["total"])}</div>'
             if summary["mode"] != "manual":
                 content += f'<div class="tracker-note">Tu: {_amount(summary["personal"],"paid")}' + (f'<br>Azienda: {_amount(summary["company"],"company")}' if not item.get("personal_only") else '') + '</div>'
                 if item.get("name", "").casefold() == "cometa":
@@ -538,7 +562,7 @@ def cards_html(records, kind, today):
                 breakdown = '' if item.get("personal_only") else f'<br>Tu {_amount(item.get("monthly_personal"),"value")} · azienda {_amount(item.get("monthly_company"),"company")}'
                 if item.get("name", "").casefold() == "cometa":
                     breakdown += f'<br>TFR {_amount(item.get("monthly_tfr"),"company")}'
-                content += f'<div class="tracker-note">Ogni mese: {_amount(monthly,"value")}{breakdown}<br>{_ink(summary["count"],"paid")} versamenti conteggiati</div>'
+                content += f'<div class="tracker-note">Ogni mese: {_amount(monthly,"value")}{breakdown}</div>'
                 if item.get("monthly_source_month") and item.get("cometa_auto_quotes", True):
                     content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}</div>'
                     if item.get("monthly_tfr_source_month"):
@@ -552,7 +576,7 @@ def cards_html(records, kind, today):
             elif summary["mode"] == "annual":
                 for row in summary["schedule"]:
                     amount = (row.get("personal") or 0.)+(row.get("company") or 0.)
-                    label = ("conteggiato" if row["counted"] else "data da impostare" if not row.get("date")
+                    label = ("versato" if row["counted"] else "data da impostare" if not row.get("date")
                              else "importo da impostare" if row.get("personal") is None and row.get("company") is None else "previsto")
                     tone = "paid" if row["counted"] else "due"
                     content += f'<div class="tracker-note">{row["year"]}: {_amount(amount if row.get("personal") is not None or row.get("company") is not None else None,tone)} · {_ink(label,tone)}<br>Tu {_amount(row.get("personal"),tone)} · azienda {_amount(row.get("company"),"company" if row["counted"] else "due")}</div>'
@@ -560,11 +584,23 @@ def cards_html(records, kind, today):
                         content += f'<div class="tracker-note">Fonte: {escape(row["source"])}</div>'
                 redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
                 content += f'<div class="tracker-note">Ritiro previsto: {_ink(redemption,"due")}</div>'
-            content += f'<div>Valore attuale: {_amount(item.get("current_value"),"value")}</div>'
+            content += f'<div>Controvalore: {_amount(item.get("current_value"),"value")}</div>'
             if item.get("value_date"):
                 content += f'<div class="tracker-note">Aggiornato al {date_label(item["value_date"])}</div>'
-            if gain is not None:
-                content += f'<div style="color:{"#34d399" if gain >= 0 else "#f87171"};">Risultato: {_amount(gain,"paid" if gain >= 0 else "loss")}</div>'
+            if item.get("name", "").casefold() == "moneyfarm · pac 7" and item.get("leonardo_personal") is not None:
+                content += f'<div class="tracker-note">Azioni Leonardo · tu {_amount(item["leonardo_personal"],"paid")}<br>Controvalore titoli: {_amount(item.get("leonardo_value"),"value")}</div>'
+                if summary["total"] is not None and summary["total"] >= item["leonardo_personal"]:
+                    content += f'<div class="tracker-note">PAC 7 · tu {_amount(summary["total"]-item["leonardo_personal"],"paid")}</div>'
+                if item.get("current_value") is not None and item.get("leonardo_value") is not None:
+                    content += f'<div class="tracker-note">Controvalore PAC: {_amount(item["current_value"]-item["leonardo_value"],"value")}</div>'
+            if summary["mode"] == "annual" and any(row["counted"] and row.get("company") is None for row in summary["schedule"]):
+                content += '<div class="tracker-note">Quota azienda da completare</div>'
+            if item.get("name", "").casefold() == "alleanza assicurazioni" and (item.get("closed_personal") is not None or item.get("closed_value") is not None):
+                content += f'<div class="tracker-note">Piano precedente · tu {_amount(item.get("closed_personal"),"paid")}<br>Controvalore: {_amount(item.get("closed_value"),"value")} · senza nuovi versamenti</div>'
+                if item.get("closed_personal") is not None:
+                    content += f'<div class="tracker-note">Piano in corso · tu {_amount(summary["personal"]+summary["unallocated"]-item["closed_personal"],"paid")}</div>'
+                if item.get("current_value") is not None and item.get("closed_value") is not None:
+                    content += f'<div class="tracker-note">Controvalore piano in corso: {_amount(item["current_value"]-item["closed_value"],"value")}</div>'
             if item.get("withdrawn"):
                 content += f'<div class="tracker-note">Prelevato: {_amount(item["withdrawn"],"due")}</div>'
         else:
@@ -591,68 +627,81 @@ def _date_input(label, value, key):
 
 
 def _investment_fields(item, old, prefix, mode, today):
-    """All money/date inputs are drafts inside the caller's save form."""
+    """Edit actual amounts; contribution schedules stay internal to the register."""
     item["contribution_mode"] = mode
-    item["product"] = st.text_input("Tipo di piano", value=old["product"], max_chars=60)
-    paid_today = None
-    if mode == "monthly":
-        if old.get("personal_only"):
-            item["monthly_personal"] = st.number_input("Versamento mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10.)
-        else:
-            c1, c2 = st.columns(2)
-            with c1:item["monthly_personal"] = st.number_input("Quota tua mensile (€)", min_value=0., value=old.get("monthly_personal"), step=10., disabled=old.get("cometa_auto_quotes", False))
-            with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10., disabled=old.get("cometa_auto_quotes", False))
-        if old.get("name", "").casefold() == "cometa":
-            item["monthly_tfr"] = st.number_input("Quota TFR mensile al fondo (€)", min_value=0., value=old.get("monthly_tfr"), step=10., disabled=old.get("cometa_auto_quotes", False))
-        item["contribution_end"] = _date_input("Ultimo versamento, solo se interrompi il piano", old.get("contribution_end"), prefix+"contribution_end")
-        st.caption("Il versamento si ripete ogni mese nello stesso giorno; nei mesi più corti, l’ultimo giorno. Lascia vuota la fine per continuare ad accumulare.")
-        if not old.get("cometa_auto_quotes", False):
-            paid_today = st.number_input("Correggi versamenti già conteggiati, facoltativo", min_value=0, max_value=1500, value=None,
-                help="Lascia vuoto per il conteggio automatico. Una correzione resta valida e il conteggio continua nei mesi successivi.")
+    summary = investment_summary(old, today)
+    pension = old.get("name", "").casefold() == "cometa"
+    if pension:
+        columns = st.columns(3, gap="small")
+        for col, label, key in zip(columns, ["Tu · cedolino (€)", "Azienda · cedolino (€)", "TFR · cedolino (€)"],
+                                   ["monthly_personal", "monthly_company", "monthly_tfr"]):
+            with col:
+                st.number_input(label, value=old.get(key), disabled=True)
+        if old.get("monthly_source_month"):
+            st.caption("Quote mensili dall’ultimo cedolino sincronizzato: "+old["monthly_source_month"])
+        with st.expander("Importi precedenti ai cedolini disponibili", expanded=False):
+            cols = st.columns(3, gap="small")
+            for col, label, key in zip(cols, ["Tu (€)", "Azienda (€)", "TFR (€)"],
+                                       ["opening_personal", "opening_company", "opening_tfr"]):
+                with col:
+                    item[key] = st.number_input(label, min_value=0., value=float(old.get(key) or 0.), step=100.)
+            if old.get("opening_unallocated"):
+                item["opening_unallocated"] = st.number_input("Precedenti ancora da ripartire (€)", min_value=0., value=float(old["opening_unallocated"]), step=100.)
+    elif mode == "monthly":
+        cols = st.columns(2 if old.get("personal_only") else 3, gap="small")
+        with cols[0]:
+            personal = st.number_input("Versato da te a oggi (€)", min_value=0., value=summary["personal"]+summary["unallocated"], step=100.,
+                help="Totale complessivo già versato. Puoi correggerlo anche dopo un versamento diverso dal solito.")
+        company = 0.
+        if not old.get("personal_only"):
+            with cols[1]:
+                company = st.number_input("Versato dall’azienda (€)", min_value=0., value=summary["company"], step=100.)
+        with cols[-1]:
+            item["monthly_personal"] = st.number_input("Ogni mese · tu (€)", min_value=0., value=old.get("monthly_personal"), step=10.)
+        item.update(balance_personal=personal, balance_company=company, balance_date=today.isoformat())
+        # Preserve existing schedules. Stopping a plan never removes its balance.
+        item["contribution_end"] = _date_input("Fine versamenti (se interrompi)", old.get("contribution_end"), prefix+"contribution_end")
     elif mode == "annual":
-        st.caption("I tre versamenti entrano nel totale alla data indicata. Per quelli futuri puoi già inserire gli importi previsti.")
-        rows = old.get("annual_contributions") or [dict(year=year, date=None, personal=None, company=None) for year in (2025, 2026, 2027)]
+        rows = old.get("annual_contributions") or []
         item["annual_contributions"] = []
         for index, row in enumerate(rows):
-            st.markdown(f"**Versamento {index+1}**")
-            c1, c2 = st.columns(2)
-            with c1:year = st.number_input("Anno", min_value=1980, max_value=2100, value=int(row["year"]), key=prefix+f"year{index}")
-            with c2:due = _date_input("Data versamento", row.get("date"), prefix+f"annual_date{index}")
-            c1, c2 = st.columns(2)
-            with c1:personal = st.number_input("Tu · premio di produzione (€)", min_value=0., value=row.get("personal"), step=100., key=prefix+f"personal{index}")
-            with c2:company = st.number_input("Quota azienda (€)", min_value=0., value=row.get("company"), step=100., key=prefix+f"company{index}")
-            source = st.text_input("Provenienza", value=row.get("source", ""), max_chars=120, key=prefix+f"source{index}")
-            confirmed = st.checkbox("Versamento già effettuato", value=bool(row.get("confirmed", False)), key=prefix+f"confirmed{index}",
-                help="Spuntalo se hai già versato ma non ricordi la data esatta. Altrimenti il totale segue la data indicata.")
-            item["annual_contributions"].append(dict(year=year, date=due, personal=personal, company=company, source=source, confirmed=confirmed))
-        item["redemption_year"] = st.number_input("Anno del ritiro previsto", min_value=1980, max_value=2100, value=old.get("redemption_year") or 2028)
-    if mode == "manual":
-        baseline = old.get("invested") if old["contribution_mode"] == "manual" else investment_summary(old, today)["total"]
-        item["invested"] = st.number_input("Totale versato (€)", min_value=0., value=baseline, step=100.)
+            st.markdown(f"**{row['year']} · dal premio di risultato**")
+            cols = st.columns(3, gap="small")
+            with cols[0]:
+                personal = st.number_input("Tu (€)", min_value=0., value=row.get("personal"), step=100., key=prefix+f"personal{index}")
+            with cols[1]:
+                company = st.number_input("Azienda (€)", min_value=0., value=row.get("company"), step=100., key=prefix+f"company{index}")
+            with cols[2]:
+                due = _date_input("Data versamento", row.get("date"), prefix+f"annual_date{index}")
+            confirmed = st.checkbox("Già versato", value=bool(row.get("confirmed", False)), key=prefix+f"confirmed{index}")
+            item["annual_contributions"].append(dict(row, date=due, personal=personal, company=company, confirmed=confirmed))
+        item["redemption_year"] = st.number_input("Anno ritiro", min_value=1980, max_value=2100, value=old.get("redemption_year") or 2028)
     else:
-        st.markdown("**Versato prima del conteggio**")
-        st.caption("Inserisci qui solo gli importi precedenti alla prima data conteggiata, per non contarli due volte.")
-        if old.get("personal_only"):
-            item["opening_personal"] = st.number_input("Già versato da te (€)", min_value=0., value=float(old.get("opening_personal") or 0.), step=100.)
-        else:
-            c1, c2 = st.columns(2)
-            with c1:item["opening_personal"] = st.number_input("Già versato da te (€)", min_value=0., value=float(old.get("opening_personal") or 0.), step=100.)
-            with c2:item["opening_company"] = st.number_input("Già versato dall’azienda (€)", min_value=0., value=float(old.get("opening_company") or 0.), step=100.)
-        if old.get("name", "").casefold() == "cometa":
-            item["opening_tfr"] = st.number_input("TFR già versato prima del conteggio (€)", min_value=0., value=float(old.get("opening_tfr") or 0.), step=100.)
-        if old.get("opening_unallocated"):
-            allocation_help = ("È il totale che avevi già salvato. Spostalo in ‘Già versato da te’ e azzera questo campo, oppure tienilo qui senza duplicarlo."
-                               if old.get("personal_only") else "È il totale che avevi già salvato. Ripartiscilo fra le due quote qui sopra e azzera questo campo, oppure tienilo qui senza duplicarlo.")
-            item["opening_unallocated"] = st.number_input("Versamenti precedenti da ripartire (€)", min_value=0., value=float(old["opening_unallocated"]), step=100.,
-                help=allocation_help)
+        item["invested"] = st.number_input("Versato complessivo (€)", min_value=0., value=old.get("invested"), step=100.)
     value_col, withdrawn_col = st.columns(2, gap="small")
     with value_col:
-        item["current_value"] = st.number_input("Valore attuale (€)", min_value=0., value=old.get("current_value"), step=100.)
+        item["current_value"] = st.number_input("Controvalore totale (€)", min_value=0., value=old.get("current_value"), step=100.)
     if item["current_value"] != old.get("current_value"):
         item["value_date"] = today.isoformat() if item["current_value"] is not None else None
     with withdrawn_col:
         item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
-    return paid_today
+    name = old.get("name", "").casefold()
+    if name == "moneyfarm · pac 7":
+        st.markdown("**Di cui azioni Leonardo · già comprese nei totali**")
+        a, b = st.columns(2, gap="small")
+        with a:
+            item["leonardo_personal"] = st.number_input("Versato in Leonardo (€)", min_value=0., value=old.get("leonardo_personal", 1000. if summary["total"] is not None and summary["total"] >= 1000. else None), step=100.)
+        with b:
+            item["leonardo_value"] = st.number_input("Controvalore Leonardo (€)", min_value=0., value=old.get("leonardo_value"), step=100.)
+    elif name == "alleanza assicurazioni":
+        st.markdown("**Di cui piano precedente · senza nuovi versamenti**")
+        a, b = st.columns(2, gap="small")
+        with a:
+            item["closed_personal"] = st.number_input("Versato nel piano precedente (€)", min_value=0., value=old.get("closed_personal"), step=100.)
+        with b:
+            item["closed_value"] = st.number_input("Controvalore piano precedente (€)", min_value=0., value=old.get("closed_value"), step=100.)
+        st.caption("Importi già compresi nei totali. Il piano in corso continua con il versamento mensile.")
+    return None
 
 
 @st.fragment
@@ -671,7 +720,7 @@ def render_tracker(records, kind, save_record, saved, today):
         elif kind == "investments":
             summaries = [investment_summary(item, today) for item in items]
             totals = [row["total"] for row in summaries if row["total"] is not None]
-            st.html(f'<div class="tracker-section-note">Versato complessivo: {_amount(sum(totals) if totals else None,"paid")} · quote mensili e annuali conteggiate alle date previste</div>')
+            st.html(f'<div class="tracker-section-note">Versato complessivo: {_amount(sum(totals) if totals else None,"paid")}</div>')
         else:
             summaries = [instalment_summary(item, today) for item in items]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
@@ -735,13 +784,7 @@ def render_tracker(records, kind, save_record, saved, today):
             prefix = f"tracker_{kind}_{selection}"
             if kind == "investments":
                 old = investment_record(old)
-                modes = {"monthly": "Versamenti mensili", "annual": "Tre versamenti annuali", "manual": "Totale manuale"}
-                mode = st.selectbox("Versamenti", list(modes), index=list(modes).index(old["contribution_mode"]),
-                                    format_func=modes.get, key=prefix+"mode")
-                if old["contribution_mode"] == "manual" and mode != "manual":
-                    old.update(opening_personal=0., opening_company=0., opening_unallocated=old.get("invested") or 0.)
-                if old.get("name", "").casefold() == "cometa":
-                    old["cometa_auto_quotes"] = st.checkbox("Usa le quote dei cedolini sincronizzati", value=old.get("cometa_auto_quotes", True), key=prefix+"cometa_auto")
+                mode = old["contribution_mode"]
             edit_form = st.form(prefix, border=False, enter_to_submit=False)
             with edit_form:
                 item = deepcopy(old)
