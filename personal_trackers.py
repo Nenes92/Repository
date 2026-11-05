@@ -36,6 +36,7 @@ def initial_records():
     for name, interval in [("Bollo", 12), ("Assicurazione auto", 12), ("Tagliando", 12), ("Cambio gomme", 6)]:
         records.append(dict(id="auto-" + str(len(records)), kind="auto", name=name,
                             last_date=None, next_date=None, interval_months=interval, reminder_days=30, amount=None, notes="", payments=[]))
+    records.append(inspection_record())
     for index, name in enumerate(["Moneyfarm", "Alleanza Assicurazioni", "Cometa", "Leonardo · JP Morgan"]):
         records.append(investment_record(dict(id=f"investment-{index}", kind="investments", name=name,
                             invested=None, current_value=None, withdrawn=0., notes="")))
@@ -43,6 +44,20 @@ def initial_records():
         records.append(dict(id=f"instalment-{index}", kind="installments", name=name,
                             start_date=None, end_date=None, count=None, due_day=None, amount=None, paid_offset=0, notes=""))
     return records
+
+
+def inspection_record():
+    return dict(id='auto-4',kind='auto',name='Revisione',last_date=None,next_date=None,
+                first_due='2027-11-30',interval_months=24,reminder_days=30,amount=None,notes='',payments=[])
+
+
+def decode_settings(rows):
+    for row in rows:
+        if row.get('ID') == '__settings__':
+            settings = json.loads(row['Dati'])
+            if not isinstance(settings,dict):raise ValueError('Impostazioni del registro non leggibili.')
+            return settings
+    return dict(version=1)
 
 
 def decode_rows(rows):
@@ -64,11 +79,14 @@ def decode_rows(rows):
         seen.add(identifier)
         item = dict(record, id=identifier, kind=kind, name=name)
         result.append(investment_record(item) if kind == "investments" else car_history.car_record(item) if kind == "auto" else item)
+    if result and decode_settings(rows).get('version',1) < 2 and not any(item['kind']=='auto' and (item['id']=='auto-4' or 'revisione' in item['name'].casefold()) for item in result):
+        result.append(inspection_record())
     return result
 
 
-def encode_rows(records):
-    rows = [{"ID": "__settings__", "Sezione": "settings", "Nome": "Registro personale", "Dati": '{"version":1}'}]
+def encode_rows(records, settings=None):
+    settings = dict(settings or {}, version=2)
+    rows = [{"ID": "__settings__", "Sezione": "settings", "Nome": "Registro personale", "Dati": json.dumps(settings,ensure_ascii=False)}]
     for item in records:
         data = {key: value for key, value in item.items() if key not in {"id", "kind", "name"} and not key.startswith("_")}
         rows.append(dict(zip(HEADERS, [item["id"], item["kind"], item["name"],
@@ -107,7 +125,7 @@ def validate_record(record, today, paid_today=None):
     for field in ("amount", "planned_amount", "invested", "current_value", "withdrawn"):
         if field in item:
             item[field] = _number(item[field])
-    for field in ("last_date", "next_date", "start_date", "end_date"):
+    for field in ("last_date", "next_date", "first_due", "start_date", "end_date"):
         if field in item:
             parsed = as_date(item[field])
             item[field] = parsed.isoformat() if parsed else None
@@ -184,10 +202,7 @@ def instalment_summary(record, today):
 
 
 def car_deadline(record):
-    explicit = as_date(record.get("next_date"))
-    last = as_date(record.get("last_date"))
-    months = int(record.get("interval_months", 0))
-    return explicit or (month_date(last, months) if last and months else None)
+    return car_history.next_due(record)
 
 
 def deadline_status(deadline, today, notice=30):
@@ -482,10 +497,11 @@ def cards_html(records, kind, today):
             status, color = deadline_status(due, today, item.get("reminder_days", 30))
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
-            if item.get("planned_amount") is not None and item.get("next_date"):
-                planned_color = car_history.FORECAST_COLOR
-                planned_label = "Costo previsto" if as_date(item["next_date"]) > today else "Costo da confermare"
-                content += f'<div class="tracker-note" style="color:{planned_color}">{planned_label}: {money(item["planned_amount"])}</div>'
+            estimate = car_history.forecast(item)
+            if estimate['date']:
+                planned_label = "Stima dall’ultimo pagamento" if estimate['automatic'] and estimate['amount'] is not None else ("Costo previsto" if estimate["date"] > today else "Costo da confermare")
+                planned_amount = money(estimate['amount']) if estimate['amount'] is not None else "da definire"
+                content += f'<div class="tracker-note" style="color:{car_history.FORECAST_COLOR}">{planned_label}: {planned_amount}</div>'
             content += car_history.chart_html(item, today)
         elif kind == "investments":
             item = investment_record(item)
@@ -618,7 +634,7 @@ def _investment_fields(item, old, prefix, mode, today):
 
 
 @st.fragment
-def render_tracker(records, kind, save_record, saved, today):
+def render_tracker(records, kind, save_record, saved, today, calendar_panel=None):
     with st.container(key=f"personal-tracker-{kind}"):
         title = {"auto": "🚗 Auto · scadenze e manutenzione", "investments": "📈 Investimenti", "installments": "🗓️ Rate e finanziamenti"}[kind]
         st.subheader(title)
@@ -646,10 +662,14 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
           .tracker-value {font-family:"DM Mono",monospace;color:#60a5fa;font-size:17px;margin:5px 0 8px;}
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
-          .car-mini-history {margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);}
+          .st-key-personal-tracker-auto .tracker-card {padding:9px;}
+          .st-key-personal-tracker-auto .tracker-card>strong {margin-bottom:4px;font-size:12px;}
+          .st-key-personal-tracker-auto .tracker-value {font-size:15px;margin:3px 0 5px;}
+          .st-key-personal-tracker-auto .tracker-note {font-size:10px;margin-top:4px;line-height:1.35;}
+          .car-mini-history {margin-top:7px;padding-top:5px;border-top:1px solid rgba(255,255,255,.08);}
           .car-history-heading {font-size:11px;color:#94a3b8;}
-          .car-history-latest {display:flex;justify-content:space-between;gap:5px;font-size:11px;color:#94a3b8;margin-top:3px;}
-          .car-history-empty {min-height:110px;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8;}
+          .car-history-latest {display:flex;justify-content:space-between;gap:5px;font-size:10px;color:#94a3b8;margin-top:3px;}
+          .car-history-empty {min-height:65px;margin-top:7px;padding-top:5px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8;}
           .car-history-empty span {display:block;margin-top:6px;line-height:1.5;}
           .tracker-progress {height:5px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin:8px 0;}
           .tracker-progress>span {display:block;height:100%;background:#34d399;}
@@ -679,7 +699,11 @@ def render_tracker(records, kind, save_record, saved, today):
                 paid_today = None
                 if kind == "auto":
                     item["next_date"] = _date_input("Prossima scadenza", old.get("next_date") or car_deadline(old), prefix+"next")
-                    item["planned_amount"] = st.number_input("Costo previsto (€)", min_value=0., value=old.get("planned_amount"), step=10.)
+                    estimate = car_history.forecast(old)
+                    planned_input = st.number_input("Costo previsto (€)", min_value=0., value=estimate['amount'], step=10., help="Se non lo specifichi, viene stimato dall’ultimo pagamento. Il costo reale si registra nello storico.")
+                    item['planned_amount'] = None if old.get('planned_amount') is None and planned_input == estimate['amount'] else planned_input
+                    if old.get('id') == 'auto-4' and not old.get('last_date'):
+                        st.caption("Prima revisione: novembre 2027, quattro anni da novembre 2023. Uso il 30 novembre come fine mese; puoi modificare la data. Poi ogni 24 mesi.")
                     item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Serve a calcolare la scadenza successiva quando registri un pagamento nello storico. Zero disattiva la ripetizione.")
                     item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
                 elif kind == "investments":
@@ -719,7 +743,9 @@ def render_tracker(records, kind, save_record, saved, today):
             if delete and save_record(old["id"], None):
                 st.session_state.pop(f"tracker_select_{kind}", None)
                 saved("Voce eliminata.")
-        if kind != "investments" and items:
+        if kind == "auto" and calendar_panel is not None:
+            calendar_panel(items)
+        if kind == "installments" and items:
             with st.expander("Promemoria nel calendario", expanded=False):
                 selected = st.selectbox("Scadenza", items, format_func=lambda item: item["name"], key=f"tracker_calendar_{kind}")
                 content = calendar_reminder(selected, today)

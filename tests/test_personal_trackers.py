@@ -55,7 +55,7 @@ def test_before_start_and_after_finish_clamped():
 
 def test_serialization_and_empty_register_do_not_restore_deleted_defaults():
     defaults = tracker.decode_rows([])
-    assert len(defaults) == 12
+    assert len(defaults) == 13
     assert tracker.decode_rows(tracker.encode_rows(defaults)) == defaults
     assert tracker.decode_rows(tracker.encode_rows([])) == []
     with pytest.raises(ValueError):
@@ -107,7 +107,7 @@ def test_save_merges_fresh_records_and_delete_blanks_tail_without_clear():
     assert save(records[0]['id'], None)
     output = [dict(zip(writes[0][0], row)) for row in writes[0][1:]]
     result = tracker.decode_rows(output)
-    assert len(result) == 11 and result[0]['notes'] == 'Changed from another session'
+    assert len(result) == 12 and result[0]['notes'] == 'Changed from another session'
     assert writes[0][-1] == ['', '', '', '']
     assert len(caches) == 1 and not errors
 
@@ -221,3 +221,14 @@ def test_investment_save_keeps_dates_splits_and_other_records():
     summary = tracker.investment_summary(saved[-1], TODAY)
     assert (summary['personal'], summary['company'], summary['total']) == (305.2, 686.6, 3192.0)
     assert len(caches) == 1 and not errors
+
+
+def test_record_save_keeps_calendar_connection_settings():
+    records=tracker.initial_records()
+    save,writes,errors,caches=save_helper(tracker.encode_rows(records,dict(calendar_id='events@example.test')))
+    replacement=dict(records[0],notes='Scadenza aggiornata')
+    assert save(replacement['id'],replacement)
+    output=[dict(zip(writes[0][0],row)) for row in writes[0][1:]]
+    assert tracker.decode_settings(output)['calendar_id']=='events@example.test'
+    assert tracker.decode_rows(output)[0]['notes']=='Scadenza aggiornata'
+    assert not errors

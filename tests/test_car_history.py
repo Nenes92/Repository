@@ -39,7 +39,8 @@ def test_confirmed_payment_replaces_forecast_without_double_counting():
     assert [p['amount'] for p in updated['payments']]==[210,240]
     assert updated['next_date'] is None and updated['planned_amount'] is None
     assert trackers.car_deadline(updated)==date(2027,5,10)
-    assert h.chart_rows(updated,TODAY)==h.annual_totals(updated)
+    assert [row for row in h.chart_rows(updated,TODAY) if 'pending' not in row]==h.annual_totals(updated)
+    assert h.forecast(updated)==dict(date=date(2027,5,10),amount=240.,automatic=True)
 
 
 def test_forecast_stays_orange_after_deadline_until_payment_is_recorded():
@@ -317,4 +318,36 @@ def test_tax_forecast_is_orange_before_on_and_after_due_date(check_date):
 def test_missing_tyres_semester_is_not_a_zero_payment():
     record=car();record.update(id='auto-3',name='Cambio gomme')
     record=h.with_payments(record,[dict(id='one',date='2025-04-20',amount=50,note=''),dict(id='two',date='2026-04-20',amount=55,note='')],TODAY)
-    assert [(row['year'],row['semester'],row['amount']) for row in h.chart_rows(record,TODAY)]==[(2025,1,50),(2026,1,55)]
+    assert [(row['year'],row['semester'],row['amount']) for row in h.chart_rows(record,TODAY) if 'pending' not in row]==[(2025,1,50),(2026,1,55)]
+
+
+def test_automatic_forecast_uses_last_amount_and_preserves_manual_override():
+    record=h.with_payments(car(),[payment(2025,215)],TODAY)
+    assert h.forecast(record)==dict(date=date(2026,5,10),amount=215.,automatic=True)
+    assert h.chart_rows(record,TODAY)[-1]['pending']==215
+    record.update(next_date='2026-11-15',planned_amount=230.5)
+    assert h.forecast(record)==dict(date=date(2026,11,15),amount=230.5,automatic=False)
+    assert record['payments'][0]['amount']==215
+
+
+def test_zero_forecast_is_preserved_and_no_price_is_invented():
+    record=h.with_payments(car(),[payment(2025,215)],TODAY)
+    record['planned_amount']=0
+    assert h.forecast(record)['amount']==0
+    fresh=trackers.inspection_record()
+    assert h.forecast(fresh)==dict(date=date(2027,11,30),amount=None,automatic=True)
+    assert h.chart_rows(fresh,TODAY)==[]
+    paid=h.with_payments(fresh,[dict(id='inspection',date='2027-11-20',amount=80,note='')],date(2027,11,20),settle=True)
+    assert h.forecast(paid)==dict(date=date(2029,11,20),amount=80.,automatic=True)
+
+
+def test_legacy_register_gets_inspection_only_once_and_deletion_sticks():
+    import json
+    rows=trackers.encode_rows([car()])
+    rows[0]['Dati']=json.dumps(dict(version=1,calendar_id='events-test'))
+    migrated=trackers.decode_rows(rows)
+    assert [record['id'] for record in migrated]==['auto-0','auto-4']
+    saved=trackers.encode_rows(migrated,trackers.decode_settings(rows))
+    assert trackers.decode_settings(saved)['calendar_id']=='events-test'
+    assert trackers.decode_rows(saved)==migrated
+    assert trackers.decode_rows(trackers.encode_rows([migrated[0]]))==[migrated[0]]

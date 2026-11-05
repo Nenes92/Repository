@@ -50,7 +50,9 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
-# Load semiannual tyre history and pending-payment markers across Cloud deploys.
+# Load automatic Auto forecasts, inspection dates and Calendar synchronization.
+import car_calendar as _car_calendar
+importlib.reload(_car_calendar)
 import car_history as _car_history
 importlib.reload(_car_history)
 import personal_trackers as _personal_trackers
@@ -4271,7 +4273,9 @@ def _payroll_month_progress(accrued, total, target):
 def _load_personal_tracker_records():
     frame = load_data_gsheets(_personal_trackers.SHEET, _personal_trackers.HEADERS)
     try:
-        records = _personal_trackers.decode_rows(frame.to_dict(orient="records"))
+        raw_rows = frame.to_dict(orient="records")
+        st.session_state["auto_calendar_settings"] = _personal_trackers.decode_settings(raw_rows)
+        records = _personal_trackers.decode_rows(raw_rows)
         if "payroll_calibration_saved" not in st.session_state:
             get_turni_rules()
         history = (st.session_state.get("payroll_calibration_saved") or {}).get("drive", {}).get("pension_details", {})
@@ -4296,7 +4300,7 @@ def _save_personal_tracker_record(identifier, replacement):
         if replacement is not None:
             replacement = _personal_trackers.validate_record(replacement, _now_italy().date())
         records = _personal_trackers.merge_record(records, identifier, replacement)
-        encoded = _personal_trackers.encode_rows(records)
+        encoded = _personal_trackers.encode_rows(records, _personal_trackers.decode_settings(old_rows))
         headers = _personal_trackers.HEADERS
         rows = [headers] + [[row.get(key, "") for key in headers] for row in encoded]
         rows += [[""] * len(headers) for _ in range(max(0, len(old_rows) - len(encoded)))]
@@ -4310,6 +4314,79 @@ def _save_personal_tracker_record(identifier, replacement):
     except Exception:
         st.error("Salvataggio non riuscito. Il registro non è stato cancellato: riprova.")
         return False
+
+
+@st.cache_resource
+def _get_auto_calendar_session(principal, _credentials_info):
+    from google.auth.transport.requests import AuthorizedSession
+    credentials = Credentials.from_service_account_info(_credentials_info,
+        scopes=["https://www.googleapis.com/auth/calendar.events"])
+    return AuthorizedSession(credentials)
+
+
+def _save_auto_calendar_settings(calendar_id):
+    client = get_gsheet_client()
+    if client is None:
+        st.error("Google Sheets non disponibile: collegamento non salvato.")
+        return False
+    try:
+        worksheet = get_or_create_worksheet(client, SHEET_URL, _personal_trackers.SHEET, _personal_trackers.HEADERS)
+        old_rows = worksheet.get_all_records()
+        settings = _personal_trackers.decode_settings(old_rows)
+        settings['calendar_id'] = calendar_id.strip()
+        encoded = _personal_trackers.encode_rows(_personal_trackers.decode_rows(old_rows),settings)
+        headers = _personal_trackers.HEADERS
+        rows = [headers]+[[row.get(key,"") for key in headers] for row in encoded]
+        rows += [[""]*len(headers) for _ in range(max(0,len(old_rows)-len(encoded)))]
+        worksheet.update(values=rows,range_name="A1")
+        _mobile_sheet_records.clear(SHEET_URL,_personal_trackers.SHEET,tuple(headers))
+        _set_gsheets_cache(_personal_trackers.SHEET,pd.DataFrame(encoded,columns=headers))
+        st.session_state['auto_calendar_settings']=settings
+        st.session_state.pop('auto_calendar_sync_token',None)
+        return True
+    except Exception:
+        st.error("Collegamento non salvato. I dati dell’auto sono rimasti invariati.")
+        return False
+
+
+def _render_auto_calendar(records):
+    from hashlib import sha256
+    settings = st.session_state.get('auto_calendar_settings',{})
+    calendar_id = str(settings.get('calendar_id') or st.secrets.get('GOOGLE_CALENDAR_AUTO_ID','')).strip()
+    scope = sha256(SHEET_URL.encode()).hexdigest()[:24]
+    token = calendar_id+':'+_car_calendar.fingerprint(_car_calendar.event_bodies(records,scope))
+    retry = False
+    with st.expander('Google Calendar · scadenze Auto',expanded=False):
+        if calendar_id:
+            st.caption('Storico e prossima scadenza come eventi di tutto il giorno. Si aggiornano quando salvi; le semplici letture non ricreano eventi.')
+            retry = st.button('Riprova sincronizzazione Calendar',key='auto_calendar_retry',use_container_width=True)
+        else:
+            st.info('Per creare gli eventi, collega il calendario Eventi una sola volta.')
+        with st.form('auto_calendar_connection',border=False):
+            chosen = st.text_input('ID del calendario Eventi',value=calendar_id,placeholder='Di solito è la tua email Google')
+            st.caption('Condividi quel calendario con questo account dell’app, con il permesso “Apportare modifiche agli eventi”:')
+            st.code(CREDENTIALS_INFO.get('client_email',''),language=None)
+            st.caption('Nel progetto Google dell’app deve essere attiva Google Calendar API. Il collegamento ICS dei turni rimane indipendente.')
+            connect = st.form_submit_button('💾 Salva collegamento',type='primary',use_container_width=True)
+        if connect:
+            if _save_auto_calendar_settings(chosen):_mobile_save_refresh('Collegamento Calendar salvato.')
+    if not calendar_id:return
+    if retry or st.session_state.get('auto_calendar_sync_token')!=token:
+        # Failures are shown and retried explicitly, not on every read/navigation.
+        if not retry and st.session_state.get('auto_calendar_failed_token')==token:
+            st.warning('Dati Auto salvati; Calendar non è ancora aggiornato. Apri “Google Calendar · scadenze Auto” per riprovare.')
+            return
+        try:
+            session = _get_auto_calendar_session(CREDENTIALS_INFO['client_email'],CREDENTIALS_INFO)
+            _car_calendar.sync_events(session,calendar_id,records,scope)
+            st.session_state['auto_calendar_sync_token']=token
+            st.session_state.pop('auto_calendar_failed_token',None)
+            st.session_state['auto_calendar_sync_at']=_now_italy().strftime('%d/%m/%Y %H:%M')
+        except Exception:
+            st.session_state['auto_calendar_failed_token']=token
+            st.warning('Dati Auto salvati, ma Calendar non aggiornato: verifica ID, condivisione con l’account dell’app e Google Calendar API. Poi premi Riprova sincronizzazione Calendar.')
+    if st.session_state.get('auto_calendar_sync_token')==token:
+        st.caption('Google Calendar aggiornato · '+st.session_state.get('auto_calendar_sync_at',''))
 
 
 def _load_salary_extras():
@@ -8967,7 +9044,8 @@ textarea {
                 for tracker_kind, tracker_page in [("auto", auto_page), ("investments", holdings_page), ("installments", instalments_page)]:
                     with tracker_page:
                         _personal_trackers.render_tracker(tracker_records, tracker_kind,
-                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date())
+                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date(),
+                            calendar_panel=_render_auto_calendar if tracker_kind == "auto" else None)
                 _mobile_navigation.render_mobile_chart_swipe("fixed", "mobile-fixed-pages",
                     ["mobile-fixed-expenses", "mobile-fixed-auto", "mobile-fixed-investments", "mobile-fixed-installments"], auto_height=True)
             else:
@@ -8976,7 +9054,8 @@ textarea {
                 for tracker_kind, tracker_page in [("auto", auto_page), ("investments", holdings_page), ("installments", instalments_page)]:
                     with tracker_page:
                         _personal_trackers.render_tracker(tracker_records, tracker_kind,
-                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date())
+                            _save_personal_tracker_record, _mobile_save_refresh, _now_italy().date(),
+                            calendar_panel=_render_auto_calendar if tracker_kind == "auto" else None)
             with fixed_expenses_page:
                 if MOBILE_VIEW:
                     with st.container(key="mobile-fixed-tabs"):

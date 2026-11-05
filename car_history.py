@@ -1,6 +1,7 @@
 """Paid car expenses and compact annual charts; no budget or banking writes."""
 from copy import deepcopy
 from datetime import date, datetime
+from calendar import monthrange
 from html import escape
 import math
 from base64 import b64encode
@@ -78,6 +79,27 @@ def with_payments(record, rows, today, settle=False):
     return item
 
 
+def next_due(record):
+    if record.get('next_date'):return day(record['next_date'])
+    last = day(record.get('last_date'))
+    months = int(record.get('interval_months') or 0)
+    if last and months:
+        year,month0 = divmod(last.year*12+last.month-1+months,12)
+        return date(year,month0+1,min(last.day,monthrange(year,month0+1)[1]))
+    return day(record.get('first_due')) if not last else None
+
+
+def forecast(record):
+    due = next_due(record)
+    amount = record.get('planned_amount')
+    automatic = amount is None
+    if automatic and due:
+        payments = car_record(record).get('payments',[])
+        latest = max(payments,key=lambda row:row['date']) if payments else None
+        amount = latest['amount'] if latest else record.get('amount')
+    return dict(date=due,amount=amount if due else None,automatic=automatic)
+
+
 def annual_totals(record):
     totals = {}
     for row in car_record(record).get('payments',[]):
@@ -92,7 +114,7 @@ def euro(amount):
 
 
 def card_color(record):
-    return {'auto-0':'#d9e99a','auto-1':'#60a5fa','auto-2':'#34d399','auto-3':'#c4b5fd'}.get(record.get('id'),'#60a5fa')
+    return {'auto-0':'#d9e99a','auto-1':'#60a5fa','auto-2':'#34d399','auto-3':'#c4b5fd','auto-4':'#f9a8d4'}.get(record.get('id'),'#60a5fa')
 
 
 def uses_semesters(record):
@@ -120,8 +142,8 @@ def chart_rows(record, today):
         rows = list(totals.values())
     else:
         rows = annual_totals(record)
-    due = day(record.get('next_date'))
-    amount = record.get('planned_amount')
+    estimate = forecast(record)
+    due,amount = estimate['date'],estimate['amount']
     if due and amount is not None:
         semester = 1 if due.month<=6 else 2
         existing = next((row for row in rows if row['year']==due.year and (not semiannual or row['semester']==semester)),None)
@@ -141,14 +163,14 @@ def chart_html(record, today=None):
     def point_color(row):return FORECAST_COLOR if 'pending' in row else color
     first,last = period_index(rows[0]),period_index(rows[-1])
     peak = max(row['amount'] for row in rows) or 1.
-    coordinates = [(120. if first==last else 12.+216.*(period_index(row)-first)/(last-first), 79.-57.*row['amount']/peak) for row in rows]
+    coordinates = [(120. if first==last else 12.+216.*(period_index(row)-first)/(last-first), 51.-30.*row['amount']/peak) for row in rows]
     # Missing years are gaps, not zero expenses or invented intermediate values.
     description = ('Storico semestrale ' if uses_semesters(record) else 'Storico annuale ')+record['name']+': '+'; '.join(f'{period_label(row)} {euro(row["amount"])}'+(' (previsione inclusa)' if 'pending' in row else '') for row in rows)
     points = ''.join(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{point_color(row)}" tabindex="0" aria-label="{period_label(row)}: {euro(row["amount"])}"><title>{period_label(row)}: {euro(row["amount"])} · {row["count"]} pagamenti{' · previsione inclusa' if 'pending' in row else ''}</title></circle>' for row,(x,y) in zip(rows,coordinates))
     ticks = sorted({0,len(rows)//2,len(rows)-1})
-    labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="101" text-anchor="{"start" if index==0 else "end" if index==len(rows)-1 else "middle"}" fill="#94a3b8" font-size="12">{period_label(rows[index],compact=True)}</text>' for index in ticks)
+    labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="70" text-anchor="{"start" if index==0 else "end" if index==len(rows)-1 else "middle"}" fill="#94a3b8" font-size="10">{period_label(rows[index],compact=True)}</text>' for index in ticks)
     value_indices = range(len(rows)) if len(rows) <= 4 else [0,len(rows)-1]
-    values = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="{coordinates[index][1]-10:.2f}" text-anchor="{"start" if index==0 and len(rows)>1 else "end" if index==len(rows)-1 and len(rows)>1 else "middle"}" fill="{point_color(rows[index])}" font-size="13">{euro(rows[index]["amount"]).removesuffix(",00")}</text>' for index in value_indices)
+    values = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="{coordinates[index][1]-6:.2f}" text-anchor="{"start" if index==0 and len(rows)>1 else "end" if index==len(rows)-1 and len(rows)>1 else "middle"}" fill="{point_color(rows[index])}" font-size="10">{euro(rows[index]["amount"]).removesuffix(",00")}</text>' for index in value_indices)
     latest = rows[-1]
     segments = []
     for index in range(1,len(rows)):
@@ -159,8 +181,8 @@ def chart_html(record, today=None):
         segments.append(f'<path d="M{x0:.2f},{y0:.2f} L{x1:.2f},{y1:.2f}" stroke="{color}" stroke-width="2.5" fill="none"{dashed}/>')
     pending = next((row for row in rows if 'pending' in row),None)
     forecast = '' if pending is None else f'<div class="tracker-note" style="color:{point_color(pending)}">{"Previsto" if pending["future"] else "Da confermare"}: {euro(pending["pending"])}</div>'
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 110">'
-           f'<title>{escape(description)}</title><path d="M12,79H228 M12,22H228" stroke="#94a3b8" stroke-opacity=".18" fill="none"/>'
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 76">'
+           f'<title>{escape(description)}</title><path d="M12,51H228 M12,21H228" stroke="#94a3b8" stroke-opacity=".18" fill="none"/>'
            f'{"".join(segments)}{points}{labels}{values}</svg>')
     # st.html sanitizes inline SVG; an embedded image keeps the chart intact.
     encoded = b64encode(svg.encode()).decode()
@@ -189,6 +211,7 @@ def payment_fields(record, today):
                        'Importo':st.column_config.TextColumn('Pagato (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
                        'Nota':st.column_config.TextColumn('Nota',max_chars=300)})
     settle = False
-    if item.get('next_date') and item.get('planned_amount') is not None:
-        settle = st.checkbox('Il pagamento salda la scadenza del '+day(item['next_date']).strftime('%d/%m/%Y'),value=False,help='Spunta anche se hai pagato in anticipo: il costo previsto viene sostituito dal pagamento reale.')
+    estimate = forecast(item)
+    if estimate['date'] and estimate['amount'] is not None:
+        settle = st.checkbox('Il pagamento salda la scadenza del '+estimate['date'].strftime('%d/%m/%Y'),value=False,help='Spunta anche se hai pagato in anticipo: il costo previsto viene sostituito dal pagamento reale.')
     return edited,settle
