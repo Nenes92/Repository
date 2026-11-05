@@ -786,11 +786,9 @@ def render_tracker(records, kind, save_record, saved, today):
                     end_col, correction_col = st.columns(2, gap="small")
                     with end_col:
                         item["end_date"] = _date_input("Ultima rata (alternativa)", old.get("end_date"), prefix+"end")
-                    current = instalment_summary(old, today)
-                    if current:st.caption(f"Pagate da calendario: {current['paid']} su {current['total']} · fine {date_label(current['end'])}")
                     with correction_col:
-                        paid_today = st.number_input("Correggi rate pagate", min_value=0, max_value=1200, value=None, help="Lascia vuoto per conservare il conteggio. Dopo una correzione, il contatore continua automaticamente dalle scadenze successive.")
-                    st.caption("Gli importi residui sono la somma delle rate previste, inclusi gli eventuali interessi già presenti nella rata.")
+                        submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
+                        delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
                 if kind == "auto":
                     table, actions = st.columns([3, 1], gap="small", vertical_alignment="bottom")
                     with table:
@@ -798,7 +796,7 @@ def render_tracker(records, kind, save_record, saved, today):
                     with actions:
                         submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
                         delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
-                else:
+                elif kind == "investments":
                     c1, c2 = st.columns(2, gap="small")
                     with c1:submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
                     with c2:delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
