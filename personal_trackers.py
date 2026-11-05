@@ -8,6 +8,9 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 from html import escape
 import json
+import importlib
+import car_history
+importlib.reload(car_history)
 import math
 from uuid import uuid4
 
@@ -34,7 +37,7 @@ def initial_records():
     records = []
     for name, interval in [("Bollo", 12), ("Assicurazione auto", 12), ("Tagliando", 12), ("Cambio gomme", 6)]:
         records.append(dict(id="auto-" + str(len(records)), kind="auto", name=name,
-                            last_date=None, next_date=None, interval_months=interval, reminder_days=30, amount=None, notes=""))
+                            last_date=None, next_date=None, interval_months=interval, reminder_days=30, amount=None, notes="", payments=[]))
     for index, name in enumerate(["Moneyfarm", "Alleanza Assicurazioni", "Cometa", "Leonardo · JP Morgan"]):
         records.append(investment_record(dict(id=f"investment-{index}", kind="investments", name=name,
                             invested=None, current_value=None, withdrawn=0., notes="")))
@@ -62,7 +65,7 @@ def decode_rows(rows):
             raise ValueError("Una voce del registro non è leggibile. Il registro non verrà sovrascritto.") from None
         seen.add(identifier)
         item = dict(record, id=identifier, kind=kind, name=name)
-        result.append(investment_record(item) if kind == "investments" else item)
+        result.append(investment_record(item) if kind == "investments" else car_history.car_record(item) if kind == "auto" else item)
     return result
 
 
@@ -111,6 +114,7 @@ def validate_record(record, today, paid_today=None):
             parsed = as_date(item[field])
             item[field] = parsed.isoformat() if parsed else None
     if item["kind"] == "auto":
+        item["payments"] = car_history.validate_payments(car_history.car_record(item, today)["payments"], today)
         item["interval_months"] = int(item.get("interval_months", 0))
         item["reminder_days"] = int(item.get("reminder_days", 30))
         if not 0 <= item["interval_months"] <= 120 or not 0 <= item["reminder_days"] <= 365:
@@ -478,6 +482,7 @@ def cards_html(records, kind, today):
             status, color = deadline_status(due, today, item.get("reminder_days", 30))
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
+            content += car_history.chart_html(item)
         elif kind == "investments":
             item = investment_record(item)
             summary = investment_summary(item, today)
@@ -616,7 +621,7 @@ def render_tracker(records, kind, save_record, saved, today):
         if records is None:
             st.info("Registro non disponibile. Riprova il caricamento prima di modificare i dati.")
             return
-        items = [investment_record(item) if kind == "investments" else item for item in records if item["kind"] == kind]
+        items = [investment_record(item) if kind == "investments" else car_history.car_record(item, today) if kind == "auto" else item for item in records if item["kind"] == kind]
         if kind == "auto":
             upcoming = sorted((car_deadline(item), item["name"]) for item in items if car_deadline(item) is not None)
             if upcoming:
@@ -637,6 +642,11 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
           .tracker-value {font-family:"DM Mono",monospace;color:#60a5fa;font-size:17px;margin:5px 0 8px;}
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
+          .car-mini-history {margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);}
+          .car-history-heading {font-size:11px;color:#94a3b8;}
+          .car-history-latest {display:flex;justify-content:space-between;gap:5px;font-size:11px;color:#94a3b8;margin-top:3px;}
+          .car-history-empty {min-height:110px;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8;}
+          .car-history-empty span {display:block;margin-top:6px;line-height:1.5;}
           .tracker-progress {height:5px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin:8px 0;}
           .tracker-progress>span {display:block;height:100%;background:#34d399;}
         </style>""")
@@ -670,6 +680,7 @@ def render_tracker(records, kind, save_record, saved, today):
                     item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Se la prossima scadenza è vuota, viene calcolata dall'ultima data. Zero disattiva la ripetizione.")
                     item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
                     item["amount"] = st.number_input("Importo (€)", min_value=0., value=old.get("amount"), step=10.)
+                    st.caption("Data e importo dell’ultimo pagamento aggiornano anche lo storico, conservando gli anni precedenti.")
                 elif kind == "investments":
                     paid_today = _investment_fields(item, old, prefix, mode, today)
                 else:
@@ -689,6 +700,7 @@ def render_tracker(records, kind, save_record, saved, today):
             if submit:
                 try:
                     item["id"] = old.get("id") or uuid4().hex
+                    if kind == "auto":item = car_history.sync_current(item, old, today)
                     item = validate_record(item, today, paid_today)
                     if save_record(item["id"], item):saved("Voce salvata.")
                 except (ValueError, TypeError) as exc:
@@ -696,6 +708,8 @@ def render_tracker(records, kind, save_record, saved, today):
             if delete and save_record(old["id"], None):
                 st.session_state.pop(f"tracker_select_{kind}", None)
                 saved("Voce eliminata.")
+        if kind == "auto":
+            car_history.render_editor(items, save_record, saved, today)
         if kind != "investments" and items:
             with st.expander("Promemoria nel calendario", expanded=False):
                 selected = st.selectbox("Scadenza", items, format_func=lambda item: item["name"], key=f"tracker_calendar_{kind}")
