@@ -369,3 +369,17 @@ def test_every_tyres_point_has_season_and_year_labels():
     assert [''.join(node.itertext()) for node in labels]==['Prim.2023','Aut.2023','Prim.2024','Aut.2024','Prim.2025','Aut.2025','Aut.2026']
     assert h.period_label(rows[-1],compact=True)=='Aut. 2026'
     assert '1S' not in html and '2S' not in html
+
+
+def test_lifetime_total_counts_only_paid_history_not_forecasts():
+    record=car()
+    record=h.with_payments(record,[dict(id='one',date='2024-11-08',amount=194.87,note=''),dict(id='two',date='2025-11-08',amount=194.33,note='')],TODAY)
+    record.update(next_date='2026-11-05',planned_amount=193.96)
+    assert h.total_paid(record)==389.20
+    assert h.total_paid(trackers.inspection_record())==0
+    legacy=car();legacy.update(last_date='2025-11-08',amount=194.33)
+    assert h.total_paid(legacy)==194.33
+    html=trackers.cards_html([record],'auto',TODAY)
+    assert 'Totale pagato' in html and '€389,20' in html
+    corrected=h.with_payments(record,record['payments'][:1],TODAY)
+    assert h.total_paid(corrected)==194.87

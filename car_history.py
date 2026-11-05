@@ -100,6 +100,10 @@ def forecast(record):
     return dict(date=due,amount=amount if due else None,automatic=automatic)
 
 
+def total_paid(record):
+    return round(math.fsum(float(row['amount']) for row in car_record(record).get('payments',[])),2)
+
+
 def annual_totals(record):
     totals = {}
     for row in car_record(record).get('payments',[]):

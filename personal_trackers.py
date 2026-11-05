@@ -484,7 +484,10 @@ def date_label(value):
 
 def _card(item, content):
     notes = '<div class="tracker-note">'+escape(item.get("notes", ""))+'</div>' if item.get("notes") else ""
-    return '<div class="tracker-card"><strong>'+escape(item["name"])+"</strong>"+content+notes+'</div>'
+    paid = ''
+    if item.get('kind') == 'auto':
+        paid = f'<div class="car-paid-total" title="Totale di tutti i pagamenti registrati nello storico, escluse le previsioni"><span>Totale pagato</span><strong style="color:{car_history.card_color(item)}">{money(car_history.total_paid(item))}</strong></div>'
+    return '<div class="tracker-card"><strong>'+escape(item["name"])+"</strong>"+paid+content+notes+'</div>'
 
 
 def cards_html(records, kind, today):
@@ -669,7 +672,10 @@ def render_tracker(records, kind, save_record, saved, today):
           .st-key-personal-tracker-auto .tracker-card>strong {margin-bottom:4px;font-size:12px;}
           .st-key-personal-tracker-auto .tracker-value {font-size:15px;margin:3px 0 5px;}
           .st-key-personal-tracker-auto .tracker-note {font-size:10px;margin-top:4px;line-height:1.35;}
-          .car-mini-history {margin-top:7px;padding-top:5px;border-top:1px solid rgba(255,255,255,.08);}
+          .car-paid-total {float:right;max-width:46%;margin:3px 0 5px 7px;text-align:right;line-height:1.3;}
+          .car-paid-total>span {display:block;font-size:9px;color:#94a3b8;}
+          .car-paid-total>strong {display:block;font-size:11px;font-family:"DM Mono",monospace;}
+          .car-mini-history {clear:both;margin-top:7px;padding-top:5px;border-top:1px solid rgba(255,255,255,.08);}
           .car-history-heading {font-size:11px;color:#94a3b8;}
           .car-history-latest {display:flex;justify-content:space-between;gap:5px;font-size:10px;color:#94a3b8;margin-top:3px;}
           .car-history-empty {min-height:65px;margin-top:7px;padding-top:5px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8;}
