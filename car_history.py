@@ -127,7 +127,8 @@ def period_index(row):
 
 def period_label(row, compact=False):
     if 'semester' not in row:return str(row['year'])
-    return f'{row["semester"]}S {row["year"]}' if compact else f'{row["semester"]}° semestre {row["year"]}'
+    season = ('Prim.' if compact else 'Primavera') if row['semester']==1 else ('Aut.' if compact else 'Autunno')
+    return f'{season} {row["year"]}'
 
 
 def chart_rows(record, today):
@@ -162,13 +163,17 @@ def chart_html(record, today=None):
     color = card_color(record)
     def point_color(row):return FORECAST_COLOR if 'pending' in row else color
     first,last = period_index(rows[0]),period_index(rows[-1])
+    plot_width = max(240,len(rows)*34) if uses_semesters(record) else 240
     peak = max(row['amount'] for row in rows) or 1.
-    coordinates = [(120. if first==last else 12.+216.*(period_index(row)-first)/(last-first), 51.-30.*row['amount']/peak) for row in rows]
+    coordinates = [(120. if first==last else 12.+(plot_width-24.)*(period_index(row)-first)/(last-first), 51.-30.*row['amount']/peak) for row in rows]
     # Missing years are gaps, not zero expenses or invented intermediate values.
     description = ('Storico semestrale ' if uses_semesters(record) else 'Storico annuale ')+record['name']+': '+'; '.join(f'{period_label(row)} {euro(row["amount"])}'+(' (previsione inclusa)' if 'pending' in row else '') for row in rows)
     points = ''.join(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{point_color(row)}" tabindex="0" aria-label="{period_label(row)}: {euro(row["amount"])}"><title>{period_label(row)}: {euro(row["amount"])} · {row["count"]} pagamenti{' · previsione inclusa' if 'pending' in row else ''}</title></circle>' for row,(x,y) in zip(rows,coordinates))
-    ticks = sorted({0,len(rows)//2,len(rows)-1})
-    labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="70" text-anchor="{"start" if index==0 else "end" if index==len(rows)-1 else "middle"}" fill="#94a3b8" font-size="10">{period_label(rows[index],compact=True)}</text>' for index in ticks)
+    if uses_semesters(record):
+        labels = ''.join(f'<text x="{x:.2f}" y="62" text-anchor="middle" fill="#94a3b8" font-size="9"><tspan x="{x:.2f}">{"Prim." if row["semester"]==1 else "Aut."}</tspan><tspan x="{x:.2f}" dy="11">{row["year"]}</tspan></text>' for row,(x,y) in zip(rows,coordinates))
+    else:
+        ticks = sorted({0,len(rows)//2,len(rows)-1})
+        labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="70" text-anchor="{"start" if index==0 else "end" if index==len(rows)-1 else "middle"}" fill="#94a3b8" font-size="10">{period_label(rows[index],compact=True)}</text>' for index in ticks)
     value_indices = range(len(rows)) if len(rows) <= 4 else [0,len(rows)-1]
     values = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="{coordinates[index][1]-6:.2f}" text-anchor="{"start" if index==0 and len(rows)>1 else "end" if index==len(rows)-1 and len(rows)>1 else "middle"}" fill="{point_color(rows[index])}" font-size="10">{euro(rows[index]["amount"]).removesuffix(",00")}</text>' for index in value_indices)
     latest = rows[-1]
@@ -181,13 +186,14 @@ def chart_html(record, today=None):
         segments.append(f'<path d="M{x0:.2f},{y0:.2f} L{x1:.2f},{y1:.2f}" stroke="{color}" stroke-width="2.5" fill="none"{dashed}/>')
     pending = next((row for row in rows if 'pending' in row),None)
     forecast = '' if pending is None else f'<div class="tracker-note" style="color:{point_color(pending)}">{"Previsto" if pending["future"] else "Da confermare"}: {euro(pending["pending"])}</div>'
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 76">'
-           f'<title>{escape(description)}</title><path d="M12,51H228 M12,21H228" stroke="#94a3b8" stroke-opacity=".18" fill="none"/>'
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {plot_width} 80">'
+           f'<title>{escape(description)}</title><path d="M12,51H{plot_width-12} M12,21H{plot_width-12}" stroke="#94a3b8" stroke-opacity=".18" fill="none"/>'
            f'{"".join(segments)}{points}{labels}{values}</svg>')
     # st.html sanitizes inline SVG; an embedded image keeps the chart intact.
     encoded = b64encode(svg.encode()).decode()
+    min_width = f"min-width:{len(rows)*23}px;" if uses_semesters(record) and len(rows)>7 else ""
     return (f'<div class="car-mini-history"><div class="car-history-heading">Costi per {"semestre" if uses_semesters(record) else "anno"}</div>'
-            f'<img src="data:image/svg+xml;base64,{encoded}" alt="{escape(description,quote=True)}" style="display:block;width:100%;height:auto"/>'
+            f'<div style="overflow-x:auto"><img src="data:image/svg+xml;base64,{encoded}" alt="{escape(description,quote=True)}" style="display:block;width:100%;height:auto;{min_width}"/></div>'
             f'<div class="car-history-latest">{period_label(latest,compact=True)}<strong style="color:{point_color(latest)}">{euro(latest["amount"])}</strong></div>{forecast}</div>')
 
 

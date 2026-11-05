@@ -50,7 +50,7 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
-# Load automatic Auto forecasts, inspection dates and Calendar synchronization.
+# Load seasonal tyre labels and Auto Calendar synchronization.
 import car_calendar as _car_calendar
 importlib.reload(_car_calendar)
 import car_history as _car_history
@@ -4343,6 +4343,8 @@ def _save_auto_calendar_settings(calendar_id):
         _set_gsheets_cache(_personal_trackers.SHEET,pd.DataFrame(encoded,columns=headers))
         st.session_state['auto_calendar_settings']=settings
         st.session_state.pop('auto_calendar_sync_token',None)
+        st.session_state.pop('auto_calendar_failed_token',None)
+        st.session_state.pop('auto_calendar_sync_error',None)
         return True
     except Exception:
         st.error("Collegamento non salvato. I dati dell’auto sono rimasti invariati.")
@@ -4359,9 +4361,10 @@ def _render_auto_calendar(records):
     with st.expander('Google Calendar · scadenze Auto',expanded=False):
         if calendar_id:
             st.caption('Storico e prossima scadenza come eventi di tutto il giorno. Si aggiornano quando salvi; le semplici letture non ricreano eventi.')
-            retry = st.button('Riprova sincronizzazione Calendar',key='auto_calendar_retry',use_container_width=True)
+            st.caption('Calendario salvato: '+calendar_id)
         else:
-            st.info('Per creare gli eventi, collega il calendario Eventi una sola volta.')
+            st.info('Nessun ID calendario salvato. Inserisci qui sotto l’email del calendario Eventi e premi Salva collegamento.')
+        retry = st.button('Riprova sincronizzazione Calendar',key='auto_calendar_retry',disabled=not calendar_id,use_container_width=True,help='Prima salva l’ID del calendario Eventi.' if not calendar_id else None)
         with st.form('auto_calendar_connection',border=False):
             chosen = st.text_input('ID del calendario Eventi',value=calendar_id,placeholder='Di solito è la tua email Google')
             st.caption('Condividi quel calendario con questo account dell’app, con il permesso “Apportare modifiche agli eventi”:')
@@ -4369,22 +4372,28 @@ def _render_auto_calendar(records):
             st.caption('Nel progetto Google dell’app deve essere attiva Google Calendar API. Il collegamento ICS dei turni rimane indipendente.')
             connect = st.form_submit_button('💾 Salva collegamento',type='primary',use_container_width=True)
         if connect:
-            if _save_auto_calendar_settings(chosen):_mobile_save_refresh('Collegamento Calendar salvato.')
+            if _save_auto_calendar_settings(chosen):_mobile_save_refresh('Indirizzo Calendar salvato. Controlla qui sotto l’esito della sincronizzazione.')
     if not calendar_id:return
     if retry or st.session_state.get('auto_calendar_sync_token')!=token:
         # Failures are shown and retried explicitly, not on every read/navigation.
         if not retry and st.session_state.get('auto_calendar_failed_token')==token:
-            st.warning('Dati Auto salvati; Calendar non è ancora aggiornato. Apri “Google Calendar · scadenze Auto” per riprovare.')
+            st.warning(st.session_state.get('auto_calendar_sync_error','Dati Auto salvati; Calendar non è ancora aggiornato. Apri “Google Calendar · scadenze Auto” per riprovare.'))
             return
         try:
             session = _get_auto_calendar_session(CREDENTIALS_INFO['client_email'],CREDENTIALS_INFO)
             _car_calendar.sync_events(session,calendar_id,records,scope)
             st.session_state['auto_calendar_sync_token']=token
             st.session_state.pop('auto_calendar_failed_token',None)
+            st.session_state.pop('auto_calendar_sync_error',None)
             st.session_state['auto_calendar_sync_at']=_now_italy().strftime('%d/%m/%Y %H:%M')
-        except Exception:
+        except Exception as exc:
             st.session_state['auto_calendar_failed_token']=token
-            st.warning('Dati Auto salvati, ma Calendar non aggiornato: verifica ID, condivisione con l’account dell’app e Google Calendar API. Poi premi Riprova sincronizzazione Calendar.')
+            reason,message=_car_calendar.sync_error_message(exc)
+            st.session_state['auto_calendar_sync_error']=message
+            st.warning(message)
+            if reason=='api_disabled' and CREDENTIALS_INFO.get('project_id'):
+                from urllib.parse import quote
+                st.link_button('Apri attivazione Google Calendar API','https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project='+quote(CREDENTIALS_INFO['project_id'],safe=''))
     if st.session_state.get('auto_calendar_sync_token')==token:
         st.caption('Google Calendar aggiornato · '+st.session_state.get('auto_calendar_sync_at',''))
 

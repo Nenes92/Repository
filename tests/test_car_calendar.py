@@ -114,3 +114,35 @@ def test_disabling_repetition_removes_calendar_recurrence():
     assert cal.sync_events(session,'cal',items,'scope')['updated']==1
     future=next(event for event in session.store.values() if event['summary'].endswith('da fare'))
     assert future['recurrence']==[]
+
+
+@pytest.mark.parametrize('status,body,reason',[(403,{'error':{'errors':[{'reason':'accessNotConfigured'}]}},'api_disabled'),(403,{'error':{'status':'SERVICE_DISABLED'}},'api_disabled'),(403,{'error':{'message':'Forbidden'}},'permission'),(404,{},'calendar_missing'),(401,{},'authentication'),(500,{},'other')])
+def test_sync_failures_have_specific_safe_messages(status,body,reason):
+    from types import SimpleNamespace
+    exc=RuntimeError('sensitive raw response')
+    exc.response=SimpleNamespace(status_code=status,json=lambda:body)
+    code,message=cal.sync_error_message(exc)
+    assert code==reason
+    assert 'sensitive raw response' not in message
+
+
+def test_connection_save_persists_id_and_clears_previous_sync_failure():
+    import ast
+    from pathlib import Path
+    from types import SimpleNamespace
+    import pandas as pd
+    rows=tracker.encode_rows(tracker.initial_records())
+    writes=[];errors=[]
+    ws=SimpleNamespace(get_all_records=lambda:deepcopy(rows),update=lambda **kwargs:writes.append(kwargs['values']))
+    state=dict(auto_calendar_failed_token='old',auto_calendar_sync_error='old error',auto_calendar_sync_token='old')
+    source=Path(__file__).parents[1]/'spese_mensili.py'
+    node=next(node for node in ast.parse(source.read_text()).body if isinstance(node,ast.FunctionDef) and node.name=='_save_auto_calendar_settings')
+    ns=dict(st=SimpleNamespace(session_state=state,error=errors.append),_personal_trackers=tracker,get_gsheet_client=lambda:object(),get_or_create_worksheet=lambda *args:ws,SHEET_URL='mock',_mobile_sheet_records=SimpleNamespace(clear=lambda *args:None),_set_gsheets_cache=lambda *args:None,pd=pd)
+    exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),ns)
+    assert ns['_save_auto_calendar_settings'](' events@example.test ')
+    output=[dict(zip(writes[0][0],row)) for row in writes[0][1:]]
+    assert tracker.decode_settings(output)['calendar_id']=='events@example.test'
+    assert tracker.decode_rows(output)==tracker.initial_records()
+    assert state['auto_calendar_settings']['calendar_id']=='events@example.test'
+    assert not any(key in state for key in ('auto_calendar_failed_token','auto_calendar_sync_error','auto_calendar_sync_token'))
+    assert not errors

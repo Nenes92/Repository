@@ -292,8 +292,8 @@ def test_tyres_show_two_semesters_instead_of_one_annual_sum():
     html=h.chart_html(record,TODAY)
     assert 'Costi per semestre' in html
     svg=b64decode(html.split('base64,')[1].split('"')[0]).decode()
-    assert '1° semestre 2026: €50,00' in svg
-    assert '2° semestre 2026: €30,00' in svg
+    assert 'Primavera 2026: €50,00' in svg
+    assert 'Autunno 2026: €30,00' in svg
     assert '€80' not in svg
     assert svg.count('stroke-width="2.5"')==3
     assert h.annual_totals(record)[-1]['amount']==50
@@ -351,3 +351,21 @@ def test_legacy_register_gets_inspection_only_once_and_deletion_sticks():
     assert trackers.decode_settings(saved)['calendar_id']=='events-test'
     assert trackers.decode_rows(saved)==migrated
     assert trackers.decode_rows(trackers.encode_rows([migrated[0]]))==[migrated[0]]
+
+
+def test_every_tyres_point_has_season_and_year_labels():
+    from base64 import b64decode
+    import xml.etree.ElementTree as ET
+    record=car();record.update(id='auto-3',name='Cambio gomme',interval_months=6)
+    payments=[dict(id=f'{year}-{month}',date=f'{year}-{month:02d}-20',amount=50,note='') for year in [2023,2024,2025] for month in [4,11]]
+    record=h.with_payments(record,payments,TODAY)
+    record.update(next_date='2026-11-20',planned_amount=30)
+    html=h.chart_html(record,TODAY)
+    root=ET.fromstring(b64decode(html.split('base64,')[1].split('"')[0]))
+    ns={'svg':'http://www.w3.org/2000/svg'}
+    labels=[node for node in root.findall('svg:text',ns) if node.findall('svg:tspan',ns)]
+    rows=h.chart_rows(record,TODAY)
+    assert len(labels)==len(rows)==len(root.findall('svg:circle',ns))
+    assert [''.join(node.itertext()) for node in labels]==['Prim.2023','Aut.2023','Prim.2024','Aut.2024','Prim.2025','Aut.2025','Aut.2026']
+    assert h.period_label(rows[-1],compact=True)=='Aut. 2026'
+    assert '1S' not in html and '2S' not in html
