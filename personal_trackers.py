@@ -104,7 +104,7 @@ def validate_record(record, today, paid_today=None):
     if item.get("kind") not in KINDS:
         raise ValueError("Sezione non valida.")
     item["notes"] = str(item.get("notes", ""))[:1000]
-    for field in ("amount", "invested", "current_value", "withdrawn"):
+    for field in ("amount", "planned_amount", "invested", "current_value", "withdrawn"):
         if field in item:
             item[field] = _number(item[field])
     for field in ("last_date", "next_date", "start_date", "end_date"):
@@ -113,6 +113,8 @@ def validate_record(record, today, paid_today=None):
             item[field] = parsed.isoformat() if parsed else None
     if item["kind"] == "auto":
         item["payments"] = car_history.validate_payments(car_history.car_record(item, today)["payments"], today)
+        if item.get("planned_amount") is not None and not item.get("next_date"):
+            raise ValueError("Inserisci la scadenza del costo previsto.")
         item["interval_months"] = int(item.get("interval_months", 0))
         item["reminder_days"] = int(item.get("reminder_days", 30))
         if not 0 <= item["interval_months"] <= 120 or not 0 <= item["reminder_days"] <= 365:
@@ -480,7 +482,11 @@ def cards_html(records, kind, today):
             status, color = deadline_status(due, today, item.get("reminder_days", 30))
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
-            content += car_history.chart_html(item)
+            if item.get("planned_amount") is not None and item.get("next_date"):
+                planned_color = "#fb923c" if as_date(item["next_date"]) > today else car_history.card_color(item)
+                planned_label = "Costo previsto" if as_date(item["next_date"]) > today else "Costo da confermare"
+                content += f'<div class="tracker-note" style="color:{planned_color}">{planned_label}: {money(item["planned_amount"])}</div>'
+            content += car_history.chart_html(item, today)
         elif kind == "investments":
             item = investment_record(item)
             summary = investment_summary(item, today)
@@ -652,7 +658,7 @@ def render_tracker(records, kind, save_record, saved, today):
             st.html(cards_html(records, kind, today))
         else:
             st.info("Nessuna voce. Aggiungila dal menu qui sotto.")
-        with st.expander("Aggiungi o modifica", expanded=False):
+        with st.expander("Prossima scadenza · aggiungi o modifica" if kind == "auto" else "Aggiungi o modifica", expanded=False):
             identifiers = ["__new__"] + [item["id"] for item in items]
             lookup = {item["id"]: item for item in items}
             selection = st.selectbox("Voce", identifiers, format_func=lambda key: "＋ Nuova voce" if key == "__new__" else lookup[key]["name"], key=f"tracker_select_{kind}")
@@ -672,13 +678,11 @@ def render_tracker(records, kind, save_record, saved, today):
                 item["name"] = st.text_input("Nome", value=old["name"], max_chars=80)
                 paid_today = None
                 if kind == "auto":
-                    c1, c2 = st.columns(2)
-                    with c1:item["last_date"] = _date_input("Ultima volta", old.get("last_date"), prefix+"last")
-                    with c2:item["next_date"] = _date_input("Prossima scadenza", old.get("next_date"), prefix+"next")
-                    item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Se la prossima scadenza è vuota, viene calcolata dall'ultima data. Zero disattiva la ripetizione.")
+                    item["next_date"] = _date_input("Prossima scadenza", old.get("next_date") or car_deadline(old), prefix+"next")
+                    item["planned_amount"] = st.number_input("Costo previsto (€)", min_value=0., value=old.get("planned_amount"), step=10.)
+                    item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Serve a calcolare la scadenza successiva quando registri un pagamento nello storico. Zero disattiva la ripetizione.")
                     item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
-                    item["amount"] = st.number_input("Importo (€)", min_value=0., value=old.get("amount"), step=10.)
-                    st.caption("Data e importo dell’ultimo pagamento aggiornano anche lo storico, conservando gli anni precedenti.")
+                    st.caption("Qui programmi la prossima spesa. I pagamenti effettuati si modificano solo nello storico.")
                 elif kind == "investments":
                     paid_today = _investment_fields(item, old, prefix, mode, today)
                 else:
@@ -698,7 +702,6 @@ def render_tracker(records, kind, save_record, saved, today):
             if submit:
                 try:
                     item["id"] = old.get("id") or uuid4().hex
-                    if kind == "auto":item = car_history.sync_current(item, old, today)
                     item = validate_record(item, today, paid_today)
                     if save_record(item["id"], item):saved("Voce salvata.")
                 except (ValueError, TypeError) as exc:

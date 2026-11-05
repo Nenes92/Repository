@@ -32,17 +32,40 @@ def test_annual_totals_include_multiple_payments_without_fake_missing_years():
     image=b64decode(svg.split('base64,')[1].split('"')[0]).decode()
     assert 'L' not in image.split('stroke-width="2.5"')[0].split('<path d="')[-1]
 
-def test_last_payment_save_preserves_history_and_corrects_without_duplicates():
-    old=h.with_payments(car(),[payment(2025,210)],TODAY)
-    updated=dict(old,last_date='2026-05-10',amount=230,next_date='2026-05-10')
-    updated=h.sync_current(updated,old,TODAY)
-    assert [p['amount'] for p in updated['payments']]==[210,230]
-    assert updated['next_date'] is None
+def test_confirmed_payment_replaces_forecast_without_double_counting():
+    record=h.with_payments(car(),[payment(2025,210)],TODAY)
+    record.update(next_date='2026-05-10',planned_amount=230)
+    updated=h.with_payments(record,record['payments']+[payment(2026,240)],TODAY)
+    assert [p['amount'] for p in updated['payments']]==[210,240]
+    assert updated['next_date'] is None and updated['planned_amount'] is None
     assert trackers.car_deadline(updated)==date(2027,5,10)
-    corrected=h.sync_current(dict(updated,amount=240),updated,TODAY)
-    assert [p['amount'] for p in corrected['payments']]==[210,240]
-    assert corrected['payments'][-1]['id']==updated['payments'][-1]['id']
-    assert h.sync_current(corrected,corrected,TODAY)==corrected
+    assert h.chart_rows(updated,TODAY)==h.annual_totals(updated)
+
+
+def test_forecast_changes_color_after_deadline_without_becoming_a_payment():
+    from base64 import b64decode
+    record=h.with_payments(car(),[payment(2025,210)],TODAY)
+    record.update(next_date='2026-11-20',planned_amount=230)
+    original=record['payments'].copy()
+    before=h.chart_html(record,TODAY)
+    svg=b64decode(before.split('base64,')[1].split('"')[0]).decode()
+    assert '#fb923c' in svg and 'stroke-dasharray' in svg
+    assert 'Previsto: €230,00' in before
+    after=h.chart_html(record,date(2026,11,21))
+    svg=b64decode(after.split('base64,')[1].split('"')[0]).decode()
+    assert '#fb923c' not in svg and h.card_color(record) in svg
+    assert 'Da confermare: €230,00' in after
+    assert record['payments']==original
+    assert h.annual_totals(record)==[dict(year=2025,amount=210,count=1)]
+
+
+def test_same_year_forecast_is_separate_from_paid_total():
+    record=h.with_payments(car(),[payment(2026,30)],TODAY)
+    record.update(next_date='2026-11-20',planned_amount=40)
+    assert h.chart_rows(record,TODAY)==[dict(year=2026,amount=70,count=1,pending=40,future=True)]
+    assert h.annual_totals(record)==[dict(year=2026,amount=30,count=1)]
+    assert trackers.decode_rows(trackers.encode_rows([record]))==[record]
+
 
 def test_history_edits_restore_latest_and_preserve_future_deadline():
     record=car();record['next_date']='2027-06-01'
@@ -106,3 +129,57 @@ h.render_editor([st.session_state.record],save,saved,date(2026,11,5))
     at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[],'deleted_rows':[0]}
     at.button[0].click().run()
     assert at.session_state.record['payments']==[]
+
+
+def test_upcoming_form_edits_only_forecast_and_saves_on_submit(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    app=tmp_path/'upcoming_app.py'
+    app.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+import car_history as h
+if 'records' not in st.session_state:
+    item=t.initial_records()[0]
+    st.session_state.records=[h.with_payments(item,[dict(id='old',date='2025-11-20',amount=210,note='')],date(2026,11,5))]
+    st.session_state.saves=0
+def save(identifier,record):
+    st.session_state.records=t.merge_record(st.session_state.records,identifier,record)
+    st.session_state.saves+=1
+    return True
+def saved(message):st.success(message)
+t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
+''')
+    at=AppTest.from_file(str(app)).run()
+    at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
+    assert not at.exception
+    assert [field.label for field in at.date_input]==['Prossima scadenza']
+    assert 'Importo (€)' not in [field.label for field in at.number_input]
+    original=at.session_state.records[0]['payments'].copy()
+    at.date_input[0].set_value(date(2026,11,25))
+    next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(230.)
+    assert at.session_state.saves==0
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception
+    assert at.session_state.saves==1
+    record=at.session_state.records[0]
+    assert record['payments']==original
+    assert record['last_date']=='2025-11-20' and record['amount']==210
+    assert record['next_date']=='2026-11-25' and record['planned_amount']==230
+
+
+def test_forecast_requires_a_deadline():
+    record=car();record['planned_amount']=100
+    with pytest.raises(ValueError,match='scadenza'):
+        trackers.validate_record(record,TODAY)
+
+
+def test_early_payment_can_settle_forecast_without_losing_other_history():
+    record=h.with_payments(car(),[payment(2025,210)],TODAY)
+    record.update(next_date='2026-11-20',planned_amount=230)
+    early=dict(id='early',date='2026-11-05',amount=225,note='Pagato in anticipo')
+    updated=h.with_payments(record,record['payments']+[early],TODAY,settle=True)
+    assert updated['planned_amount'] is None and updated['next_date'] is None
+    assert trackers.car_deadline(updated)==date(2027,11,5)
+    assert h.annual_totals(updated)==[dict(year=2025,amount=210,count=1),dict(year=2026,amount=225,count=1)]
+    with pytest.raises(ValueError,match='Inserisci il pagamento'):
+        h.with_payments(record,[],TODAY,settle=True)
