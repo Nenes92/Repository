@@ -488,6 +488,9 @@ def _card(item, content):
 
 
 def cards_html(records, kind, today):
+    if kind == "auto":
+        order = {identifier:index for index,identifier in enumerate(["auto-0","auto-2","auto-1","auto-3","auto-4"])}
+        records = sorted(records,key=lambda item:order.get(item["id"],len(order)))
     cards = []
     for item in records:
         if item["kind"] != kind:
