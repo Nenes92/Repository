@@ -483,7 +483,7 @@ def cards_html(records, kind, today):
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
             if item.get("planned_amount") is not None and item.get("next_date"):
-                planned_color = "#fb923c" if as_date(item["next_date"]) > today else car_history.card_color(item)
+                planned_color = car_history.FORECAST_COLOR
                 planned_label = "Costo previsto" if as_date(item["next_date"]) > today else "Costo da confermare"
                 content += f'<div class="tracker-note" style="color:{planned_color}">{planned_label}: {money(item["planned_amount"])}</div>'
             content += car_history.chart_html(item, today)

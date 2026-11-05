@@ -42,7 +42,7 @@ def test_confirmed_payment_replaces_forecast_without_double_counting():
     assert h.chart_rows(updated,TODAY)==h.annual_totals(updated)
 
 
-def test_forecast_changes_color_after_deadline_without_becoming_a_payment():
+def test_forecast_stays_orange_after_deadline_until_payment_is_recorded():
     from base64 import b64decode
     record=h.with_payments(car(),[payment(2025,210)],TODAY)
     record.update(next_date='2026-11-20',planned_amount=230)
@@ -53,7 +53,7 @@ def test_forecast_changes_color_after_deadline_without_becoming_a_payment():
     assert 'Previsto: €230,00' in before
     after=h.chart_html(record,date(2026,11,21))
     svg=b64decode(after.split('base64,')[1].split('"')[0]).decode()
-    assert '#fb923c' not in svg and h.card_color(record) in svg
+    assert '#fb923c' in svg and h.card_color(record) in svg
     assert 'Da confermare: €230,00' in after
     assert record['payments']==original
     assert h.annual_totals(record)==[dict(year=2025,amount=210,count=1)]
@@ -279,3 +279,42 @@ t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
     assert len(record['payments'])==3
     assert record['amount']==229.95
     assert record['next_date']=='2027-11-25' and record['planned_amount']==250
+
+
+def test_tyres_show_two_semesters_instead_of_one_annual_sum():
+    from base64 import b64decode
+    record=car();record.update(id='auto-3',name='Cambio gomme',next_date='2026-11-20',planned_amount=30)
+    record=h.with_payments(record,[dict(id='spring25',date='2025-04-20',amount=50,note=''),dict(id='autumn25',date='2025-11-20',amount=50,note=''),dict(id='spring26',date='2026-04-20',amount=50,note='')],TODAY)
+    rows=h.chart_rows(record,TODAY)
+    assert [(row['year'],row['semester'],row['amount']) for row in rows]==[(2025,1,50),(2025,2,50),(2026,1,50),(2026,2,30)]
+    assert [row.get('pending') for row in rows]==[None,None,None,30]
+    html=h.chart_html(record,TODAY)
+    assert 'Costi per semestre' in html
+    svg=b64decode(html.split('base64,')[1].split('"')[0]).decode()
+    assert '1° semestre 2026: €50,00' in svg
+    assert '2° semestre 2026: €30,00' in svg
+    assert '€80' not in svg
+    assert svg.count('stroke-width="2.5"')==3
+    assert h.annual_totals(record)[-1]['amount']==50
+
+
+@pytest.mark.parametrize('check_date',[date(2026,11,4),date(2026,11,5),date(2026,11,6)])
+def test_tax_forecast_is_orange_before_on_and_after_due_date(check_date):
+    from base64 import b64decode
+    import xml.etree.ElementTree as ET
+    record=h.with_payments(car(),[payment(2025,194.33)],TODAY)
+    record.update(next_date='2026-11-05',planned_amount=193.96)
+    html=h.chart_html(record,check_date)
+    root=ET.fromstring(b64decode(html.split('base64,')[1].split('"')[0]))
+    circles=root.findall('{http://www.w3.org/2000/svg}circle')
+    assert circles[0].get('fill')==h.card_color(record)
+    assert circles[-1].get('fill')==h.FORECAST_COLOR
+    card=trackers.cards_html([record],'auto',check_date)
+    label='Costo previsto' if check_date<date(2026,11,5) else 'Costo da confermare'
+    assert f'style="color:{h.FORECAST_COLOR}">{label}' in card
+
+
+def test_missing_tyres_semester_is_not_a_zero_payment():
+    record=car();record.update(id='auto-3',name='Cambio gomme')
+    record=h.with_payments(record,[dict(id='one',date='2025-04-20',amount=50,note=''),dict(id='two',date='2026-04-20',amount=55,note='')],TODAY)
+    assert [(row['year'],row['semester'],row['amount']) for row in h.chart_rows(record,TODAY)]==[(2025,1,50),(2026,1,55)]

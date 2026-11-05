@@ -9,6 +9,8 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+FORECAST_COLOR = "#fb923c"
+
 
 def day(value):
     if value is None or value == '':return None
@@ -93,17 +95,42 @@ def card_color(record):
     return {'auto-0':'#d9e99a','auto-1':'#60a5fa','auto-2':'#34d399','auto-3':'#c4b5fd'}.get(record.get('id'),'#60a5fa')
 
 
+def uses_semesters(record):
+    return record.get('id') == 'auto-3' or 'gomme' in record.get('name','').casefold()
+
+
+def period_index(row):
+    return row['year']*2+row['semester']-1 if 'semester' in row else row['year']
+
+
+def period_label(row, compact=False):
+    if 'semester' not in row:return str(row['year'])
+    return f'{row["semester"]}S {row["year"]}' if compact else f'{row["semester"]}° semestre {row["year"]}'
+
+
 def chart_rows(record, today):
-    rows = annual_totals(record)
+    semiannual = uses_semesters(record)
+    if semiannual:
+        totals = {}
+        for payment in car_record(record).get('payments',[]):
+            paid_on = day(payment['date'])
+            key = (paid_on.year,1 if paid_on.month<=6 else 2)
+            row = totals.setdefault(key,dict(year=key[0],semester=key[1],amount=0.,count=0))
+            row.update(amount=round(row['amount']+float(payment['amount']),2),count=row['count']+1)
+        rows = list(totals.values())
+    else:
+        rows = annual_totals(record)
     due = day(record.get('next_date'))
     amount = record.get('planned_amount')
     if due and amount is not None:
-        existing = next((row for row in rows if row['year']==due.year),None)
+        semester = 1 if due.month<=6 else 2
+        existing = next((row for row in rows if row['year']==due.year and (not semiannual or row['semester']==semester)),None)
         if existing is None:
             existing = dict(year=due.year,amount=0.,count=0)
+            if semiannual:existing['semester']=semester
             rows.append(existing)
         existing.update(amount=round(existing['amount']+float(amount),2),pending=float(amount),future=due>today)
-    return sorted(rows,key=lambda row:row['year'])
+    return sorted(rows,key=period_index)
 
 
 def chart_html(record, today=None):
@@ -111,21 +138,21 @@ def chart_html(record, today=None):
     if not rows:
         return '<div class="car-history-empty">Storico pagamenti<br><span>Aggiungi data e importo per vedere l’andamento.</span></div>'
     color = card_color(record)
-    def point_color(row):return '#fb923c' if row.get('future') else color
-    first,last = rows[0]['year'],rows[-1]['year']
+    def point_color(row):return FORECAST_COLOR if 'pending' in row else color
+    first,last = period_index(rows[0]),period_index(rows[-1])
     peak = max(row['amount'] for row in rows) or 1.
-    coordinates = [(120. if first==last else 12.+216.*(row['year']-first)/(last-first), 79.-57.*row['amount']/peak) for row in rows]
+    coordinates = [(120. if first==last else 12.+216.*(period_index(row)-first)/(last-first), 79.-57.*row['amount']/peak) for row in rows]
     # Missing years are gaps, not zero expenses or invented intermediate values.
-    description = 'Storico annuale '+record['name']+': '+'; '.join(f'{row["year"]} {euro(row["amount"])}'+(' (previsione inclusa)' if 'pending' in row else '') for row in rows)
-    points = ''.join(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{point_color(row)}" tabindex="0" aria-label="{row["year"]}: {euro(row["amount"])}"><title>{row["year"]}: {euro(row["amount"])} · {row["count"]} pagamenti{' · previsione inclusa' if 'pending' in row else ''}</title></circle>' for row,(x,y) in zip(rows,coordinates))
+    description = ('Storico semestrale ' if uses_semesters(record) else 'Storico annuale ')+record['name']+': '+'; '.join(f'{period_label(row)} {euro(row["amount"])}'+(' (previsione inclusa)' if 'pending' in row else '') for row in rows)
+    points = ''.join(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{point_color(row)}" tabindex="0" aria-label="{period_label(row)}: {euro(row["amount"])}"><title>{period_label(row)}: {euro(row["amount"])} · {row["count"]} pagamenti{' · previsione inclusa' if 'pending' in row else ''}</title></circle>' for row,(x,y) in zip(rows,coordinates))
     ticks = sorted({0,len(rows)//2,len(rows)-1})
-    labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="101" text-anchor="middle" fill="#94a3b8" font-size="12">{rows[index]["year"]}</text>' for index in ticks)
+    labels = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="101" text-anchor="{"start" if index==0 else "end" if index==len(rows)-1 else "middle"}" fill="#94a3b8" font-size="12">{period_label(rows[index],compact=True)}</text>' for index in ticks)
     value_indices = range(len(rows)) if len(rows) <= 4 else [0,len(rows)-1]
     values = ''.join(f'<text x="{coordinates[index][0]:.2f}" y="{coordinates[index][1]-10:.2f}" text-anchor="{"start" if index==0 and len(rows)>1 else "end" if index==len(rows)-1 and len(rows)>1 else "middle"}" fill="{point_color(rows[index])}" font-size="13">{euro(rows[index]["amount"]).removesuffix(",00")}</text>' for index in value_indices)
     latest = rows[-1]
     segments = []
     for index in range(1,len(rows)):
-        if rows[index]['year'] != rows[index-1]['year']+1:continue
+        if period_index(rows[index]) != period_index(rows[index-1])+1:continue
         x0,y0 = coordinates[index-1]
         x1,y1 = coordinates[index]
         dashed = ' stroke-dasharray="5 4"' if 'pending' in rows[index] or 'pending' in rows[index-1] else ''
@@ -137,9 +164,9 @@ def chart_html(record, today=None):
            f'{"".join(segments)}{points}{labels}{values}</svg>')
     # st.html sanitizes inline SVG; an embedded image keeps the chart intact.
     encoded = b64encode(svg.encode()).decode()
-    return (f'<div class="car-mini-history"><div class="car-history-heading">Costi per anno</div>'
+    return (f'<div class="car-mini-history"><div class="car-history-heading">Costi per {"semestre" if uses_semesters(record) else "anno"}</div>'
             f'<img src="data:image/svg+xml;base64,{encoded}" alt="{escape(description,quote=True)}" style="display:block;width:100%;height:auto"/>'
-            f'<div class="car-history-latest">{latest["year"]}<strong style="color:{point_color(latest)}">{euro(latest["amount"])}</strong></div>{forecast}</div>')
+            f'<div class="car-history-latest">{period_label(latest,compact=True)}<strong style="color:{point_color(latest)}">{euro(latest["amount"])}</strong></div>{forecast}</div>')
 
 
 
