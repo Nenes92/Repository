@@ -478,6 +478,16 @@ def money(value):
     return f"€{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _ink(value, tone):
+    text = str(value)
+    if text == '—':tone = 'muted'
+    return f'<strong class="tracker-ink-{tone}">{escape(text)}</strong>'
+
+
+def _amount(value, tone):
+    return _ink(money(value),tone)
+
+
 def date_label(value):
     day = as_date(value)
     return day.strftime("%d/%m/%Y") if day else "—"
@@ -514,27 +524,27 @@ def cards_html(records, kind, today):
             item = investment_record(item)
             summary = investment_summary(item, today)
             gain = summary["gain"]
-            content = f'<div class="tracker-note">{escape(item["product"])} · versato</div><div class="tracker-value">{money(summary["total"])}</div>'
+            content = f'<div class="tracker-note">{escape(item["product"])} · versato</div><div class="tracker-value tracker-ink-paid">{money(summary["total"])}</div>'
             if summary["mode"] != "manual":
-                content += f'<div class="tracker-note">Tu: {money(summary["personal"])}' + (f'<br>Azienda: {money(summary["company"])}' if not item.get("personal_only") else '') + '</div>'
+                content += f'<div class="tracker-note">Tu: {_amount(summary["personal"],"paid")}' + (f'<br>Azienda: {_amount(summary["company"],"company")}' if not item.get("personal_only") else '') + '</div>'
                 if item.get("name", "").casefold() == "cometa":
-                    content += f'<div class="tracker-note">TFR: {money(summary["tfr"])}</div>'
+                    content += f'<div class="tracker-note">TFR: {_amount(summary["tfr"],"company")}</div>'
                     if summary["tfr_incomplete"]:
                         content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
                 if summary["unallocated"]:
-                    content += f'<div class="tracker-note">Precedenti da ripartire: {money(summary["unallocated"])}</div>'
+                    content += f'<div class="tracker-note">Precedenti da ripartire: {_amount(summary["unallocated"],"due")}</div>'
             if summary["mode"] == "monthly":
                 monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)+(item.get("monthly_tfr") or 0.)
-                breakdown = '' if item.get("personal_only") else f'<br>Tu {money(item.get("monthly_personal"))} · azienda {money(item.get("monthly_company"))}'
+                breakdown = '' if item.get("personal_only") else f'<br>Tu {_amount(item.get("monthly_personal"),"value")} · azienda {_amount(item.get("monthly_company"),"company")}'
                 if item.get("name", "").casefold() == "cometa":
-                    breakdown += f'<br>TFR {money(item.get("monthly_tfr"))}'
-                content += f'<div class="tracker-note">Ogni mese: {money(monthly)}{breakdown}<br>{summary["count"]} versamenti conteggiati</div>'
+                    breakdown += f'<br>TFR {_amount(item.get("monthly_tfr"),"company")}'
+                content += f'<div class="tracker-note">Ogni mese: {_amount(monthly,"value")}{breakdown}<br>{_ink(summary["count"],"paid")} versamenti conteggiati</div>'
                 if item.get("monthly_source_month") and item.get("cometa_auto_quotes", True):
                     content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}</div>'
                     if item.get("monthly_tfr_source_month"):
                         content += f'<div class="tracker-note">TFR da cedolino: {escape(item["monthly_tfr_source_month"])}</div>'
                 if item.get("contribution_start"):
-                    content += f'<div class="tracker-note">Prossimo: {date_label(summary["next_due"])}' + (f'<br>Fine versamenti: {date_label(item["contribution_end"])}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
+                    content += f'<div class="tracker-note">Prossimo: {_ink(date_label(summary["next_due"]),"due")}' + (f'<br>Fine versamenti: {_ink(date_label(item["contribution_end"]),"due")}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
                 elif item.get("_pension_history") and (summary["unallocated"] or item.get("opening_personal") or item.get("opening_company") or item.get("opening_tfr")):
                     content += '<div class="tracker-note">Imposta la data iniziale per aggiornare il saldo precedente</div>'
                 elif not item.get("_pension_history"):
@@ -544,28 +554,30 @@ def cards_html(records, kind, today):
                     amount = (row.get("personal") or 0.)+(row.get("company") or 0.)
                     label = ("conteggiato" if row["counted"] else "data da impostare" if not row.get("date")
                              else "importo da impostare" if row.get("personal") is None and row.get("company") is None else "previsto")
-                    content += f'<div class="tracker-note">{row["year"]}: {money(amount) if row.get("personal") is not None or row.get("company") is not None else "—"} · {label}<br>Tu {money(row.get("personal"))} · azienda {money(row.get("company"))}</div>'
+                    tone = "paid" if row["counted"] else "due"
+                    content += f'<div class="tracker-note">{row["year"]}: {_amount(amount if row.get("personal") is not None or row.get("company") is not None else None,tone)} · {_ink(label,tone)}<br>Tu {_amount(row.get("personal"),tone)} · azienda {_amount(row.get("company"),"company" if row["counted"] else "due")}</div>'
                     if row.get("source"):
                         content += f'<div class="tracker-note">Fonte: {escape(row["source"])}</div>'
                 redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
-                content += f'<div class="tracker-note">Ritiro previsto: {redemption}</div>'
-            content += f'<div>Valore attuale: {money(item.get("current_value"))}</div>'
+                content += f'<div class="tracker-note">Ritiro previsto: {_ink(redemption,"due")}</div>'
+            content += f'<div>Valore attuale: {_amount(item.get("current_value"),"value")}</div>'
             if item.get("value_date"):
                 content += f'<div class="tracker-note">Aggiornato al {date_label(item["value_date"])}</div>'
             if gain is not None:
-                content += f'<div style="color:{"#34d399" if gain >= 0 else "#f87171"};">Risultato: {money(gain)}</div>'
+                content += f'<div style="color:{"#34d399" if gain >= 0 else "#f87171"};">Risultato: {_amount(gain,"paid" if gain >= 0 else "loss")}</div>'
             if item.get("withdrawn"):
-                content += f'<div class="tracker-note">Prelevato: {money(item["withdrawn"])}</div>'
+                content += f'<div class="tracker-note">Prelevato: {_amount(item["withdrawn"],"due")}</div>'
         else:
             summary = instalment_summary(item, today)
             if summary is None:
                 content = '<div class="tracker-note">Imposta prima rata e durata</div>'
             else:
                 pct = summary["progress"]*100
-                content = f'<div class="tracker-value">{summary["paid"]} / {summary["total"]} rate</div>'
+                content = f'<div class="tracker-value">{_ink(summary["paid"],"paid")} / {_ink(summary["total"],"muted")} rate</div>'
                 content += f'<div class="tracker-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct:.1f}"><span style="width:{pct:.2f}%;"></span></div>'
-                content += f'<div>Ancora {summary["remaining"]} rate · {money(summary["remaining_amount"])}</div>'
-                content += f'<div class="tracker-note">Pagato da calendario: {money(summary["paid_amount"])}<br>Rata: {money(item.get("amount"))}<br>Prossima: {date_label(summary["next_due"])}<br>Fine: {date_label(summary["end"])}</div>'
+                tone = "due" if summary["remaining"] else "paid"
+                content += f'<div>Ancora {_ink(summary["remaining"],tone)} rate · {_amount(summary["remaining_amount"],tone)}</div>'
+                content += f'<div class="tracker-note">Pagato da calendario: {_amount(summary["paid_amount"],"paid")}<br>Rata: {_amount(item.get("amount"),"value")}<br>Prossima: {_ink(date_label(summary["next_due"]),"due")}<br>Fine: {_ink(date_label(summary["end"]),"company")}</div>'
                 if item.get("paid_offset"):
                     content += '<div class="tracker-note">Conteggio corretto manualmente</div>'
         cards.append(_card(item, content))
@@ -658,11 +670,11 @@ def render_tracker(records, kind, save_record, saved, today):
         elif kind == "investments":
             summaries = [investment_summary(item, today) for item in items]
             totals = [row["total"] for row in summaries if row["total"] is not None]
-            st.caption(f"Versato complessivo: {money(sum(totals)) if totals else '—'} · quote mensili e annuali conteggiate alle date previste")
+            st.html(f'<div class="tracker-section-note">Versato complessivo: {_amount(sum(totals) if totals else None,"paid")} · quote mensili e annuali conteggiate alle date previste</div>')
         else:
             summaries = [instalment_summary(item, today) for item in items]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
-            st.caption(f"Rate residue complessive: {money(sum(remaining)) if remaining else '—'} · conteggio automatico alle date previste")
+            st.html(f'<div class="tracker-section-note">Rate residue complessive: {_amount(sum(remaining) if remaining else None,"due")} · conteggio automatico alle date previste</div>')
         st.html("""<style>
           [class*="st-key-personal-tracker-"] [data-testid="stCaptionContainer"] {color:#94a3b8;}
           [class*="st-key-personal-tracker-"] [data-testid="stWidgetLabel"] p {white-space:normal!important;font-size:11px!important;color:#cbd5e1!important;}
@@ -671,6 +683,13 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
           .tracker-value {font-family:"DM Mono",monospace;color:#60a5fa;font-size:17px;margin:5px 0 8px;}
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
+          .tracker-section-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;}
+          .tracker-ink-paid {color:#34d399;font-weight:650;}
+          .tracker-ink-due {color:#fb923c;font-weight:650;}
+          .tracker-ink-value {color:#7dd3fc;font-weight:650;}
+          .tracker-ink-company {color:#c4b5fd;font-weight:650;}
+          .tracker-ink-loss {color:#f87171;font-weight:650;}
+          .tracker-ink-muted {color:#94a3b8;font-weight:500;}
           .st-key-personal-tracker-auto .tracker-card {padding:9px;}
           .st-key-personal-tracker-auto .tracker-card>strong {margin-bottom:4px;font-size:12px;}
           .st-key-personal-tracker-auto .tracker-value {font-size:15px;margin:3px 0 5px;}
