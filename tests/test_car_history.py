@@ -115,15 +115,15 @@ h.render_editor([st.session_state.record],save,saved,date(2026,11,5))
 ''')
     at=AppTest.from_file(str(app)).run()
     assert not at.exception
-    at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[{'Data':'2025-05-10','Importo':210,'Nota':'Bollo 2025'}],'deleted_rows':[]}
+    at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[{'Data':'2025-05-10','Importo':'210,95','Nota':'Bollo 2025'}],'deleted_rows':[]}
     at.button[0].click().run()
     assert not at.exception
-    assert at.session_state.record['payments'][0]['amount']==210
+    assert at.session_state.record['payments'][0]['amount']==210.95
     identifier=at.session_state.record['payments'][0]['id']
     at.run()
-    at.session_state['car_payment_editor_auto-0']={'edited_rows':{'0':{'Importo':225}},'added_rows':[],'deleted_rows':[]}
+    at.session_state['car_payment_editor_auto-0']={'edited_rows':{'0':{'Importo':'225,45'}},'added_rows':[],'deleted_rows':[]}
     at.button[0].click().run()
-    assert at.session_state.record['payments'][0]['amount']==225
+    assert at.session_state.record['payments'][0]['amount']==225.45
     assert at.session_state.record['payments'][0]['id']==identifier
     at.run()
     at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[],'deleted_rows':[0]}
@@ -183,3 +183,25 @@ def test_early_payment_can_settle_forecast_without_losing_other_history():
     assert h.annual_totals(updated)==[dict(year=2025,amount=210,count=1),dict(year=2026,amount=225,count=1)]
     with pytest.raises(ValueError,match='Inserisci il pagamento'):
         h.with_payments(record,[],TODAY,settle=True)
+
+
+@pytest.mark.parametrize('value,expected',[('193,96',193.96),('1.234,56',1234.56),('193.96',193.96),('€ 193,96',193.96),('0,50',.5),('210',210)])
+def test_decimal_comma_payment_amounts(value,expected):
+    record=h.with_payments(car(),[dict(id='decimal',date='2025-05-10',amount=value,note='')],TODAY)
+    assert record['payments'][0]['amount']==expected
+    assert trackers.decode_rows(trackers.encode_rows([record]))==[record]
+
+
+def test_only_forecast_marker_is_orange_not_historical_curve():
+    from base64 import b64decode
+    import xml.etree.ElementTree as ET
+    record=h.with_payments(car(),[payment(2024,200),payment(2025,210)],TODAY)
+    record.update(next_date='2026-11-20',planned_amount=230)
+    html=h.chart_html(record,TODAY)
+    root=ET.fromstring(b64decode(html.split('base64,')[1].split('"')[0]))
+    ns={'svg':'http://www.w3.org/2000/svg'}
+    assert [circle.get('fill') for circle in root.findall('svg:circle',ns)]==[h.card_color(record),h.card_color(record),'#fb923c']
+    curves=[path for path in root.findall('svg:path',ns) if path.get('stroke-width')=='2.5']
+    assert len(curves)==2
+    assert all(path.get('stroke')==h.card_color(record) for path in curves)
+    assert curves[-1].get('stroke-dasharray')=='5 4'

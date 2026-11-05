@@ -26,6 +26,20 @@ def car_record(record, today=None):
     return item
 
 
+def payment_amount(value):
+    if isinstance(value,str):
+        value = value.strip().replace('€','').replace(' ','').replace('\u00a0','')
+        if ',' in value:
+            value = value.replace('.','').replace(',','.')
+    try:
+        number = float(value)
+    except (ValueError,TypeError):
+        raise ValueError('Inserisci un importo valido, per esempio 193,96.') from None
+    if not math.isfinite(number) or number < 0:
+        raise ValueError('Gli importi devono essere positivi o zero.')
+    return round(number,2)
+
+
 def validate_payments(rows, today):
     if len(rows)>500:raise ValueError('Massimo 500 pagamenti per voce.')
     result, seen = [], set()
@@ -38,9 +52,7 @@ def validate_payments(rows, today):
             raise ValueError('Ogni pagamento deve avere data e importo.')
         if not date(1980,1,1) <= paid_on <= today:
             raise ValueError('Lo storico contiene solo pagamenti già effettuati, dal 1980 a oggi.')
-        amount = float(amount)
-        if not math.isfinite(amount) or amount < 0:
-            raise ValueError('Gli importi devono essere positivi o zero.')
+        amount = payment_amount(amount)
         identifier = str(row.get('id') or uuid4().hex)
         if identifier in seen:raise ValueError('Pagamento duplicato: controlla le righe dello storico.')
         seen.add(identifier)
@@ -117,7 +129,7 @@ def chart_html(record, today=None):
         x0,y0 = coordinates[index-1]
         x1,y1 = coordinates[index]
         dashed = ' stroke-dasharray="5 4"' if 'pending' in rows[index] or 'pending' in rows[index-1] else ''
-        segments.append(f'<path d="M{x0:.2f},{y0:.2f} L{x1:.2f},{y1:.2f}" stroke="{point_color(rows[index])}" stroke-width="2.5" fill="none"{dashed}/>')
+        segments.append(f'<path d="M{x0:.2f},{y0:.2f} L{x1:.2f},{y1:.2f}" stroke="{color}" stroke-width="2.5" fill="none"{dashed}/>')
     pending = next((row for row in rows if 'pending' in row),None)
     forecast = '' if pending is None else f'<div class="tracker-note" style="color:{point_color(pending)}">{"Previsto" if pending["future"] else "Da confermare"}: {euro(pending["pending"])}</div>'
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 110">'
@@ -141,13 +153,13 @@ def render_editor(items, save_record, saved, today):
         item = lookup[identifier]
         st.caption('Ogni riga è un pagamento. Puoi aggiungere, correggere o eliminare righe; il grafico somma gli importi per anno. Salva per applicare le modifiche.')
         with st.form('car_payment_history_'+identifier,border=False,enter_to_submit=False):
-            frame = pd.DataFrame([dict(ID=row['id'],Data=day(row['date']),Importo=float(row['amount']),Nota=row.get('note','')) for row in item['payments']],columns=['ID','Data','Importo','Nota'])
-            # Explicit dtypes keep an initially empty editor editable as dates/numbers.
+            frame = pd.DataFrame([dict(ID=row['id'],Data=day(row['date']),Importo=euro(float(row['amount'])).removeprefix('€'),Nota=row.get('note','')) for row in item['payments']],columns=['ID','Data','Importo','Nota'])
+            # Text amounts allow Italian decimal commas on every browser/keyboard.
             frame['Data'] = pd.to_datetime(frame['Data'])
-            frame['Importo'] = frame['Importo'].astype(float)
+            frame['Importo'] = frame['Importo'].astype('string')
             edited = st.data_editor(frame,num_rows='dynamic',hide_index=True,width='stretch',key='car_payment_editor_'+identifier,
                 column_config={'ID':None,'Data':st.column_config.DateColumn('Data',format='DD/MM/YYYY',required=True,min_value=date(1980,1,1),max_value=today),
-                               'Importo':st.column_config.NumberColumn('Pagato (€)',min_value=0.,step=1.,format='%.2f',required=True),
+                               'Importo':st.column_config.TextColumn('Pagato (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
                                'Nota':st.column_config.TextColumn('Nota',max_chars=300)})
             settle = False
             if item.get('next_date') and item.get('planned_amount') is not None:
