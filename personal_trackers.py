@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from html import escape
 import json
 import car_history
+import car_overview
 import math
 from uuid import uuid4
 
@@ -568,6 +569,8 @@ def cards_html(records, kind, today):
                 if item.get("paid_offset"):
                     content += '<div class="tracker-note">Conteggio corretto manualmente</div>'
         cards.append(_card(item, content))
+    if kind == "auto" and cards:
+        cards.append(car_overview.html(records,today,full_width=len(cards)%2==0))
     return '<div class="tracker-grid">'+"".join(cards)+'</div>'
 
 
@@ -672,6 +675,13 @@ def render_tracker(records, kind, save_record, saved, today):
           .st-key-personal-tracker-auto .tracker-card>strong {margin-bottom:4px;font-size:12px;}
           .st-key-personal-tracker-auto .tracker-value {font-size:15px;margin:3px 0 5px;}
           .st-key-personal-tracker-auto .tracker-note {font-size:10px;margin-top:4px;line-height:1.35;}
+          .car-overview {min-width:0;padding:9px 3px;color:#cbd5e1;align-self:start;font-size:10px;}
+          .car-overview>strong {display:block;color:#e2e8f0;font-size:12px;margin-bottom:7px;}
+          .car-overview-note {font-size:10px;color:#94a3b8;line-height:1.4;margin:4px 0;}
+          .car-overview-monthly {color:#34d399;font-size:14px;font-weight:700;line-height:1.4;}
+          .car-overview-due {font-size:10px;color:#cbd5e1;line-height:1.4;margin-top:7px;}
+          .car-overview-due>strong {color:#fb923c;}
+          .car-overview-footnote {font-size:9px;color:#94a3b8;line-height:1.35;margin-top:6px;}
           .car-paid-total {float:right;max-width:46%;margin:3px 0 5px 7px;text-align:right;line-height:1.3;}
           .car-paid-total>span {display:block;font-size:9px;color:#94a3b8;}
           .car-paid-total>strong {display:block;font-size:11px;font-family:"DM Mono",monospace;}

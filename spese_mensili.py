@@ -55,6 +55,8 @@ import car_calendar as _car_calendar
 importlib.reload(_car_calendar)
 import car_history as _car_history
 importlib.reload(_car_history)
+import car_overview as _car_overview
+importlib.reload(_car_overview)
 import personal_trackers as _personal_trackers
 importlib.reload(_personal_trackers)
 import salary_extras as _salary_extras
