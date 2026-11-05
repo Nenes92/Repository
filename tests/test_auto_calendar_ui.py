@@ -46,7 +46,7 @@ def saved(message):st.rerun()
     assert at.session_state.sync_calls==0
     at.run()
     assert at.session_state.sync_calls==0
-    at.text_area[0].set_value('Bollo aggiornato')
+    next(field for field in at.text_input if field.label=='Nome').set_value('Bollo aggiornato')
     assert at.session_state.sync_calls==0
     next(button for button in at.button if button.label=='💾 Salva').click().run()
     assert not at.exception
@@ -54,11 +54,11 @@ def saved(message):st.rerun()
     at.run()
     assert at.session_state.sync_calls==1
     at.session_state.fail_calendar=True
-    at.text_area[0].set_value('Spesa salvata anche se Calendar non risponde')
+    next(field for field in at.text_input if field.label=='Nome').set_value('Spesa salvata anche se Calendar non risponde')
     next(button for button in at.button if button.label=='💾 Salva').click().run()
     assert not at.exception
     assert at.session_state.sync_calls==2
     assert 'Spesa salvata.' in at.session_state.auto_calendar_save_notice
-    assert any(row['Nome']=='Bollo' and 'Spesa salvata anche' in row['Dati'] for row in at.session_state.rows)
+    assert any(row['Nome']=='Spesa salvata anche se Calendar non risponde' for row in at.session_state.rows)
     at.run()
     assert at.session_state.sync_calls==2

@@ -158,7 +158,9 @@ t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
     at=AppTest.from_file(str(app)).run()
     at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
     assert not at.exception
-    assert [field.label for field in at.date_input]==['Prossima scadenza']
+    assert [field.label for field in at.date_input]==['Scadenza']
+    assert at.date_input[0].proto.form_id
+    assert next(field for field in at.text_input if field.label=='Nome').proto.form_id
     assert 'Importo (€)' not in [field.label for field in at.number_input]
     original=at.session_state.records[0]['payments'].copy()
     at.date_input[0].set_value(date(2026,11,25))

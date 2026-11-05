@@ -604,7 +604,6 @@ def _investment_fields(item, old, prefix, mode, today):
             with c2:item["monthly_company"] = st.number_input("Quota azienda mensile (€)", min_value=0., value=old.get("monthly_company"), step=10., disabled=old.get("cometa_auto_quotes", False))
         if old.get("name", "").casefold() == "cometa":
             item["monthly_tfr"] = st.number_input("Quota TFR mensile al fondo (€)", min_value=0., value=old.get("monthly_tfr"), step=10., disabled=old.get("cometa_auto_quotes", False))
-        item["contribution_start"] = _date_input("Primo versamento da conteggiare", old.get("contribution_start"), prefix+"contribution_start")
         item["contribution_end"] = _date_input("Ultimo versamento, solo se interrompi il piano", old.get("contribution_end"), prefix+"contribution_end")
         st.caption("Il versamento si ripete ogni mese nello stesso giorno; nei mesi più corti, l’ultimo giorno. Lascia vuota la fine per continuare ad accumulare.")
         if not old.get("cometa_auto_quotes", False):
@@ -627,7 +626,6 @@ def _investment_fields(item, old, prefix, mode, today):
                 help="Spuntalo se hai già versato ma non ricordi la data esatta. Altrimenti il totale segue la data indicata.")
             item["annual_contributions"].append(dict(year=year, date=due, personal=personal, company=company, source=source, confirmed=confirmed))
         item["redemption_year"] = st.number_input("Anno del ritiro previsto", min_value=1980, max_value=2100, value=old.get("redemption_year") or 2028)
-        item["redemption_date"] = _date_input("Data del ritiro, se già nota", old.get("redemption_date"), prefix+"redemption")
     if mode == "manual":
         baseline = old.get("invested") if old["contribution_mode"] == "manual" else investment_summary(old, today)["total"]
         item["invested"] = st.number_input("Totale versato (€)", min_value=0., value=baseline, step=100.)
@@ -647,10 +645,13 @@ def _investment_fields(item, old, prefix, mode, today):
                                if old.get("personal_only") else "È il totale che avevi già salvato. Ripartiscilo fra le due quote qui sopra e azzera questo campo, oppure tienilo qui senza duplicarlo.")
             item["opening_unallocated"] = st.number_input("Versamenti precedenti da ripartire (€)", min_value=0., value=float(old["opening_unallocated"]), step=100.,
                 help=allocation_help)
-    item["current_value"] = st.number_input("Valore attuale (€), facoltativo", min_value=0., value=old.get("current_value"), step=100.)
+    value_col, withdrawn_col = st.columns(2, gap="small")
+    with value_col:
+        item["current_value"] = st.number_input("Valore attuale (€)", min_value=0., value=old.get("current_value"), step=100.)
     if item["current_value"] != old.get("current_value"):
         item["value_date"] = today.isoformat() if item["current_value"] is not None else None
-    item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
+    with withdrawn_col:
+        item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
     return paid_today
 
 
@@ -678,6 +679,10 @@ def render_tracker(records, kind, save_record, saved, today):
         st.html("""<style>
           [class*="st-key-personal-tracker-"] [data-testid="stCaptionContainer"] {color:#94a3b8;}
           [class*="st-key-personal-tracker-"] [data-testid="stWidgetLabel"] p {white-space:normal!important;font-size:11px!important;color:#cbd5e1!important;}
+          [class*="st-key-personal-tracker-"] [data-testid="stExpander"] [data-testid="stHorizontalBlock"] {flex-wrap:nowrap!important;gap:8px!important;}
+          [class*="st-key-personal-tracker-"] [data-testid="stExpander"] [data-testid="stHorizontalBlock"] > :is([data-testid="stColumn"],[data-testid="column"]) {min-width:0!important;}
+          [class*="st-key-personal-tracker-"] [data-testid="stExpander"] :is(input,button) {font-size:12px!important;min-width:0;}
+          [class*="st-key-personal-tracker-"] [data-testid="stExpander"] [data-testid="stVerticalBlock"] {gap:9px;}
           .tracker-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
           .tracker-card {min-width:0;padding:12px;border:.5px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.05);font-size:12px;color:#cbd5e1;overflow-wrap:anywhere;}
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
@@ -719,7 +724,13 @@ def render_tracker(records, kind, save_record, saved, today):
         with st.expander("Aggiungi o modifica", expanded=False):
             identifiers = ["__new__"] + [item["id"] for item in items]
             lookup = {item["id"]: item for item in items}
-            selection = st.selectbox("Voce", identifiers, format_func=lambda key: "＋ Nuova voce" if key == "__new__" else lookup[key]["name"], key=f"tracker_select_{kind}")
+            # Header slots share one row. Draft widgets below still belong to the
+            # save form through its active context; selecting a record remains immediate.
+            header = st.columns(3, gap="small")
+            with header[0]:
+                selection = st.selectbox("Voce", identifiers, format_func=lambda key: "＋ Nuova voce" if key == "__new__" else lookup[key]["name"], key=f"tracker_select_{kind}")
+            name_slot = header[1].empty()
+            date_slot = header[2].empty()
             old = lookup.get(selection, dict(id="", kind=kind, name="", notes=""))
             prefix = f"tracker_{kind}_{selection}"
             if kind == "investments":
@@ -731,37 +742,66 @@ def render_tracker(records, kind, save_record, saved, today):
                     old.update(opening_personal=0., opening_company=0., opening_unallocated=old.get("invested") or 0.)
                 if old.get("name", "").casefold() == "cometa":
                     old["cometa_auto_quotes"] = st.checkbox("Usa le quote dei cedolini sincronizzati", value=old.get("cometa_auto_quotes", True), key=prefix+"cometa_auto")
-            with st.form(prefix, border=False, enter_to_submit=False):
+            edit_form = st.form(prefix, border=False, enter_to_submit=False)
+            with edit_form:
                 item = deepcopy(old)
-                item["name"] = st.text_input("Nome", value=old["name"], max_chars=80)
+                # The header placeholders are outside the form's visual block.
+                # Give them its form metadata so edits stay batched until Save.
+                name_slot._form_data = edit_form._form_data
+                date_slot._form_data = edit_form._form_data
+                with name_slot.container():
+                    item["name"] = st.text_input("Nome", value=old["name"], max_chars=80)
+                with date_slot.container():
+                    if kind == "auto":
+                        item["next_date"] = _date_input("Scadenza", old.get("next_date") or car_deadline(old), prefix+"next")
+                    elif kind == "installments":
+                        item["start_date"] = _date_input("Prima rata", old.get("start_date"), prefix+"start")
+                    elif mode == "monthly":
+                        item["contribution_start"] = _date_input("Primo versamento", old.get("contribution_start"), prefix+"contribution_start")
+                    elif mode == "annual":
+                        item["redemption_date"] = _date_input("Ritiro previsto", old.get("redemption_date"), prefix+"redemption")
+                    else:
+                        item["value_date"] = _date_input("Valore al", old.get("value_date"), prefix+"value_date")
                 paid_today = None
                 if kind == "auto":
-                    item["next_date"] = _date_input("Prossima scadenza", old.get("next_date") or car_deadline(old), prefix+"next")
                     estimate = car_history.forecast(old)
-                    planned_input = st.number_input("Costo previsto (€)", min_value=0., value=estimate['amount'], step=10., help="Se non lo specifichi, viene stimato dall’ultimo pagamento. Il costo reale si registra nello storico.")
+                    cost, interval, reminder = st.columns(3, gap="small")
+                    with cost:
+                        planned_input = st.number_input("Costo previsto (€)", min_value=0., value=estimate['amount'], step=10., help="Se vuoto, uso l’ultimo pagamento. Registra il costo reale nello storico.")
                     item['planned_amount'] = None if old.get('planned_amount') is None and planned_input == estimate['amount'] else planned_input
-                    if old.get('id') == 'auto-4' and not old.get('last_date'):
-                        st.caption("Prima revisione: novembre 2027, quattro anni da novembre 2023. Uso il 30 novembre come fine mese; puoi modificare la data. Poi ogni 24 mesi.")
-                    item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Serve a calcolare la scadenza successiva quando registri un pagamento nello storico. Zero disattiva la ripetizione.")
-                    item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
+                    with interval:
+                        item["interval_months"] = st.number_input("Ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Zero disattiva la ripetizione. Revisione: prima dopo quattro anni, poi ogni 24 mesi.")
+                    with reminder:
+                        item["reminder_days"] = st.number_input("Preavviso (giorni)", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
                 elif kind == "investments":
                     paid_today = _investment_fields(item, old, prefix, mode, today)
                 else:
-                    item["amount"] = st.number_input("Importo della rata (€)", min_value=0., value=old.get("amount"), step=10.)
-                    item["start_date"] = _date_input("Data della prima rata", old.get("start_date"), prefix+"start")
-                    item["count"] = st.number_input("Numero totale di rate, oppure compila la data finale", min_value=1, max_value=1200, value=old.get("count"))
-                    item["end_date"] = _date_input("Data ultima rata, alternativa al numero di rate", old.get("end_date"), prefix+"end")
-                    item["due_day"] = st.number_input("Giorno del mese in cui paghi", min_value=1, max_value=31, value=old.get("due_day"), help="Vuoto = giorno della prima rata. Nei mesi più corti si usa l'ultimo giorno.")
+                    amount_col, count_col, day_col = st.columns(3, gap="small")
+                    with amount_col:
+                        item["amount"] = st.number_input("Rata (€)", min_value=0., value=old.get("amount"), step=10.)
+                    with count_col:
+                        item["count"] = st.number_input("Numero rate", min_value=1, max_value=1200, value=old.get("count"), help="In alternativa, imposta la data dell’ultima rata.")
+                    with day_col:
+                        item["due_day"] = st.number_input("Giorno pagamento", min_value=1, max_value=31, value=old.get("due_day"), help="Vuoto = giorno della prima rata. Nei mesi più corti si usa l’ultimo giorno.")
+                    end_col, correction_col = st.columns(2, gap="small")
+                    with end_col:
+                        item["end_date"] = _date_input("Ultima rata (alternativa)", old.get("end_date"), prefix+"end")
                     current = instalment_summary(old, today)
                     if current:st.caption(f"Pagate da calendario: {current['paid']} su {current['total']} · fine {date_label(current['end'])}")
-                    paid_today = st.number_input("Correggi il numero di rate già pagate, facoltativo", min_value=0, max_value=1200, value=None, help="Lascia vuoto per conservare il conteggio. Dopo una correzione, il contatore continua automaticamente dalle scadenze successive.")
+                    with correction_col:
+                        paid_today = st.number_input("Correggi rate pagate", min_value=0, max_value=1200, value=None, help="Lascia vuoto per conservare il conteggio. Dopo una correzione, il contatore continua automaticamente dalle scadenze successive.")
                     st.caption("Gli importi residui sono la somma delle rate previste, inclusi gli eventuali interessi già presenti nella rata.")
-                item["notes"] = st.text_area("Note", value=old.get("notes", ""), max_chars=1000, height=75)
                 if kind == "auto":
-                    edited_payments, settle_payment = car_history.payment_fields(old, today)
-                c1, c2 = st.columns(2)
-                with c1:submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
-                with c2:delete = st.form_submit_button("Elimina voce", disabled=selection == "__new__", use_container_width=True)
+                    table, actions = st.columns([3, 1], gap="small", vertical_alignment="bottom")
+                    with table:
+                        edited_payments, settle_payment = car_history.payment_fields(old, today)
+                    with actions:
+                        submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
+                        delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
+                else:
+                    c1, c2 = st.columns(2, gap="small")
+                    with c1:submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
+                    with c2:delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
             if submit:
                 try:
                     item["id"] = old.get("id") or uuid4().hex
