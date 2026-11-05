@@ -90,7 +90,7 @@ def euro(amount):
 
 
 def card_color(record):
-    return {'auto-0':'#fbbf24','auto-1':'#60a5fa','auto-2':'#34d399','auto-3':'#c4b5fd'}.get(record.get('id'),'#60a5fa')
+    return {'auto-0':'#d9e99a','auto-1':'#60a5fa','auto-2':'#34d399','auto-3':'#c4b5fd'}.get(record.get('id'),'#60a5fa')
 
 
 def chart_rows(record, today):
@@ -143,33 +143,25 @@ def chart_html(record, today=None):
 
 
 
-def render_editor(items, save_record, saved, today):
-    if not items:return
-    with st.expander('Storico pagamenti · Auto',expanded=False):
-        lookup = {item['id']:car_record(item,today) for item in items}
-        key = 'car_payment_history_voice'
-        if st.session_state.get(key) not in lookup:st.session_state.pop(key,None)
-        identifier = st.selectbox('Voce dello storico',list(lookup),format_func=lambda value:lookup[value]['name'],key=key)
-        item = lookup[identifier]
-        st.caption('Ogni riga è un pagamento. Puoi aggiungere, correggere o eliminare righe; il grafico somma gli importi per anno. Salva per applicare le modifiche.')
-        with st.form('car_payment_history_'+identifier,border=False,enter_to_submit=False):
-            frame = pd.DataFrame([dict(ID=row['id'],Data=day(row['date']),Importo=euro(float(row['amount'])).removeprefix('€'),Nota=row.get('note','')) for row in item['payments']],columns=['ID','Data','Importo','Nota'])
-            # Text amounts allow Italian decimal commas on every browser/keyboard.
-            frame['Data'] = pd.to_datetime(frame['Data'])
-            frame['Importo'] = frame['Importo'].astype('string')
-            edited = st.data_editor(frame,num_rows='dynamic',hide_index=True,width='stretch',key='car_payment_editor_'+identifier,
-                column_config={'ID':None,'Data':st.column_config.DateColumn('Data',format='DD/MM/YYYY',required=True,min_value=date(1980,1,1),max_value=today),
-                               'Importo':st.column_config.TextColumn('Pagato (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
-                               'Nota':st.column_config.TextColumn('Nota',max_chars=300)})
-            settle = False
-            if item.get('next_date') and item.get('planned_amount') is not None:
-                settle = st.checkbox('Il pagamento salda la scadenza del '+day(item['next_date']).strftime('%d/%m/%Y'),value=False,help='Spunta anche se hai pagato in anticipo: il costo previsto viene sostituito dal pagamento reale.')
-            submit = st.form_submit_button('💾 Salva storico pagamenti',type='primary',use_container_width=True)
-        if submit:
-            try:
-                rows = edited.astype(object).where(pd.notna(edited),None).to_dict(orient='records')
-                rows = [dict(id=row['ID'],date=row['Data'],amount=row['Importo'],note=row['Nota']) for row in rows]
-                candidate = with_payments(item,rows,today,settle=settle)
-                if save_record(identifier,candidate):saved('Storico pagamenti salvato.')
-            except (ValueError,TypeError) as exc:
-                st.error(str(exc))
+def payment_rows(edited):
+    rows = edited.astype(object).where(pd.notna(edited),None).to_dict(orient='records')
+    return [dict(id=row['ID'],date=row['Data'],amount=row['Importo'],note=row['Nota']) for row in rows]
+
+
+def payment_fields(record, today):
+    """Payment table inside the selected car record's existing save form."""
+    item = car_record(record,today)
+    identifier = item.get('id') or '__new__'
+    st.markdown('**Storico pagamenti'+(' · '+item['name'] if item.get('name') else '')+'**')
+    frame = pd.DataFrame([dict(ID=row['id'],Data=day(row['date']),Importo=euro(float(row['amount'])).removeprefix('€'),Nota=row.get('note','')) for row in item['payments']],columns=['ID','Data','Importo','Nota'])
+    # Text amounts allow Italian decimal commas on every browser/keyboard.
+    frame['Data'] = pd.to_datetime(frame['Data'])
+    frame['Importo'] = frame['Importo'].astype('string')
+    edited = st.data_editor(frame,num_rows='dynamic',hide_index=True,width='stretch',key='car_payment_editor_'+identifier,
+        column_config={'ID':None,'Data':st.column_config.DateColumn('Data',format='DD/MM/YYYY',required=True,min_value=date(1980,1,1),max_value=today),
+                       'Importo':st.column_config.TextColumn('Pagato (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
+                       'Nota':st.column_config.TextColumn('Nota',max_chars=300)})
+    settle = False
+    if item.get('next_date') and item.get('planned_amount') is not None:
+        settle = st.checkbox('Il pagamento salda la scadenza del '+day(item['next_date']).strftime('%d/%m/%Y'),value=False,help='Spunta anche se hai pagato in anticipo: il costo previsto viene sostituito dal pagamento reale.')
+    return edited,settle

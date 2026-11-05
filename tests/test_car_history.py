@@ -111,7 +111,12 @@ def save(identifier,record):
     st.session_state.record=record
     return True
 def saved(message):st.success(message)
-h.render_editor([st.session_state.record],save,saved,date(2026,11,5))
+with st.form('car-test'):
+    edited,settle=h.payment_fields(st.session_state.record,date(2026,11,5))
+    submit=st.form_submit_button('Salva')
+if submit:
+    record=h.with_payments(st.session_state.record,h.payment_rows(edited),date(2026,11,5),settle)
+    if save(record['id'],record):saved('Salvato')
 ''')
     at=AppTest.from_file(str(app)).run()
     assert not at.exception
@@ -205,3 +210,72 @@ def test_only_forecast_marker_is_orange_not_historical_curve():
     assert len(curves)==2
     assert all(path.get('stroke')==h.card_color(record) for path in curves)
     assert curves[-1].get('stroke-dasharray')=='5 4'
+
+
+@pytest.mark.parametrize('identifier',['auto-0','auto-1','auto-2','auto-3'])
+def test_each_chart_has_distinct_base_and_same_orange_forecast(identifier):
+    from base64 import b64decode
+    import xml.etree.ElementTree as ET
+    record=car();record['id']=identifier
+    record=h.with_payments(record,[payment(2025,210)],TODAY)
+    record.update(next_date='2026-11-20',planned_amount=230)
+    html=h.chart_html(record,TODAY)
+    root=ET.fromstring(b64decode(html.split('base64,')[1].split('"')[0]))
+    circles=root.findall('{http://www.w3.org/2000/svg}circle')
+    assert circles[0].get('fill')==h.card_color(record)
+    assert circles[1].get('fill')=='#fb923c'
+    assert h.card_color(record)!='#fb923c'
+
+
+def test_unified_editor_saves_selected_car_history_and_forecast_together(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    app=tmp_path/'unified_car_app.py'
+    app.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+import car_history as h
+if 'records' not in st.session_state:
+    st.session_state.records=[h.with_payments(item,[dict(id='old-'+item['id'],date='2025-11-20',amount=210+index*100,note='')],date(2026,11,5)) for index,item in enumerate(t.initial_records()[:2])]
+    st.session_state.saves=0
+def save(identifier,record):
+    st.session_state.records=t.merge_record(st.session_state.records,identifier,record)
+    st.session_state.saves+=1
+    return True
+def saved(message):st.success(message)
+t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
+''')
+    at=AppTest.from_file(str(app)).run()
+    at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
+    assert not at.exception
+    assert 'Storico pagamenti · Auto' not in [e.label for e in at.expander]
+    assert 'Voce dello storico' not in [e.label for e in at.selectbox]
+    assert any('Storico pagamenti · Bollo' in e.value for e in at.markdown)
+    at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[{'Data':'2024-11-20','Importo':'193,96','Nota':''}],'deleted_rows':[]}
+    next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(230.95)
+    at.date_input[0].set_value(date(2026,11,25))
+    assert at.session_state.saves==0
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception
+    bollo,insurance=at.session_state.records
+    assert [row['amount'] for row in bollo['payments']]==[193.96,210]
+    assert bollo['planned_amount']==230.95 and bollo['next_date']=='2026-11-25'
+    assert len(insurance['payments'])==1 and insurance['amount']==310
+    at.selectbox(key='tracker_select_auto').set_value('auto-1').run()
+    assert any('Storico pagamenti · Assicurazione auto' in e.value for e in at.markdown)
+    at.session_state['car_payment_editor_auto-1']={'edited_rows':{'0':{'Importo':'315,55'}},'added_rows':[],'deleted_rows':[]}
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception
+    assert at.session_state.records[0]==bollo
+    assert at.session_state.records[1]['payments'][0]['amount']==315.55
+
+    at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
+    at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[{'Data':'2026-11-05','Importo':'229,95','Nota':'Pagato in anticipo'}],'deleted_rows':[]}
+    at.date_input[0].set_value(date(2027,11,25))
+    next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(250.)
+    at.checkbox[0].check()
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception
+    record=at.session_state.records[0]
+    assert len(record['payments'])==3
+    assert record['amount']==229.95
+    assert record['next_date']=='2027-11-25' and record['planned_amount']==250

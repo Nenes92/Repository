@@ -658,7 +658,7 @@ def render_tracker(records, kind, save_record, saved, today):
             st.html(cards_html(records, kind, today))
         else:
             st.info("Nessuna voce. Aggiungila dal menu qui sotto.")
-        with st.expander("Prossima scadenza · aggiungi o modifica" if kind == "auto" else "Aggiungi o modifica", expanded=False):
+        with st.expander("Aggiungi o modifica", expanded=False):
             identifiers = ["__new__"] + [item["id"] for item in items]
             lookup = {item["id"]: item for item in items}
             selection = st.selectbox("Voce", identifiers, format_func=lambda key: "＋ Nuova voce" if key == "__new__" else lookup[key]["name"], key=f"tracker_select_{kind}")
@@ -682,7 +682,6 @@ def render_tracker(records, kind, save_record, saved, today):
                     item["planned_amount"] = st.number_input("Costo previsto (€)", min_value=0., value=old.get("planned_amount"), step=10.)
                     item["interval_months"] = st.number_input("Ripeti ogni quanti mesi", min_value=0, max_value=120, value=int(old.get("interval_months", 12)), help="Serve a calcolare la scadenza successiva quando registri un pagamento nello storico. Zero disattiva la ripetizione.")
                     item["reminder_days"] = st.number_input("Avvisa quanti giorni prima", min_value=0, max_value=365, value=int(old.get("reminder_days", 30)))
-                    st.caption("Qui programmi la prossima spesa. I pagamenti effettuati si modificano solo nello storico.")
                 elif kind == "investments":
                     paid_today = _investment_fields(item, old, prefix, mode, today)
                 else:
@@ -696,12 +695,23 @@ def render_tracker(records, kind, save_record, saved, today):
                     paid_today = st.number_input("Correggi il numero di rate già pagate, facoltativo", min_value=0, max_value=1200, value=None, help="Lascia vuoto per conservare il conteggio. Dopo una correzione, il contatore continua automaticamente dalle scadenze successive.")
                     st.caption("Gli importi residui sono la somma delle rate previste, inclusi gli eventuali interessi già presenti nella rata.")
                 item["notes"] = st.text_area("Note", value=old.get("notes", ""), max_chars=1000, height=75)
+                if kind == "auto":
+                    edited_payments, settle_payment = car_history.payment_fields(old, today)
                 c1, c2 = st.columns(2)
                 with c1:submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
                 with c2:delete = st.form_submit_button("Elimina voce", disabled=selection == "__new__", use_container_width=True)
             if submit:
                 try:
                     item["id"] = old.get("id") or uuid4().hex
+                    if kind == "auto":
+                        rows = car_history.validate_payments(car_history.payment_rows(edited_payments), today)
+                        if rows != car_history.car_record(old, today)["payments"] or settle_payment:
+                            planned_date, planned_amount = item.get("next_date"), item.get("planned_amount")
+                            item = car_history.with_payments(item, rows, today, settle=settle_payment)
+                            # A single save may settle the old bill and schedule the next one.
+                            if (as_date(planned_date) != as_date(old.get("next_date") or car_deadline(old))
+                                    and as_date(planned_date) and (not item.get("last_date") or as_date(planned_date) > as_date(item["last_date"]))):
+                                item.update(next_date=planned_date, planned_amount=planned_amount)
                     item = validate_record(item, today, paid_today)
                     if save_record(item["id"], item):saved("Voce salvata.")
                 except (ValueError, TypeError) as exc:
@@ -709,8 +719,6 @@ def render_tracker(records, kind, save_record, saved, today):
             if delete and save_record(old["id"], None):
                 st.session_state.pop(f"tracker_select_{kind}", None)
                 saved("Voce eliminata.")
-        if kind == "auto":
-            car_history.render_editor(items, save_record, saved, today)
         if kind != "investments" and items:
             with st.expander("Promemoria nel calendario", expanded=False):
                 selected = st.selectbox("Scadenza", items, format_func=lambda item: item["name"], key=f"tracker_calendar_{kind}")
