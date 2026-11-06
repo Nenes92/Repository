@@ -92,6 +92,22 @@ def test_retirement_year_uses_current_holdings_and_updated_manual_value():
     assert '≈ €50,00' in retirement and '≈ €7.800,00' in retirement
 
 
+def test_portfolio_overview_uses_each_valuation_date_and_marks_missing_values():
+    fund=dict(id='fund',kind='investments',name='Moneyfarm',contribution_start='2026-01-20',
+              balance_date='2026-11-06',balance_personal=1000.,current_value=1200.,value_date='2026-11-06')
+    shares=tracker.validate_record(leonardo_share_plan(),date(2026,11,6))
+    overview=tracker.investment_portfolio_summary([fund,shares],date(2026,11,20))
+    assert overview['paid']==pytest.approx(1100.+5663.08)
+    assert overview['capital']==pytest.approx(6821.36)
+    assert overview['gain']==158.28  # Later monthly deposit is not a market loss.
+    assert overview['percent']==pytest.approx(100*158.28/(1000.+5663.08))
+    assert not overview['partial']
+    shares['current_value']=None
+    incomplete=tracker.investment_portfolio_summary([fund,shares],date(2026,11,20))
+    assert incomplete['capital']==1200. and incomplete['gain']==200.
+    assert incomplete['partial'] and incomplete['missing']==['Leonardo · JP Morgan']
+
+
 def test_leonardo_form_saves_share_fields_and_valuation_only_on_submit(tmp_path):
     from streamlit.testing.v1 import AppTest
     script=tmp_path/'shares.py'

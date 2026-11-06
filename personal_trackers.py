@@ -680,7 +680,7 @@ def _share_years_content(item, summary, wide=False):
                                ("Tue",_ink(own if counted else "—","paid",True)),
                                ("Azienda",_ink(company if counted else "—","company",True))])+'</div>'
                            +'<span>Valore per azione</span>'+_ink('≈ '+money(price) if price is not None else "—","value",True)
-                           +'<span>Ritiro stimato</span>'+_ink('≈ '+money(value) if value is not None else "—","value",True)
+                           +'<span>Ritiro stimato</span>'+_ink('≈ '+money(value) if value is not None else "—","redemption",True)
                            +('<span>Al '+date_label(item["value_date"])+'</span>' if item.get("value_date") else '')+'</div>')
             continue
         missing = row.get("personal_shares") is None
@@ -691,8 +691,8 @@ def _share_years_content(item, summary, wide=False):
         gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) if not missing else None
         detail = (f'<div><strong>{year}</strong><span>{caption}</span>'
                   +'<div class="share-purchase">'
-                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","value",True)),
-                                     ("Prezzo cad.",_amount(row.get("share_price"),"value",True))])+'</div>'
+                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","paid",True)),
+                                     ("Prezzo cad.",_amount(row.get("share_price"),"paid",True))])+'</div>'
                   +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid",True)
                   +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted) if gifted is not None else "—","company",True))
         if row.get("welcome_shares"):
@@ -984,6 +984,37 @@ def _investment_fields(item, old, prefix, mode, today):
     return None
 
 
+def investment_portfolio_summary(records, today):
+    items = [investment_record(item) for item in records if item["kind"] == "investments"]
+    totals = [investment_summary(item,today)["total"] for item in items]
+    valued = [item for item in items if item.get("current_value") is not None]
+    performance = [investment_performance(item,today) for item in valued]
+    known = [result for result in performance if result["amount"] is not None and result["basis"] is not None]
+    basis = math.fsum(result["basis"] for result in known)
+    gain = round(math.fsum(result["amount"] for result in known),2) if known else None
+    return dict(paid=math.fsum(total for total in totals if total is not None) if totals else None,
+                capital=math.fsum(item["current_value"] for item in valued) if valued else None,
+                gain=gain,percent=100*gain/basis if gain is not None and basis>0 else None,
+                partial=len(valued)!=len(items) or len(known)!=len(performance) or any(result["partial"] for result in performance),
+                missing=[item["name"] for item in items if item.get("current_value") is None])
+
+
+def _investment_heading(title, overview):
+    partial = ' · parziale' if overview["missing"] else ''
+    percent = overview["percent"]
+    tone = "gain" if percent is not None and percent>0 else "loss" if percent is not None and percent<0 else "muted"
+    change = (("≈ " if overview["partial"] else "")+f'{percent:+.2f}%'.replace('.',',')) if percent is not None else '—'
+    tooltip = ('Somma degli ultimi controvalori inseriti, prima di costi, imposte e condizioni di riscatto. '
+               'Scarto rispetto al capitale versato alla data di ciascun controvalore, incluse quote aziendali e TFR. '
+               'Il confronto Cometa può essere parziale.')
+    return ('<div class="portfolio-heading"><h3 id="investimenti">'+escape(title)+'</h3>'
+            '<div class="portfolio-badge portfolio-balances"><div><span>Versato</span>'+_amount(overview["paid"],"paid")+'</div>'
+            '<div><span>Capitale'+partial+'</span>'+_amount(overview["capital"],"value")+'</div></div>'
+            '<div class="portfolio-badge portfolio-withdrawal" title="'+escape(tooltip,quote=True)+'"><span>Ritiro teorico'+partial+'</span>'
+            +_amount(overview["capital"],"redemption")+'<div class="portfolio-return"><span>Scarto sul versato</span>'
+            +_ink(change,tone)+'</div></div></div>')
+
+
 @st.fragment
 def render_tracker(records, kind, save_record, saved, today):
     with st.container(key=f"personal-tracker-{kind}"):
@@ -1009,22 +1040,17 @@ def render_tracker(records, kind, save_record, saved, today):
                     f'<span style="flex:0 0 auto;max-width:43%;text-align:right;padding:7px 10px;border-radius:12px;border:1px solid #fb923c40;background:linear-gradient(135deg,#fb923c18,rgba(255,255,255,.02));line-height:1.4;">'
                     f'<span style="display:block;font-size:11px;color:#cbd5e1;">Totale residuo</span>'
                     f'<strong style="display:block;white-space:nowrap;font-size:13px;color:#fb923c;letter-spacing:.3px;">{total}</strong></span></div>')
-        else:
+        elif kind != "investments" or records is None:
             st.subheader(title)
         if records is None:
             st.info("Registro non disponibile. Riprova il caricamento prima di modificare i dati.")
             return
         items = [investment_record(item) if kind == "investments" else car_history.car_record(item, today) if kind == "auto" else item for item in records if item["kind"] == kind]
         if kind == "investments":
-            summaries = [investment_summary(item, today) for item in items]
-            totals = [row["total"] for row in summaries if row["total"] is not None]
-            values = [item["current_value"] for item in items if item.get("current_value") is not None]
-            missing_values = [item["name"] for item in items if item.get("current_value") is None]
-            capital_label = "Capitale totale · parziale" if values and missing_values else "Capitale totale"
-            st.html(f'<div class="tracker-totals"><div><span>Versato complessivo</span>{_amount(sum(totals) if totals else None,"paid")}</div>'
-                    f'<div><span>{capital_label}</span>{_amount(math.fsum(values) if values else None,"value")}</div></div>')
-            if missing_values:
-                st.html('<div class="tracker-section-note">Controvalori da aggiornare: '+escape(', '.join(missing_values))+'.</div>')
+            overview = investment_portfolio_summary(items,today)
+            st.html(_investment_heading(title,overview))
+            if overview["missing"]:
+                st.html('<div class="tracker-section-note">Controvalori da aggiornare: '+escape(', '.join(overview["missing"]))+'.</div>')
         st.html("""<style>
           [class*="st-key-personal-tracker-"] [data-testid="stCaptionContainer"] {color:#94a3b8;}
           [class*="st-key-personal-tracker-"] [data-testid="stWidgetLabel"] p {white-space:normal!important;font-size:11px!important;color:#cbd5e1!important;}
@@ -1039,6 +1065,18 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
           .holding-card-grid {align-items:start;}
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
+          .portfolio-heading {display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr) minmax(0,1fr);align-items:center;gap:8px;margin-bottom:10px;}
+          .portfolio-heading>h3 {margin:0;padding:0;min-width:0;font-size:clamp(14px,3.5vw,20px);line-height:1.3;}
+          .portfolio-badge {min-width:0;padding:7px 8px;border-radius:12px;border:1px solid rgba(125,211,252,.2);background:linear-gradient(135deg,rgba(125,211,252,.08),rgba(255,255,255,.02));line-height:1.4;}
+          .portfolio-badge span {display:block;font-size:9px;color:#94a3b8;}
+          .portfolio-badge strong {display:block;font-size:clamp(9px,2.1vw,12px);white-space:nowrap;}
+          .portfolio-balances {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+          .portfolio-balances>div:last-child {text-align:right;}
+          .portfolio-withdrawal {text-align:right;border-color:rgba(134,215,181,.2);background:linear-gradient(135deg,rgba(134,215,181,.08),rgba(255,255,255,.02));}
+          .portfolio-return {margin-top:3px;}
+          .portfolio-return>span {font-size:8px;}
+          .portfolio-return>strong {font-size:10px;}
+          @media(max-width:430px) {.portfolio-heading {gap:5px;}.portfolio-badge {padding:6px 5px;}.portfolio-balances {gap:3px;}.portfolio-badge span {font-size:8px;}}
           .investment-l-layout {align-items:stretch;}
           .investment-l-layout>.tracker-card {background:#222936;}
           .investment-l-layout>.share-summary {position:relative;margin:6px 0 0 6px;border-bottom:0;border-radius:14px 14px 0 0;z-index:1;}
@@ -1107,6 +1145,7 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-ink-value {color:#7dd3fc;font-weight:650;}
           .tracker-ink-company {color:#c4b5fd;font-weight:650;}
           .tracker-ink-tfr {color:#fde68a;font-weight:650;}
+          .tracker-ink-redemption {color:#86d7b5;font-weight:650;}
           .tracker-ink-loss {color:#f87171;font-weight:650;}
           .tracker-ink-muted {color:#94a3b8;font-weight:500;}
           .st-key-personal-tracker-auto .tracker-card {padding:9px;}
