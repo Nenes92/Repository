@@ -666,20 +666,19 @@ def _share_years_content(item, summary, wide=False):
     years = sorted(set(rows)|{item.get("redemption_year") or 2028})
     for year in years:
         row = rows.get(year,{})
-        if row.get("personal_shares") is None:
+        missing = row.get("personal_shares") is None
+        if missing:
             retirement = year == item.get("redemption_year") and year not in rows
             caption = "Ritiro previsto" if retirement else "Luglio · azioni da inserire"
-            columns.append(f'<div class="share-year-empty"><strong>{year}</strong><span>{caption}</span>'
-                           '<div class="tracker-note">Da compilare</div></div>')
-            continue
-        gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0)
-        status = "Acquistate" if row["counted"] else "Previste"
-        detail = (f'<div><strong>{year}</strong><span>Luglio · {status.lower()} da te</span>'
+        else:
+            caption = 'Luglio · '+('acquistate' if row["counted"] else 'previste')+' da te'
+        gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) if not missing else None
+        detail = (f'<div><strong>{year}</strong><span>{caption}</span>'
                   +'<div class="share-purchase">'
-                  +_holding_metrics([("Azioni",_ink(row["personal_shares"],"value")),
+                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","value")),
                                      ("Prezzo cad.",_amount(row.get("share_price"),"value"))])+'</div>'
                   +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid")
-                  +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted),"company"))
+                  +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted) if gifted is not None else "—","company"))
         if row.get("welcome_shares"):
             detail += '<small>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</small>'
         detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
@@ -1026,19 +1025,18 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
           .investment-l-layout {align-items:stretch;}
           .investment-l-layout>.tracker-card {background:#222936;}
-          .investment-l-layout>.share-summary {position:relative;border-bottom:0;border-radius:14px 14px 0 0;z-index:1;}
-          .share-summary::after {content:"";position:absolute;left:-.5px;right:-.5px;bottom:-8px;height:8px;background:#222936;border-left:.5px solid rgba(255,255,255,.12);border-right:.5px solid rgba(255,255,255,.12);}
+          .investment-l-layout>.share-summary {position:relative;margin:6px 0 0 6px;border-bottom:0;border-radius:14px 14px 0 0;z-index:1;}
+          .share-summary::after {content:"";position:absolute;left:-.5px;right:-.5px;bottom:-14px;height:14px;background:#222936;border-left:.5px solid rgba(255,255,255,.12);border-right:.5px solid rgba(255,255,255,.12);}
           .share-schedule {margin-top:15px;}
           .share-schedule>.holding-metrics {margin-top:0;}
           .share-personal-return {margin-top:12px;}
           .share-personal-return>.holding-result {margin-top:0;}
           .share-market {margin-top:9px;}
           .share-market-explanation {font-size:9px;color:#94a3b8;line-height:1.4;margin:5px 5px 0;}
-          .investment-l-layout>.share-years {grid-column:1/-1;position:relative;border-top-right-radius:0;}
-          .share-years::before {content:"";position:absolute;right:0;top:-1px;width:calc(50% - 4px);height:2px;background:#222936;}
+          .investment-l-layout>.share-years {grid-column:1/-1;position:relative;margin:6px 0 0 6px;border-top-right-radius:0;}
+          .share-years::before {content:"";position:absolute;right:0;top:-1px;width:calc(50% - 7px);height:2px;background:#222936;}
           .share-years-grid.holding-split {margin-top:0;padding-top:0;border-top:0;}
           .share-years-wide.holding-split {grid-template-columns:repeat(4,minmax(0,1fr));}
-          .share-year-empty .tracker-note {font-size:9px;color:#94a3b8;}
           .holding-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 9px;margin-top:8px;}
           .holding-metrics>div {min-width:0;}
           .holding-metrics>div:nth-child(even) {text-align:right;}
