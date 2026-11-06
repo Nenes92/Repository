@@ -634,7 +634,7 @@ def _component_performance(paid, value):
     return dict(amount=delta,percent=100*delta/paid if delta is not None and paid and paid>0 else None,partial=False)
 
 
-def _share_card_content(item, today, summary, valuation):
+def _share_card_content(item, today, summary, valuation, include_years=True):
     content = _holding_metrics([("Versato da te",_amount(summary["personal"],"paid")),
                                 ("Controvalore",valuation)],headline=True)
     content += _holding_metrics([("Versamenti",_ink("Ogni luglio · welfare","muted")),
@@ -651,13 +651,26 @@ def _share_card_content(item, today, summary, valuation):
     content += _performance_html(personal_return,label="Scarto sul tuo versato · incluse azioni gratuite")
     market = investment_performance(item,today)
     content += _performance_html(market,compact=True,label="Andamento azioni · rispetto al valore iniziale")
+    if include_years:
+        content += _share_years_content(item,summary)
+    return content
+
+
+def _share_years_content(item, summary, wide=False):
     columns = []
-    for row in summary["schedule"]:
+    rows = {row["year"]:row for row in summary["schedule"]}
+    years = sorted(set(rows)|{item.get("redemption_year") or 2028})
+    for year in years:
+        row = rows.get(year,{})
         if row.get("personal_shares") is None:
+            retirement = year == item.get("redemption_year") and year not in rows
+            caption = "Ritiro previsto" if retirement else "Luglio · azioni da inserire"
+            columns.append(f'<div class="share-year-empty"><strong>{year}</strong><span>{caption}</span>'
+                           '<div class="tracker-note">Da compilare</div></div>')
             continue
         gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0)
         status = "Acquistate" if row["counted"] else "Previste"
-        detail = (f'<div><strong>Luglio {row["year"]}</strong><span>{status} da te</span>'
+        detail = (f'<div><strong>{year}</strong><span>Luglio · {status.lower()} da te</span>'
                   +'<div class="share-purchase">'
                   +_holding_metrics([("Azioni",_ink(row["personal_shares"],"value")),
                                      ("Prezzo cad.",_amount(row.get("share_price"),"value"))])+'</div>'
@@ -667,16 +680,12 @@ def _share_card_content(item, today, summary, valuation):
             detail += '<small>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</small>'
         detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
         columns.append(detail)
-    if columns:
-        content += '<div class="holding-split">'+''.join(columns)+'</div>'
-    for row in summary["schedule"]:
-        if row.get("personal_shares") is None:
-            content += f'<div class="tracker-note">Luglio {row["year"]} · azioni da inserire</div>'
+    content = '<div class="holding-split share-years-grid'+(' share-years-wide' if wide else '')+'">'+''.join(columns)+'</div>'
     content += '<div class="tracker-note">Il controvalore è il valore delle azioni oggi, prima di eventuali costi e imposte al ritiro.</div>'
     return content
 
 
-def _investment_card_content(record, today):
+def _investment_card_content(record, today, include_share_years=True):
     item = investment_record(record)
     summary = investment_summary(item,today)
     pension = item.get("name", "").casefold() == "cometa"
@@ -684,7 +693,7 @@ def _investment_card_content(record, today):
     if item.get("value_date"):
         valuation += f'<small class="holding-date">Al {date_label(item["value_date"])}</small>'
     if item.get("share_plan"):
-        return _share_card_content(item,today,summary,valuation)
+        return _share_card_content(item,today,summary,valuation,include_years=include_share_years)
     content = _holding_metrics([
         ("Totale versato",_amount(summary["total"],"paid")),
         ("Controvalore",valuation)],headline=True)
@@ -788,6 +797,10 @@ def _investment_card_content(record, today):
 
 
 def cards_html(records, kind, today):
+    holdings = [item for item in records if item["kind"] == "investments"] if kind == "investments" else []
+    share_items = [item for item in holdings if item.get("share_plan")]
+    l_plan = share_items[0] if len(holdings) == 4 and len(share_items) == 1 else None
+    share_card = ''
     if kind == "auto":
         order = {identifier:index for index,identifier in enumerate(["auto-0","auto-2","auto-1","auto-3","auto-4"])}
         records = sorted(records,key=lambda item:order.get(item["id"],len(order)))
@@ -813,7 +826,7 @@ def cards_html(records, kind, today):
                 content += f'<div class="tracker-note" style="color:{car_history.FORECAST_COLOR}">{planned_label}: {planned_amount}</div>'
             content += car_history.chart_html(item, today)
         elif kind == "investments":
-            content = _investment_card_content(item,today)
+            content = _investment_card_content(item,today,include_share_years=l_plan is None)
         else:
             summary = instalment_summary(item, today)
             if summary is None:
@@ -827,10 +840,18 @@ def cards_html(records, kind, today):
                 content += f'<div class="tracker-note">Pagato da calendario: {_amount(summary["paid_amount"],"paid")}<br>Rata: {_amount(item.get("amount"),"value")}<br>Prossima: {_ink(date_label(summary["next_due"]),"due")}<br>Fine: {_ink(date_label(summary["end"]),"company")}</div>'
                 if item.get("paid_offset"):
                     content += '<div class="tracker-note">Conteggio corretto manualmente</div>'
-        cards.append(_card(item, content))
+        card = _card(item, content)
+        if l_plan is not None and item["id"] == l_plan["id"]:
+            share_card = card.replace('class="tracker-card"','class="tracker-card share-summary"',1)
+        else:
+            cards.append(card)
     if kind == "auto" and cards:
         cards.append(car_overview.html(records,today,full_width=len(cards)%2==0))
     if kind == "investments":
+        if l_plan is not None:
+            years = _share_years_content(investment_record(l_plan),investment_summary(l_plan,today),wide=True)
+            return ('<div class="tracker-grid investment-l-layout">'+''.join(cards)+share_card
+                    +'<div class="tracker-card share-years">'+years+'</div></div>')
         columns = ''.join('<div class="holding-card-column">'+''.join(cards[index::2])+'</div>' for index in range(2))
         return '<div class="tracker-grid holding-card-grid">'+columns+'</div>'
     return '<div class="tracker-grid">'+"".join(cards)+'</div>'
@@ -999,6 +1020,15 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
           .holding-card-grid {align-items:start;}
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
+          .investment-l-layout {align-items:stretch;}
+          .investment-l-layout>.tracker-card {background:#222936;}
+          .investment-l-layout>.share-summary {position:relative;border-bottom:0;border-radius:14px 14px 0 0;z-index:1;}
+          .share-summary::after {content:"";position:absolute;left:-.5px;right:-.5px;bottom:-8px;height:8px;background:#222936;border-left:.5px solid rgba(255,255,255,.12);border-right:.5px solid rgba(255,255,255,.12);}
+          .investment-l-layout>.share-years {grid-column:1/-1;position:relative;border-top-right-radius:0;}
+          .share-years::before {content:"";position:absolute;right:0;top:-1px;width:calc(50% - 4px);height:2px;background:#222936;}
+          .share-years-grid.holding-split {margin-top:0;padding-top:0;border-top:0;}
+          .share-years-wide.holding-split {grid-template-columns:repeat(4,minmax(0,1fr));}
+          .share-year-empty .tracker-note {font-size:9px;color:#94a3b8;}
           .holding-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 9px;margin-top:8px;}
           .holding-metrics>div {min-width:0;}
           .holding-metrics>div:nth-child(even) {text-align:right;}

@@ -57,7 +57,7 @@ def test_leonardo_purchases_awards_and_market_return_are_distinct():
     assert '116 = 84 + 32' in html
     assert '+€1.516,73' in html and '−€41,72' in html
     assert '€2.140,20' in html and '€1.964,43' in html
-    assert '15 + 4 iniziali' in html and 'Luglio 2027 · azioni da inserire' in html
+    assert '15 + 4 iniziali' in html and '<strong>2027</strong>' in html and 'Luglio · azioni da inserire' in html
     restored=tracker.decode_rows(tracker.encode_rows([item]))[0]
     assert restored['annual_contributions'][0]['welcome_shares']==4
     assert tracker.investment_summary(restored,date(2027,8,1))['total']==5663.08
