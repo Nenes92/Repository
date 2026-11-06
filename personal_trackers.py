@@ -642,7 +642,9 @@ def _share_card_content(item, today, summary, valuation, include_years=True):
     counted = [row for row in summary["schedule"] if row["counted"]]
     own = sum(row.get("personal_shares") or 0 for row in counted)
     company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
-    content += _holding_metrics([("Azioni = tue + azienda",_ink(f"{own+company} = {own} + {company}","value")),
+    equation = (f'<strong class="share-equation"><span class="tracker-ink-value">{own+company}</span> = '
+                f'<span class="tracker-ink-paid">{own}</span> + <span class="tracker-ink-company">{company}</span></strong>')
+    content += _holding_metrics([("Azioni = tue + azienda",equation),
                                  ("Azienda · valore iniziale",_amount(summary["company"],"company"))])
     stamp = as_date(item.get("value_date"))
     reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
@@ -1078,13 +1080,13 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
           .holding-card-grid {align-items:start;}
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
-          .portfolio-heading {display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;margin-bottom:10px;}
-          .portfolio-heading>h3 {margin:0;padding:0;min-width:0;font-size:clamp(14px,3.5vw,20px);line-height:1.3;}
+          .portfolio-heading {display:grid;grid-template-columns:minmax(0,1fr) repeat(2,clamp(90px,18vw,104px));align-items:stretch;gap:8px;margin-bottom:10px;}
+          .portfolio-heading>h3 {align-self:center;margin:0;padding:0;min-width:0;font-size:clamp(14px,3.5vw,20px);line-height:1.3;}
           .portfolio-badge {min-width:0;padding:7px 8px;border-radius:12px;border:1px solid rgba(125,211,252,.2);background:linear-gradient(135deg,rgba(125,211,252,.08),rgba(255,255,255,.02));line-height:1.4;}
           .portfolio-badge span {display:block;font-size:9px;color:#94a3b8;}
           .portfolio-badge strong {display:block;font-size:clamp(9px,2.1vw,12px);white-space:nowrap;}
           .portfolio-balances {display:grid;grid-template-columns:minmax(0,1fr);gap:4px;text-align:right;}
-          .portfolio-performance {text-align:right;}
+          .portfolio-performance {display:flex;flex-direction:column;justify-content:center;text-align:right;}
           .portfolio-performance-gain {border-color:rgba(134,215,181,.2);background:linear-gradient(135deg,rgba(134,215,181,.08),rgba(255,255,255,.02));}
           .portfolio-performance-loss {border-color:rgba(248,113,113,.2);background:linear-gradient(135deg,rgba(248,113,113,.08),rgba(255,255,255,.02));}
           .portfolio-return {margin-top:3px;}
@@ -1140,7 +1142,8 @@ def render_tracker(records, kind, save_record, saved, today):
           .share-purchase .holding-metrics>div>strong {font-size:9px;white-space:nowrap;overflow-wrap:normal;}
           .share-award {display:flex;justify-content:space-between;align-items:baseline;gap:3px;}
           .share-award>strong {font-size:11px;}
-          .share-award>small {font-size:7px;color:#94a3b8;text-align:right;}
+          .share-award>small {font-size:7px;color:#c4b5fd;text-align:right;}
+          .share-equation {white-space:nowrap;}
           .holding-initial strong {font-size:9px;overflow-wrap:anywhere;}
           .holding-result {margin-top:8px;padding:7px 8px;border-radius:9px;background:rgba(255,255,255,.035);}
           .holding-result>span {display:block;font-size:10px;color:#94a3b8;font-weight:400;}

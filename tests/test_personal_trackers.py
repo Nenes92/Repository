@@ -1,6 +1,7 @@
 from datetime import date
 from copy import deepcopy
 import ast
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -54,7 +55,7 @@ def test_leonardo_purchases_awards_and_market_return_are_distinct():
     assert (summary['personal'],summary['company'],summary['total'])==(4104.63,1558.45,5663.08)
     assert tracker.investment_performance(item,date(2026,11,6))['amount']==-41.72
     html=tracker.cards_html([item],'investments',date(2026,11,6))
-    assert '116 = 84 + 32' in html
+    assert '116 = 84 + 32' in re.sub(r'<[^>]*>','',html)
     assert '+€1.516,73' in html and '−€41,72' in html
     assert '€2.140,20' in html and '€1.964,43' in html
     assert '15 + 4 iniziali' in html and '<strong>2027</strong>' in html and 'Luglio · azioni da inserire' in html
