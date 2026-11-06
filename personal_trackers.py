@@ -593,9 +593,18 @@ def _investment_card_content(record, today):
     content = _holding_metrics([
         ("Totale versato",_amount(summary["total"],"paid")),
         ("Controvalore",valuation)],headline=True)
+    pension_content = ''
     if pension:
         monthly = sum(item.get(key) or 0. for key in ("monthly_personal","monthly_company","monthly_tfr"))
-        content += ('<div class="holding-split pension-split"><div><div class="pension-column-title"><strong>Mensile</strong>'
+        period_label = "Mensile"
+        if item.get("monthly_source_month") and item.get("cometa_auto_quotes",True):
+            try:
+                period = date.fromisoformat(item["monthly_source_month"]+"-01")
+                period_label = ("Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre")[period.month-1]
+            except (TypeError, ValueError):
+                pass
+        pension_content = ('<div class="holding-split pension-split"><div><div class="pension-column-title"><strong>'+period_label+'</strong>'
                     +_amount(monthly,"value")+'</div>'
                     +_holding_metrics([("Tu",_amount(item.get("monthly_personal"),"value")),
                                        ("Azienda",_amount(item.get("monthly_company"),"company")),
@@ -617,9 +626,8 @@ def _investment_card_content(record, today):
             payday = date(today.year,today.month,27)
             if payday < today:
                 payday = month_date(payday,1)
-            content += ('<div class="pension-payment">'
-                        +_holding_metrics([("",_ink("Ogni mese","muted")),
-                                           ("Prossimo pagamento",_ink(date_label(payday),"due"))])+'</div>')
+            details.extend([("Ogni mese",_amount(monthly,"value")),
+                            ("Prossimo pagamento",_ink(date_label(payday),"due"))])
         elif item.get("contribution_start"):
             details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))
         if item.get("contribution_end"):
@@ -638,6 +646,7 @@ def _investment_card_content(record, today):
     if details:content += _holding_metrics(details)
     result = investment_performance(item,today)
     content += _performance_html(result)
+    content += pension_content
     if item.get("name", "").casefold() == "moneyfarm · pac 7" and item.get("leonardo_personal") is not None:
         pac_paid = summary["total"]-item["leonardo_personal"] if summary["total"] is not None else None
         pac_value = item["current_value"]-item["leonardo_value"] if item.get("current_value") is not None and item.get("leonardo_value") is not None else None
@@ -894,9 +903,6 @@ def render_tracker(records, kind, save_record, saved, today):
           .pension-split .holding-metrics>div:nth-child(2) {text-align:right;}
           .pension-split .holding-metrics>div:last-child {grid-column:1/-1;text-align:center;}
           .pension-split .holding-metrics>div>strong {font-size:9px;white-space:nowrap;overflow-wrap:normal;}
-          .pension-payment {margin-top:13px;}
-          .pension-payment .holding-metrics {align-items:end;margin-top:0;}
-          .pension-payment .holding-metrics>div:first-child>span {display:none;}
           @media(max-width:430px) {.holding-headline>div>strong {font-size:11px;}}
           .holding-year {border-top:1px solid rgba(255,255,255,.08);padding-top:6px;margin-top:8px;}
           .holding-year>span {font-size:10px;color:#cbd5e1;}
