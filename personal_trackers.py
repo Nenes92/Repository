@@ -557,6 +557,10 @@ def _card(item, content):
     title = escape(item["name"])
     if item.get("kind") == "investments" and item["name"].casefold() == "moneyfarm · pac 7":
         title = "Moneyfarm"
+    if item.get("kind") == "investments":
+        icon = {"moneyfarm · pac 7":"🌱", "alleanza assicurazioni":"🛡️",
+                "cometa":"☄️", "leonardo · jp morgan":"📈"}.get(item["name"].casefold(),"💼")
+        title = f'<span aria-hidden="true">{icon}</span> '+title
     if item.get("kind") == "installments":
         name = item["name"].casefold()
         icon = ("🛡️" if "assicuraz" in name else "🍽️" if "cucina" in name
@@ -595,11 +599,11 @@ def _investment_card_content(record, today):
                     +_amount(monthly,"value")+'</div>'
                     +_holding_metrics([("Tu",_amount(item.get("monthly_personal"),"value")),
                                        ("Azienda",_amount(item.get("monthly_company"),"company")),
-                                       ("TFR",_amount(item.get("monthly_tfr"),"company"))])
+                                       ("TFR",_amount(item.get("monthly_tfr"),"tfr"))])
                     +'</div><div><div class="pension-column-title"><strong>Totale</strong></div>'
                     +_holding_metrics([("Tu",_amount(summary["personal"],"paid")),
                                        ("Azienda",_amount(summary["company"],"company")),
-                                       ("TFR",_amount(summary["tfr"],"company"))])+'</div></div>')
+                                       ("TFR",_amount(summary["tfr"],"tfr"))])+'</div></div>')
     details = []
     if summary["mode"] != "manual" and not item.get("personal_only") and not pension:
         details.extend([("Tu",_amount(summary["personal"],"paid")),("Azienda",_amount(summary["company"],"company"))])
@@ -924,6 +928,7 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-ink-due {color:#fb923c;font-weight:650;}
           .tracker-ink-value {color:#7dd3fc;font-weight:650;}
           .tracker-ink-company {color:#c4b5fd;font-weight:650;}
+          .tracker-ink-tfr {color:#fde68a;font-weight:650;}
           .tracker-ink-loss {color:#f87171;font-weight:650;}
           .tracker-ink-muted {color:#94a3b8;font-weight:500;}
           .st-key-personal-tracker-auto .tracker-card {padding:9px;}
