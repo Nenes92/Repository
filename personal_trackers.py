@@ -642,7 +642,7 @@ def _share_card_content(item, today, summary, valuation):
     counted = [row for row in summary["schedule"] if row["counted"]]
     own = sum(row.get("personal_shares") or 0 for row in counted)
     company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
-    content += _holding_metrics([("Azioni totali",_ink(f"{own+company} · tue {own} + azienda {company}","value")),
+    content += _holding_metrics([("Azioni · tue + azienda",_ink(f"{own+company} · {own} + {company}","value")),
                                  ("Azienda · valore iniziale",_amount(summary["company"],"company"))])
     stamp = as_date(item.get("value_date"))
     reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
