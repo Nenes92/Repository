@@ -882,6 +882,7 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-split>div>strong:first-child {display:block;font-size:11px;color:#cbd5e1;margin-bottom:0;}
           .holding-split>div>span {display:block;font-size:9px;color:#94a3b8;margin-top:6px;}
           .holding-split>div>strong:first-child+span {margin-top:0;font-size:7px;line-height:1.2;}
+          .holding-split>div>strong:first-child+span+span {margin-top:9px;}
           .holding-split>div>strong:not(:first-child) {display:block;font-size:11px;font-family:"DM Mono",monospace;overflow-wrap:anywhere;}
           .holding-initial strong {font-size:9px;overflow-wrap:anywhere;}
           .holding-result {margin-top:8px;padding:7px 8px;border-radius:9px;background:rgba(255,255,255,.035);}
