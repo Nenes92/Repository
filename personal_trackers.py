@@ -211,10 +211,10 @@ def deadline_status(deadline, today, notice=30):
         return "Da impostare", "#94a3b8"
     days = (deadline-today).days
     if days < 0:
-        return f"Scaduta da {-days} giorni", "#f87171"
+        return f"🚨 Scaduta da {-days} {'giorno' if days == -1 else 'giorni'}", "#f87171"
     if days == 0:
-        return "Scade oggi", "#fbbf24"
-    return f"Tra {days} giorni", "#fbbf24" if days <= notice else "#34d399"
+        return "⚠️ Scade oggi", "#fbbf24"
+    return (f"⚠️ Da pagare · tra {days} giorni" if days <= notice else f"Tra {days} giorni"), "#fbbf24" if days <= notice else "#34d399"
 
 
 def investment_record(record):
@@ -547,7 +547,7 @@ def cards_html(records, kind, today):
             content = f'<div class="tracker-value">{date_label(due)}</div><div style="color:{color};">{status}</div>'
             content += f'<div class="tracker-note">Ultima volta: {date_label(item.get("last_date"))}<br>Importo: {money(item.get("amount"))}</div>'
             estimate = car_history.forecast(item)
-            if estimate['date']:
+            if car_history.forecast_visible(item,today):
                 planned_label = "Stima dall’ultimo pagamento" if estimate['automatic'] and estimate['amount'] is not None else ("Costo previsto" if estimate["date"] > today else "Costo da confermare")
                 planned_amount = money(estimate['amount']) if estimate['amount'] is not None else "da definire"
                 content += f'<div class="tracker-note" style="color:{car_history.FORECAST_COLOR}">{planned_label}: {planned_amount}</div>'
@@ -723,7 +723,7 @@ def render_tracker(records, kind, save_record, saved, today):
         if kind == "auto":
             upcoming = sorted((car_deadline(item), item["name"]) for item in items if car_deadline(item) is not None)
             if upcoming:
-                st.caption(f"Prima scadenza: {upcoming[0][1]} · {date_label(upcoming[0][0])}. Gli avvisi compaiono qui nell’app.")
+                st.caption(f"Prima scadenza: {upcoming[0][1]} · {date_label(upcoming[0][0])}. Gli avvisi ⚠️ sono visibili qui nell’app.")
         elif kind == "investments":
             summaries = [investment_summary(item, today) for item in items]
             totals = [row["total"] for row in summaries if row["total"] is not None]
@@ -842,9 +842,11 @@ def render_tracker(records, kind, save_record, saved, today):
                 if kind == "auto":
                     table, actions = st.columns([3, 1], gap="small", vertical_alignment="bottom")
                     with table:
-                        edited_payments, settle_payment = car_history.payment_fields(old, today)
+                        edited_payments, payment_draft = car_history.payment_fields(old, today)
                     with actions:
-                        submit = st.form_submit_button("💾 Salva", type="primary", use_container_width=True)
+                        confirm_payment = st.form_submit_button("✅ Registra pagamento", type="primary", use_container_width=True) if payment_draft else False
+                        submit = st.form_submit_button("Salva modifiche" if payment_draft else "💾 Salva", type="primary", use_container_width=True)
+                        submit = submit or confirm_payment
                         delete = st.form_submit_button("Elimina", disabled=selection == "__new__", use_container_width=True)
                 elif kind == "investments":
                     c1, c2 = st.columns(2, gap="small")
@@ -854,7 +856,8 @@ def render_tracker(records, kind, save_record, saved, today):
                 try:
                     item["id"] = old.get("id") or uuid4().hex
                     if kind == "auto":
-                        rows = car_history.validate_payments(car_history.payment_rows(edited_payments), today)
+                        submitted_rows, settle_payment = car_history.submitted_payments(edited_payments, payment_draft, confirm_payment)
+                        rows = car_history.validate_payments(submitted_rows, today)
                         if rows != car_history.car_record(old, today)["payments"] or settle_payment:
                             planned_date, planned_amount = item.get("next_date"), item.get("planned_amount")
                             item = car_history.with_payments(item, rows, today, settle=settle_payment)

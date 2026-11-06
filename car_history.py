@@ -1,6 +1,6 @@
 """Paid car expenses and compact annual charts; no budget or banking writes."""
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from html import escape
 import math
@@ -65,7 +65,16 @@ def validate_payments(rows, today):
 
 def with_payments(record, rows, today, settle=False):
     item = car_record(record,today)
+    previous_ids = {row['id'] for row in item['payments']}
+    previous_latest = max((day(row['date']) for row in item['payments']),default=date.min)
+    due = next_due(item)
     item['payments'] = validate_payments(rows,today)
+    # A newly recorded payment near the deadline settles it automatically,
+    # including an early payment. Editing older history alone never does.
+    if due and any(row['id'] not in previous_ids and day(row['date']) > previous_latest and
+                   day(row['date']) >= due-timedelta(days=int(item.get('reminder_days',30)))
+                   for row in item['payments']):
+        settle = True
     if settle and not item['payments']:
         raise ValueError('Inserisci il pagamento effettuato prima di saldare la scadenza.')
     if item['payments']:
@@ -98,6 +107,11 @@ def forecast(record):
         latest = max(payments,key=lambda row:row['date']) if payments else None
         amount = latest['amount'] if latest else record.get('amount')
     return dict(date=due,amount=amount if due else None,automatic=automatic)
+
+
+def forecast_visible(record, today):
+    due = next_due(record)
+    return bool(due and due <= today+timedelta(days=int(record.get('reminder_days',30))))
 
 
 def total_paid(record):
@@ -149,7 +163,7 @@ def chart_rows(record, today):
         rows = annual_totals(record)
     estimate = forecast(record)
     due,amount = estimate['date'],estimate['amount']
-    if due and amount is not None:
+    if due and amount is not None and forecast_visible(record,today):
         semester = 1 if due.month<=6 else 2
         existing = next((row for row in rows if row['year']==due.year and (not semiannual or row['semester']==semester)),None)
         if existing is None:
@@ -207,21 +221,54 @@ def payment_rows(edited):
     return [dict(id=row['ID'],date=row['Data'],amount=row['Importo'],note=row['Nota']) for row in rows]
 
 
+def payment_frame(record, today):
+    """A forecast is a draft row only; it never enters paid history by itself."""
+    item = car_record(record,today)
+    rows = [dict(ID=row['id'],Data=day(row['date']),Importo=euro(float(row['amount'])).removeprefix('€'),Nota=row.get('note',''),Stato='Pagato') for row in item['payments']]
+    draft = None
+    if forecast_visible(item,today):
+        estimate = forecast(item)
+        draft = 'forecast-'+str(item.get('id') or '__new__')+'-'+estimate['date'].isoformat()
+        # A future deadline can be paid today. The row records the actual
+        # payment date, while the deadline remains displayed above the table.
+        rows.append(dict(ID=draft,Data=today,Importo=euro(float(estimate['amount'])).removeprefix('€') if estimate['amount'] is not None else '',Nota='',Stato='Da pagare'))
+    frame = pd.DataFrame(rows,columns=['ID','Data','Importo','Nota','Stato'])
+    frame['Data'] = pd.to_datetime(frame['Data'])
+    frame['Importo'] = frame['Importo'].astype('string')
+    return frame,draft
+
+
+def submitted_payments(edited, draft, confirm):
+    rows = payment_rows(edited)
+    result = []
+    confirmed = False
+    for row in rows:
+        if draft and row['id'] == draft:
+            if not confirm:continue
+            if row['amount'] is not None and row['amount'] != '' and any(
+                    other is not row and other['date'] is not None and
+                    day(other['date']) == day(row['date']) and other['amount'] is not None and other['amount'] != '' and
+                    payment_amount(other['amount']) == payment_amount(row['amount']) for other in rows):
+                raise ValueError('Un pagamento con questa data e importo è già in tabella. Usa una sola riga per registrarlo.')
+            row['id'] = uuid4().hex
+            confirmed = True
+        result.append(row)
+    if confirm and draft and not confirmed:
+        raise ValueError('La riga da pagare è stata rimossa. Salva le modifiche senza registrare il pagamento.')
+    return result,confirmed
+
+
 def payment_fields(record, today):
     """Payment table inside the selected car record's existing save form."""
     item = car_record(record,today)
     identifier = item.get('id') or '__new__'
     st.markdown('**Storico pagamenti'+(' · '+item['name'] if item.get('name') else '')+'**')
-    frame = pd.DataFrame([dict(ID=row['id'],Data=day(row['date']),Importo=euro(float(row['amount'])).removeprefix('€'),Nota=row.get('note','')) for row in item['payments']],columns=['ID','Data','Importo','Nota'])
-    # Text amounts allow Italian decimal commas on every browser/keyboard.
-    frame['Data'] = pd.to_datetime(frame['Data'])
-    frame['Importo'] = frame['Importo'].astype('string')
+    frame,draft = payment_frame(item,today)
+    if draft:
+        st.caption('Da pagare entro il '+next_due(item).strftime('%d/%m/%Y')+' · modifica l’importo e conferma il pagamento. La data in tabella è il giorno del pagamento.')
     edited = st.data_editor(frame,num_rows='dynamic',hide_index=True,width='stretch',key='car_payment_editor_'+identifier,
+        disabled=['Stato'],
         column_config={'ID':None,'Data':st.column_config.DateColumn('Data',format='DD/MM/YYYY',required=True,min_value=date(1980,1,1),max_value=today),
-                       'Importo':st.column_config.TextColumn('Pagato (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
-                       'Nota':st.column_config.TextColumn('Nota',max_chars=300)})
-    settle = False
-    estimate = forecast(item)
-    if estimate['date'] and estimate['amount'] is not None:
-        settle = st.checkbox('Il pagamento salda la scadenza del '+estimate['date'].strftime('%d/%m/%Y'),value=False,help='Spunta anche se hai pagato in anticipo: il costo previsto viene sostituito dal pagamento reale.')
-    return edited,settle
+                       'Importo':st.column_config.TextColumn('Importo (€)',help='Importo con centesimi, per esempio 193,96.',required=True),
+                       'Nota':None,'Stato':st.column_config.TextColumn('Stato')})
+    return edited,draft

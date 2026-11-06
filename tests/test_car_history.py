@@ -166,7 +166,7 @@ t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
     at.date_input[0].set_value(date(2026,11,25))
     next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(230.)
     assert at.session_state.saves==0
-    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    next(button for button in at.button if button.label in {'💾 Salva','Salva modifiche'}).click().run()
     assert not at.exception
     assert at.session_state.saves==1
     record=at.session_state.records[0]
@@ -257,7 +257,7 @@ t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
     next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(230.95)
     at.date_input[0].set_value(date(2026,11,25))
     assert at.session_state.saves==0
-    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    next(button for button in at.button if button.label in {'💾 Salva','Salva modifiche'}).click().run()
     assert not at.exception
     bollo,insurance=at.session_state.records
     assert [row['amount'] for row in bollo['payments']]==[193.96,210]
@@ -266,17 +266,17 @@ t.render_tracker(st.session_state.records,'auto',save,saved,date(2026,11,5))
     at.selectbox(key='tracker_select_auto').set_value('auto-1').run()
     assert any('Storico pagamenti · Assicurazione auto' in e.value for e in at.markdown)
     at.session_state['car_payment_editor_auto-1']={'edited_rows':{'0':{'Importo':'315,55'}},'added_rows':[],'deleted_rows':[]}
-    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    next(button for button in at.button if button.label in {'💾 Salva','Salva modifiche'}).click().run()
     assert not at.exception
     assert at.session_state.records[0]==bollo
     assert at.session_state.records[1]['payments'][0]['amount']==315.55
 
     at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
-    at.session_state['car_payment_editor_auto-0']={'edited_rows':{},'added_rows':[{'Data':'2026-11-05','Importo':'229,95','Nota':'Pagato in anticipo'}],'deleted_rows':[]}
+    at.session_state['car_payment_editor_auto-0']={'edited_rows':{'2':{'Importo':'229,95'}},'added_rows':[],'deleted_rows':[]}
     at.date_input[0].set_value(date(2027,11,25))
     next(field for field in at.number_input if field.label=='Costo previsto (€)').set_value(250.)
-    at.checkbox[0].check()
-    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.checkbox
+    next(button for button in at.button if button.label=='✅ Registra pagamento').click().run()
     assert not at.exception
     record=at.session_state.records[0]
     assert len(record['payments'])==3
@@ -385,3 +385,90 @@ def test_lifetime_total_counts_only_paid_history_not_forecasts():
     assert 'Totale pagato' in html and '€389,20' in html
     corrected=h.with_payments(record,record['payments'][:1],TODAY)
     assert h.total_paid(corrected)==194.87
+
+
+def test_forecast_appears_only_inside_configured_notice_window():
+    record=h.with_payments(car(),[dict(id='last',date='2025-11-20',amount=210,note='')],TODAY)
+    assert not h.forecast_visible(record,date(2026,10,20))
+    assert h.forecast_visible(record,date(2026,10,21))
+    assert h.forecast_visible(record,date(2026,11,21))
+    assert all('pending' not in row for row in h.chart_rows(record,date(2026,10,20)))
+    assert h.chart_rows(record,date(2026,10,21))[-1]['pending']==210
+    # Hidden forecasts still supply the annual saving estimate and Calendar.
+    assert h.forecast(record)['amount']==210
+    record['reminder_days']=7
+    assert not h.forecast_visible(record,date(2026,11,12))
+    assert h.forecast_visible(record,date(2026,11,13))
+    html=trackers.cards_html([record],'auto',date(2026,11,13))
+    assert '⚠️ Da pagare' in html
+    assert '🚨 Scaduta' in trackers.cards_html([record],'auto',date(2026,11,21))
+
+
+def test_prefilled_payment_is_only_paid_after_explicit_confirmation():
+    record=h.with_payments(car(),[dict(id='last',date='2025-11-20',amount=210,note='')],TODAY)
+    frame,draft=h.payment_frame(record,TODAY)
+    assert len(frame)==2 and frame.iloc[-1]['Stato']=='Da pagare'
+    assert frame.iloc[-1]['Data'].date()==TODAY
+    assert len(record['payments'])==1
+    rows,confirmed=h.submitted_payments(frame,draft,False)
+    assert not confirmed and len(rows)==1
+    frame.loc[1,'Importo']='229,95'
+    rows,confirmed=h.submitted_payments(frame,draft,True)
+    updated=h.with_payments(record,rows,TODAY,settle=confirmed)
+    assert len(updated['payments'])==2 and updated['amount']==229.95
+    assert all(not row['id'].startswith('forecast-') for row in updated['payments'])
+    assert h.next_due(updated)==date(2027,11,5)
+    assert not h.forecast_visible(updated,TODAY)
+    assert all('pending' not in row for row in h.chart_rows(updated,TODAY))
+    assert h.total_paid(updated)==439.95
+    _,next_draft=h.payment_frame(updated,TODAY)
+    assert next_draft is None
+
+
+def test_new_early_manual_row_settles_deadline_without_checkbox():
+    record=h.with_payments(car(),[payment(2025,419)],TODAY)
+    record.update(next_date='2026-11-10',planned_amount=419.)
+    added=dict(id='paid',date='2026-11-05',amount=249.27,note='')
+    updated=h.with_payments(record,record['payments']+[added],TODAY)
+    assert updated['next_date'] is None and updated['planned_amount'] is None
+    assert h.next_due(updated)==date(2027,11,5)
+    assert h.total_paid(updated)==668.27
+
+
+def test_confirmation_does_not_duplicate_a_manually_added_payment():
+    record=car(payments=[]);record.update(next_date='2026-11-10',planned_amount=200.)
+    frame,draft=h.payment_frame(record,TODAY)
+    frame.loc[1]=[None,TODAY,'200,00','','']
+    with pytest.raises(ValueError,match='una sola riga'):
+        h.submitted_payments(frame,draft,True)
+
+
+def test_prefilled_payment_can_be_confirmed_without_adding_a_row(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    app=tmp_path/'confirm_prefilled_payment.py'
+    app.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+import car_history as h
+if 'records' not in st.session_state:
+    item=t.initial_records()[0]
+    st.session_state.records=[h.with_payments(item,[dict(id='last',date='2025-11-20',amount=210,note='')],date(2026,11,5))]
+    st.session_state.saves=0
+def save(identifier,record):
+    st.session_state.records=t.merge_record(st.session_state.records,identifier,record)
+    st.session_state.saves+=1
+    return True
+t.render_tracker(st.session_state.records,'auto',save,lambda _:None,date(2026,11,5))
+''')
+    at=AppTest.from_file(str(app)).run()
+    at.selectbox(key='tracker_select_auto').set_value('auto-0').run()
+    assert not at.exception and not at.checkbox
+    assert at.session_state.saves==0
+    next(button for button in at.button if button.label=='✅ Registra pagamento').click().run()
+    assert not at.exception and at.session_state.saves==1
+    record=at.session_state.records[0]
+    assert len(record['payments'])==2
+    assert record['payments'][-1]['date']=='2026-11-05'
+    assert record['payments'][-1]['amount']==210
+    at.run()
+    assert all(button.label!='✅ Registra pagamento' for button in at.button)
