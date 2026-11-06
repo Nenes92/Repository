@@ -306,6 +306,23 @@ def apply_pension_history(records, history, today=None):
     return result
 
 
+def pension_monthly_average(record, today):
+    """Average the latest twelve complete imported monthly contribution totals."""
+    totals = []
+    history = record.get("_pension_history", {}) if record.get("cometa_auto_quotes",True) else {}
+    for month, quotes in sorted(history.items(),reverse=True):
+        try:
+            period = date.fromisoformat(month+"-01")
+        except (TypeError,ValueError):
+            continue
+        if period > today or not all(quotes.get(side) is not None for side in ("personal","company","tfr")):
+            continue
+        totals.append(math.fsum(quotes[side] for side in ("personal","company","tfr")))
+        if len(totals) == 12:
+            break
+    return dict(amount=round(math.fsum(totals)/len(totals),2) if totals else None,count=len(totals))
+
+
 def monthly_contributions(record, today):
     start, end = as_date(record.get("contribution_start")), as_date(record.get("contribution_end"))
     if not start:
@@ -626,7 +643,10 @@ def _investment_card_content(record, today):
             payday = date(today.year,today.month,27)
             if payday < today:
                 payday = month_date(payday,1)
-            details.extend([("Ogni mese",_amount(monthly,"value")),
+            average = pension_monthly_average(item,today)
+            monthly_display = (f'<strong class="tracker-ink-value" title="Media degli ultimi {average["count"]} cedolini completi, incluse le quote TFR">'
+                               +'≈ '+money(average["amount"])+'</strong>') if average["count"] else _amount(monthly,"value")
+            details.extend([("Ogni mese",monthly_display),
                             ("Prossimo pagamento",_ink(date_label(payday),"due"))])
         elif item.get("contribution_start"):
             details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))

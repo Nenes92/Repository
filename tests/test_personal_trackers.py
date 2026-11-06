@@ -11,6 +11,26 @@ import personal_trackers as tracker
 TODAY = date(2026, 11, 1)
 
 
+def test_cometa_average_uses_latest_twelve_complete_months_and_keeps_month_detail():
+    history = {f'2025-{m:02}':dict(personal=30.,company=70.,tfr=100.+m) for m in range(1,13)}
+    history['2026-01'] = dict(personal=30.,company=70.,tfr=200.)
+    history['2026-03'] = dict(personal=999.,company=999.,tfr=999.)  # Future month.
+    history['2026-02'] = dict(personal=30.,company=70.)  # Missing TFR is not zero.
+    item = dict(name='Cometa',kind='investments',_pension_history=history,cometa_rate_initialized=True,
+                monthly_personal=30.,monthly_company=70.,monthly_tfr=200.,monthly_source_month='2026-01')
+    expected = round((sum(200.+m for m in range(2,13))+300.)/12,2)
+    assert tracker.pension_monthly_average(item,date(2026,2,20)) == dict(amount=expected,count=12)
+    html = tracker._investment_card_content(item,date(2026,2,20))
+    assert '≈ '+tracker.money(expected) in html
+    assert '<strong>Gennaio</strong><strong class="tracker-ink-value">€300,00</strong>' in html
+
+
+def test_cometa_average_uses_available_samples_without_inventing_missing_months():
+    item = dict(_pension_history={'2026-01':dict(personal=30.,company=70.,tfr=200.)})
+    assert tracker.pension_monthly_average(item,TODAY) == dict(amount=300.,count=1)
+    assert tracker.pension_monthly_average(dict(item,cometa_auto_quotes=False),TODAY) == dict(amount=None,count=0)
+
+
 def loan(**changes):
     return dict(id='loan', kind='installments', name='Auto', start_date='2026-01-31',
                 count=12, amount=100., paid_offset=0, **changes)
