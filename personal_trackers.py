@@ -727,6 +727,15 @@ def render_tracker(records, kind, save_record, saved, today):
                               f'<span style="display:block;font-size:11px;color:#cbd5e1;">{escape(upcoming[0][1])}</span>'
                               f'<strong style="display:block;white-space:nowrap;font-size:13px;color:{accent};letter-spacing:.3px;">{date_label(upcoming[0][0])}</strong></span>')
             st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>{next_label}</div>')
+        elif kind == "installments" and records is not None:
+            summaries = [instalment_summary(item, today) for item in records if item["kind"] == kind]
+            remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
+            total = money(math.fsum(remaining) if remaining else None)
+            st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">'
+                    f'<h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>'
+                    f'<span style="flex:0 0 auto;max-width:43%;text-align:right;padding:7px 10px;border-radius:12px;border:1px solid #fb923c40;background:linear-gradient(135deg,#fb923c18,rgba(255,255,255,.02));line-height:1.4;">'
+                    f'<span style="display:block;font-size:11px;color:#cbd5e1;">Totale residuo</span>'
+                    f'<strong style="display:block;white-space:nowrap;font-size:13px;color:#fb923c;letter-spacing:.3px;">{total}</strong></span></div>')
         else:
             st.subheader(title)
         if records is None:
@@ -743,10 +752,6 @@ def render_tracker(records, kind, save_record, saved, today):
                     f'<div><span>{capital_label}</span>{_amount(math.fsum(values) if values else None,"value")}</div></div>')
             if missing_values:
                 st.html('<div class="tracker-section-note">Controvalori da aggiornare: '+escape(', '.join(missing_values))+'.</div>')
-        elif kind == "installments":
-            summaries = [instalment_summary(item, today) for item in items]
-            remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
-            st.html(f'<div class="tracker-section-note">Rate residue complessive: {_amount(sum(remaining) if remaining else None,"due")} · conteggio automatico alle date previste</div>')
         st.html("""<style>
           [class*="st-key-personal-tracker-"] [data-testid="stCaptionContainer"] {color:#94a3b8;}
           [class*="st-key-personal-tracker-"] [data-testid="stWidgetLabel"] p {white-space:normal!important;font-size:11px!important;color:#cbd5e1!important;}
