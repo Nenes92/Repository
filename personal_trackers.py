@@ -866,8 +866,8 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-year .holding-metrics {margin-top:4px;}
           .holding-result-compact {padding:5px!important;margin-top:auto!important;}
           .holding-split .holding-result-compact {border-top:6px solid transparent;background-clip:padding-box;}
-          .holding-result-compact>strong {font-size:10px!important;overflow-wrap:anywhere;}
-          .holding-result-compact small {display:block;margin:2px 0 0!important;font-size:9px!important;}
+          .holding-result-compact>strong {display:flex!important;align-items:baseline;gap:4px;white-space:nowrap;font-size:10px!important;}
+          .holding-result-compact small {display:inline;margin:0!important;font-size:8px!important;}
           .holding-split {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.09);}
           .holding-split>div {min-width:0;display:flex;flex-direction:column;}
           .holding-split>div+div {border-left:1px solid rgba(255,255,255,.09);padding-left:8px;}
