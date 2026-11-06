@@ -410,16 +410,17 @@ def investment_performance(record, today):
                 partial=partial,basis=base,date=reference_date)
 
 
-def _performance_html(result):
+def _performance_html(result, compact=False):
     if result["amount"] is None:
         return '<div class="tracker-note">Scarto: — · controvalore da aggiornare</div>'
     amount = result["amount"]
     tone = "paid" if amount>0 else "loss" if amount<0 else "muted"
     signed_amount = ("+" if amount>0 else "−" if amount<0 else "")+money(abs(amount))
     percent = f'{result["percent"]:+.2f}%'.replace('.',',') if result["percent"] is not None else '—'
-    label = 'Scarto sul registrato' if result["partial"] else 'Scarto sul versato'
+    label = 'Scarto' if compact else 'Scarto sul registrato' if result["partial"] else 'Scarto sul versato'
     partial = '<span class="holding-result-note">Confronto parziale</span>' if result["partial"] else ''
-    return (f'<div class="holding-result tracker-ink-{tone}"><span>{label}</span>'
+    variant = ' holding-result-compact' if compact else ''
+    return (f'<div class="holding-result{variant} tracker-ink-{tone}"><span>{label}</span>'
             f'<strong>{signed_amount} <small>{percent}</small></strong>{partial}</div>')
 
 
@@ -563,6 +564,95 @@ def _card(item, content):
     return '<div class="tracker-card"><strong>'+title+"</strong>"+paid+content+notes+'</div>'
 
 
+def _holding_metric(label, value):
+    return f'<div><span>{escape(label)}</span>{value}</div>'
+
+
+def _holding_metrics(cells, headline=False):
+    return '<div class="holding-metrics'+(' holding-headline' if headline else '')+'">'+''.join(_holding_metric(label,value) for label,value in cells)+'</div>'
+
+
+def _component_performance(paid, value):
+    delta = round(value-paid,2) if paid is not None and value is not None else None
+    return dict(amount=delta,percent=100*delta/paid if delta is not None and paid and paid>0 else None,partial=False)
+
+
+def _investment_card_content(record, today):
+    item = investment_record(record)
+    summary = investment_summary(item,today)
+    pension = item.get("name", "").casefold() == "cometa"
+    valuation = _amount(item.get("current_value"),"value")
+    if item.get("value_date"):
+        valuation += f'<small class="holding-date">Al {date_label(item["value_date"])}</small>'
+    content = _holding_metrics([
+        ("Totale versato",_amount(summary["total"],"paid")),
+        ("Controvalore",valuation)],headline=True)
+    details = []
+    if summary["mode"] != "manual" and not item.get("personal_only"):
+        details.extend([("Tu",_amount(summary["personal"],"paid")),("Azienda",_amount(summary["company"],"company"))])
+        if pension:
+            details.append(("TFR",_amount(summary["tfr"],"company")))
+    if summary["mode"] == "monthly":
+        monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)+(item.get("monthly_tfr") or 0.)
+        details.append(("Ogni mese",_amount(monthly,"value")))
+        if not item.get("personal_only"):
+            details.extend([("Mese · tu",_amount(item.get("monthly_personal"),"value")),("Mese · azienda",_amount(item.get("monthly_company"),"company"))])
+            if pension:
+                details.append(("Mese · TFR",_amount(item.get("monthly_tfr"),"company")))
+        if item.get("contribution_start"):
+            details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))
+        if item.get("contribution_end"):
+            details.append(("Fine versamenti",_ink(date_label(item["contribution_end"]),"due")))
+        if item.get("monthly_source_month") and item.get("cometa_auto_quotes",True):
+            details.append(("Quote da cedolino",_ink(item["monthly_source_month"],"muted")))
+        if item.get("monthly_tfr_source_month") and item.get("monthly_tfr_source_month") != item.get("monthly_source_month"):
+            details.append(("TFR da cedolino",_ink(item["monthly_tfr_source_month"],"muted")))
+    elif summary["mode"] == "annual":
+        redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
+        details.append(("Ritiro previsto",_ink(redemption,"due")))
+    if item.get("withdrawn"):
+        details.append(("Prelevato",_amount(item["withdrawn"],"due")))
+    if summary["unallocated"]:
+        details.append(("Da ripartire",_amount(summary["unallocated"],"due")))
+    if details:content += _holding_metrics(details)
+    result = investment_performance(item,today)
+    content += _performance_html(result)
+    if item.get("name", "").casefold() == "moneyfarm · pac 7" and item.get("leonardo_personal") is not None:
+        pac_paid = summary["total"]-item["leonardo_personal"] if summary["total"] is not None else None
+        pac_value = item["current_value"]-item["leonardo_value"] if item.get("current_value") is not None and item.get("leonardo_value") is not None else None
+        # The valuation is manual: compare its components with contributions
+        # at that same date, not with later automatically counted deposits.
+        pac_basis = result["basis"]-item["leonardo_personal"] if result["basis"] is not None else None
+        initial = f'<span class="holding-initial">Iniziali {_amount(item["pac_initial_personal"],"paid")}</span>' if item.get("pac_initial_personal") is not None else ''
+        content += ('<div class="holding-split">'
+                    f'<div><strong>PAC 7 · ETF</strong><span>Versato</span>{_amount(pac_paid,"paid")}'
+                    f'<span>Controvalore</span>{_amount(pac_value,"value")}{initial}'
+                    +_performance_html(_component_performance(pac_basis,pac_value),compact=True)+'</div>'
+                    f'<div><strong>Leonardo</strong><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
+                    f'<span>Controvalore</span>{_amount(item.get("leonardo_value"),"value")}'
+                    +_performance_html(_component_performance(item["leonardo_personal"],item.get("leonardo_value")),compact=True)+'</div></div>')
+    if summary["mode"] == "annual":
+        for row in summary["schedule"]:
+            label = "versato" if row["counted"] else "previsto" if row.get("date") else "da impostare"
+            tone = "paid" if row["counted"] else "due"
+            content += f'<div class="holding-year"><span>{row["year"]} · {_ink(label,tone)}</span>'
+            content += _holding_metrics([("Tu",_amount(row.get("personal"),tone)),("Azienda",_amount(row.get("company"),"company" if row["counted"] else "due"))])+'</div>'
+        sources = list(dict.fromkeys(row["source"] for row in summary["schedule"] if row.get("source")))
+        if sources:content += '<div class="tracker-note">Fonte: '+escape(' · '.join(sources))+'</div>'
+        if any(row["counted"] and row.get("company") is None for row in summary["schedule"]):
+            content += '<div class="tracker-note">Quota azienda da completare</div>'
+    if item.get("name", "").casefold() == "alleanza assicurazioni" and (item.get("closed_personal") is not None or item.get("closed_value") is not None):
+        content += '<div class="holding-year"><span>Piano precedente · senza nuovi versamenti</span>'
+        content += _holding_metrics([("Versato",_amount(item.get("closed_personal"),"paid")),("Controvalore",_amount(item.get("closed_value"),"value"))])+'</div>'
+        content += '<div class="holding-year"><span>Piano in corso</span>'
+        active_paid = summary["personal"]+summary["unallocated"]-item["closed_personal"] if item.get("closed_personal") is not None else None
+        active_value = item["current_value"]-item["closed_value"] if item.get("current_value") is not None and item.get("closed_value") is not None else None
+        content += _holding_metrics([("Versato",_amount(active_paid,"paid")),("Controvalore",_amount(active_value,"value"))])+'</div>'
+    if summary["tfr_incomplete"]:
+        content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
+    return content
+
+
 def cards_html(records, kind, today):
     if kind == "auto":
         order = {identifier:index for index,identifier in enumerate(["auto-0","auto-2","auto-1","auto-3","auto-4"])}
@@ -589,67 +679,7 @@ def cards_html(records, kind, today):
                 content += f'<div class="tracker-note" style="color:{car_history.FORECAST_COLOR}">{planned_label}: {planned_amount}</div>'
             content += car_history.chart_html(item, today)
         elif kind == "investments":
-            item = investment_record(item)
-            summary = investment_summary(item, today)
-            content = f'<div class="tracker-note">Totale versato</div><div class="tracker-value tracker-ink-paid">{money(summary["total"])}</div>'
-            if summary["mode"] != "manual":
-                content += f'<div class="tracker-note">Tu: {_amount(summary["personal"],"paid")}' + (f'<br>Azienda: {_amount(summary["company"],"company")}' if not item.get("personal_only") else '') + '</div>'
-                if item.get("name", "").casefold() == "cometa":
-                    content += f'<div class="tracker-note">TFR: {_amount(summary["tfr"],"company")}</div>'
-                    if summary["tfr_incomplete"]:
-                        content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
-                if summary["unallocated"]:
-                    content += f'<div class="tracker-note">Precedenti da ripartire: {_amount(summary["unallocated"],"due")}</div>'
-            if summary["mode"] == "monthly":
-                monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)+(item.get("monthly_tfr") or 0.)
-                breakdown = '' if item.get("personal_only") else f'<br>Tu {_amount(item.get("monthly_personal"),"value")} · azienda {_amount(item.get("monthly_company"),"company")}'
-                if item.get("name", "").casefold() == "cometa":
-                    breakdown += f'<br>TFR {_amount(item.get("monthly_tfr"),"company")}'
-                content += f'<div class="tracker-note">Ogni mese: {_amount(monthly,"value")}{breakdown}</div>'
-                if item.get("monthly_source_month") and item.get("cometa_auto_quotes", True):
-                    content += f'<div class="tracker-note">Quote da cedolino: {escape(item["monthly_source_month"])}</div>'
-                    if item.get("monthly_tfr_source_month"):
-                        content += f'<div class="tracker-note">TFR da cedolino: {escape(item["monthly_tfr_source_month"])}</div>'
-                if item.get("contribution_start"):
-                    content += f'<div class="tracker-note">Prossimo: {_ink(date_label(summary["next_due"]),"due")}' + (f'<br>Fine versamenti: {_ink(date_label(item["contribution_end"]),"due")}' if item.get("contribution_end") else '<br>Accumulo senza scadenza') + '</div>'
-                elif item.get("_pension_history") and (summary["unallocated"] or item.get("opening_personal") or item.get("opening_company") or item.get("opening_tfr")):
-                    content += '<div class="tracker-note">Imposta la data iniziale per aggiornare il saldo precedente</div>'
-                elif not item.get("_pension_history"):
-                    content += '<div class="tracker-note">Imposta la data del primo versamento</div>'
-            elif summary["mode"] == "annual":
-                for row in summary["schedule"]:
-                    amount = (row.get("personal") or 0.)+(row.get("company") or 0.)
-                    label = ("versato" if row["counted"] else "data da impostare" if not row.get("date")
-                             else "importo da impostare" if row.get("personal") is None and row.get("company") is None else "previsto")
-                    tone = "paid" if row["counted"] else "due"
-                    content += f'<div class="tracker-note">{row["year"]}: {_amount(amount if row.get("personal") is not None or row.get("company") is not None else None,tone)} · {_ink(label,tone)}<br>Tu {_amount(row.get("personal"),tone)} · azienda {_amount(row.get("company"),"company" if row["counted"] else "due")}</div>'
-                    if row.get("source"):
-                        content += f'<div class="tracker-note">Fonte: {escape(row["source"])}</div>'
-                redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
-                content += f'<div class="tracker-note">Ritiro previsto: {_ink(redemption,"due")}</div>'
-            content += f'<div>Controvalore: {_amount(item.get("current_value"),"value")}</div>'
-            if item.get("value_date"):
-                content += f'<div class="tracker-note">Aggiornato al {date_label(item["value_date"])}</div>'
-            content += _performance_html(investment_performance(item,today))
-            if item.get("name", "").casefold() == "moneyfarm · pac 7" and item.get("leonardo_personal") is not None:
-                pac_paid = summary["total"]-item["leonardo_personal"] if summary["total"] is not None else None
-                pac_value = item["current_value"]-item["leonardo_value"] if item.get("current_value") is not None and item.get("leonardo_value") is not None else None
-                initial = f'<span class="holding-initial">Iniziali {_amount(item["pac_initial_personal"],"paid")}</span>' if item.get("pac_initial_personal") is not None else ''
-                content += ('<div class="holding-split">'
-                            f'<div><strong>PAC 7 · ETF</strong><span>Versato</span>{_amount(pac_paid,"paid")}'
-                            f'<span>Controvalore</span>{_amount(pac_value,"value")}{initial}</div>'
-                            f'<div><strong>Leonardo</strong><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
-                            f'<span>Controvalore</span>{_amount(item.get("leonardo_value"),"value")}</div></div>')
-            if summary["mode"] == "annual" and any(row["counted"] and row.get("company") is None for row in summary["schedule"]):
-                content += '<div class="tracker-note">Quota azienda da completare</div>'
-            if item.get("name", "").casefold() == "alleanza assicurazioni" and (item.get("closed_personal") is not None or item.get("closed_value") is not None):
-                content += f'<div class="tracker-note">Piano precedente · tu {_amount(item.get("closed_personal"),"paid")}<br>Controvalore: {_amount(item.get("closed_value"),"value")} · senza nuovi versamenti</div>'
-                if item.get("closed_personal") is not None:
-                    content += f'<div class="tracker-note">Piano in corso · tu {_amount(summary["personal"]+summary["unallocated"]-item["closed_personal"],"paid")}</div>'
-                if item.get("current_value") is not None and item.get("closed_value") is not None:
-                    content += f'<div class="tracker-note">Controvalore piano in corso: {_amount(item["current_value"]-item["closed_value"],"value")}</div>'
-            if item.get("withdrawn"):
-                content += f'<div class="tracker-note">Prelevato: {_amount(item["withdrawn"],"due")}</div>'
+            content = _investment_card_content(item,today)
         else:
             summary = instalment_summary(item, today)
             if summary is None:
@@ -666,6 +696,9 @@ def cards_html(records, kind, today):
         cards.append(_card(item, content))
     if kind == "auto" and cards:
         cards.append(car_overview.html(records,today,full_width=len(cards)%2==0))
+    if kind == "investments":
+        columns = ''.join('<div class="holding-card-column">'+''.join(cards[index::2])+'</div>' for index in range(2))
+        return '<div class="tracker-grid holding-card-grid">'+columns+'</div>'
     return '<div class="tracker-grid">'+"".join(cards)+'</div>'
 
 
@@ -817,8 +850,26 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
           .tracker-value {font-family:"DM Mono",monospace;color:#60a5fa;font-size:17px;margin:5px 0 8px;}
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
+          .holding-card-grid {align-items:start;}
+          .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
+          .holding-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 9px;margin-top:8px;}
+          .holding-metrics>div {min-width:0;}
+          .holding-metrics>div:nth-child(even) {text-align:right;}
+          .holding-metrics>div>span {display:block;font-size:9px;color:#94a3b8;line-height:1.35;margin-bottom:2px;}
+          .holding-metrics>div>strong {display:block;font-size:11px;line-height:1.35;overflow-wrap:anywhere;}
+          .holding-date {display:block;font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.3;}
+          .holding-headline {margin:4px 0 9px;gap:9px;}
+          .holding-headline>div>strong {font-size:14px;font-family:"DM Mono",monospace;}
+          @media(max-width:430px) {.holding-headline>div>strong {font-size:11px;}}
+          .holding-year {border-top:1px solid rgba(255,255,255,.08);padding-top:6px;margin-top:8px;}
+          .holding-year>span {font-size:10px;color:#cbd5e1;}
+          .holding-year .holding-metrics {margin-top:4px;}
+          .holding-result-compact {padding:5px!important;margin-top:auto!important;}
+          .holding-split .holding-result-compact {border-top:6px solid transparent;background-clip:padding-box;}
+          .holding-result-compact>strong {font-size:10px!important;overflow-wrap:anywhere;}
+          .holding-result-compact small {display:block;margin:2px 0 0!important;font-size:9px!important;}
           .holding-split {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.09);}
-          .holding-split>div {min-width:0;}
+          .holding-split>div {min-width:0;display:flex;flex-direction:column;}
           .holding-split>div+div {border-left:1px solid rgba(255,255,255,.09);padding-left:8px;}
           .holding-split>div>strong:first-child {display:block;font-size:11px;color:#cbd5e1;margin-bottom:7px;}
           .holding-split>div>span {display:block;font-size:9px;color:#94a3b8;margin-top:6px;}

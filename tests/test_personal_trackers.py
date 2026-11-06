@@ -309,6 +309,9 @@ def test_moneyfarm_exact_pac_and_leonardo_breakdown():
     assert all(value in html for value in ['€12.100,00','€11.132,97','€967,03','€14.971,15','€940,99','€5.000,00'])
     restored=tracker.decode_rows(tracker.encode_rows([item]))[0]
     assert restored['pac_initial_personal']==5000.
+    assert '+€3.838,18' in html and '+34,48%' in html
+    assert '−€26,04' in html and '-2,69%' in html
+    assert 'holding-metrics holding-headline' in html and 'holding-result-compact' in html
     assert tracker.investment_summary(restored,date(2026,11,20))['total']==12200.
     with pytest.raises(ValueError,match='iniziale del PAC'):
         tracker.validate_record(dict(item,pac_initial_personal=12000.),date(2026,11,6))
