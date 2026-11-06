@@ -74,6 +74,21 @@ def test_share_purchase_defaults_matching_and_rejects_invalid_counts():
             tracker.share_purchase(dict(row,**changes))
 
 
+def test_employer_share_current_value_uses_latest_valuation_without_changing_cost():
+    item=tracker.validate_record(leonardo_share_plan(),date(2026,11,6))
+    summary=tracker.investment_summary(item,date(2026,11,6))
+    assert tracker.share_market_price(item,summary)==pytest.approx(48.46)
+    html=tracker._share_years_content(item,summary)
+    assert 'Azioni tue' in html and 'Valore attuale' in html
+    assert '€920,74' in html and '€629,98' in html
+    assert item['annual_contributions'][0]['company']==903.64
+    item['annual_contributions'][2].update(personal_shares=30,share_price=60.,matching_shares=10,confirmed=True)
+    summary=tracker.investment_summary(item,date(2027,7,1))
+    assert tracker.share_market_price(item,summary)==pytest.approx(48.46)
+    item.update(current_value=7800.,value_date='2027-07-01')
+    assert tracker.share_market_price(item,summary)==50.
+
+
 def test_retirement_year_uses_current_holdings_and_updated_manual_value():
     item=tracker.validate_record(leonardo_share_plan(),date(2026,11,6))
     html=tracker._share_years_content(item,tracker.investment_summary(item,date(2026,11,6)))

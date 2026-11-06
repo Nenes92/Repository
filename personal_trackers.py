@@ -660,8 +660,18 @@ def _share_card_content(item, today, summary, valuation, include_years=True):
     return content
 
 
+def share_market_price(item, summary):
+    """Infer one share's value from holdings at the manual valuation date."""
+    value = item.get("current_value")
+    reference = investment_summary(dict(item,current_value=None),as_date(item["value_date"])) if item.get("value_date") else summary
+    shares = sum((row.get("personal_shares") or 0)+(row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0)
+                 for row in reference["schedule"] if row["counted"])
+    return value/shares if value is not None and shares else None
+
+
 def _share_years_content(item, summary, wide=False):
     columns = []
+    market_price = share_market_price(item,summary)
     rows = {row["year"]:row for row in summary["schedule"]}
     years = sorted(set(rows)|{item.get("redemption_year") or 2028})
     for year in years:
@@ -691,13 +701,15 @@ def _share_years_content(item, summary, wide=False):
         gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) if not missing else None
         detail = (f'<div><strong>{year}</strong><span>{caption}</span>'
                   +'<div class="share-purchase">'
-                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","paid",True)),
+                  +_holding_metrics([("Azioni tue",_ink(row["personal_shares"] if not missing else "—","paid",True)),
                                      ("Prezzo cad.",_amount(row.get("share_price"),"paid",True))])+'</div>'
                   +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid",True)
                   +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted) if gifted is not None else "—","company",True))
         if row.get("welcome_shares"):
             detail += '<small>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</small>'
-        detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company",True)+'</div>'
+        company_value = round(gifted*market_price,2) if gifted is not None and market_price is not None and row.get("counted") else None
+        detail += ('</div><span title="Valore delle azioni gratuite stimato dall’ultimo controvalore inserito">Valore attuale</span>'
+                   +_amount(company_value,"company",True)+'</div>')
         columns.append(detail)
     content = '<div class="holding-split share-years-grid'+(' share-years-wide' if wide else '')+'">'+''.join(columns)+'</div>'
     content += '<div class="tracker-note">Il controvalore è il valore delle azioni oggi, prima di eventuali costi e imposte al ritiro.</div>'
@@ -1002,17 +1014,18 @@ def investment_portfolio_summary(records, today):
 def _investment_heading(title, overview):
     partial = ' · parziale' if overview["missing"] else ''
     percent = overview["percent"]
-    tone = "gain" if percent is not None and percent>0 else "loss" if percent is not None and percent<0 else "muted"
+    gain = overview["gain"]
+    tone = "gain" if gain is not None and gain>0 else "loss" if gain is not None and gain<0 else "muted"
     change = (("≈ " if overview["partial"] else "")+f'{percent:+.2f}%'.replace('.',',')) if percent is not None else '—'
+    difference = (("≈ " if overview["partial"] else "")+("+" if gain>0 else "−" if gain<0 else "")+money(abs(gain))) if gain is not None else '—'
     tooltip = ('Somma degli ultimi controvalori inseriti, prima di costi, imposte e condizioni di riscatto. '
                'Scarto rispetto al capitale versato alla data di ciascun controvalore, incluse quote aziendali e TFR. '
                'Il confronto Cometa può essere parziale.')
     return ('<div class="portfolio-heading"><h3 id="investimenti">'+escape(title)+'</h3>'
             '<div class="portfolio-badge portfolio-balances"><div><span>Versato</span>'+_amount(overview["paid"],"paid")+'</div>'
             '<div><span>Capitale'+partial+'</span>'+_amount(overview["capital"],"value")+'</div></div>'
-            '<div class="portfolio-badge portfolio-withdrawal" title="'+escape(tooltip,quote=True)+'"><span>Ritiro teorico'+partial+'</span>'
-            +_amount(overview["capital"],"redemption")+'<div class="portfolio-return"><span>Scarto sul versato</span>'
-            +_ink(change,tone)+'</div></div></div>')
+            '<div class="portfolio-badge portfolio-performance portfolio-performance-'+tone+'" title="'+escape(tooltip,quote=True)+'"><span>Differenza'+partial+'</span>'
+            +_ink(difference,tone)+'<div class="portfolio-return">'+_ink(change,tone)+'</div></div></div>')
 
 
 @st.fragment
@@ -1065,16 +1078,16 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
           .holding-card-grid {align-items:start;}
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
-          .portfolio-heading {display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr) minmax(0,1fr);align-items:center;gap:8px;margin-bottom:10px;}
+          .portfolio-heading {display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;margin-bottom:10px;}
           .portfolio-heading>h3 {margin:0;padding:0;min-width:0;font-size:clamp(14px,3.5vw,20px);line-height:1.3;}
           .portfolio-badge {min-width:0;padding:7px 8px;border-radius:12px;border:1px solid rgba(125,211,252,.2);background:linear-gradient(135deg,rgba(125,211,252,.08),rgba(255,255,255,.02));line-height:1.4;}
           .portfolio-badge span {display:block;font-size:9px;color:#94a3b8;}
           .portfolio-badge strong {display:block;font-size:clamp(9px,2.1vw,12px);white-space:nowrap;}
-          .portfolio-balances {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
-          .portfolio-balances>div:last-child {text-align:right;}
-          .portfolio-withdrawal {text-align:right;border-color:rgba(134,215,181,.2);background:linear-gradient(135deg,rgba(134,215,181,.08),rgba(255,255,255,.02));}
+          .portfolio-balances {display:grid;grid-template-columns:minmax(0,1fr);gap:4px;text-align:right;}
+          .portfolio-performance {text-align:right;}
+          .portfolio-performance-gain {border-color:rgba(134,215,181,.2);background:linear-gradient(135deg,rgba(134,215,181,.08),rgba(255,255,255,.02));}
+          .portfolio-performance-loss {border-color:rgba(248,113,113,.2);background:linear-gradient(135deg,rgba(248,113,113,.08),rgba(255,255,255,.02));}
           .portfolio-return {margin-top:3px;}
-          .portfolio-return>span {font-size:8px;}
           .portfolio-return>strong {font-size:10px;}
           @media(max-width:430px) {.portfolio-heading {gap:5px;}.portfolio-badge {padding:6px 5px;}.portfolio-balances {gap:3px;}.portfolio-badge span {font-size:8px;}}
           .investment-l-layout {align-items:stretch;}
