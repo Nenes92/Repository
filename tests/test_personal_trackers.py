@@ -359,7 +359,7 @@ def test_investment_performance_uses_valuation_date_and_handles_missing_values()
     assert result['amount']==3812.14 and result['percent']==pytest.approx(31.5052892562)
     assert not result['partial']
     html=tracker._performance_html(result)
-    assert '+€3.812,14' in html and '+31,51%' in html and 'tracker-ink-paid' in html
+    assert '+€3.812,14' in html and '+31,51%' in html and 'tracker-ink-gain' in html
     loss=tracker.investment_performance(dict(item,current_value=11000.),date(2026,11,6))
     assert loss['amount']==-1100.
     assert 'tracker-ink-loss' in tracker._performance_html(loss)

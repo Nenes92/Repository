@@ -431,7 +431,7 @@ def _performance_html(result, compact=False):
     if result["amount"] is None:
         return '<div class="tracker-note">Scarto: — · controvalore da aggiornare</div>'
     amount = result["amount"]
-    tone = "paid" if amount>0 else "loss" if amount<0 else "muted"
+    tone = "gain" if amount>0 else "loss" if amount<0 else "muted"
     signed_amount = ("+" if amount>0 else "−" if amount<0 else "")+money(abs(amount))
     percent = f'{result["percent"]:+.2f}%'.replace('.',',') if result["percent"] is not None else '—'
     label = 'Scarto' if compact else 'Scarto sul registrato' if result["partial"] else 'Scarto sul versato'
@@ -950,7 +950,8 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-totals span {display:block;font-size:11px;color:#94a3b8;margin-bottom:3px;}
           .tracker-totals strong {font-family:"DM Mono",monospace;font-size:17px;overflow-wrap:anywhere;}
           .tracker-section-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;}
-          .tracker-ink-paid {color:#34d399;font-weight:650;}
+          .tracker-ink-paid {color:#a5b4fc;font-weight:650;}
+          .tracker-ink-gain {color:#34d399;font-weight:650;}
           .tracker-ink-due {color:#fb923c;font-weight:650;}
           .tracker-ink-value {color:#7dd3fc;font-weight:650;}
           .tracker-ink-company {color:#c4b5fd;font-weight:650;}
