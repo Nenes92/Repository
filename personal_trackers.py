@@ -248,8 +248,6 @@ def investment_record(record):
         item["opening_personal"] = (item.get("opening_personal") or 0.)+(item.get("opening_company") or 0.)+(item.get("opening_unallocated") or 0.)
         item["opening_company"] = 0.
         item["opening_unallocated"] = 0.
-    if name == "moneyfarm · pac 7" and (item.get("opening_personal") or 0.) >= 1000.:
-        item.setdefault("leonardo_personal", 1000.)
     if name == "cometa":
         item.setdefault("cometa_auto_quotes", True)
         item.setdefault("monthly_tfr", 220.02 if item["cometa_auto_quotes"] else None)
@@ -405,7 +403,7 @@ def validate_investment(record, today, paid_today=None):
     item["product"] = str(item.get("product", ""))[:60]
     for key in ("monthly_personal", "monthly_company", "opening_personal", "opening_company", "opening_unallocated"):
         item[key] = _number(item.get(key))
-    for key in ("balance_personal", "balance_company", "leonardo_personal", "leonardo_value", "closed_personal", "closed_value"):
+    for key in ("balance_personal", "balance_company", "leonardo_personal", "leonardo_value", "closed_personal", "closed_value", "pac_initial_personal"):
         if key in item:
             item[key] = _number(item[key])
     if item.get("balance_date"):
@@ -465,6 +463,10 @@ def validate_investment(record, today, paid_today=None):
             raise ValueError("La quota del singolo piano è già compresa nel versato totale e non può superarlo.")
         if item.get(value_key) is not None and item.get("current_value") is not None and item[value_key] > item["current_value"]:
             raise ValueError("Il controvalore del singolo piano non può superare il controvalore totale.")
+    if item.get("pac_initial_personal") is not None and summary["total"] is not None:
+        pac_total = round(summary["total"]-(item.get("leonardo_personal") or 0.),2)
+        if item["pac_initial_personal"] > pac_total:
+            raise ValueError("Il versamento iniziale del PAC è già compreso nel versato del PAC e non può superarlo.")
     return item
 
 
@@ -601,11 +603,13 @@ def cards_html(records, kind, today):
             if item.get("value_date"):
                 content += f'<div class="tracker-note">Aggiornato al {date_label(item["value_date"])}</div>'
             if item.get("name", "").casefold() == "moneyfarm · pac 7" and item.get("leonardo_personal") is not None:
-                content += f'<div class="tracker-note">Azioni Leonardo · tu {_amount(item["leonardo_personal"],"paid")}<br>Controvalore titoli: {_amount(item.get("leonardo_value"),"value")}</div>'
                 if summary["total"] is not None and summary["total"] >= item["leonardo_personal"]:
-                    content += f'<div class="tracker-note">PAC 7 · tu {_amount(summary["total"]-item["leonardo_personal"],"paid")}</div>'
+                    content += f'<div class="tracker-note">PAC 7 · versato {_amount(summary["total"]-item["leonardo_personal"],"paid")}</div>'
+                if item.get("pac_initial_personal") is not None:
+                    content += f'<div class="tracker-note">Di cui iniziali: {_amount(item["pac_initial_personal"],"paid")}</div>'
                 if item.get("current_value") is not None and item.get("leonardo_value") is not None:
                     content += f'<div class="tracker-note">Controvalore PAC: {_amount(item["current_value"]-item["leonardo_value"],"value")}</div>'
+                content += f'<div class="tracker-note">Azioni Leonardo · versato {_amount(item["leonardo_personal"],"paid")}<br>Controvalore titoli: {_amount(item.get("leonardo_value"),"value")}</div>'
             if summary["mode"] == "annual" and any(row["counted"] and row.get("company") is None for row in summary["schedule"]):
                 content += '<div class="tracker-note">Quota azienda da completare</div>'
             if item.get("name", "").casefold() == "alleanza assicurazioni" and (item.get("closed_personal") is not None or item.get("closed_value") is not None):
@@ -700,10 +704,12 @@ def _investment_fields(item, old, prefix, mode, today):
         item["withdrawn"] = st.number_input("Totale prelevato (€)", min_value=0., value=float(old.get("withdrawn") or 0.), step=100.)
     name = old.get("name", "").casefold()
     if name == "moneyfarm · pac 7":
-        st.markdown("**Di cui azioni Leonardo · già comprese nei totali**")
-        a, b = st.columns(2, gap="small")
+        st.markdown("**Ripartizione Moneyfarm · già compresa nei totali**")
+        initial, a, b = st.columns(3, gap="small")
+        with initial:
+            item["pac_initial_personal"] = st.number_input("PAC · importo iniziale (€)", min_value=0., value=old.get("pac_initial_personal"), step=100.)
         with a:
-            item["leonardo_personal"] = st.number_input("Versato in Leonardo (€)", min_value=0., value=old.get("leonardo_personal", 1000. if summary["total"] is not None and summary["total"] >= 1000. else None), step=100.)
+            item["leonardo_personal"] = st.number_input("Versato in Leonardo (€)", min_value=0., value=old.get("leonardo_personal"), step=100.)
         with b:
             item["leonardo_value"] = st.number_input("Controvalore Leonardo (€)", min_value=0., value=old.get("leonardo_value"), step=100.)
     elif name == "alleanza assicurazioni":

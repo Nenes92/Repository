@@ -289,6 +289,7 @@ t.render_tracker(st.session_state.records,'investments',save,lambda _:None,date(
     assert [field.label for field in at.selectbox]==['Voce']
     next(field for field in at.number_input if field.label=='Versato da te a oggi (€)').set_value(12100.)
     next(field for field in at.number_input if field.label=='Controvalore Leonardo (€)').set_value(940.99)
+    next(field for field in at.number_input if field.label=='Versato in Leonardo (€)').set_value(1000.)
     assert at.session_state.saves==0
     next(button for button in at.button if button.label=='💾 Salva').click().run()
     assert not at.exception
@@ -297,3 +298,17 @@ t.render_tracker(st.session_state.records,'investments',save,lambda _:None,date(
     assert record['balance_personal']==12100. and record['leonardo_personal']==1000.
     assert record['current_value']==15912.14
     assert tracker.investment_summary(record,date(2026,11,20))['total']==12200.
+
+
+def test_moneyfarm_exact_pac_and_leonardo_breakdown():
+    item=investment('Moneyfarm',contribution_start='2022-05-20',balance_date='2026-11-06',
+                    balance_personal=12100.,balance_company=0.,pac_initial_personal=5000.,
+                    leonardo_personal=967.03,leonardo_value=940.99,current_value=15912.14)
+    item=tracker.validate_record(item,date(2026,11,6))
+    html=tracker.cards_html([item],'investments',date(2026,11,6))
+    assert all(value in html for value in ['€12.100,00','€11.132,97','€967,03','€14.971,15','€940,99','€5.000,00'])
+    restored=tracker.decode_rows(tracker.encode_rows([item]))[0]
+    assert restored['pac_initial_personal']==5000.
+    assert tracker.investment_summary(restored,date(2026,11,20))['total']==12200.
+    with pytest.raises(ValueError,match='iniziale del PAC'):
+        tracker.validate_record(dict(item,pac_initial_personal=12000.),date(2026,11,6))
