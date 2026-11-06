@@ -591,12 +591,12 @@ def _investment_card_content(record, today):
         ("Controvalore",valuation)],headline=True)
     if pension:
         monthly = sum(item.get(key) or 0. for key in ("monthly_personal","monthly_company","monthly_tfr"))
-        content += ('<div class="holding-split pension-split"><div><strong>Mensile</strong>'
+        content += ('<div class="holding-split pension-split"><div><div class="pension-column-title"><strong>Mensile</strong>'
+                    +_amount(monthly,"value")+'</div>'
                     +_holding_metrics([("Tu",_amount(item.get("monthly_personal"),"value")),
                                        ("Azienda",_amount(item.get("monthly_company"),"company")),
                                        ("TFR",_amount(item.get("monthly_tfr"),"company"))])
-                    +'<div class="pension-monthly-total"><span>Totale mensile</span>'+_amount(monthly,"value")+'</div></div>'
-                    '<div><strong>Totale</strong>'
+                    +'</div><div><div class="pension-column-title"><strong>Totale</strong></div>'
                     +_holding_metrics([("Tu",_amount(summary["personal"],"paid")),
                                        ("Azienda",_amount(summary["company"],"company")),
                                        ("TFR",_amount(summary["tfr"],"company"))])+'</div></div>')
@@ -609,13 +609,19 @@ def _investment_card_content(record, today):
             details.append(("Ogni mese",_amount(monthly,"value")))
         if not item.get("personal_only") and not pension:
             details.extend([("Mese · tu",_amount(item.get("monthly_personal"),"value")),("Mese · azienda",_amount(item.get("monthly_company"),"company"))])
-        if item.get("contribution_start"):
+        if pension:
+            payday = date(today.year,today.month,27)
+            if payday < today:
+                payday = month_date(payday,1)
+            details.extend([("Pagamento mensile",_ink("Ogni mese","muted")),
+                            ("Prossimo pagamento",_ink(date_label(payday),"due"))])
+        elif item.get("contribution_start"):
             details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))
         if item.get("contribution_end"):
             details.append(("Fine versamenti",_ink(date_label(item["contribution_end"]),"due")))
-        if item.get("monthly_source_month") and item.get("cometa_auto_quotes",True):
+        if not pension and item.get("monthly_source_month") and item.get("cometa_auto_quotes",True):
             details.append(("Quote da cedolino",_ink(item["monthly_source_month"],"muted")))
-        if item.get("monthly_tfr_source_month") and item.get("monthly_tfr_source_month") != item.get("monthly_source_month"):
+        if not pension and item.get("monthly_tfr_source_month") and item.get("monthly_tfr_source_month") != item.get("monthly_source_month"):
             details.append(("TFR da cedolino",_ink(item["monthly_tfr_source_month"],"muted")))
     elif summary["mode"] == "annual":
         redemption = date_label(item["redemption_date"]) if item.get("redemption_date") else str(item.get("redemption_year") or "Da impostare")
@@ -876,11 +882,13 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-date {display:block;font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.3;}
           .holding-headline {margin:4px 0 9px;gap:9px;}
           .holding-headline>div>strong {font-size:14px;font-family:"DM Mono",monospace;}
-          .pension-split .holding-metrics {grid-template-columns:minmax(0,1fr);gap:7px;margin-top:9px;}
+          .pension-column-title {display:flex;justify-content:space-between;align-items:baseline;gap:3px;min-height:15px;}
+          .pension-column-title>strong {font-size:10px;white-space:nowrap;}
+          .pension-split .holding-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 3px;margin-top:9px;}
           .pension-split .holding-metrics>div {text-align:left;}
-          .pension-monthly-total {margin-top:9px;padding-top:6px;border-top:1px solid rgba(255,255,255,.09);}
-          .pension-monthly-total>span {display:block;font-size:9px;color:#94a3b8;}
-          .pension-monthly-total>strong {font-size:11px;}
+          .pension-split .holding-metrics>div:nth-child(2) {text-align:right;}
+          .pension-split .holding-metrics>div:last-child {grid-column:1/-1;text-align:center;}
+          .pension-split .holding-metrics>div>strong {font-size:9px;white-space:nowrap;overflow-wrap:normal;}
           @media(max-width:430px) {.holding-headline>div>strong {font-size:11px;}}
           .holding-year {border-top:1px solid rgba(255,255,255,.08);padding-top:6px;margin-top:8px;}
           .holding-year>span {font-size:10px;color:#cbd5e1;}
