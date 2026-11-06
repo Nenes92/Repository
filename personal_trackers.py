@@ -644,8 +644,10 @@ def _share_card_content(item, today, summary, valuation, include_years=True):
     company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
     equation = (f'<strong class="share-equation"><span class="tracker-ink-value">{own+company}</span> = '
                 f'<span class="tracker-ink-paid">{own}</span> + <span class="tracker-ink-company">{company}</span></strong>')
+    market_price = share_market_price(item,summary)
+    company_value = round(company*market_price,2) if market_price is not None else None
     content += _holding_metrics([("Azioni = tue + azienda",equation),
-                                 ("Azienda · valore iniziale",_amount(summary["company"],"company"))])
+                                 ("Azienda · valore attuale",_amount(company_value,"company"))])
     stamp = as_date(item.get("value_date"))
     reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
     value = item.get("current_value")
