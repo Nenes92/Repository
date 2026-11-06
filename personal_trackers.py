@@ -555,6 +555,8 @@ def _card(item, content):
     if item.get('kind') == 'auto':
         paid = f'<div class="car-paid-total" title="Totale di tutti i pagamenti registrati nello storico, escluse le previsioni"><span>Totale pagato</span><strong style="color:{car_history.card_color(item)}">{money(car_history.total_paid(item))}</strong></div>'
     title = escape(item["name"])
+    if item.get("kind") == "investments" and item["name"].casefold() == "moneyfarm · pac 7":
+        title = "Moneyfarm"
     if item.get("kind") == "installments":
         name = item["name"].casefold()
         icon = ("🛡️" if "assicuraz" in name else "🍽️" if "cucina" in name
