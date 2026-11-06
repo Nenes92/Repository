@@ -717,7 +717,15 @@ def render_tracker(records, kind, save_record, saved, today):
         title = {"auto": "🚗 Auto · scadenze e manutenzione", "investments": "📈 Investimenti", "installments": "🗓️ Rate e finanziamenti"}[kind]
         if kind == "auto" and records is not None:
             upcoming = sorted((car_deadline(item), item["name"]) for item in records if item["kind"] == "auto" and car_deadline(item) is not None)
-            next_label = (f'<span style="flex:0 0 auto;max-width:38%;text-align:right;font-size:11px;line-height:1.4;color:#cbd5e1;">{escape(upcoming[0][1])}<br>{date_label(upcoming[0][0])}</span>' if upcoming else '')
+            next_label = ''
+            if upcoming:
+                days = (upcoming[0][0]-today).days
+                nearest = next(item for item in records if item["kind"] == "auto" and item["name"] == upcoming[0][1] and car_deadline(item) == upcoming[0][0])
+                accent = "#fda4af" if days < 0 else "#fcd34d" if days <= int(nearest.get("reminder_days",30)) else "#7dd3fc"
+                next_label = (f'<span style="flex:0 0 auto;max-width:40%;text-align:right;padding:7px 10px;border-radius:12px;'
+                              f'border:1px solid {accent}40;background:linear-gradient(135deg,{accent}18,rgba(255,255,255,.02));line-height:1.4;">'
+                              f'<span style="display:block;font-size:11px;color:#cbd5e1;">{escape(upcoming[0][1])}</span>'
+                              f'<strong style="display:block;white-space:nowrap;font-size:13px;color:{accent};letter-spacing:.3px;">{date_label(upcoming[0][0])}</strong></span>')
             st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>{next_label}</div>')
         else:
             st.subheader(title)
@@ -728,7 +736,13 @@ def render_tracker(records, kind, save_record, saved, today):
         if kind == "investments":
             summaries = [investment_summary(item, today) for item in items]
             totals = [row["total"] for row in summaries if row["total"] is not None]
-            st.html(f'<div class="tracker-section-note">Versato complessivo: {_amount(sum(totals) if totals else None,"paid")}</div>')
+            values = [item["current_value"] for item in items if item.get("current_value") is not None]
+            missing_values = [item["name"] for item in items if item.get("current_value") is None]
+            capital_label = "Capitale totale · parziale" if values and missing_values else "Capitale totale"
+            st.html(f'<div class="tracker-totals"><div><span>Versato complessivo</span>{_amount(sum(totals) if totals else None,"paid")}</div>'
+                    f'<div><span>{capital_label}</span>{_amount(math.fsum(values) if values else None,"value")}</div></div>')
+            if missing_values:
+                st.html('<div class="tracker-section-note">Controvalori da aggiornare: '+escape(', '.join(missing_values))+'.</div>')
         elif kind == "installments":
             summaries = [instalment_summary(item, today) for item in items]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
@@ -745,6 +759,10 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-card>strong {display:block;color:#e2e8f0;font-size:13px;margin-bottom:7px;}
           .tracker-value {font-family:"DM Mono",monospace;color:#60a5fa;font-size:17px;margin:5px 0 8px;}
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
+          .tracker-totals {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px;}
+          .tracker-totals>div {padding:9px 11px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.035);min-width:0;}
+          .tracker-totals span {display:block;font-size:11px;color:#94a3b8;margin-bottom:3px;}
+          .tracker-totals strong {font-family:"DM Mono",monospace;font-size:17px;overflow-wrap:anywhere;}
           .tracker-section-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;}
           .tracker-ink-paid {color:#34d399;font-weight:650;}
           .tracker-ink-due {color:#fb923c;font-weight:650;}
