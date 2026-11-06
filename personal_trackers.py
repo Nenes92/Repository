@@ -589,18 +589,27 @@ def _investment_card_content(record, today):
     content = _holding_metrics([
         ("Totale versato",_amount(summary["total"],"paid")),
         ("Controvalore",valuation)],headline=True)
+    if pension:
+        content += ('<div class="pension-group"><div class="pension-group-title">Contributi totali</div>'
+                    +_holding_metrics([("Tu",_amount(summary["personal"],"paid")),
+                                       ("Azienda",_amount(summary["company"],"company")),
+                                       ("TFR",_amount(summary["tfr"],"company"))])+'</div>')
+        if summary["mode"] == "monthly":
+            monthly = sum(item.get(key) or 0. for key in ("monthly_personal","monthly_company","monthly_tfr"))
+            content += ('<div class="pension-group"><div class="pension-group-title"><span>Ogni mese</span>'
+                        +_amount(monthly,"value")+'</div>'
+                        +_holding_metrics([("Tu",_amount(item.get("monthly_personal"),"value")),
+                                           ("Azienda",_amount(item.get("monthly_company"),"company")),
+                                           ("TFR",_amount(item.get("monthly_tfr"),"company"))])+'</div>')
     details = []
-    if summary["mode"] != "manual" and not item.get("personal_only"):
+    if summary["mode"] != "manual" and not item.get("personal_only") and not pension:
         details.extend([("Tu",_amount(summary["personal"],"paid")),("Azienda",_amount(summary["company"],"company"))])
-        if pension:
-            details.append(("TFR",_amount(summary["tfr"],"company")))
     if summary["mode"] == "monthly":
         monthly = (item.get("monthly_personal") or 0.)+(item.get("monthly_company") or 0.)+(item.get("monthly_tfr") or 0.)
-        details.append(("Ogni mese",_amount(monthly,"value")))
-        if not item.get("personal_only"):
+        if not pension:
+            details.append(("Ogni mese",_amount(monthly,"value")))
+        if not item.get("personal_only") and not pension:
             details.extend([("Mese · tu",_amount(item.get("monthly_personal"),"value")),("Mese · azienda",_amount(item.get("monthly_company"),"company"))])
-            if pension:
-                details.append(("Mese · TFR",_amount(item.get("monthly_tfr"),"company")))
         if item.get("contribution_start"):
             details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))
         if item.get("contribution_end"):
@@ -868,6 +877,13 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-date {display:block;font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.3;}
           .holding-headline {margin:4px 0 9px;gap:9px;}
           .holding-headline>div>strong {font-size:14px;font-family:"DM Mono",monospace;}
+          .pension-group {margin-top:9px;padding:8px;border-radius:9px;background:rgba(255,255,255,.035);}
+          .pension-group-title {display:flex;justify-content:space-between;align-items:baseline;gap:5px;font-size:10px;color:#cbd5e1;}
+          .pension-group-title>strong {font-size:12px;white-space:nowrap;}
+          .pension-group .holding-metrics {grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:7px;}
+          .pension-group .holding-metrics>div {text-align:left;}
+          .pension-group .holding-metrics>div:last-child {text-align:right;}
+          .pension-group .holding-metrics>div>strong {font-size:10px;white-space:nowrap;overflow-wrap:normal;}
           @media(max-width:430px) {.holding-headline>div>strong {font-size:11px;}}
           .holding-year {border-top:1px solid rgba(255,255,255,.08);padding-top:6px;margin-top:8px;}
           .holding-year>span {font-size:10px;color:#cbd5e1;}
