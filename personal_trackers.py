@@ -877,7 +877,7 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-initial strong {font-size:9px;overflow-wrap:anywhere;}
           .holding-result {margin-top:8px;padding:7px 8px;border-radius:9px;background:rgba(255,255,255,.035);}
           .holding-result>span {display:block;font-size:10px;color:#94a3b8;font-weight:400;}
-          .holding-result>strong {display:block;font-size:13px;margin-top:2px;}
+          .holding-result>strong {display:flex;justify-content:space-between;align-items:baseline;gap:4px;white-space:nowrap;font-size:13px;margin-top:2px;}
           .holding-result small {font-size:10px;white-space:nowrap;margin-left:4px;}
           .holding-result>.holding-result-note {font-size:9px;margin-top:3px;}
           .tracker-totals {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px;}
