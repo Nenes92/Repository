@@ -610,6 +610,11 @@ def date_label(value):
     return day.strftime("%d/%m/%Y") if day else "—"
 
 
+def car_icon(item):
+    return {"auto-0":"🧾", "auto-1":"🛡️", "auto-2":"🔧",
+            "auto-3":"🛞", "auto-4":"🔍"}.get(item.get("id"),"🚗")
+
+
 def _card(item, content):
     notes = '<div class="tracker-note">'+escape(item.get("notes", ""))+'</div>' if item.get("notes") else ""
     paid = ''
@@ -617,8 +622,7 @@ def _card(item, content):
         paid = f'<div class="car-paid-total" title="Totale di tutti i pagamenti registrati nello storico, escluse le previsioni"><span>Totale pagato</span><strong style="color:{car_history.card_color(item)}">{money(car_history.total_paid(item))}</strong></div>'
     title = escape(item["name"])
     if item.get("kind") == "auto":
-        icon = {"auto-0":"🧾", "auto-1":"🛡️", "auto-2":"🔧",
-                "auto-3":"🛞", "auto-4":"🔍"}.get(item.get("id"),"🚗")
+        icon = car_icon(item)
         title = f'<span aria-hidden="true">{icon}</span> '+title
     if item.get("kind") == "investments" and item["name"].casefold() == "moneyfarm · pac 7":
         title = "Moneyfarm"
@@ -1061,9 +1065,10 @@ def render_tracker(records, kind, save_record, saved, today):
                 days = (upcoming[0][0]-today).days
                 nearest = next(item for item in records if item["kind"] == "auto" and item["name"] == upcoming[0][1] and car_deadline(item) == upcoming[0][0])
                 accent = "#fda4af" if days < 0 else "#fcd34d" if days <= int(nearest.get("reminder_days",30)) else "#7dd3fc"
+                warning = "⚠️ " if days <= int(nearest.get("reminder_days",30)) else ""
                 next_label = (f'<span style="flex:0 0 auto;max-width:40%;text-align:right;padding:7px 10px;border-radius:12px;'
                               f'border:1px solid {accent}40;background:linear-gradient(135deg,{accent}18,rgba(255,255,255,.02));line-height:1.4;">'
-                              f'<span style="display:block;font-size:11px;color:#cbd5e1;">{escape(upcoming[0][1])}</span>'
+                              f'<span style="display:block;font-size:11px;color:#cbd5e1;">{warning}{car_icon(nearest)} {escape(upcoming[0][1])}</span>'
                               f'<strong style="display:block;white-space:nowrap;font-size:13px;color:{accent};letter-spacing:.3px;">{date_label(upcoming[0][0])}</strong></span>')
             st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>'
                     f'<div class="tracker-heading-totals">{paid_label}{next_label}</div></div>')
