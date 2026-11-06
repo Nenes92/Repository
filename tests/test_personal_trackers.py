@@ -261,11 +261,26 @@ def test_closed_plan_and_titles_are_parts_of_total_not_added_twice():
     assert tracker.investment_summary(item,date(2026,12,1))['total']==5531.
     html=tracker.cards_html([item],'investments',date(2026,11,5))
     assert 'Risultato:' not in html
-    assert 'Piano precedente' in html and '€3.426,00' in html
+    assert 'Alleata Previdenza' in html and 'Smart Evergreen' in html and '€3.426,00' in html
     with pytest.raises(ValueError,match='controvalore totale'):
         tracker.validate_record(dict(item,closed_value=7000.),date(2026,11,5))
     with pytest.raises(ValueError,match='versato totale'):
         tracker.validate_record(dict(item,closed_personal=6000.),date(2026,11,5))
+
+
+def test_alleanza_split_uses_valuation_date_and_only_evergreen_accumulates():
+    item = investment('Alleanza Assicurazioni',contribution_start='2024-12-31',
+                      balance_date='2026-11-06',balance_personal=4810.,balance_company=0.,
+                      closed_personal=2510.,closed_value=3110.94,current_value=5407.22,
+                      value_date='2026-11-06')
+    item = tracker.validate_record(item,date(2026,11,6))
+    current = tracker.cards_html([item],'investments',date(2026,11,6))
+    assert '€4.810,00' in current and '€5.407,22' in current
+    assert '€2.300,00' in current and '€2.296,28' in current
+    assert '+€600,94' in current and '−€3,72' in current
+    later = tracker.cards_html([item],'investments',date(2026,12,31))
+    assert '€2.500,00' in later and '€2.510,00' in later
+    assert '−€3,72' in later  # The stale valuation is not compared with later deposits.
 
 
 def test_simple_investment_form_preserves_balance_and_saves_only_on_submit(tmp_path):

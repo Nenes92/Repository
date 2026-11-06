@@ -644,12 +644,18 @@ def _investment_card_content(record, today):
         if any(row["counted"] and row.get("company") is None for row in summary["schedule"]):
             content += '<div class="tracker-note">Quota azienda da completare</div>'
     if item.get("name", "").casefold() == "alleanza assicurazioni" and (item.get("closed_personal") is not None or item.get("closed_value") is not None):
-        content += '<div class="holding-year"><span>Piano precedente · senza nuovi versamenti</span>'
-        content += _holding_metrics([("Versato",_amount(item.get("closed_personal"),"paid")),("Controvalore",_amount(item.get("closed_value"),"value"))])+'</div>'
-        content += '<div class="holding-year"><span>Piano in corso</span>'
         active_paid = summary["personal"]+summary["unallocated"]-item["closed_personal"] if item.get("closed_personal") is not None else None
         active_value = item["current_value"]-item["closed_value"] if item.get("current_value") is not None and item.get("closed_value") is not None else None
-        content += _holding_metrics([("Versato",_amount(active_paid,"paid")),("Controvalore",_amount(active_value,"value"))])+'</div>'
+        active_basis = result["basis"]-item["closed_personal"] if result["basis"] is not None and item.get("closed_personal") is not None else None
+        content += ('<div class="holding-split">'
+                    '<div><strong>Alleata Previdenza</strong><span>Versamenti sospesi</span>'
+                    f'<span>Versato</span>{_amount(item.get("closed_personal"),"paid")}'
+                    f'<span>Controvalore</span>{_amount(item.get("closed_value"),"value")}'
+                    +_performance_html(_component_performance(item.get("closed_personal"),item.get("closed_value")),compact=True)+'</div>'
+                    f'<div><strong>Smart Evergreen</strong><span>{money(item.get("monthly_personal"))} al mese · senza scadenza</span>'
+                    f'<span>Versato</span>{_amount(active_paid,"paid")}'
+                    f'<span>Controvalore</span>{_amount(active_value,"value")}'
+                    +_performance_html(_component_performance(active_basis,active_value),compact=True)+'</div></div>')
     if summary["tfr_incomplete"]:
         content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
     return content
@@ -789,13 +795,13 @@ def _investment_fields(item, old, prefix, mode, today):
         with b:
             item["leonardo_value"] = _money_input("Controvalore Leonardo (€)", min_value=0., value=old.get("leonardo_value"), step=100.)
     elif name == "alleanza assicurazioni":
-        st.markdown("**Di cui piano precedente · senza nuovi versamenti**")
+        st.markdown("**Alleata Previdenza · versamenti sospesi**")
         a, b = st.columns(2, gap="small")
         with a:
-            item["closed_personal"] = _money_input("Versato nel piano precedente (€)", min_value=0., value=old.get("closed_personal"), step=100.)
+            item["closed_personal"] = _money_input("Alleata · versato (€)", min_value=0., value=old.get("closed_personal"), step=100.)
         with b:
-            item["closed_value"] = _money_input("Controvalore piano precedente (€)", min_value=0., value=old.get("closed_value"), step=100.)
-        st.caption("Importi già compresi nei totali. Il piano in corso continua con il versamento mensile.")
+            item["closed_value"] = _money_input("Alleata · controvalore (€)", min_value=0., value=old.get("closed_value"), step=100.)
+        st.caption("Alleata è già compresa nei totali. La differenza è Smart Evergreen, che prosegue con il versamento mensile senza scadenza.")
     return None
 
 
