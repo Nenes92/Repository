@@ -159,6 +159,20 @@ def test_month_end_and_leap_year_schedule():
     assert tracker.instalment_dates(record)[1] == date(2024, 2, 29)
 
 
+def test_monthly_instalment_total_excludes_ended_and_future_contracts():
+    active=dict(loan(),amount=409.91,count=300)
+    insurance=dict(loan(),amount=21.25,count=300)
+    car=dict(loan(),amount=178.75,count=60)
+    kitchen=dict(loan(),amount=324.,count=20)
+    ended=dict(loan(),start_date='2025-01-01',count=1,amount=999.)
+    future=dict(loan(),start_date='2026-12-01',amount=888.)
+    records=[active,insurance,car,kitchen,ended,future]
+    assert tracker.instalment_monthly_total(records,date(2026,11,6))==933.91
+    assert tracker.instalment_monthly_total([ended],date(2026,11,6))==0.
+    assert tracker.instalment_monthly_total([dict(active,amount=None)],date(2026,11,6)) is None
+    assert tracker.instalment_monthly_total([dict(future,start_date='2026-11-27')],date(2026,11,6))==888.
+
+
 def test_due_day_and_end_date_alternative():
     record = loan(due_day=15, end_date='2026-12-15')
     record['count'] = None
