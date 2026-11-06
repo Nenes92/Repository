@@ -74,6 +74,24 @@ def test_share_purchase_defaults_matching_and_rejects_invalid_counts():
             tracker.share_purchase(dict(row,**changes))
 
 
+def test_retirement_year_uses_current_holdings_and_updated_manual_value():
+    item=tracker.validate_record(leonardo_share_plan(),date(2026,11,6))
+    html=tracker._share_years_content(item,tracker.investment_summary(item,date(2026,11,6)))
+    future=html.split('<strong>2027</strong>',1)[1].split('<strong>2028</strong>',1)[0]
+    assert 'tracker-ink-paid">—' in future and 'tracker-ink-company">—' in future
+    retirement=html.split('<strong>2028</strong>',1)[1]
+    assert 'Costo tuo' not in retirement and 'Valore assegnato' not in retirement
+    assert '116</strong>' in retirement and '84</strong>' in retirement and '32</strong>' in retirement
+    assert '≈ €48,46' in retirement and '≈ €5.621,36' in retirement
+    item['annual_contributions'][2].update(personal_shares=30,share_price=60.,matching_shares=10,confirmed=True)
+    item.update(current_value=7800.,value_date='2027-07-01')
+    item=tracker.validate_record(item,date(2027,7,1))
+    html=tracker._share_years_content(item,tracker.investment_summary(item,date(2027,7,1)))
+    retirement=html.split('<strong>2028</strong>',1)[1]
+    assert '156</strong>' in retirement and '114</strong>' in retirement and '42</strong>' in retirement
+    assert '≈ €50,00' in retirement and '≈ €7.800,00' in retirement
+
+
 def test_leonardo_form_saves_share_fields_and_valuation_only_on_submit(tmp_path):
     from streamlit.testing.v1 import AppTest
     script=tmp_path/'shares.py'

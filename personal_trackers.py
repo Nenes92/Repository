@@ -581,14 +581,14 @@ def money(value):
     return f"€{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _ink(value, tone):
+def _ink(value, tone, color_missing=False):
     text = str(value)
-    if text == '—':tone = 'muted'
+    if text == '—' and not color_missing:tone = 'muted'
     return f'<strong class="tracker-ink-{tone}">{escape(text)}</strong>'
 
 
-def _amount(value, tone):
-    return _ink(money(value),tone)
+def _amount(value, tone, color_missing=False):
+    return _ink(money(value),tone,color_missing=color_missing)
 
 
 def date_label(value):
@@ -666,22 +666,38 @@ def _share_years_content(item, summary, wide=False):
     years = sorted(set(rows)|{item.get("redemption_year") or 2028})
     for year in years:
         row = rows.get(year,{})
+        retirement = year == item.get("redemption_year") and year not in rows
+        if retirement:
+            counted = [purchase for purchase in summary["schedule"] if purchase["counted"]]
+            own = sum(purchase.get("personal_shares") or 0 for purchase in counted)
+            company = sum((purchase.get("matching_shares") or 0)+(purchase.get("welcome_shares") or 0) for purchase in counted)
+            total = own+company
+            value = item.get("current_value")
+            price = value/total if value is not None and total else None
+            columns.append(f'<div><strong>{year}</strong><span>Ritiro · stima ultimo valore</span>'
+                           '<span>Azioni totali</span>'+_ink(total if counted else "—","value",True)
+                           +'<div class="share-purchase">'+_holding_metrics([
+                               ("Tue",_ink(own if counted else "—","paid",True)),
+                               ("Azienda",_ink(company if counted else "—","company",True))])+'</div>'
+                           +'<span>Valore per azione</span>'+_ink('≈ '+money(price) if price is not None else "—","value",True)
+                           +'<span>Ritiro stimato</span>'+_ink('≈ '+money(value) if value is not None else "—","value",True)
+                           +('<span>Al '+date_label(item["value_date"])+'</span>' if item.get("value_date") else '')+'</div>')
+            continue
         missing = row.get("personal_shares") is None
         if missing:
-            retirement = year == item.get("redemption_year") and year not in rows
-            caption = "Ritiro previsto" if retirement else "Luglio · azioni da inserire"
+            caption = "Luglio · azioni da inserire"
         else:
             caption = 'Luglio · '+('acquistate' if row["counted"] else 'previste')+' da te'
         gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) if not missing else None
         detail = (f'<div><strong>{year}</strong><span>{caption}</span>'
                   +'<div class="share-purchase">'
-                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","value")),
-                                     ("Prezzo cad.",_amount(row.get("share_price"),"value"))])+'</div>'
-                  +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid")
-                  +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted) if gifted is not None else "—","company"))
+                  +_holding_metrics([("Azioni",_ink(row["personal_shares"] if not missing else "—","value",True)),
+                                     ("Prezzo cad.",_amount(row.get("share_price"),"value",True))])+'</div>'
+                  +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid",True)
+                  +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted) if gifted is not None else "—","company",True))
         if row.get("welcome_shares"):
             detail += '<small>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</small>'
-        detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
+        detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company",True)+'</div>'
         columns.append(detail)
     content = '<div class="holding-split share-years-grid'+(' share-years-wide' if wide else '')+'">'+''.join(columns)+'</div>'
     content += '<div class="tracker-note">Il controvalore è il valore delle azioni oggi, prima di eventuali costi e imposte al ritiro.</div>'
