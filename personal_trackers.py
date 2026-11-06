@@ -1051,6 +1051,10 @@ def render_tracker(records, kind, save_record, saved, today):
     with st.container(key=f"personal-tracker-{kind}"):
         title = {"auto": "🚗 Auto · scadenze e manutenzione", "investments": "📈 Investimenti", "installments": "🗓️ Rate e finanziamenti"}[kind]
         if kind == "auto" and records is not None:
+            year_paid = math.fsum(row["amount"] for item in records if item["kind"] == "auto"
+                                  for row in car_history.annual_totals(item) if row["year"] == today.year)
+            paid_label = (f'<span class="tracker-summary-badge tracker-year-paid"><span>Pagato {today.year}</span>'
+                          f'<strong>{money(year_paid)}</strong></span>')
             upcoming = sorted((car_deadline(item), item["name"]) for item in records if item["kind"] == "auto" and car_deadline(item) is not None)
             next_label = ''
             if upcoming:
@@ -1061,7 +1065,8 @@ def render_tracker(records, kind, save_record, saved, today):
                               f'border:1px solid {accent}40;background:linear-gradient(135deg,{accent}18,rgba(255,255,255,.02));line-height:1.4;">'
                               f'<span style="display:block;font-size:11px;color:#cbd5e1;">{escape(upcoming[0][1])}</span>'
                               f'<strong style="display:block;white-space:nowrap;font-size:13px;color:{accent};letter-spacing:.3px;">{date_label(upcoming[0][0])}</strong></span>')
-            st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>{next_label}</div>')
+            st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>'
+                    f'<div class="tracker-heading-totals">{paid_label}{next_label}</div></div>')
         elif kind == "installments" and records is not None:
             summaries = [instalment_summary(item, today) for item in records if item["kind"] == kind]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
@@ -1069,7 +1074,7 @@ def render_tracker(records, kind, save_record, saved, today):
             monthly_total = money(instalment_monthly_total(records,today))
             st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">'
                     f'<h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>'
-                    f'<div class="instalment-heading-totals"><span class="instalment-monthly-badge"><span>Al mese</span><strong>{monthly_total}</strong></span>'
+                    f'<div class="tracker-heading-totals"><span class="tracker-summary-badge"><span>Al mese</span><strong>{monthly_total}</strong></span>'
                     f'<span style="flex:0 0 auto;max-width:43%;text-align:right;padding:7px 10px;border-radius:12px;border:1px solid #fb923c40;background:linear-gradient(135deg,#fb923c18,rgba(255,255,255,.02));line-height:1.4;">'
                     f'<span style="display:block;font-size:11px;color:#cbd5e1;">Totale residuo</span>'
                     f'<strong style="display:block;white-space:nowrap;font-size:13px;color:#fb923c;letter-spacing:.3px;">{total}</strong></span></div></div>')
@@ -1098,12 +1103,14 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-top:7px;white-space:pre-line;}
           .holding-card-grid {align-items:start;}
           .holding-card-column {display:flex;flex-direction:column;gap:8px;min-width:0;}
-          .instalment-heading-totals {display:flex;gap:8px;align-items:stretch;flex:0 0 auto;}
-          .instalment-heading-totals>span {max-width:none!important;}
-          .instalment-monthly-badge {display:flex;flex-direction:column;justify-content:center;text-align:right;padding:7px 10px;border-radius:12px;border:1px solid #7dd3fc40;background:linear-gradient(135deg,#7dd3fc18,rgba(255,255,255,.02));line-height:1.4;}
-          .instalment-monthly-badge>span {font-size:11px;color:#cbd5e1;}
-          .instalment-monthly-badge>strong {white-space:nowrap;font-size:13px;color:#7dd3fc;letter-spacing:.3px;}
-          @media(max-width:430px) {.instalment-heading-totals {gap:5px;}.instalment-heading-totals>span {padding:6px!important;}.instalment-heading-totals strong {font-size:11px!important;}}
+          .tracker-heading-totals {display:flex;gap:8px;align-items:stretch;flex:0 0 auto;}
+          .tracker-heading-totals>span {max-width:none!important;}
+          .tracker-summary-badge {display:flex;flex-direction:column;justify-content:center;text-align:right;padding:7px 10px;border-radius:12px;border:1px solid #7dd3fc40;background:linear-gradient(135deg,#7dd3fc18,rgba(255,255,255,.02));line-height:1.4;}
+          .tracker-summary-badge>span {font-size:11px;color:#cbd5e1;}
+          .tracker-summary-badge>strong {white-space:nowrap;font-size:13px;color:#7dd3fc;letter-spacing:.3px;}
+          .tracker-year-paid {border-color:#dca98240;background:linear-gradient(135deg,#dca98218,rgba(255,255,255,.02));}
+          .tracker-year-paid>strong {color:#dca982;}
+          @media(max-width:430px) {.tracker-heading-totals {gap:5px;}.tracker-heading-totals>span {padding:6px!important;}.tracker-heading-totals strong {font-size:11px!important;}}
           .portfolio-heading {display:grid;grid-template-columns:minmax(0,1fr) repeat(2,clamp(90px,18vw,104px));align-items:stretch;gap:8px;margin-bottom:10px;}
           .portfolio-heading>h3 {align-self:center;margin:0;padding:0;min-width:0;font-size:clamp(14px,3.5vw,20px);line-height:1.3;}
           .portfolio-badge {min-width:0;padding:7px 8px;border-radius:12px;border:1px solid rgba(125,211,252,.2);background:linear-gradient(135deg,rgba(125,211,252,.08),rgba(255,255,255,.02));line-height:1.4;}
