@@ -950,7 +950,7 @@ def render_tracker(records, kind, save_record, saved, today):
           .tracker-totals span {display:block;font-size:11px;color:#94a3b8;margin-bottom:3px;}
           .tracker-totals strong {font-family:"DM Mono",monospace;font-size:17px;overflow-wrap:anywhere;}
           .tracker-section-note {font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;}
-          .tracker-ink-paid {color:#a5b4fc;font-weight:650;}
+          .tracker-ink-paid {color:#dca982;font-weight:650;}
           .tracker-ink-gain {color:#34d399;font-weight:650;}
           .tracker-ink-due {color:#fb923c;font-weight:650;}
           .tracker-ink-value {color:#7dd3fc;font-weight:650;}
