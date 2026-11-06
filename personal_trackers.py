@@ -627,10 +627,10 @@ def _investment_card_content(record, today):
         pac_basis = result["basis"]-item["leonardo_personal"] if result["basis"] is not None else None
         initial = f'<span class="holding-initial">Iniziali {_amount(item["pac_initial_personal"],"paid")}</span>' if item.get("pac_initial_personal") is not None else ''
         content += ('<div class="holding-split">'
-                    f'<div><strong>PAC 7 · ETF</strong><span>Versato</span>{_amount(pac_paid,"paid")}'
+                    f'<div><strong>PAC 7 · ETF</strong><span>{money(item.get("monthly_personal"))} al mese</span><span>Versato</span>{_amount(pac_paid,"paid")}'
                     f'<span>Controvalore</span>{_amount(pac_value,"value")}{initial}'
                     +_performance_html(_component_performance(pac_basis,pac_value),compact=True)+'</div>'
-                    f'<div><strong>Leonardo · Azioni</strong><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
+                    f'<div><strong>Leonardo · Azioni</strong><span>€1.000 una tantum</span><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
                     f'<span>Controvalore</span>{_amount(item.get("leonardo_value"),"value")}'
                     +_performance_html(_component_performance(item["leonardo_personal"],item.get("leonardo_value")),compact=True)+'</div></div>')
     if summary["mode"] == "annual":
@@ -648,14 +648,14 @@ def _investment_card_content(record, today):
         active_value = item["current_value"]-item["closed_value"] if item.get("current_value") is not None and item.get("closed_value") is not None else None
         active_basis = result["basis"]-item["closed_personal"] if result["basis"] is not None and item.get("closed_personal") is not None else None
         content += ('<div class="holding-split">'
+                    f'<div><strong>Smart Evergreen</strong><span>{money(item.get("monthly_personal"))} al mese</span>'
+                    f'<span>Versato</span>{_amount(active_paid,"paid")}'
+                    f'<span>Controvalore</span>{_amount(active_value,"value")}'
+                    +_performance_html(_component_performance(active_basis,active_value),compact=True)+'</div>'
                     '<div><strong>Alleata Previdenza</strong><span>Versamenti sospesi</span>'
                     f'<span>Versato</span>{_amount(item.get("closed_personal"),"paid")}'
                     f'<span>Controvalore</span>{_amount(item.get("closed_value"),"value")}'
-                    +_performance_html(_component_performance(item.get("closed_personal"),item.get("closed_value")),compact=True)+'</div>'
-                    f'<div><strong>Smart Evergreen</strong><span>{money(item.get("monthly_personal"))} al mese · senza scadenza</span>'
-                    f'<span>Versato</span>{_amount(active_paid,"paid")}'
-                    f'<span>Controvalore</span>{_amount(active_value,"value")}'
-                    +_performance_html(_component_performance(active_basis,active_value),compact=True)+'</div></div>')
+                    +_performance_html(_component_performance(item.get("closed_personal"),item.get("closed_value")),compact=True)+'</div></div>')
     if summary["tfr_incomplete"]:
         content += '<div class="tracker-note">Totale parziale · TFR da completare con Sincronizza Drive</div>'
     return content
