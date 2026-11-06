@@ -715,20 +715,21 @@ def _investment_fields(item, old, prefix, mode, today):
 def render_tracker(records, kind, save_record, saved, today):
     with st.container(key=f"personal-tracker-{kind}"):
         title = {"auto": "🚗 Auto · scadenze e manutenzione", "investments": "📈 Investimenti", "installments": "🗓️ Rate e finanziamenti"}[kind]
-        st.subheader(title)
+        if kind == "auto" and records is not None:
+            upcoming = sorted((car_deadline(item), item["name"]) for item in records if item["kind"] == "auto" and car_deadline(item) is not None)
+            next_label = (f'<span style="flex:0 0 auto;max-width:38%;text-align:right;font-size:11px;line-height:1.4;color:#cbd5e1;">{escape(upcoming[0][1])}<br>{date_label(upcoming[0][0])}</span>' if upcoming else '')
+            st.html(f'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;"><h3 style="margin:0;padding:0;min-width:0;font-size:20px;line-height:1.3;">{escape(title)}</h3>{next_label}</div>')
+        else:
+            st.subheader(title)
         if records is None:
             st.info("Registro non disponibile. Riprova il caricamento prima di modificare i dati.")
             return
         items = [investment_record(item) if kind == "investments" else car_history.car_record(item, today) if kind == "auto" else item for item in records if item["kind"] == kind]
-        if kind == "auto":
-            upcoming = sorted((car_deadline(item), item["name"]) for item in items if car_deadline(item) is not None)
-            if upcoming:
-                st.caption(f"Prima scadenza: {upcoming[0][1]} · {date_label(upcoming[0][0])}. Gli avvisi ⚠️ sono visibili qui nell’app.")
-        elif kind == "investments":
+        if kind == "investments":
             summaries = [investment_summary(item, today) for item in items]
             totals = [row["total"] for row in summaries if row["total"] is not None]
             st.html(f'<div class="tracker-section-note">Versato complessivo: {_amount(sum(totals) if totals else None,"paid")}</div>')
-        else:
+        elif kind == "installments":
             summaries = [instalment_summary(item, today) for item in items]
             remaining = [row["remaining_amount"] for row in summaries if row and row["remaining_amount"] is not None]
             st.html(f'<div class="tracker-section-note">Rate residue complessive: {_amount(sum(remaining) if remaining else None,"due")} · conteggio automatico alle date previste</div>')
