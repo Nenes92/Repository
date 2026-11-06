@@ -572,6 +572,10 @@ def _card(item, content):
     if item.get('kind') == 'auto':
         paid = f'<div class="car-paid-total" title="Totale di tutti i pagamenti registrati nello storico, escluse le previsioni"><span>Totale pagato</span><strong style="color:{car_history.card_color(item)}">{money(car_history.total_paid(item))}</strong></div>'
     title = escape(item["name"])
+    if item.get("kind") == "auto":
+        icon = {"auto-0":"🧾", "auto-1":"🛡️", "auto-2":"🔧",
+                "auto-3":"🛞", "auto-4":"🔍"}.get(item.get("id"),"🚗")
+        title = f'<span aria-hidden="true">{icon}</span> '+title
     if item.get("kind") == "investments" and item["name"].casefold() == "moneyfarm · pac 7":
         title = "Moneyfarm"
     if item.get("kind") == "investments":

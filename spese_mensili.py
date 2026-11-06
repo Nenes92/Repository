@@ -50,7 +50,7 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
-# Refresh the copper contribution color, distinct from positive returns, across deploys.
+# Refresh the emoji headings on car expense cards across deploys.
 import car_calendar as _car_calendar
 importlib.reload(_car_calendar)
 import car_history as _car_history
