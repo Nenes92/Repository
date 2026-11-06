@@ -537,6 +537,12 @@ def cards_html(records, kind, today):
     if kind == "auto":
         order = {identifier:index for index,identifier in enumerate(["auto-0","auto-2","auto-1","auto-3","auto-4"])}
         records = sorted(records,key=lambda item:order.get(item["id"],len(order)))
+    if kind == "installments":
+        order = {identifier:index for index,identifier in enumerate(["instalment-2","instalment-3","instalment-0","instalment-1"])}
+        def maturity(item):
+            summary = instalment_summary(item,today) if item["kind"] == kind else None
+            return (summary["end"] if summary else date.max,order.get(item["id"],len(order)))
+        records = sorted(records,key=maturity)
     cards = []
     for item in records:
         if item["kind"] != kind:
