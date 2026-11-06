@@ -312,3 +312,48 @@ def test_moneyfarm_exact_pac_and_leonardo_breakdown():
     assert tracker.investment_summary(restored,date(2026,11,20))['total']==12200.
     with pytest.raises(ValueError,match='iniziale del PAC'):
         tracker.validate_record(dict(item,pac_initial_personal=12000.),date(2026,11,6))
+
+
+def test_investment_performance_uses_valuation_date_and_handles_missing_values():
+    item=investment('Moneyfarm',contribution_start='2022-05-20',balance_date='2026-11-06',
+                    balance_personal=12100.,balance_company=0.,current_value=15912.14,value_date='2026-11-06')
+    result=tracker.investment_performance(item,date(2026,12,21))
+    assert result['amount']==3812.14 and result['percent']==pytest.approx(31.5052892562)
+    assert not result['partial']
+    html=tracker._performance_html(result)
+    assert '+€3.812,14' in html and '+31,51%' in html and 'tracker-ink-paid' in html
+    loss=tracker.investment_performance(dict(item,current_value=11000.),date(2026,11,6))
+    assert loss['amount']==-1100.
+    assert 'tracker-ink-loss' in tracker._performance_html(loss)
+    assert tracker.investment_performance(dict(item,current_value=None),date(2026,11,6))['amount'] is None
+    empty=investment('Moneyfarm',current_value=0.)
+    assert tracker.investment_performance(empty,date(2026,11,6))['percent'] is None
+    pension=investment('Cometa',opening_personal=100.,current_value=120.)
+    assert tracker.investment_performance(pension,date(2026,11,6))['partial']
+    assert 'Confronto parziale' in tracker._performance_html(tracker.investment_performance(pension,date(2026,11,6)))
+
+
+@pytest.mark.parametrize('identifier',['investment-0','investment-1','investment-2','investment-3'])
+def test_investment_form_accepts_integer_amounts_from_json(tmp_path,identifier):
+    from streamlit.testing.v1 import AppTest
+    script=tmp_path/'integer_investments.py'
+    script.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+records=t.initial_records()
+for item in records:
+    if item['kind']!='investments':continue
+    item.update(monthly_personal=100,monthly_company=70,monthly_tfr=220,
+                opening_personal=1000,opening_company=200,opening_tfr=300,
+                current_value=5000,withdrawn=0,pac_initial_personal=500,
+                contribution_start='2026-01-20',leonardo_personal=967.03,leonardo_value=940.99)
+    for row in item['annual_contributions']:row.update(personal=2000,company=500)
+t.render_tracker(records,'investments',lambda *_:True,lambda _:None,date(2026,11,6))
+''')
+    at=AppTest.from_file(str(script)).run()
+    at.selectbox(key='tracker_select_investments').set_value(identifier).run()
+    assert not at.exception
+    for widget in at.number_input:
+        if widget.label!='Anno ritiro':
+            assert widget.proto.data_type==1  # DOUBLE: integer JSON values use money inputs.
+    assert next(widget for widget in at.number_input if widget.label=='Controvalore totale (€)').value==5000.
