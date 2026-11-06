@@ -637,8 +637,8 @@ def _component_performance(paid, value):
 def _share_card_content(item, today, summary, valuation, include_years=True):
     content = _holding_metrics([("Versato da te",_amount(summary["personal"],"paid")),
                                 ("Controvalore",valuation)],headline=True)
-    content += _holding_metrics([("Versamenti",_ink("Ogni luglio · welfare","muted")),
-                                 ("Ritiro previsto",_ink(item.get("redemption_year") or "Da impostare","due"))])
+    content += '<div class="share-schedule">'+_holding_metrics([("Versamenti",_ink("Ogni luglio · welfare","muted")),
+                                 ("Ritiro previsto",_ink(item.get("redemption_year") or "Da impostare","due"))])+'</div>'
     counted = [row for row in summary["schedule"] if row["counted"]]
     own = sum(row.get("personal_shares") or 0 for row in counted)
     company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
@@ -648,9 +648,13 @@ def _share_card_content(item, today, summary, valuation, include_years=True):
     reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
     value = item.get("current_value")
     personal_return = _component_performance(reference["personal"],value+(item.get("withdrawn") or 0.) if value is not None else None)
-    content += _performance_html(personal_return,label="Scarto sul tuo versato · incluse azioni gratuite")
+    content += '<div class="share-personal-return">'+_performance_html(personal_return,label="Scarto sul tuo versato · incluse azioni gratuite")+'</div>'
     market = investment_performance(item,today)
-    content += _performance_html(market,compact=True,label="Andamento azioni · rispetto al valore iniziale")
+    content += '<div class="share-market">'+_performance_html(market,compact=True,label="Andamento azioni · variazione di mercato")
+    content += ('<div class="share-market-explanation">Confronto con il valore iniziale di tutte le azioni ('
+                +money(reference["total"])+'), incluse quelle gratuite. Lo scarto sopra considera invece solo i tuoi '
+                +money(reference["personal"])+'.'
+                +(' Entrambi includono gli eventuali prelievi.' if item.get("withdrawn") else '')+'</div></div>')
     if include_years:
         content += _share_years_content(item,summary)
     return content
@@ -1024,6 +1028,12 @@ def render_tracker(records, kind, save_record, saved, today):
           .investment-l-layout>.tracker-card {background:#222936;}
           .investment-l-layout>.share-summary {position:relative;border-bottom:0;border-radius:14px 14px 0 0;z-index:1;}
           .share-summary::after {content:"";position:absolute;left:-.5px;right:-.5px;bottom:-8px;height:8px;background:#222936;border-left:.5px solid rgba(255,255,255,.12);border-right:.5px solid rgba(255,255,255,.12);}
+          .share-schedule {margin-top:15px;}
+          .share-schedule>.holding-metrics {margin-top:0;}
+          .share-personal-return {margin-top:12px;}
+          .share-personal-return>.holding-result {margin-top:0;}
+          .share-market {margin-top:9px;}
+          .share-market-explanation {font-size:9px;color:#94a3b8;line-height:1.4;margin:5px 5px 0;}
           .investment-l-layout>.share-years {grid-column:1/-1;position:relative;border-top-right-radius:0;}
           .share-years::before {content:"";position:absolute;right:0;top:-1px;width:calc(50% - 4px);height:2px;background:#222936;}
           .share-years-grid.holding-split {margin-top:0;padding-top:0;border-top:0;}
