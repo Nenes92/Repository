@@ -642,7 +642,7 @@ def _share_card_content(item, today, summary, valuation):
     counted = [row for row in summary["schedule"] if row["counted"]]
     own = sum(row.get("personal_shares") or 0 for row in counted)
     company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
-    content += _holding_metrics([("Azioni · tue + azienda",_ink(f"{own+company} · {own} + {company}","value")),
+    content += _holding_metrics([("Azioni = tue + azienda",_ink(f"{own+company} = {own} + {company}","value")),
                                  ("Azienda · valore iniziale",_amount(summary["company"],"company"))])
     stamp = as_date(item.get("value_date"))
     reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
@@ -658,13 +658,14 @@ def _share_card_content(item, today, summary, valuation):
         gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0)
         status = "Acquistate" if row["counted"] else "Previste"
         detail = (f'<div><strong>Luglio {row["year"]}</strong><span>{status} da te</span>'
-                  +_ink(f'{row["personal_shares"]} azioni',"value")
-                  +f'<span>Prezzo per azione</span>'+_amount(row.get("share_price"),"value")
+                  +'<div class="share-purchase">'
+                  +_holding_metrics([("Azioni",_ink(row["personal_shares"],"value")),
+                                     ("Prezzo cad.",_amount(row.get("share_price"),"value"))])+'</div>'
                   +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid")
-                  +'<span>Azioni gratuite</span>'+_ink(str(gifted),"company"))
+                  +'<span>Azioni gratuite</span><div class="share-award">'+_ink(str(gifted),"company"))
         if row.get("welcome_shares"):
-            detail += '<span>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</span>'
-        detail += '<span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
+            detail += '<small>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</small>'
+        detail += '</div><span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
         columns.append(detail)
     if columns:
         content += '<div class="holding-split">'+''.join(columns)+'</div>'
@@ -1029,6 +1030,12 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-split>div>strong:first-child+span {margin-top:0;font-size:7px;line-height:1.2;}
           .holding-split>div>strong:first-child+span+span {margin-top:9px;}
           .holding-split>div>strong:not(:first-child) {display:block;font-size:11px;font-family:"DM Mono",monospace;overflow-wrap:anywhere;}
+          .share-purchase .holding-metrics {gap:3px;margin-top:8px;}
+          .share-purchase .holding-metrics>div>span {font-size:7px;}
+          .share-purchase .holding-metrics>div>strong {font-size:9px;white-space:nowrap;overflow-wrap:normal;}
+          .share-award {display:flex;justify-content:space-between;align-items:baseline;gap:3px;}
+          .share-award>strong {font-size:11px;}
+          .share-award>small {font-size:7px;color:#94a3b8;text-align:right;}
           .holding-initial strong {font-size:9px;overflow-wrap:anywhere;}
           .holding-result {margin-top:8px;padding:7px 8px;border-radius:9px;background:rgba(255,255,255,.035);}
           .holding-result>span {display:block;font-size:10px;color:#94a3b8;font-weight:400;}
