@@ -613,8 +613,9 @@ def _investment_card_content(record, today):
             payday = date(today.year,today.month,27)
             if payday < today:
                 payday = month_date(payday,1)
-            details.extend([("Pagamento mensile",_ink("Ogni mese","muted")),
-                            ("Prossimo pagamento",_ink(date_label(payday),"due"))])
+            content += ('<div class="pension-payment">'
+                        +_holding_metrics([("",_ink("Ogni mese","muted")),
+                                           ("Prossimo pagamento",_ink(date_label(payday),"due"))])+'</div>')
         elif item.get("contribution_start"):
             details.append(("Prossimo versamento",_ink(date_label(summary["next_due"]),"due")))
         if item.get("contribution_end"):
@@ -884,11 +885,14 @@ def render_tracker(records, kind, save_record, saved, today):
           .holding-headline>div>strong {font-size:14px;font-family:"DM Mono",monospace;}
           .pension-column-title {display:flex;justify-content:space-between;align-items:baseline;gap:3px;min-height:15px;}
           .pension-column-title>strong {font-size:10px;white-space:nowrap;}
-          .pension-split .holding-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 3px;margin-top:9px;}
+          .pension-split .holding-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 3px;margin-top:13px;padding:7px 4px;border:1px solid rgba(203,213,225,.07);border-radius:7px;}
           .pension-split .holding-metrics>div {text-align:left;}
           .pension-split .holding-metrics>div:nth-child(2) {text-align:right;}
           .pension-split .holding-metrics>div:last-child {grid-column:1/-1;text-align:center;}
           .pension-split .holding-metrics>div>strong {font-size:9px;white-space:nowrap;overflow-wrap:normal;}
+          .pension-payment {margin-top:13px;}
+          .pension-payment .holding-metrics {align-items:end;margin-top:0;}
+          .pension-payment .holding-metrics>div:first-child>span {display:none;}
           @media(max-width:430px) {.holding-headline>div>strong {font-size:11px;}}
           .holding-year {border-top:1px solid rgba(255,255,255,.08);padding-top:6px;margin-top:8px;}
           .holding-year>span {font-size:10px;color:#cbd5e1;}
