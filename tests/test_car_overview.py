@@ -71,7 +71,7 @@ def test_overview_occupies_free_slot_without_creating_a_record_or_a_card():
     rendered=trackers.cards_html(items,'auto',TODAY)
     assert rendered.count('class="tracker-card"')==5
     assert rendered.count('class="car-overview"')==1
-    assert rendered.index('class="car-overview"')>rendered.index('<strong>Revisione</strong>')
+    assert rendered.index('class="car-overview"')>rendered.index('Revisione</strong>')
     assert items==before
     assert 'Pagato per anno' in rendered
     assert 'class="car-overview"' not in trackers.cards_html(trackers.initial_records(),'investments',TODAY)
