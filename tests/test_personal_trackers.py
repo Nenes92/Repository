@@ -36,6 +36,72 @@ def loan(**changes):
                 count=12, amount=100., paid_offset=0, **changes)
 
 
+def leonardo_share_plan():
+    return dict(id='investment-3',kind='investments',name='Leonardo · JP Morgan',share_plan=True,
+                current_value=5621.36,value_date='2026-11-06',redemption_year=2028,
+                production_source_version=2,annual_contributions=[
+                    dict(year=2025,date='2025-07-01',personal_shares=45,share_price=47.56,
+                         matching_shares=15,welcome_shares=4,confirmed=True),
+                    dict(year=2026,date='2026-07-01',personal_shares=39,share_price=50.37,
+                         matching_shares=13,welcome_shares=0,confirmed=True),
+                    dict(year=2027,date='2027-07-01',personal_shares=None,share_price=None,
+                         matching_shares=None,welcome_shares=0,confirmed=False)])
+
+
+def test_leonardo_purchases_awards_and_market_return_are_distinct():
+    item=tracker.validate_record(leonardo_share_plan(),date(2026,11,6))
+    summary=tracker.investment_summary(item,date(2026,11,6))
+    assert (summary['personal'],summary['company'],summary['total'])==(4104.63,1558.45,5663.08)
+    assert tracker.investment_performance(item,date(2026,11,6))['amount']==-41.72
+    html=tracker.cards_html([item],'investments',date(2026,11,6))
+    assert '116 · tue 84 + azienda 32' in html
+    assert '+€1.516,73' in html and '−€41,72' in html
+    assert '€2.140,20' in html and '€1.964,43' in html
+    assert '15 + 4 iniziali' in html and 'Luglio 2027 · azioni da inserire' in html
+    restored=tracker.decode_rows(tracker.encode_rows([item]))[0]
+    assert restored['annual_contributions'][0]['welcome_shares']==4
+    assert tracker.investment_summary(restored,date(2027,8,1))['total']==5663.08
+    updated=tracker.validate_record(dict(item,current_value=6000.,value_date='2026-11-07'),date(2026,11,7))
+    assert tracker.investment_summary(updated,date(2026,11,7))['total']==5663.08
+    assert tracker.investment_performance(updated,date(2026,11,7))['amount']==336.92
+
+
+def test_share_purchase_defaults_matching_and_rejects_invalid_counts():
+    row=tracker.share_purchase(dict(personal_shares=10,share_price=50.,welcome_shares=0))
+    assert (row['matching_shares'],row['personal'],row['company'])==(3,500.,150.)
+    for changes in [dict(personal_shares=1.5),dict(matching_shares=-1),dict(share_price=None)]:
+        with pytest.raises(ValueError):
+            tracker.share_purchase(dict(row,**changes))
+
+
+def test_leonardo_form_saves_share_fields_and_valuation_only_on_submit(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    script=tmp_path/'shares.py'
+    script.write_text('''from datetime import date
+import streamlit as st
+import personal_trackers as t
+if 'records' not in st.session_state:
+    st.session_state.records=[t.investment_record('''+repr(leonardo_share_plan())+''')]
+    st.session_state.saves=0
+def save(identifier,item):
+    st.session_state.records=t.merge_record(st.session_state.records,identifier,item)
+    st.session_state.saves+=1
+    return True
+t.render_tracker(st.session_state.records,'investments',save,lambda _:None,date(2026,11,7))
+''')
+    at=AppTest.from_file(str(script)).run()
+    at.selectbox(key='tracker_select_investments').set_value('investment-3').run()
+    assert not at.exception
+    next(field for field in at.number_input if field.label=='Controvalore totale (€)').set_value(6000.)
+    assert at.session_state.saves==0
+    next(button for button in at.button if button.label=='💾 Salva').click().run()
+    assert not at.exception and at.session_state.saves==1
+    item=at.session_state.records[0]
+    assert item['current_value']==6000. and item['value_date']=='2026-11-07'
+    assert item['annual_contributions'][0]['welcome_shares']==4
+    assert tracker.investment_summary(item,date(2026,11,7))['total']==5663.08
+
+
 def test_month_end_and_leap_year_schedule():
     record = loan()
     assert tracker.instalment_dates(record)[:3] == [date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)]

@@ -217,6 +217,30 @@ def deadline_status(deadline, today, notice=30):
     return (f"⚠️ Da pagare · tra {days} giorni" if days <= notice else f"Tra {days} giorni"), "#fbbf24" if days <= notice else "#34d399"
 
 
+def share_purchase(row):
+    """Value purchased and awarded shares at the same acquisition price."""
+    result = dict(row)
+    for key in ("personal_shares","matching_shares","welcome_shares"):
+        value = row.get(key)
+        if value is not None:
+            if not math.isfinite(float(value)) or float(value) != int(value) or not 0 <= int(value) <= 10000000:
+                raise ValueError("Il numero di azioni deve essere intero e non negativo.")
+            result[key] = int(value)
+    price = _number(row.get("share_price"))
+    result["share_price"] = price
+    if result.get("personal_shares") is None:
+        if any(result.get(key) for key in ("matching_shares","welcome_shares")) or price is not None:
+            raise ValueError("Inserisci anche il numero di azioni acquistate da te.")
+        return dict(result,personal=None,company=None)
+    if price is None or price <= 0:
+        raise ValueError("Inserisci il prezzo di acquisto per azione.")
+    result["matching_shares"] = result.get("matching_shares") if result.get("matching_shares") is not None else result["personal_shares"]//3
+    result["welcome_shares"] = result.get("welcome_shares") or 0
+    result["personal"] = round(result["personal_shares"]*price,2)
+    result["company"] = round((result["matching_shares"]+result["welcome_shares"])*price,2)
+    return result
+
+
 def investment_record(record):
     """Upgrade the old register without discarding balances or guessing their split."""
     item = deepcopy(record)
@@ -270,6 +294,8 @@ def investment_record(record):
                     row["source"] = "Premio di produzione"
         item["production_source_initialized"] = True
         item["production_source_version"] = 2
+    if item.get("share_plan"):
+        item["annual_contributions"] = [share_purchase(row) for row in item["annual_contributions"]]
     return item
 
 
@@ -427,14 +453,14 @@ def investment_performance(record, today):
                 partial=partial,basis=base,date=reference_date)
 
 
-def _performance_html(result, compact=False):
+def _performance_html(result, compact=False, label=None):
     if result["amount"] is None:
         return '<div class="tracker-note">Scarto: — · controvalore da aggiornare</div>'
     amount = result["amount"]
     tone = "gain" if amount>0 else "loss" if amount<0 else "muted"
     signed_amount = ("+" if amount>0 else "−" if amount<0 else "")+money(abs(amount))
     percent = f'{result["percent"]:+.2f}%'.replace('.',',') if result["percent"] is not None else '—'
-    label = 'Scarto' if compact else 'Scarto sul registrato' if result["partial"] else 'Scarto sul versato'
+    label = label or ('Scarto' if compact else 'Scarto sul registrato' if result["partial"] else 'Scarto sul versato')
     partial = '<span class="holding-result-note">Confronto parziale</span>' if result["partial"] else ''
     variant = ' holding-result-compact' if compact else ''
     return (f'<div class="holding-result{variant} tracker-ink-{tone}"><span>{label}</span>'
@@ -497,9 +523,13 @@ def validate_investment(record, today, paid_today=None):
                 raise ValueError("Un versamento futuro non può essere già effettuato.")
             if item.get("redemption_date") and due and due > as_date(item["redemption_date"]):
                 raise ValueError("Un versamento non può essere successivo al ritiro previsto.")
-            rows.append(dict(year=year, date=due.isoformat() if due else None,
+            clean = dict(year=year, date=due.isoformat() if due else None,
                              personal=_number(row.get("personal")), company=_number(row.get("company")),
-                             source=str(row.get("source", ""))[:120], confirmed=confirmed))
+                             source=str(row.get("source", ""))[:120], confirmed=confirmed)
+            if item.get("share_plan"):
+                clean.update({key:row.get(key) for key in ("personal_shares","matching_shares","welcome_shares","share_price")})
+                clean = share_purchase(clean)
+            rows.append(clean)
         item["annual_contributions"] = sorted(rows, key=lambda row: row["year"])
         if item.get("redemption_year") and seen and max(seen) > item["redemption_year"]:
             raise ValueError("Il ritiro previsto precede un anno di versamento.")
@@ -604,6 +634,47 @@ def _component_performance(paid, value):
     return dict(amount=delta,percent=100*delta/paid if delta is not None and paid and paid>0 else None,partial=False)
 
 
+def _share_card_content(item, today, summary, valuation):
+    content = _holding_metrics([("Versato da te",_amount(summary["personal"],"paid")),
+                                ("Controvalore",valuation)],headline=True)
+    content += _holding_metrics([("Versamenti",_ink("Ogni luglio · welfare","muted")),
+                                 ("Ritiro previsto",_ink(item.get("redemption_year") or "Da impostare","due"))])
+    counted = [row for row in summary["schedule"] if row["counted"]]
+    own = sum(row.get("personal_shares") or 0 for row in counted)
+    company = sum((row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0) for row in counted)
+    content += _holding_metrics([("Azioni totali",_ink(f"{own+company} · tue {own} + azienda {company}","value")),
+                                 ("Azienda · valore iniziale",_amount(summary["company"],"company"))])
+    stamp = as_date(item.get("value_date"))
+    reference = investment_summary(dict(item,current_value=None),min(stamp,today) if stamp else today)
+    value = item.get("current_value")
+    personal_return = _component_performance(reference["personal"],value+(item.get("withdrawn") or 0.) if value is not None else None)
+    content += _performance_html(personal_return,label="Scarto sul tuo versato · incluse azioni gratuite")
+    market = investment_performance(item,today)
+    content += _performance_html(market,compact=True,label="Andamento azioni · rispetto al valore iniziale")
+    columns = []
+    for row in summary["schedule"]:
+        if row.get("personal_shares") is None:
+            continue
+        gifted = (row.get("matching_shares") or 0)+(row.get("welcome_shares") or 0)
+        status = "Acquistate" if row["counted"] else "Previste"
+        detail = (f'<div><strong>Luglio {row["year"]}</strong><span>{status} da te</span>'
+                  +_ink(f'{row["personal_shares"]} azioni',"value")
+                  +f'<span>Prezzo per azione</span>'+_amount(row.get("share_price"),"value")
+                  +'<span>Costo tuo</span>'+_amount(row.get("personal"),"paid")
+                  +'<span>Azioni gratuite</span>'+_ink(str(gifted),"company"))
+        if row.get("welcome_shares"):
+            detail += '<span>'+str(row.get("matching_shares") or 0)+' + '+str(row["welcome_shares"])+ ' iniziali</span>'
+        detail += '<span>Valore assegnato</span>'+_amount(row.get("company"),"company")+'</div>'
+        columns.append(detail)
+    if columns:
+        content += '<div class="holding-split">'+''.join(columns)+'</div>'
+    for row in summary["schedule"]:
+        if row.get("personal_shares") is None:
+            content += f'<div class="tracker-note">Luglio {row["year"]} · azioni da inserire</div>'
+    content += '<div class="tracker-note">Il controvalore è il valore delle azioni oggi, prima di eventuali costi e imposte al ritiro.</div>'
+    return content
+
+
 def _investment_card_content(record, today):
     item = investment_record(record)
     summary = investment_summary(item,today)
@@ -611,6 +682,8 @@ def _investment_card_content(record, today):
     valuation = _amount(item.get("current_value"),"value")
     if item.get("value_date"):
         valuation += f'<small class="holding-date">Al {date_label(item["value_date"])}</small>'
+    if item.get("share_plan"):
+        return _share_card_content(item,today,summary,valuation)
     content = _holding_metrics([
         ("Totale versato",_amount(summary["total"],"paid")),
         ("Controvalore",valuation)],headline=True)
@@ -816,6 +889,19 @@ def _investment_fields(item, old, prefix, mode, today):
         rows = old.get("annual_contributions") or []
         item["annual_contributions"] = []
         for index, row in enumerate(rows):
+            if old.get("share_plan"):
+                st.markdown(f"**Luglio {row['year']} · azioni da welfare**")
+                cols = st.columns(2,gap="small")
+                with cols[0]:
+                    shares = st.number_input("Azioni acquistate da te",min_value=0,value=row.get("personal_shares"),step=1,key=prefix+f"shares{index}")
+                    matching = st.number_input("Azioni azienda",min_value=0,value=row.get("matching_shares"),step=1,key=prefix+f"matching{index}",help="Se vuoto: una azione ogni tre acquistate da te.")
+                with cols[1]:
+                    price = _money_input("Prezzo per azione (€)",min_value=0.,value=row.get("share_price"),step=.01,key=prefix+f"price{index}")
+                    welcome = st.number_input("Azioni bonus iniziale",min_value=0,value=row.get("welcome_shares") or 0,step=1,key=prefix+f"welcome{index}")
+                confirmed = st.checkbox("Già acquistate",value=bool(row.get("confirmed",False)),key=prefix+f"confirmed{index}")
+                item["annual_contributions"].append(dict(row,date=f"{row['year']}-07-01",personal_shares=shares,
+                    share_price=price,matching_shares=matching,welcome_shares=welcome,confirmed=confirmed,source="Welfare · premio di risultato"))
+                continue
             st.markdown(f"**{row['year']} · dal premio di risultato**")
             cols = st.columns(3, gap="small")
             with cols[0]:
