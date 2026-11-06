@@ -628,7 +628,7 @@ def _investment_card_content(record, today):
                     f'<div><strong>PAC 7 · ETF</strong><span>Versato</span>{_amount(pac_paid,"paid")}'
                     f'<span>Controvalore</span>{_amount(pac_value,"value")}{initial}'
                     +_performance_html(_component_performance(pac_basis,pac_value),compact=True)+'</div>'
-                    f'<div><strong>Leonardo</strong><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
+                    f'<div><strong>Leonardo · Azioni</strong><span>Versato</span>{_amount(item["leonardo_personal"],"paid")}'
                     f'<span>Controvalore</span>{_amount(item.get("leonardo_value"),"value")}'
                     +_performance_html(_component_performance(item["leonardo_personal"],item.get("leonardo_value")),compact=True)+'</div></div>')
     if summary["mode"] == "annual":
