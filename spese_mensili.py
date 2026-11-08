@@ -51,6 +51,7 @@ import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
 import bill_sparklines as _bill_sparklines
+# Refresh the compact bill charts and their vertical value references on deploy.
 importlib.reload(_bill_sparklines)
 # Refresh warning and category icons on the upcoming Auto deadline across deploys.
 import car_calendar as _car_calendar
