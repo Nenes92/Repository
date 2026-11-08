@@ -50,6 +50,8 @@ from mobile_shift_calendar import render_mobile_shift_calendar, validate_day_sav
 import mobile_navigation as _mobile_navigation
 importlib.reload(_mobile_navigation)
 from mobile_navigation import render_mobile_navigation
+import bill_sparklines as _bill_sparklines
+importlib.reload(_bill_sparklines)
 # Refresh warning and category icons on the upcoming Auto deadline across deploys.
 import car_calendar as _car_calendar
 importlib.reload(_car_calendar)
@@ -11952,6 +11954,9 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
     if MOBILE_VIEW:
         data_bollette = applica_internet_mensile(data_bollette, _now_italy().date())
     stats_bollette = calcola_statistiche(data_bollette, ["Elettricità", "Gas", "Acqua", "Internet", "Tari"])
+    bill_mini_charts = {category: _bill_sparklines.chart_html(data_bollette, category, color, _now_italy().date())
+                       for category, color in {"Elettricità":"#84B6F4", "Gas":"#FF6961", "Acqua":"#96DED1",
+                                               "Internet":"#FFF5A1", "Tari":"#C19A6B"}.items()}
     data_bollette = calcola_saldo_bollette(data_bollette, budget_bollette_df)
     data_melted = data_bollette.melt(
         id_vars=["Mese"],
@@ -12032,22 +12037,27 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Elettricità</div>
                     <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Elettricità']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Gas</div>
                     <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Gas']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Acqua</div>
                     <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Acqua']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Tari</div>
                     <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Tari']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Internet</div>
                     <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Internet']}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -12096,26 +12106,31 @@ if (not MOBILE_VIEW) or mobile_section == "Bollette":
                 <div class="kpi-card" style="margin-bottom:8px;">
                     <div class="kpi-label">Somma Elettricità</div>
                     <div class="kpi-value" style="color:#84B6F4;font-size:16px;">{stats_bollette['Elettricità']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Elettricità']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Gas</div>
                     <div class="kpi-value" style="color:#FF6961;font-size:16px;">{stats_bollette['Gas']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Gas']}
                 </div>""", unsafe_allow_html=True)
             with col_bol_somme2:
                 st.markdown(f"""
                 <div class="kpi-card" style="margin-bottom:8px;">
                     <div class="kpi-label">Somma Acqua</div>
                     <div class="kpi-value" style="color:#96DED1;font-size:16px;">{stats_bollette['Acqua']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Acqua']}
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Tari</div>
                     <div class="kpi-value" style="color:#C19A6B;font-size:16px;">{stats_bollette['Tari']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Tari']}
                 </div>""", unsafe_allow_html=True)
             with col_bol_somme3:
                 st.markdown(f"""
                 <div class="kpi-card">
                     <div class="kpi-label">Somma Internet</div>
                     <div class="kpi-value" style="color:#FFF5A1;font-size:16px;">{stats_bollette['Internet']['somma']:,.2f} €</div>
+                    {bill_mini_charts['Internet']}
                 </div>""", unsafe_allow_html=True)
     
     with col_bol_chart:
